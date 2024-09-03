@@ -10,19 +10,19 @@ requirements = [
 ],
 
 setup(
-    name='vcode',
+    name='vgrid',
     version='1.0.0',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
-    url='https://github.com/thangqd/vcode',
-    description='Vcode - A Global Geocoding System based on Vector Tiles',
+    url='https://github.com/thangqd/vgrid',
+    description='Vgrid - A Global Geocoding System based on Vector Tiles',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     requires_python=">=3.0",
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
+            'vcode2geojson = vgrid.vgrid:vcode2geojson_cli',  
             'vgrid = vgrid.vcode.vgrid:main',      
     
             'vectortilegrid = vgrid.utils.grid.vectortilegrid:main',
