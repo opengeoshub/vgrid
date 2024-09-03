@@ -209,7 +209,7 @@ def quadkey2vcode(quadkey):
 
     return vcode
 
-def vcode_area(vcode):
+def vcode_cell_area(vcode):
     """
     Calculates the area in square meters of a tile given its vcode.
 
@@ -251,7 +251,7 @@ def vcode_area(vcode):
 
     return area
 
-def vcode_edge_length(vcode):
+def vcode_cell_length(vcode):
     """
     Calculates the length of the edge of a square tile given its vcode.
 
@@ -493,6 +493,45 @@ def vcode_parent(vcode):
     parent_vcode = f"z{z_parent}x{x_parent}y{y_parent}"
 
     return parent_vcode
+
+def vcode_siblings(vcode):
+    """
+    Lists all sibling tiles of a given vcode at the same zoom level.
+
+    Args:
+        vcode (str): The tile code in the format 'zXxYyZ'.
+
+    Returns:
+        list: A list of vcodes representing the sibling tiles, excluding the input vcode.
+    """
+    # Extract z, x, y from the vcode
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', vcode)
+    if not match:
+        raise ValueError("Invalid vcode format. Expected format: 'zXxYyZ'")
+
+    # Convert matched groups to integers
+    z = int(match.group(1))
+    x = int(match.group(2))
+    y = int(match.group(3))
+
+    # Calculate the parent tile's coordinates
+    if z == 0:
+        # The root tile has no siblings
+        return []
+
+    z_parent = z - 1
+    x_parent = x // 2
+    y_parent = y // 2
+
+    # Get all children of the parent tile
+    parent_vcode = f"z{z_parent}x{x_parent}y{y_parent}"
+    children = vcode_children(parent_vcode)
+
+    # Exclude the input vcode from the list of siblings
+    siblings = [child for child in children if child != vcode]
+
+    return siblings
+
 
 def vcode_neighbors(vcode):
     """

@@ -1,24 +1,24 @@
-# Vcode - A Global Geocoding System based on Vector Tiles
+# Vgrid - A Global Geocoding System based on Vector Tiles
 
 ## Installation: 
 - Using pip install (Windows/ Linux):
     ``` bash 
-    pip install vcode
+    pip install vgrid
     ```
 - Show information of installed mbtiles-util: 
     ``` bash 
-    pip show vcode
+    pip show vgrid
     ```
 - Install the latest vertion of mbtiles-util:
     ``` bash 
-    pip install vcode --upgrade
+    pip install vgrid --upgrade
     ```
     
-- Visit vcode on [PyPI](https://pypi.org/project/vcode/)
+- Visit vgrid on [PyPI](https://pypi.org/project/vgrid/)
 
 ## Usage:
 ### vgrid:
-- Create a debug Vgrid for Vcode:  
+- Create a debug Vgrid:  
     ``` bash 
     > vgrid -minzoom <minzoom>  -maxzoom <maxzoom>  -o <output_file> 
     ```

@@ -22,16 +22,16 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            'vcode2geojson = tiles_util.vcode:vcode2geojson_cli',  
-            'vgrid = tiles_util.vcode.vgrid:main',      
+            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
+            'vgrid = vgrid.vcode.vgrid:main',      
     
-            'vectortilegrid = tiles_util.utils.grid.vectortilegrid:main',
-            'pluscodegrid = tiles_util.utils.grid.pluscodegrid:main',
-            'geohashgrid = tiles_util.utils.grid.geohashgrid:main',
-            'h3grid = tiles_util.utils.grid.h3grid:main',
-            's2grid = tiles_util.utils.grid.s2grid:main',
-            'maidenheadgrid = tiles_util.utils.grid.maidenheadgrid:main',
-            'mgrsgrid = tiles_util.utils.grid.mgrsgrid:main'            
+            'vectortilegrid = vgrid.utils.grid.vectortilegrid:main',
+            'pluscodegrid = vgrid.utils.grid.pluscodegrid:main',
+            'geohashgrid = vgrid.utils.grid.geohashgrid:main',
+            'h3grid = vgrid.utils.grid.h3grid:main',
+            's2grid = vgrid.utils.grid.s2grid:main',
+            'maidenheadgrid = vgrid.utils.grid.maidenheadgrid:main',
+            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main'            
         ],
     },    
 
