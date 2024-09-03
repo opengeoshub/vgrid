@@ -11,7 +11,7 @@ requirements = [
 
 setup(
     name='vgrid',
-    version='1.0.0',
+    version='1.0.1',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -22,10 +22,9 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            'vcode2geojson = vgrid.vgrid:vcode2geojson_cli',  
+            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
             'vgrid = vgrid.vcode.vgrid:main',      
     
-            'vectortilegrid = vgrid.utils.grid.vectortilegrid:main',
             'pluscodegrid = vgrid.utils.grid.pluscodegrid:main',
             'geohashgrid = vgrid.utils.grid.geohashgrid:main',
             'h3grid = vgrid.utils.grid.h3grid:main',

@@ -7,9 +7,9 @@ import pyproj
 from shapely.geometry import box, shape
 import argparse
 
-# from tiles_util.vcode import *
+# from vgrid.vcode import *
 # vcode2quadkey('z2x3y3')
-# from tiles_util import vcode as v
+# from vgrid import vcode as v
 # v.vcode2quadkey('z2x3y3')
 
 def vcode2geojson(vcode):

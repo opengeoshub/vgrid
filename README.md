@@ -5,11 +5,11 @@
     ``` bash 
     pip install vgrid
     ```
-- Show information of installed mbtiles-util: 
+- Show information of installed vgrid: 
     ``` bash 
     pip show vgrid
     ```
-- Install the latest vertion of mbtiles-util:
+- Install the latest vertion of vgrid:
     ``` bash 
     pip install vgrid --upgrade
     ```
