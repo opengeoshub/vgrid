@@ -62,9 +62,11 @@ olc_decode = olc.decode(olc_code)
 print(f'OLC at precision = {olc_precision}: {olc_code}')
 print(f'Decode {olc_code} to center and cell in WGS84 = {olc_decode}')
 ```
-
-### vgrid: Create Vgrid in MBTiles format  
-``` bash 
-> vgrid -minzoom <minzoom>  -maxzoom <maxzoom>  -o <output_file> 
-Ex: > vgrid -minzoom 0  -maxzoom 6> -o vgrid0_6.mbtiles
+### Command line for creating geocoding grid in shapefile format
+``` bash
+> geohashgrid -p 1 -o geohash_1.shp (p = [1..12])
+> maidenheadgrid -p 1 -o maidenhead_1.shp (p = [1, 2, 3, 4])
+> olcgrid -p 1 -o olc_1.shp (p = [2,4,8])
+> gzd -o gzd.shp (Create Grid Zone Designators - used by MGRS)
+> mgrsgrid -o mgrs_32648.shp -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
 ```

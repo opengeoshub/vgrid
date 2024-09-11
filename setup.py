@@ -12,7 +12,7 @@ requirements = [
 
 setup(
     name='vgrid',
-    version='1.0.1',
+    version='1.0.2',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -23,17 +23,15 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
-            'vgrid = vgrid.vcode.vgrid:main',      
-    
+            # 'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
+            # 'vgrid = vgrid.vcode.vgrid:main',   
+            'gzd = vgrid.utils.grid.gzd:main',  
+            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',
+            'geohashgrid = vgrid.utils.grid.geohashgrid:main',           
+            'maidenheadgrid = vgrid.utils.grid.maidenheadgrid:main',           
             'olcgrid = vgrid.utils.grid.olcgrid:main',
-            'geohashgrid = vgrid.utils.grid.geohashgrid:main',
             'h3grid = vgrid.utils.grid.h3grid:main',
-            's2grid = vgrid.utils.grid.s2grid:main',
-            'maidenheadgrid = vgrid.utils.grid.maidenheadgrid:main',
-            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',     
-            'gzd = vgrid.utils.grid.gzd:main'            
-       
+            's2grid = vgrid.utils.grid.s2grid:main'      
         ],
     },    
 
