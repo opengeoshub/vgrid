@@ -41,7 +41,7 @@ def generate_georef_grid():
     gars_gdf = gpd.GeoDataFrame(gars_grid, crs=CRS.from_epsg(4326))
     
     # # Save the grid
-    gars_gdf.to_file('./data/grid/georef/georef_grid_15minutes.geojson', driver='GeoJSON')
+    gars_gdf.to_file('./data/georef/georef_grid_15minutes.geojson', driver='GeoJSON')
 
 # Run the function
 generate_georef_grid()

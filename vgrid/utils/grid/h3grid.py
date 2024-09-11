@@ -21,8 +21,8 @@ def generate_h3_indices(resolution):
     # Use H3's built-in methods to get all hexagons at a given resolution
     h3_indices = set()
     for lat in range(-90, 90):
-        # for lon in range(-180, 0): # western
-        for lon in range(0, 180):  # eastern
+        for lon in range(-180, 0): # western
+        # for lon in range(0, 180):  # eastern
             h3_index = h3.geo_to_h3(lat, lon, resolution)
             h3_indices.update(h3.h3_to_children(h3_index, resolution))
     
@@ -37,7 +37,7 @@ def create_world_polygons_at_resolution(resolution):
         polygon = h3_to_polygon(h3_index)
         h3_polygons.append(geojson.Feature(
             geometry=mapping(polygon),
-            properties={"h3_index": h3_index}
+            properties={"h3": h3_index}
         ))
     
     feature_collection = geojson.FeatureCollection(h3_polygons)
@@ -56,7 +56,7 @@ def main():
     try:
         resolution = args.resolution
         world_polygons = create_world_polygons_at_resolution(resolution)
-        output_filename = f'./h3_eastern_{resolution}.geojson'
+        output_filename = f'./h3_western_{resolution}.geojson'
         save_to_geojson(world_polygons, output_filename)
         print(f"GeoJSON file saved as: {output_filename}")
     except ValueError as e:

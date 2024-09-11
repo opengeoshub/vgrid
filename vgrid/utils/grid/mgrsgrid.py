@@ -1,124 +1,241 @@
+# import geopandas as gpd
+# from shapely.geometry import Polygon
+# from pyproj import CRS, Transformer
+# from vgrid.utils.geocode import mgrs
 
-# Reference: https://github.com/pistell/Leaflet.DumbMGRS
-# https://mgrs-mapper.com/app, https://military-history.fandom.com/wiki/Military_Grid_Reference_System
-# https://codesandbox.io/s/how-to-toggle-react-leaflet-layer-control-and-rectangle-grid-f43xi?file=/src/App.js:1057-1309
-# https://github.com/GeoSpark/gridoverlay/tree/d66ed86636c7ec3f02ca2e9298ac3086c2023f1d
-# https://help.arcgis.com/en/arcgisdesktop/10.0/help/index.html#//00700000001n000000
-# https://storymaps.arcgis.com/stories/842edf2b4381438b9a4edefed124775b
-# https://github.com/dnlbaldwin/React-Leaflet-MGRS-Graticule
-# https://dnlbaldwin.github.io/React-Leaflet-MGRS-Graticule/
-# https://earth-info.nga.mil/index.php?dir=coordsys&action=mgrs-100km-polyline-dloads
-# https://mgrs-data.org/metadata/
-# https://ufl.maps.arcgis.com/apps/dashboards/2539764e24e74bd78f265f49c7adc2d1
-# https://earth-info.nga.mil/index.php?dir=coordsys&action=gars-20x20-dloads
+# def create_utm_grid_old(minx, miny, maxx, maxy, cell_size, crs):
+#     # Calculate the number of rows and columns based on cell size
+#     rows = int((maxy - miny) / cell_size)
+#     cols = int((maxx - minx) / cell_size)
+    
+#     # Initialize a list to hold grid polygons
+#     polygons = []
+    
+#     for i in range(cols):
+#         for j in range(rows):
+#             # Calculate the bounds of the cell
+#             x1 = minx + i * cell_size
+#             x2 = x1 + cell_size
+#             y1 = miny + j * cell_size
+#             y2 = y1 + cell_size
+            
+#             # Create the polygon for the cell
+#             polygons.append(Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)]))
+    
+#     # Create a GeoDataFrame with the polygons and set the CRS
+#     grid = gpd.GeoDataFrame({'geometry': polygons}, crs=crs)
+    
+#     return grid
 
-from tiles_util.utils.geocode import mgrs
-# mgrs_code = mgrs.toMgrs(10.63038542, 106.12923131,3)
-# # mgrs_code = mgrs.toMgrs(-84.65698112, -80.69068228,3)
+# def create_utm_grid(minx, miny, maxx, maxy, cell_size, crs):
+#     """
+#     Create a grid of square polygons within a specified bounding box using UTM coordinates.
+
+#     Parameters:
+#     - minx, miny, maxx, maxy: Bounding box coordinates in meters.
+#     - cell_size: Size of each grid cell in meters.
+#     - crs: Coordinate reference system in UTM (e.g., EPSG:32648).
+
+#     Returns:
+#     - grid: GeoDataFrame containing grid polygons with unique MGRS codes.
+#     """
+#     # Calculate the number of rows and columns based on cell size
+#     rows = int((maxy - miny) / cell_size)
+#     cols = int((maxx - minx) / cell_size)
+    
+#     # Initialize lists to hold grid polygons and MGRS codes
+#     polygons = []
+#     mgrs_codes = []
+    
+#     # Set up transformer to convert UTM to WGS84 (longitude, latitude)
+#     transformer = Transformer.from_crs(crs, CRS.from_epsg(4326), always_xy=True)
+    
+#     for i in range(cols):
+#         for j in range(rows):
+#             # Calculate the bounds of the cell
+#             x1 = minx + i * cell_size
+#             x2 = x1 + cell_size
+#             y1 = miny + j * cell_size
+#             y2 = y1 + cell_size
+            
+#             # Create the polygon for the cell
+#             polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
+#             polygons.append(polygon)
+            
+#             # Calculate the centroid of the polygon
+#             centroid = polygon.centroid
+            
+#             # Convert the centroid coordinates from UTM to WGS84 (longitude, latitude)
+#             lon, lat = transformer.transform(centroid.x, centroid.y)
+            
+#             # Convert the WGS84 coordinates to MGRS
+#             mgrs_code = mgrs.toMgrs(lat, lon,5)
+#             mgrs_codes.append(mgrs_code)
+    
+#     # Create a GeoDataFrame with the polygons and MGRS codes, and set the CRS
+#     grid = gpd.GeoDataFrame({'geometry': polygons, 'mgrs': mgrs_codes}, crs=crs)
+    
+#     return grid
 
 
-# print('mgrs_code: ', mgrs_code)
-# mgrs_encode = mgrs.toWgs(mgrs_code)
-# original point: WGS84 (10.83114203, 106.79186584), UTM(48N 695891 1197885)
-mgrs_encode = mgrs.toWgs('48PXS99') # p = 1 10.760174227850744, 106.73758927416272
-mgrs_encode = mgrs.toWgs('48PXS9597') # p = 2 10.823192907438367, 106.78367326848301
-mgrs_encode = mgrs.toWgs('48PXS958978') # p = 3 10.830382261828017, 106.79103139219501
-mgrs_encode = mgrs.toWgs('48PXS95899788') # p = 4 10.831100652944578, 106.79185866548592
-mgrs_encode = mgrs.toWgs('48PXS9589197885') # p = 5 10.8311457980804, 106.79186807843304
 
-# mgrs_encode = mgrs._mgrsToUtm('48PXS99') # p = 1  (48, 'N', 690000.0, 1190000.0)
-# mgrs_encode = mgrs._mgrsToUtm('48PXS9597') # p = 2 (48, 'N', 695000.0, 1197000.0)
-# mgrs_encode = mgrs._mgrsToUtm('48PXS958978') # p = 3  (48, 'N', 695800.0, 1197800.0)
-# mgrs_encode = mgrs._mgrsToUtm('48PXS95899788') # p = 4 (48, 'N', 695890.0, 1197880.0)
-# mgrs_encode = mgrs._mgrsToUtm('48PXS9589197885') # p = 5  (48, 'N', 695891.0, 1197885.0)
+# # Define the bounding box in UTM coordinates (minx, miny, maxx, maxy) for the Northern Hemisphere
+# # Example for UTM zone 48N (EPSG:32648)
+# # bbox = (100000, 0, 900000, 9500000) # for the North 
+# # bbox = (100000, 100000, 900000, 10000000) # for the South 
+# bbox = (100000, 0, 900000, 10000000) #  # for both
+# cell_size = 100000  # Cell size in meters
 
+# # Create the grid with UTM CRS
+# epsg_code = 32648
 
-print('mgrs_encode: ', mgrs_encode)
-# 10.83114203, 106.79186584
+# crs = CRS.from_epsg(epsg_code)
+# grid = create_utm_grid(*bbox, cell_size, crs)
+
+# # Save the grid as a polygon shapefile
+# grid.to_file(f'utm_grid_{epsg_code}_polygons.shp')
 import argparse
 import geopandas as gpd
-from shapely.geometry import box
+from shapely.geometry import Polygon
+from pyproj import CRS, Transformer
+from vgrid.utils.geocode import mgrs
 from tqdm import tqdm
 
-bands = ['C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X']
+def calculate_bbox(epsg):
+    """
+    Calculate the full bounding box for a UTM zone based on its EPSG code.
 
-def generate_mgrs_grid(polar=True):
-    features = []
+    Parameters:
+    - epsg: EPSG code of the UTM zone (e.g., 32648 for zone 48N or 32748 for zone 48S).
 
-    def export_polygon(lon, lat, width, height, mgrs):
-        rect = box(lon, lat, lon + width, lat + height)
-        features.append({
-            'geometry': rect,
-            'mgrs': mgrs
-        })
+    Returns:
+    - bbox: Tuple representing (minx, miny, maxx, maxy) for the UTM zone.
+    """
+    crs = CRS.from_epsg(epsg)
+    zone_number = int(str(epsg)[-2:])  # Extract the zone number from the EPSG code
+    hemisphere = 'north' if str(epsg).startswith('326') else 'south'
 
-    if polar:
-        export_polygon(-180, -90, 180, 10, 'A')
-        export_polygon(0, -90, 180, 10, 'B')
+    # Calculate the longitude bounds of the UTM zone
+    west_longitude = (zone_number - 1) * 6 - 180  # Western boundary of the UTM zone in degrees
+    east_longitude = west_longitude + 6  # Eastern boundary of the UTM zone in degrees
 
-    lat = -80
-    for b in bands:
-        if b == 'X':
-            height = 12
-            lon = -180
-            for i in range(1, 31):
-                mgrs = '{:02d}{}'.format(i, b)
-                width = 6
-                export_polygon(lon, lat, width, height, mgrs)
-                lon += width
-            export_polygon(lon, lat, 9, height, '31X')
-            lon += 9
-            export_polygon(lon, lat, 12, height, '33X')
-            lon += 12
-            export_polygon(lon, lat, 12, height, '35X')
-            lon += 12
-            export_polygon(lon, lat, 9, height, '37X')
-            lon += 9
-            for i in range(38, 61):
-                mgrs = '{:02d}{}'.format(i, b)
-                width = 6
-                export_polygon(lon, lat, width, height, mgrs)
-                lon += width
-        else:
-            height = 8
-            lon = -180
-            for i in range(1, 61):
-                mgrs = '{:02d}{}'.format(i, b)
-                if b == 'V' and i == 31:
-                    width = 3
-                elif b == 'V' and i == 32:
-                    width = 9
-                else:
-                    width = 6
-                export_polygon(lon, lat, width, height, mgrs)
-                lon += width
-        lat += height
+    # Set latitude range based on the hemisphere
+    if hemisphere == 'north':
+        south_latitude = 0  # UTM zones cover from 0 to 84 degrees north
+        north_latitude = 84
+    else:
+        south_latitude = -80  # UTM zones cover from -80 to 0 degrees south
+        north_latitude = 0
 
-    if polar:
-        export_polygon(-180, 84, 180, 6, 'Y')
-        export_polygon(0, 84, 180, 6, 'Z')
+    # Set up a transformer from WGS84 (longitude, latitude) to the UTM zone coordinates
+    transformer = Transformer.from_crs(CRS.from_epsg(4326), crs, always_xy=True)
 
-    # Create a GeoDataFrame
-    gdf = gpd.GeoDataFrame(features, crs="EPSG:4326")
-    return gdf
+    # Transform the corner points of the zone to UTM coordinates
+    minx, miny = transformer.transform(west_longitude, south_latitude)
+    maxx, maxy = transformer.transform(east_longitude, north_latitude)
+
+    # Ensure min and max values are correctly assigned
+    minx = min(minx, maxx)
+    maxx = max(minx, maxx)
+    miny = min(miny, maxy)
+    maxy = max(miny, maxy)
+
+    # Return the calculated bounding box
+    return minx, miny, maxx, maxy
+
+def create_mgrs_grid(minx, miny, maxx, maxy, cell_size, crs):
+    """
+    Create a grid of square polygons within a specified bounding box using UTM coordinates.
+
+    Parameters:
+    - minx, miny, maxx, maxy: Bounding box coordinates in meters.
+    - cell_size: Size of each grid cell in meters.
+    - crs: Coordinate reference system in UTM (e.g., EPSG:32648).
+
+    Returns:
+    - grid: GeoDataFrame containing grid polygons with unique MGRS codes.
+    """
+    # Calculate the number of rows and columns based on cell size
+    if cell_size == 100000:
+        precision = 0
+    elif cell_size == 10000:
+        precision = 1
+    elif cell_size == 1000:
+        precision = 2
+    elif cell_size == 100:
+        precision = 3
+    elif cell_size == 10:
+        precision = 4
+    elif cell_size < 10:
+        precision = 5
+
+    rows = int((maxy - miny) / cell_size)
+    cols = int((maxx - minx) / cell_size)
+    
+    # Initialize lists to hold grid polygons and MGRS codes
+    polygons = []
+    mgrs_codes = []
+    
+    # Set up transformer to convert UTM to WGS84 (longitude, latitude)
+    transformer = Transformer.from_crs(crs, CRS.from_epsg(4326), always_xy=True)
+    
+    for i in tqdm(range(cols), desc="Processing grid columns"):
+        for j in tqdm(range(rows), desc="Processing grid rows", leave=False):
+            # Calculate the bounds of the cell
+            x1 = minx + i * cell_size
+            x2 = x1 + cell_size
+            y1 = miny + j * cell_size
+            y2 = y1 + cell_size
+            
+            # Create the polygon for the cell
+            polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
+            polygons.append(polygon)
+            
+            # Calculate the centroid of the polygon
+            centroid = polygon.centroid
+            
+            # Convert the centroid coordinates from UTM to WGS84 (longitude, latitude)
+            lon, lat = transformer.transform(centroid.x, centroid.y)
+            
+            # Convert the WGS84 coordinates to MGRS
+            mgrs_code = mgrs.toMgrs(lat, lon, precision)
+            mgrs_codes.append(mgrs_code)
+    
+    # Create a GeoDataFrame with the polygons and MGRS codes, and set the CRS
+    grid = gpd.GeoDataFrame({'geometry': polygons, 'mgrs': mgrs_codes}, crs=crs)
+    
+    return grid
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate MGRS Grid Zone Designators and save as GeoJSON.")
-    parser.add_argument('-o', '--output', type=str, required=True, help="Output GeoJSON file path.")
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Create a UTM grid with specified cell size and save as a shapefile.")
+    parser.add_argument("-o", "--output", required=True, help="Output shapefile path")
+    parser.add_argument("-cellsize", type=int, required=True, help="Cell size in meters")
+    parser.add_argument("-epsg", type=int, default=32648, help="EPSG code for the UTM CRS (default: 32648)")
+    
+    # Parse the arguments
     args = parser.parse_args()
+    
+    # Calculate the bounding box based on the EPSG code and cell size
+    bbox = calculate_bbox(args.epsg)
+    print (str(bbox))
+    # Example for UTM zone 48N (EPSG:32648)
+    # bbox = (100000, 0, 900000, 9500000) # for the North 
+    # bbox = (100000, 100000, 900000, 10000000) # for the South 
 
-    try:
-        # Generate MGRS grid
-        gdf = generate_mgrs_grid()
+    # bbox = (100000, 100000, 900000, 10000000)
+    
+    # Set up the CRS using the provided EPSG code
+    crs = CRS.from_epsg(args.epsg)
+    
+    # Create the grid with the specified cell size
+    grid = create_mgrs_grid(*bbox, args.cellsize, crs)
+    
+    # Save the grid as a shapefile
+    grid.to_file(args.output)
+    print(f"Grid saved to {args.output}")
 
-        # Save to file
-        gdf.to_file(args.output, driver='GeoJSON')
-        print(f"GeoJSON file saved to {args.output}")
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-

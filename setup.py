@@ -6,7 +6,8 @@ from setuptools import setup, find_packages
 requirements = [
     'tqdm~=4.66.2',
     'shapely~=2.0.1',
-    'protobuf~=5.26.1'
+    'protobuf~=5.26.1',
+    'fiona~=1.10.0'
 ],
 
 setup(
@@ -25,12 +26,14 @@ setup(
             'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
             'vgrid = vgrid.vcode.vgrid:main',      
     
-            'pluscodegrid = vgrid.utils.grid.pluscodegrid:main',
+            'olcgrid = vgrid.utils.grid.olcgrid:main',
             'geohashgrid = vgrid.utils.grid.geohashgrid:main',
             'h3grid = vgrid.utils.grid.h3grid:main',
             's2grid = vgrid.utils.grid.s2grid:main',
             'maidenheadgrid = vgrid.utils.grid.maidenheadgrid:main',
-            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main'            
+            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',     
+            'gzd = vgrid.utils.grid.gzd:main'            
+       
         ],
     },    
 

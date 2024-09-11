@@ -2,9 +2,8 @@
 import argparse
 import  tiles_util.utils.geocode.geohash as geohash
 from shapely.geometry import Polygon, mapping
-import geojson
 from tqdm import tqdm
-# import geohash
+import geopandas as gpd
 
 def geohash_to_bbox(gh):
     """Convert geohash to bounding box coordinates."""
@@ -54,42 +53,53 @@ def generate_geohashes(precision):
     return geohashes
 
 def create_world_polygons_at_precision(precision):
-    """Create a GeoJSON FeatureCollection of polygons at a given precision level."""
+    """Create a GeoDataFrame of polygons at a given precision level."""
     geohash_polygons = []
     geohashes = generate_geohashes(precision)
     
     for gh in tqdm(geohashes, desc='Generating Polygons'):
         polygon = geohash_to_polygon(gh)
-        geohash_polygons.append(geojson.Feature(
-            geometry=mapping(polygon),
-            properties={"geohash": gh}
-        ))
+        geohash_polygons.append({
+            'geometry': polygon,
+            'geohash': gh
+        })
     
-    feature_collection = geojson.FeatureCollection(geohash_polygons)
-    return feature_collection
+    gdf = gpd.GeoDataFrame(geohash_polygons, columns=['geometry', 'geohash'])
+    gdf.crs = 'EPSG:4326'  # Set the CRS to WGS84
+    return gdf
 
-def save_to_geojson(feature_collection, filename):
-    """Save the FeatureCollection to a GeoJSON file."""
-    with open(filename, 'w') as f:
-        geojson.dump(feature_collection, f)
+def save_to_shapefile(gdf, filename):
+    """Save the GeoDataFrame to a Shapefile."""
+    gdf.to_file(filename, driver='ESRI Shapefile')
+    print(f"Shapefile saved as: {filename}")
+
+
+def save_to_shapefile(gdf, filename):
+    """Save the GeoDataFrame to a Shapefile."""
+    gdf.to_file(filename, driver='ESRI Shapefile')
+    print(f"Shapefile saved as: {filename}")
 
 def main():
     parser = argparse.ArgumentParser(description='Generate world polygons based on geohashes.')
     parser.add_argument('-p', '--precision', type=int, required=True, help='Precision level for the geohashes (1-12)')
+    parser.add_argument('-o', '--output', type=str, required=True, help='Output file path for the Shapefile')
     args = parser.parse_args()
     
     try:
         precision = args.precision
-        world_polygons = create_world_polygons_at_precision(precision)
-        output_filename = f'./geohash_{precision}.geojson'
-        save_to_geojson(world_polygons, output_filename)
-        print(f"GeoJSON file saved as: {output_filename}")
+        output_filename = args.output
+        
+        world_polygons_gdf = create_world_polygons_at_precision(precision)
+        save_to_shapefile(world_polygons_gdf, output_filename)
+        
+        print(f"Shapefile created for geohash precision {precision}")
         # p=1 --> zoom level: 0-4
         # p=2 --> zoom level: 5-6
         # p=3 --> zoom level: 7-9
-        # p=4 --> zoom leve: 10-11
+        # p=4 --> zoom level: 10-11
     except ValueError as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
+

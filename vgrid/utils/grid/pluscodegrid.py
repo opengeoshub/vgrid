@@ -1,5 +1,6 @@
 #Reference: https://github.com/google/open-location-code/tree/main/tile_server/gridserver
 # https://github.com/google/open-location-code
+
 import json
 import argparse
 import tiles_util.utils.geocode.olc as olc
@@ -64,7 +65,7 @@ def generate_geojson_for_olc_length(length, bbox):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate GeoJSON with OLC codes and centroids.")
-    parser.add_argument('-l', '--length', type=int, help="Length of the plus code (2,4,8)") 
+    parser.add_argument('-l', '--length', type=int, help="Length of the plus code [2,4,8]") 
     # length = 2: zoomlevel 0 - 5
     # length = 4: zoomlevel 6 - 10
     # length = 8: zoomlevel 11 - >11

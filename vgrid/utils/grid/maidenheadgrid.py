@@ -6,6 +6,9 @@ import json
 import argparse
 from tiles_util.utils.geocode import maidenhead
 from tqdm import tqdm  
+import fiona
+from shapely.geometry import Point, Polygon, mapping
+
 
 def maidenheadgrid(precision):
     # Define the grid parameters based on the precision
@@ -32,7 +35,7 @@ def maidenheadgrid(precision):
             max_lat = min_lat + lat_width
             center_lat = (min_lat + max_lat) / 2
             center_lon = (min_lon + max_lon) / 2
-            maiden_code = maidenhead.toMaiden(center_lat, center_lon, precision)
+            maidenhead_code = maidenhead.toMaiden(center_lat, center_lon, precision)
 
             cells.append({
                 'center_lat': center_lat,
@@ -41,7 +44,7 @@ def maidenheadgrid(precision):
                 'min_lon': min_lon,
                 'max_lat': max_lat,
                 'max_lon': max_lon,
-                'maiden_code': maiden_code
+                'maidenhead': maidenhead_code
             })
     
     return cells
@@ -96,27 +99,59 @@ def maidengrid2geojson(cells):
 
     return geojson
 
+def maidengrid2shapefile(cells, output_path):
+    # Define the schema for the Shapefile
+    schema = {
+        'geometry': 'Polygon',
+        'properties': {'maiden': 'str'}
+    }
+
+    # Open a new Shapefile for writing
+    with fiona.open(output_path, 'w', driver='ESRI Shapefile', schema=schema, crs='EPSG:4326') as shpfile:
+        for cell in cells:
+            # Extract cell data
+            center_lat = cell['center_lat']
+            center_lon = cell['center_lon']
+            min_lat = cell['min_lat']
+            min_lon = cell['min_lon']
+            max_lat = cell['max_lat']
+            max_lon = cell['max_lon']
+            maiden_code = cell['maidenhead']
+
+            # Create the polygon from the bounding box
+            polygon_coords = [
+                (min_lon, min_lat),  # Bottom-left
+                (max_lon, min_lat),  # Bottom-right
+                (max_lon, max_lat),  # Top-right
+                (min_lon, max_lat),  # Top-left
+                (min_lon, min_lat)   # Closing the polygon
+            ]
+            polygon = Polygon(polygon_coords)
+
+            # Write the polygon feature to the Shapefile
+            shpfile.write({
+                'geometry': mapping(polygon),
+                'properties': {'maiden': maiden_code}
+            })
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate Maidenhead grid cells and save as GeoJSON")
-    parser.add_argument('-p', '--precision', type=int, choices=[1, 2, 3, 4], default=1, 
+    parser = argparse.ArgumentParser(description="Generate Maidenhead grid cells and save as Shapefile")
+    parser.add_argument('-p', '--precision', type=int, choices=[1, 2, 3, 4], default=1,
                         help="Precision level for Maidenhead grid (1 to 4)")
     parser.add_argument('-o', '--output', type=str, required=True,
-                        help="Output file path for the GeoJSON data")
+                        help="Output file path for the Shapefile data (e.g., output.shp)")
     args = parser.parse_args()
     
     try:
         cells = maidenheadgrid(args.precision)
-        geojson_data = maidengrid2geojson(cells)
+        maidengrid2shapefile(cells, args.output)
 
-        output_path = args.output
-        with open(output_path, 'w') as geojson_file:
-            json.dump(geojson_data, geojson_file, indent=2)
-       
-        print(f"GeoJSON data for Maidenhead precision {args.precision} written to {output_path}")
-        print(f"Number of features: {len(geojson_data['features']) / 2}")
+        print(f"Shapefile data for Maidenhead precision {args.precision} written to {args.output}")
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()
