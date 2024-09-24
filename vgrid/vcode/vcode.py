@@ -1,4 +1,4 @@
-import tiles_util.utils.mercantile as mercantile
+import vgrid.utils.mercantile as mercantile
 import re
 import geojson
 from shapely.geometry import Polygon
@@ -54,6 +54,43 @@ def vcode2geojson(vcode):
     )
 
     return geojson_feature
+
+
+def vcode2bbox(vcode):
+    """
+    Converts a vcode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
+    representing the tile's bounds and includes the original vcode as a property.
+
+    Args:
+        vcode (str): The tile code in the format 'zXxYyZ'.
+
+    Returns:
+        dict: A GeoJSON Feature with a Polygon geometry and vcode as a property.
+    """
+    # Extract z, x, y from the vcode using regex
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', vcode)
+    if not match:
+        raise ValueError("Invalid vcode format. Expected format: 'zXxYyZ'")
+
+    # Convert matched groups to integers
+    z = int(match.group(1))
+    x = int(match.group(2))
+    y = int(match.group(3))
+
+    # Get the bounds of the tile in (west, south, east, north)
+    bounds = mercantile.bounds(x, y, z)
+
+    # Create the coordinates of the polygon using the bounds
+    polygon_coords = [
+        [bounds.west, bounds.south],  # Bottom-left
+        [bounds.east, bounds.south],  # Bottom-right
+        [bounds.east, bounds.north],  # Top-right
+        [bounds.west, bounds.north],  # Top-left
+        [bounds.west, bounds.south]   # Closing the polygon
+    ]
+
+    return polygon_coords
+
 
 def vcode2geojson_cli():
     """

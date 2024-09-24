@@ -9,7 +9,7 @@
     ``` bash 
     pip show vgrid
     ```
-- Install the latest vertion of vgrid:
+- Install the latest version of vgrid:
     ``` bash 
     pip install vgrid --upgrade
     ```
