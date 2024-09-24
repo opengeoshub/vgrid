@@ -23,8 +23,8 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            # 'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
-            # 'vgrid = vgrid.vcode.vgrid:main',   
+            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
+            'vgrid = vgrid.vcode.vgrid:main',   
             'gzd = vgrid.utils.grid.gzd:main',  
             'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',
             'geohashgrid = vgrid.utils.grid.geohashgrid:main',           
