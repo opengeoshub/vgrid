@@ -12,7 +12,7 @@
 # https://ufl.maps.arcgis.com/apps/dashboards/2539764e24e74bd78f265f49c7adc2d1
 # https://earth-info.nga.mil/index.php?dir=coordsys&action=gars-20x20-dloads
 
-from tiles_util.utils.geocode import mgrs
+from vgrid.utils.geocode import mgrs
 # mgrs_code = mgrs.toMgrs(10.63038542, 106.12923131,3)
 # # mgrs_code = mgrs.toMgrs(-84.65698112, -80.69068228,3)
 

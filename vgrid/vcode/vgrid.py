@@ -51,7 +51,7 @@ def create_mbtiles(tiles, output_mbtiles, min_zoom, max_zoom):
         cursor.execute('''CREATE UNIQUE INDEX tile_index ON tiles(zoom_level, tile_column, tile_row);''')
 
         cursor.execute("INSERT INTO metadata (name, value) VALUES ('name', 'Vectortile Grid');")
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('description', 'A vector tile grid created by tiles_util.vectortilegrid');")
+        cursor.execute("INSERT INTO metadata (name, value) VALUES ('description', 'A vector tile grid created by vgrid.vgrid');")
         cursor.execute("INSERT INTO metadata (name, value) VALUES ('type', 'overlay');")
         cursor.execute("INSERT INTO metadata (name, value) VALUES ('version', '1');")
         cursor.execute("INSERT INTO metadata (name, value) VALUES ('format', 'pbf');")
