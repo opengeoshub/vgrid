@@ -7,12 +7,15 @@ requirements = [
     'tqdm~=4.66.2',
     'shapely~=2.0.1',
     'protobuf~=5.26.1',
-    'fiona~=1.10.0'
+    'fiona~=1.10.0',
+    'geojson',
+    'pyproj',
+    'pyclipper'
 ],
 
 setup(
     name='vgrid',
-    version='1.0.2',
+    version='1.1.0',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
