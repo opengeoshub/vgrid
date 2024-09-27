@@ -28,12 +28,12 @@ def create_mbtiles(output_mbtiles, min_latitude, min_longitude, max_latitude, ma
         cursor.execute(f"INSERT INTO metadata (name, value) VALUES ('maxzoom', '{max_zoom}');")
         cursor.execute(f"INSERT INTO metadata (name, value) VALUES ('bounds', '{min_latitude},{min_longitude},{max_latitude},{max_longitude}');")
 
-        conn.commit()
-        print(f"Creating MBTiles done!")
+        conn.commit()        
 
     except Exception as e:
         print(f"Error creating MBTiles: {e}")
     finally:
+        print(f"Creating MBTiles done!")
         conn.close()
 
 def create_tile(z, x, y):
@@ -122,6 +122,7 @@ def main():
         # Process any remaining tiles in the chunk
         if tile_chunk:
             create_tiles(tile_chunk, args.output, zoom_level)
+    print(f"Creating tiles done!")
 
 if __name__ == '__main__':
     main()
