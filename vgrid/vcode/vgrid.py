@@ -40,12 +40,12 @@ def create_tile(z, x, y):
     try:
         flip_y = (2 ** z - 1) - y
         tile_geometry = box(0, 0, 4096, 4096)
-        quadkey = mercantile.quadkey(x, flip_y, z)
+        quadkey = mercantile.quadkey(x, y, z)
         properties = {
-            'vcode': f'z{z}x{x}y{flip_y}',
-            'tmscode': f'z{z}x{x}y{y}',
-            'vname': f'{z}/{x}/{flip_y}',
-            'tmsname': f'{z}/{x}/{y}',
+            'vcode': f'z{z}x{x}y{y}',
+            'tmscode': f'z{z}x{x}y{flip_y}',
+            'vname': f'{z}/{x}/{y}',
+            'tmsname': f'{z}/{x}/{flip_y}',
             'quadkey': quadkey
         }
 
@@ -55,7 +55,7 @@ def create_tile(z, x, y):
         }
 
         tile_data = {
-            'name': 'vectortile_grid',
+            'name': 'vgrid',
             'features': [feature]
         }
 

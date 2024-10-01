@@ -15,7 +15,7 @@ requirements = [
 
 setup(
     name='vgrid',
-    version='1.1.0',
+    version='1.1.1',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
