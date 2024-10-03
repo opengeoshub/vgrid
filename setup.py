@@ -10,7 +10,10 @@ requirements = [
     'fiona~=1.10.0',
     'geojson',
     'pyproj',
-    'pyclipper'
+    'pyclipper',
+    'fastapi',
+    'pillow',
+    'uvicorn'
 ],
 
 setup(
