@@ -1,15 +1,7 @@
 # Vgrid - A Global Geocoding System based on Vector Tiles
 
 ## Installation: 
-- Using pip install (Windows/ Linux):
-    ``` bash 
-    pip install vgrid
-    ```
-- Show information of installed vgrid: 
-    ``` bash 
-    pip show vgrid
-    ```
-- Install the latest version of vgrid:
+- Using pip:   
     ``` bash 
     pip install vgrid --upgrade
     ```
