@@ -5,6 +5,3 @@ fiona~=1.10.0
 geojson
 pyproj
 pyclipper
-fastapi
-pillow
-uvicorn

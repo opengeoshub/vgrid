@@ -1,6 +1,7 @@
 # python setup.py sdist bdist_wheel
 # twine upload dist/*
-
+import os
+import shutil
 from setuptools import setup, find_packages
 
 requirements = [
@@ -10,11 +11,18 @@ requirements = [
     'fiona~=1.10.0',
     'geojson',
     'pyproj',
-    'pyclipper',
-    'fastapi',
-    'pillow',
-    'uvicorn'
+    'pyclipper'
 ],
+
+def clean_build():
+    build_dir = 'build'
+    dist_dir = 'dist'
+    if os.path.exists(build_dir):
+        shutil.rmtree(build_dir)
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
+
+clean_build()
 
 setup(
     name='vgrid',
@@ -30,6 +38,8 @@ setup(
     entry_points={
         'console_scripts': [            
             'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
+            'vencode = vgrid.vcode:vencode_cli',  
+            'vdecode = vgrid.vcode:vdecode_cli',  
             'vgrid = vgrid.vcode.vgrid:main',   
             'gzd = vgrid.utils.grid.gzd:main',  
             'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',

@@ -6,6 +6,51 @@ from shapely.ops import transform
 import pyproj
 from shapely.geometry import box, shape
 import argparse
+import string
+
+# Define the character set excluding 'z', 'x', and 'y'
+characters = string.digits + string.ascii_uppercase + string.ascii_lowercase.replace('z', '').replace('x', '').replace('y', '')
+base = len(characters)
+
+def vencode(num):
+    if num == 0:
+        return characters[0]
+    
+    encoded = []
+    while num > 0:
+        num, remainder = divmod(num, base)
+        encoded.append(characters[remainder])
+    
+    return ''.join(reversed(encoded))
+
+def vdecode(encoded):
+    num = 0
+    for char in encoded:
+        num = num * base + characters.index(char)
+    return num
+
+def vencode_cli():
+    parser = argparse.ArgumentParser(description='Encode a number using a custom base encoding (excluding z, x, y).')
+    parser.add_argument('number', type=int, help='The number to encode (0-9999999).')
+    args = parser.parse_args()
+    
+    if args.number < 0 or args.number > 9999999:
+        print("Error: The number must be between 0 and 9999999.")
+        return
+    
+    encoded_value = vencode(args.number)
+    print(f"Encoded: {encoded_value}")
+
+def vdecode_cli():
+    parser = argparse.ArgumentParser(description='Decode a custom base encoded string (excluding z, x, y).')
+    parser.add_argument('encoded', type=str, help='The encoded string to decode.')
+    args = parser.parse_args()
+    
+    try:
+        decoded_value = vdecode(args.encoded)
+        print(f"Decoded: {decoded_value}")
+    except ValueError:
+        print("Error: The provided encoded string is invalid.")
 
 # from vgrid.vcode import *
 # vcode2quadkey('z2x3y3')
