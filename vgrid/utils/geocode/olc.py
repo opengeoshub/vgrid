@@ -308,9 +308,9 @@ def decode(code):
       A CodeArea object that provides the latitude and longitude of two of the
       corners of the area, the center, and the length of the original code.
     """
-    # if not isFull(code):
-    #     raise ValueError(
-    #         'Passed Open Location Code is not a valid full code - ' + str(code))
+    if not isFull(code):
+        raise ValueError(
+            'Passed Open Location Code is not a valid full code - ' + str(code))
    
     # Strip out separator character (we've already established the code is
     # valid so the maximum is one), and padding characters. Convert to upper
@@ -550,3 +550,8 @@ class CodeArea(object):
 
     def latlng(self):
         return [self.latitudeCenter, self.longitudeCenter]
+
+olc = '7P28QPG4+3P'
+location = decode(olc)
+
+print(f'Latitude: {location.latitudeCenter}, Longitude: {location.longitudeCenter}')
