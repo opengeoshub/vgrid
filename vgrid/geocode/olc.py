@@ -550,8 +550,3 @@ class CodeArea(object):
 
     def latlng(self):
         return [self.latitudeCenter, self.longitudeCenter]
-
-olc = '7P28QPG4+3P'
-location = decode(olc)
-
-print(f'Latitude: {location.latitudeCenter}, Longitude: {location.longitudeCenter}')

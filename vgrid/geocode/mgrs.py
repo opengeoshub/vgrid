@@ -32,6 +32,7 @@ import re
 import math
 import itertools
 import logging
+import pyproj
 
 HAVE_OSR = False
 # Force using proj for transformations by setting MGRSPY_USE_PROJ env var
@@ -900,3 +901,63 @@ def _clean_mgrs_str(s):
         raise MgrsException(BADLY_FORMED)
     log.debug('out: {0}'.format(s))
     return s
+
+def get_precision_and_grid_size(mgrs_code):
+    """Get the precision and grid size of the MGRS code based on its length.
+
+    @param mgrs: MGRS coordinate string (no spaces)
+    @returns: tuple containing (precision in meters, grid size in meters)
+    """
+    # Clean the MGRS string (if necessary)
+    mgrs_code = _clean_mgrs_str(mgrs_code)
+
+    # Validate the MGRS code length
+    length = len(mgrs_code)
+
+    # Initialize precision and grid size variables
+    precision = 0
+    grid_size = 100000
+
+    # Determine precision and grid size based on MGRS length
+    if length == 5:
+        precision = 0  
+        grid_size = 100000 # 100 km
+    elif length == 7:
+        precision = 1    
+        grid_size = 10000 # 10 km
+    elif length == 9:
+        precision = 2   
+        grid_size = 1000 # 1 km
+    elif length == 11:
+        precision = 3      
+        grid_size = 100 # 100 m
+    elif length == 13:
+        precision = 4       
+        grid_size = 10 # 10 m
+    elif length == 15:
+        precision = 5       
+        grid_size = 1  # 1 m
+    else:
+        raise ValueError("MGRS code does not match expected lengths for precision.")
+
+    return precision, grid_size
+
+def mgrscell(mgrs_code):
+    geod = pyproj.Geod(ellps='WGS84')
+
+    min_lat, min_lon = toWgs(mgrs_code)
+    precision, grid_size = get_precision_and_grid_size(mgrs_code)
+
+    x_var = geod.line_length([min_lon, min_lon], [min_lat, min_lat + 1])
+    y_var = geod.line_length([min_lon, min_lon + 1], [min_lat, min_lat])
+
+    max_lat = min_lat + grid_size / x_var
+    max_lon = min_lon + grid_size / y_var
+    
+    origin_lat = min_lat
+    origin_lon = min_lon
+
+    print(f"Origins: ({origin_lat}, {origin_lon}), "
+              f"BBox: Min({min_lon}, {min_lat}), Max({max_lon}, {max_lat})")
+
+    return origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon, precision

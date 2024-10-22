@@ -2,9 +2,10 @@ import argparse
 import geopandas as gpd
 from shapely.geometry import Polygon
 from pyproj import CRS, Transformer
-from vgrid.utils.geocode import mgrs
+from vgrid.geocode import mgrs
 from tqdm import tqdm
 
+# Need to be reviewed
 def calculate_bbox(epsg):
     """
     Calculate the full bounding box for a UTM zone based on its EPSG code.

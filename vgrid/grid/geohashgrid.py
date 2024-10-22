@@ -1,6 +1,6 @@
 # Reference: https://geohash.softeng.co/uekkn, https://github.com/vinsci/geohash, https://www.movable-type.co.uk/scripts/geohash.html?geohash=dp3
 import argparse
-import  vgrid.utils.geocode.geohash as geohash
+import  vgrid.geocode.geohash as geohash
 from shapely.geometry import Polygon, mapping
 from tqdm import tqdm
 import geopandas as gpd

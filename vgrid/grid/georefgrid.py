@@ -1,6 +1,6 @@
 
 # https://github.com/corteva/gars-field
-from vgrid.utils.geocode import georef
+from vgrid.geocode import georef
 # georef_code = georef.encode(10.534535345,106.4343242,3)
 # print(georef_code)
 # georef_decode = georef.decode(georef_code)
@@ -18,7 +18,7 @@ def generate_georef_grid():
     
     # Initialize a list to store GARS grid polygons
     gars_grid = []
-    res = 0.25
+    res = 1
     # Use numpy to generate ranges with floating-point steps
     longitudes = np.arange(lon_min, lon_max, res)
     latitudes = np.arange(lat_min, lat_max, res)
@@ -29,7 +29,7 @@ def generate_georef_grid():
             # Create a polygon for each GARS cell
             poly = geom.box(lon, lat, lon + res, lat + res)
             # gars_code = EDGARSGrid.from_latlon(lat, lon,1)  
-            gars_code = georef.encode(lat,lon,1) 
+            gars_code = georef.encode(lat,lon,0) 
             # poly = gars_code.polygon
             # print(gars_code)
             # print(poly)

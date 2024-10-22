@@ -37,17 +37,18 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [            
-            'vcode2geojson = vgrid.vcode:vcode2geojson_cli',  
-            'vencode = vgrid.vcode:vencode_cli',  
-            'vdecode = vgrid.vcode:vdecode_cli',  
-            'vgrid = vgrid.vcode.vgrid:main',   
-            'gzd = vgrid.utils.grid.gzd:main',  
-            'mgrsgrid = vgrid.utils.grid.mgrsgrid:main',
-            'geohashgrid = vgrid.utils.grid.geohashgrid:main',           
-            'maidenheadgrid = vgrid.utils.grid.maidenheadgrid:main',           
-            'olcgrid = vgrid.utils.grid.olcgrid:main',
-            'h3grid = vgrid.utils.grid.h3grid:main',
-            's2grid = vgrid.utils.grid.s2grid:main'      
+            'vcode2geojson = vgrid.geocode.vcode:vcode2geojson_cli',  
+            'vencode = vgrid.geocode.vcode:vencode_cli',  
+            'vdecode = vgrid.geocode.vcode:vdecode_cli',  
+            
+            'vgrid = vgrid.grid.vgrid:main',   
+            'gzd = vgrid.grid.gzd:main',  
+            'mgrsgrid = vgrid.grid.mgrsgrid:main',
+            'geohashgrid = vgrid.grid.geohashgrid:main',           
+            'maidenheadgrid = vgrid.grid.maidenheadgrid:main',           
+            'olcgrid = vgrid.grid.olcgrid:main',
+            'h3grid = vgrid.grid.h3grid:main',
+            's2grid = vgrid.grid.s2grid:main'      
         ],
     },    
 

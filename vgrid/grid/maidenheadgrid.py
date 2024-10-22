@@ -4,7 +4,7 @@
 
 import json
 import argparse
-from vgrid.utils.geocode import maidenhead
+from vgrid.geocode import maidenhead
 from tqdm import tqdm  
 import fiona
 from shapely.geometry import Point, Polygon, mapping
