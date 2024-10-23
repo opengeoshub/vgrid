@@ -1,6 +1,8 @@
-from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc
+from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2sphere
+from vgrid.geocode.s2sphere import Cell, LatLng, Point
+
 from geopy.distance import geodesic
-import geojson, os
+import geojson, os, math,re
 import geopandas as gpd
 from shapely.geometry import Polygon, Point
 import h3
@@ -268,5 +270,64 @@ def georef2geojson(georef_code):
         return geojson_feature
 
 def h32geojson(h3_code):
-    bbox = h3.cell_to_boundary(h3_code)
-    return bbox
+    # Get the boundary coordinates of the H3 cell
+    boundary = h3.cell_to_boundary(h3_code)
+    
+    # Get the center coordinates of the H3 cell
+    center_lat, center_lon = h3.cell_to_latlng(h3_code)
+    precision = h3.get_resolution(h3_code)
+    edge_len = h3.average_hexagon_edge_length(precision,unit='m')
+    # Create the GeoJSON Feature
+    geojson_feature = geojson.Feature(
+        geometry=geojson.Polygon([[
+            [lon, lat] for lat, lon in boundary
+        ]]),
+        properties={
+            "h3_code": h3_code,
+            "center_lat": center_lat,
+            "center_lon": center_lon,
+            "edge_len": edge_len,
+            "precision": precision
+        }
+    )
+    
+    return geojson_feature
+
+def point_to_latlng(point):
+    """Convert a 3D point to latitude and longitude."""
+    x, y, z = point.x, point.y, point.z
+    lng = math.atan2(y, x) * (180.0 / math.pi)  # Convert from radians to degrees
+    lat = math.asin(z) * (180.0 / math.pi)  # Convert from radians to degrees
+    return lng, lat
+
+def s22geojson(cell_id):
+     # Create an S2 cell from the given cell ID
+    cell = s2sphere.Cell(cell_id)
+
+    # Get the vertices of the cell (4 vertices for a rectangular cell)
+    vertices = [cell.get_vertex(i) for i in range(4)]
+    # Create GeoJSON structure
+    geojson_vertices = []
+
+# Extract latitude and longitude from each Point object
+    for vertex in vertices:
+        lat_lng = LatLng.from_point(vertex)  # Convert Point to LatLng
+        longitude = lat_lng.lng().degrees  # Access the degree value for longitude
+        latitude = lat_lng.lat().degrees    # Access the degree value for latitude
+        print(f"Extracted Point: Longitude = {longitude}, Latitude = {latitude}")  # Debug statement
+        geojson_vertices.append((longitude, latitude))
+
+    # Close the polygon by adding the first vertex again
+    geojson_vertices.append(geojson_vertices[0])  # Closing the polygon
+
+    # Create a GeoJSON Polygon
+    geojson_polygon = geojson.Polygon([geojson_vertices])
+
+    # Create a Feature from the Polygon
+    feature = geojson.Feature(geometry=geojson_polygon, properties={})
+
+    # Create a FeatureCollection
+    feature_collection = geojson.FeatureCollection([feature])
+
+    return feature_collection
+

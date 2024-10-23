@@ -13,6 +13,7 @@ requirements = [
     'pyproj',
     'pyclipper',
     'h3~=4.1.1',
+    's2sphere~=0.2.5',
     'pandas~=2.2.3'
 ],
 

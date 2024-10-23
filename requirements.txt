@@ -7,3 +7,4 @@ pyproj
 pyclipper
 h3~=4.1.1
 pandas~=2.2.3
+s2sphere~=0.2.5
