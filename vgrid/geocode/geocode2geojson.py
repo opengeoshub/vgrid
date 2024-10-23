@@ -3,6 +3,7 @@ from geopy.distance import geodesic
 import geojson, os
 import geopandas as gpd
 from shapely.geometry import Polygon, Point
+import h3
 
 def olc2geojson(olc_code):
     # Decode the Open Location Code into a CodeArea object
@@ -265,3 +266,7 @@ def georef2geojson(georef_code):
             )
 
         return geojson_feature
+
+def h32geojson(h3_code):
+    bbox = h3.cell_to_boundary(h3_code)
+    return bbox

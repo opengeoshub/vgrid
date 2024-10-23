@@ -1,4 +1,4 @@
-# Vgrid - A Global Geocoding System based on Vector Tiles
+# Vgrid - Global Geocoding Systems
 
 ## Installation: 
 - Using pip:   

@@ -11,7 +11,9 @@ requirements = [
     'fiona~=1.10.0',
     'geojson',
     'pyproj',
-    'pyclipper'
+    'pyclipper',
+    'h3~=4.1.1',
+    'pandas~=2.2.3'
 ],
 
 def clean_build():
