@@ -19,7 +19,7 @@
 import geopandas as gpd
 import shapely.geometry as geom
 from pyproj import CRS
-from gars_field import GARSGrid
+from vgrid.geocode.gars import GARSGrid
 import numpy as np
 import math
 

@@ -1,5 +1,6 @@
 from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2sphere
-from vgrid.geocode.s2sphere import LatLng, CellId
+from vgrid.geocode.s2sphere import LatLng, Point
+from vgrid.geocode.gars import GARSGrid
 from geopy.distance import geodesic
 import geojson, os
 import geopandas as gpd
@@ -91,50 +92,6 @@ def maidenhead2geojson(maidenhead_code):
             )
 
         feature_collection = geojson.FeatureCollection([geojson_feature])
-        return feature_collection
-
-def gars2geojson(gars_code):
-    wkt_polygon = gars_code.polygon
-    if wkt_polygon:
-        # # Create the bounding box coordinates for the polygon
-        x, y = wkt_polygon.exterior.xy
-        precision_minute = gars_code.resolution
-        
-        min_lon = min(x)
-        max_lon = max(x)
-        min_lat = min(y)
-        max_lat = max(y)
-
-        # Calculate center latitude and longitude
-        center_lon = (min_lon + max_lon) / 2
-        center_lat = (min_lat + max_lat) / 2
-
-        # Calculate bounding box width and height
-        lat_len = geodesic((min_lat, min_lon), (max_lat, min_lon)).meters 
-        lon_len = geodesic((min_lat, min_lon), (min_lat, max_lon)).meters  
-
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-
-        if lon_len >= 10000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-
-        geojson_feature = geojson.Feature(
-            geometry=geojson.Polygon([list(wkt_polygon.exterior.coords)]),
-             properties={
-                "gars": gars_code.gars_id,  # Include the OLC as a property
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
-                "precision_minute": precision_minute  # Using the code length as precision
-                }
-        )
-
-        # Create GeoJSON FeatureCollection
-        feature_collection = geojson.FeatureCollection([geojson_feature])
-
         return feature_collection
 
 def geohash2geojson(geohash_code):
@@ -333,9 +290,8 @@ def h32geojson(h3_code):
         return feature_collection
 
 
-def s22geojson(cell_id_token):
+def s22geojson(cell_id):
      # Create an S2 cell from the given cell ID
-    cell_id= CellId.from_token(cell_id_token)
     cell = s2sphere.Cell(cell_id)
     if cell:
         # Get the vertices of the cell (4 vertices for a rectangular cell)
@@ -387,11 +343,54 @@ def s22geojson(cell_id_token):
             "center_lat": center_lat,
             "center_lon": center_lon,
             "bbox_width":bbox_width,
-            "bbox_height":bbox_height,
-            "level": cell_id.level() 
+            "bbox_height":bbox_height
         })
 
         # Create a FeatureCollection
+        feature_collection = geojson.FeatureCollection([geojson_feature])
+
+        return feature_collection
+
+def gars2geojson(gars_code):
+    wkt_polygon = gars_code.polygon
+    if wkt_polygon:
+        # # Create the bounding box coordinates for the polygon
+        x, y = wkt_polygon.exterior.xy
+        precision_minute = gars_code.resolution
+        
+        min_lon = min(x)
+        max_lon = max(x)
+        min_lat = min(y)
+        max_lat = max(y)
+
+        # Calculate center latitude and longitude
+        center_lon = (min_lon + max_lon) / 2
+        center_lat = (min_lat + max_lat) / 2
+
+        # Calculate bounding box width and height
+        lat_len = geodesic((min_lat, min_lon), (max_lat, min_lon)).meters 
+        lon_len = geodesic((min_lat, min_lon), (min_lat, max_lon)).meters  
+
+        bbox_width =  f'{round(lon_len,1)} m'
+        bbox_height =  f'{round(lat_len,1)} m'
+
+        if lon_len >= 10000:
+            bbox_width = f'{round(lon_len/1000,1)} km'
+            bbox_height = f'{round(lat_len/1000,1)} km'
+
+        geojson_feature = geojson.Feature(
+            geometry=geojson.Polygon([list(wkt_polygon.exterior.coords)]),
+             properties={
+                "gars": gars_code.gars_id,  # Include the OLC as a property
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "precision_minute": precision_minute  # Using the code length as precision
+                }
+        )
+
+        # Create GeoJSON FeatureCollection
         feature_collection = geojson.FeatureCollection([geojson_feature])
 
         return feature_collection

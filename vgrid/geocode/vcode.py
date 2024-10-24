@@ -98,7 +98,8 @@ def vcode2geojson(vcode):
         }
     )
 
-    return geojson_feature
+    feature_collection = geojson.FeatureCollection([geojson_feature])
+    return feature_collection
 
 
 def vcode2bbox(vcode):
@@ -531,14 +532,14 @@ def children2geojson(vcode):
 
     # Save each child as a GeoJSON file
     for i, child_vcode in enumerate(children):
-        geojson_feature = vcode2geojson(child_vcode)
+        feature_collection = vcode2geojson(child_vcode)
         
         # Create a filename for each child based on its vcode
         filename = f"{child_vcode}.geojson"
         
         # Save the GeoJSON feature to a file
         with open(filename, 'w') as file:
-            geojson.dump(geojson_feature, file, indent=2)
+            geojson.dump(feature_collection, file, indent=2)
         print(f"Saved {child_vcode} to {filename}")
 
 def vcode_parent(vcode):
@@ -614,7 +615,6 @@ def vcode_siblings(vcode):
 
     return siblings
 
-
 def vcode_neighbors(vcode):
     """
     Finds the neighboring vcodes of a given vcode.
@@ -664,14 +664,14 @@ def neighbors2geojson(vcode):
 
     # Save each neighbor as a GeoJSON file
     for neighbor_vcode in neighbors:
-        geojson_feature = vcode2geojson(neighbor_vcode)
+        feature_collection = vcode2geojson(neighbor_vcode)
         
         # Create a filename for each neighbor based on its vcode
         filename = f"{neighbor_vcode}.geojson"
         
         # Save the GeoJSON feature to a file
         with open(filename, 'w') as file:
-            geojson.dump(geojson_feature, file, indent=2)
+            geojson.dump(feature_collection, file, indent=2)
         print(f"Saved {neighbor_vcode} to {filename}")
 
 

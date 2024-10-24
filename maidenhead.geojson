@@ -1,0 +1,43 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7,
+              10.775
+            ],
+            [
+              106.708333,
+              10.775
+            ],
+            [
+              106.708333,
+              10.779167
+            ],
+            [
+              106.7,
+              10.779167
+            ],
+            [
+              106.7,
+              10.775
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "maidenhead": "OK30is46",
+        "center_lat": 10.777083333333334,
+        "center_lon": 106.70416666666667,
+        "bbox_height": "460.9 m",
+        "bbox_width": "911.4 m",
+        "precision": 4
+      }
+    }
+  ]
+}

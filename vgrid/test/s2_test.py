@@ -1,35 +1,17 @@
-import s2, geojson
+import geojson
 from vgrid.geocode import s2sphere
 from vgrid.geocode.geocode2geojson import *
 from vgrid.geocode.s2sphere import LatLng, CellId
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-s2_precision = 21
-# lat_lng = s2sphere.LatLng.from_degrees(latitude, longitude)
+s2_precision = 0
+lat_lng = LatLng.from_degrees(latitude, longitude)
+cell_id = CellId.from_lat_lng(lat_lng)
+cell_id = cell_id.parent(s2_precision)
+cell_id_token= CellId.to_token(cell_id)
 
-# Get the S2 CellId for a specific level (e.g., level 10)
-# s2_code = s2sphere.CellId.from_lat_lng(lat_lng)
-latlng = LatLng.from_degrees(latitude, longitude)
-
-# Get the S2 cell ID at the specified resolution
-cell_id = CellId.from_lat_lng(latlng)
-
-s2_code = cell_id.parent(s2_precision)
-
-# print("Cell ID:", cell_id.id())
-print(f'latitude, longitude = {latitude},{longitude}')
-print(f's2 code at precision = {s2_precision}: {s2_code.id()}')
-
-cell = s2sphere.Cell(s2_code)
-center = cell.get_center()
-print("Center:", center)
-
-vertices = [cell.get_vertex(i) for i in range(4)]
-print (type(vertices))
-print (vertices)
-
-data = s22geojson(s2_code)
+data = s22geojson(cell_id_token)
 print(data)
 output_file = f's2_{s2_precision}.geojson'
 with open(output_file, 'w') as f:

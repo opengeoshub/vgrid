@@ -9,12 +9,12 @@ requirements = [
     'shapely~=2.0.1',
     'protobuf~=5.26.1',
     'fiona~=1.10.0',
-    'geojson',
-    'pyproj',
-    'pyclipper',
+    'geojson~=3.0.1',
+    'pyproj~=3.6.1',
+    'pyclipper~=1.3.0',
     'h3~=4.1.1',
-    's2sphere~=0.2.5',
-    'pandas~=2.2.3'
+    'pandas~=2.2.3',
+    'gars-field~=0.3.3'
 ],
 
 def clean_build():

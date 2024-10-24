@@ -1,10 +1,9 @@
 from vgrid.geocode import mgrs
 from vgrid.geocode.geocode2geojson import *
-latitude, longitude = 10.12521164,102.22014118
-# latitude, longitude = 9.931170001942045, 101.35331404185625
 latitude, longitude = 40.04042917,18.03399178
 latitude, longitude = 40.12268902,18.12483604
-latitude, longitude = 40.00139926,23.99944552
+latitude, longitude = 10.12521164,102.22014118
+latitude, longitude = 10.775275567242561, 106.70679737574993
 
 mgrs_precision = 4
 mgrs_code = mgrs.toMgrs(latitude, longitude, mgrs_precision)

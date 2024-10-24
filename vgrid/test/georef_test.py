@@ -2,7 +2,7 @@ from vgrid.geocode import mgrs
 from vgrid.geocode.geocode2geojson import *
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-georef_precision = 5
+georef_precision = 4
 georef_code = georef.encode(latitude, longitude, georef_precision)
 georef_decode = georef.decode(georef_code, True)
 print(f'latitude, longitude = {latitude},{longitude}')
