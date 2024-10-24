@@ -1,5 +1,6 @@
-from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2sphere
-from vgrid.geocode.s2sphere import LatLng, CellId
+from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2
+from vgrid.geocode.s2 import LatLng, CellId
+from vgrid.geocode.gars import GARSGrid
 import h3
 from geopy.distance import geodesic
 import geojson, os
@@ -58,7 +59,7 @@ def olc2geojson_cli():
     Command-line interface for olc2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert OLC/ Google Plus Codes to GeoJSON")
-    parser.add_argument("olc", help="Input OLC, e.g., 7P28QPG4+4P7")
+    parser.add_argument("olc", help="Input OLC, e.g., olc2geojson 7P28QPG4+4P7")
     args = parser.parse_args()
     geojson_data = olc2geojson(args.olc)
     print(geojson_data)
@@ -110,18 +111,19 @@ def maidenhead2geojson_cli():
     Command-line interface for maidenhead2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert Maidenhead code to GeoJSON")
-    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., OK30is46")
+    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., maidenhead2geojson OK30is46")
     args = parser.parse_args()
     geojson_data = maidenhead2geojson(args.maidenhead)
     print(geojson_data)
 
 # SOS: Convert gars_code object to str first
 def gars2geojson(gars_code):
-    wkt_polygon = gars_code.polygon
+    gars_grid = GARSGrid(gars_code)
+    wkt_polygon = gars_grid.polygon
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
         x, y = wkt_polygon.exterior.xy
-        precision_minute = gars_code.resolution
+        precision_minute = gars_grid.resolution
         
         min_lon = min(x)
         max_lon = max(x)
@@ -146,7 +148,7 @@ def gars2geojson(gars_code):
         geojson_feature = geojson.Feature(
             geometry=geojson.Polygon([list(wkt_polygon.exterior.coords)]),
              properties={
-                "gars": gars_code.gars_id,  # Include the OLC as a property
+                "gars": gars_code,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
@@ -165,7 +167,7 @@ def gars2geojson_cli():
     Command-line interface for gars2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert GARS code to GeoJSON")
-    parser.add_argument("gars", help="Input GARS code, e.g., 574JK1918")
+    parser.add_argument("gars", help="Input GARS code, e.g., gars2geojson 574JK1918")
     args = parser.parse_args()
     geojson_data = gars2geojson(args.gars)
     print(geojson_data)
@@ -222,7 +224,7 @@ def geohash2geojson_cli():
     Command-line interface for geohash2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert Geohash code to GeoJSON")
-    parser.add_argument("geohash", help="Input Geohash code, e.g., w3gvk1td8")
+    parser.add_argument("geohash", help="Input Geohash code, e.g., geohash2geojson w3gvk1td8")
     args = parser.parse_args()
     geojson_data = geohash2geojson(args.geohash)
     print(geojson_data)
@@ -313,7 +315,7 @@ def mgrs2geojson_cli():
     Command-line interface for mgrs2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert MGRS code to GeoJSON")
-    parser.add_argument("mgrs", help="Input MGRS code, e.g., 34TGK56063228")
+    parser.add_argument("mgrs", help="Input MGRS code, e.g., mgrs2geojson 34TGK56063228")
     args = parser.parse_args()
     geojson_data = mgrs2geojson(args.mgrs)
     print(geojson_data)
@@ -364,7 +366,7 @@ def georef2geojson_cli():
     Command-line interface for georef2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert GEOREF code to GeoJSON")
-    parser.add_argument("georef", help="Input GEOREF code, e.g., VGBL42404651")
+    parser.add_argument("georef", help="Input GEOREF code, e.g., georef2geojson VGBL42404651")
     args = parser.parse_args()
     geojson_data = georef2geojson(args.georef)
     print(geojson_data)
@@ -402,7 +404,7 @@ def h32geojson_cli():
     Command-line interface for h32geojson.
     """
     parser = argparse.ArgumentParser(description="Convert H3 code to GeoJSON")
-    parser.add_argument("h3", help="Input H3 code, e.g., 8d65b56628e46bf")
+    parser.add_argument("h3", help="Input H3 code, e.g., h32geojson 8d65b56628e46bf")
     args = parser.parse_args()
     geojson_data = h32geojson(args.h3)
     print(geojson_data)
@@ -411,7 +413,7 @@ def h32geojson_cli():
 def s22geojson(cell_id_token):
      # Create an S2 cell from the given cell ID
     cell_id= CellId.from_token(cell_id_token)
-    cell = s2sphere.Cell(cell_id)
+    cell = s2.Cell(cell_id)
     if cell:
         # Get the vertices of the cell (4 vertices for a rectangular cell)
         vertices = [cell.get_vertex(i) for i in range(4)]
@@ -475,8 +477,8 @@ def s22geojson_cli():
     """
     Command-line interface for s22geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert S2 token to GeoJSON")
-    parser.add_argument("s2", help="Input S2 token, e.g., 31752f45cc94")
+    parser = argparse.ArgumentParser(description="Convert S2 cell token to GeoJSON")
+    parser.add_argument("s2", help="Input S2 cell token, e.g., s22geojson 31752f45cc94")
     args = parser.parse_args()
     geojson_data = s22geojson(args.s2)
     print(geojson_data)

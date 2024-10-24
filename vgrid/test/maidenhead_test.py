@@ -3,7 +3,7 @@ from vgrid.geocode.geocode2geojson import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-maidenhead_precision = 4
+maidenhead_precision = 4 #[1-->4]
 maidenhead_code = maidenhead.toMaiden(latitude, longitude, maidenhead_precision)
 maidenGrid = maidenhead.maidenGrid(maidenhead_code)
 print(f'Maidenhead Code at precision = {maidenhead_precision}: {maidenhead_code}')

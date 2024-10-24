@@ -29,11 +29,11 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.1',
+    version='1.1.2',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
-    description='Vgrid - A Global Geocoding System based on Vector Tiles',
+    description='Vgrid - All in One Global Geocoding Systems',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     requires_python=">=3.0",
