@@ -4,7 +4,7 @@ import geojson
 from shapely.geometry import Polygon
 from shapely.ops import transform
 import pyproj
-from shapely.geometry import box, shape
+from shapely.geometry import box
 import argparse
 import string
 
@@ -144,24 +144,11 @@ def vcode2geojson_cli():
     """
     parser = argparse.ArgumentParser(description="Convert vcode to GeoJSON")
     parser.add_argument("vcode", help="Input vcode, e.g. z0x0y0")
-    parser.add_argument("-o", "--output", help="Output file path to save GeoJSON", default=None)
     args = parser.parse_args()
 
     # Generate the GeoJSON feature
-    feature = vcode2geojson(args.vcode)
-
-    # Convert feature to a GeoJSON string
-    geojson_data = geojson.dumps(feature, indent=2)
-
-    # Check if an output file path is specified
-    if args.output:
-        # Write the GeoJSON to the specified output file
-        with open(args.output, 'w') as f:
-            f.write(geojson_data)
-        print(f"GeoJSON saved to {args.output}")
-    else:
-        # Print the GeoJSON to the console
-        print(geojson_data)
+    geojson_data = vcode2geojson(args.vcode)
+    print(geojson_data)
 
 def zxy2vcode(z, x, y):
     """

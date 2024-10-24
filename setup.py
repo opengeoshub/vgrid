@@ -38,12 +38,23 @@ setup(
     long_description_content_type='text/markdown',
     requires_python=">=3.0",
     packages=find_packages(),
+    include_package_data=True,  # Include package data specified in MANIFEST.in
     entry_points={
         'console_scripts': [            
             'vcode2geojson = vgrid.geocode.vcode:vcode2geojson_cli',  
             'vencode = vgrid.geocode.vcode:vencode_cli',  
             'vdecode = vgrid.geocode.vcode:vdecode_cli',  
             
+            'olc2geojson = vgrid.geocode.geocode2geojson:olc2geojson_cli',  
+            'maidenhead2geojson = vgrid.geocode.geocode2geojson:maidenhead2geojson_cli',  
+            'gars2geojson = vgrid.geocode.geocode2geojson:gars2geojson_cli',  
+            'geohash2geojson = vgrid.geocode.geocode2geojson:geohash2geojson_cli',  
+            'mgrs2geojson = vgrid.geocode.geocode2geojson:mgrs2geojson_cli',  
+            'georef2geojson = vgrid.geocode.geocode2geojson:georef2geojson_cli',  
+            'h32geojson = vgrid.geocode.geocode2geojson:h32geojson_cli',  
+            's22geojson = vgrid.geocode.geocode2geojson:s22geojson_cli',  
+
+
             'vgrid = vgrid.grid.vgrid:main',   
             'gzd = vgrid.grid.gzd:main',  
             'mgrsgrid = vgrid.grid.mgrsgrid:main',

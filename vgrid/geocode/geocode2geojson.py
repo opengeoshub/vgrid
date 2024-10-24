@@ -1,10 +1,12 @@
 from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2sphere
 from vgrid.geocode.s2sphere import LatLng, CellId
+import h3
 from geopy.distance import geodesic
 import geojson, os
 import geopandas as gpd
 from shapely.geometry import Polygon, Point
-import h3
+import argparse
+
 
 def olc2geojson(olc_code):
     # Decode the Open Location Code into a CodeArea object
@@ -51,6 +53,16 @@ def olc2geojson(olc_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
         return feature_collection
 
+def olc2geojson_cli():
+    """
+    Command-line interface for olc2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert OLC/ Google Plus Codes to GeoJSON")
+    parser.add_argument("olc", help="Input OLC, e.g., 7P28QPG4+4P7")
+    args = parser.parse_args()
+    geojson_data = olc2geojson(args.olc)
+    print(geojson_data)
+
 
 def maidenhead2geojson(maidenhead_code):
     # Decode the Open Location Code into a CodeArea object
@@ -93,6 +105,17 @@ def maidenhead2geojson(maidenhead_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
         return feature_collection
 
+def maidenhead2geojson_cli():
+    """
+    Command-line interface for maidenhead2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Maidenhead code to GeoJSON")
+    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., OK30is46")
+    args = parser.parse_args()
+    geojson_data = maidenhead2geojson(args.maidenhead)
+    print(geojson_data)
+
+# SOS: Convert gars_code object to str first
 def gars2geojson(gars_code):
     wkt_polygon = gars_code.polygon
     if wkt_polygon:
@@ -136,6 +159,17 @@ def gars2geojson(gars_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
 
         return feature_collection
+
+def gars2geojson_cli():
+    """
+    Command-line interface for gars2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert GARS code to GeoJSON")
+    parser.add_argument("gars", help="Input GARS code, e.g., 574JK1918")
+    args = parser.parse_args()
+    geojson_data = gars2geojson(args.gars)
+    print(geojson_data)
+
 
 def geohash2geojson(geohash_code):
     # Decode the Open Location Code into a CodeArea object
@@ -183,7 +217,18 @@ def geohash2geojson(geohash_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
         return feature_collection
 
-def mgrs2geojson(mgrs_code,lat,lon):
+def geohash2geojson_cli():
+    """
+    Command-line interface for geohash2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Geohash code to GeoJSON")
+    parser.add_argument("geohash", help="Input Geohash code, e.g., w3gvk1td8")
+    args = parser.parse_args()
+    geojson_data = geohash2geojson(args.geohash)
+    print(geojson_data)
+
+
+def mgrs2geojson(mgrs_code,lat=None,lon=None):
     origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,precision = mgrs.mgrscell(mgrs_code)
 
     lat_len = geodesic((min_lat, min_lon), (max_lat, min_lon)).meters 
@@ -220,48 +265,58 @@ def mgrs2geojson(mgrs_code,lat,lon):
                 "precision": precision
             }
         )
+        if lat is not None and lon is not None:
+            # Load the GZD GeoJSON file from the same folder
+            gzd_geojson_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
+            with open(gzd_geojson_path) as f:
+                gzd_geojson = geojson.load(f)
 
-        # Load the GZD GeoJSON file from the same folder
-        gzd_geojson_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
-        with open(gzd_geojson_path) as f:
-            gzd_geojson = geojson.load(f)
+            # Convert the GZD GeoJSON to a GeoDataFrame
+            gzd_gdf = gpd.GeoDataFrame.from_features(gzd_geojson['features'], crs="EPSG:4326")
 
-        # Convert the GZD GeoJSON to a GeoDataFrame
-        gzd_gdf = gpd.GeoDataFrame.from_features(gzd_geojson['features'], crs="EPSG:4326")
+            # Convert the MGRS polygon to a GeoSeries for intersection
+            mgrs_gdf = gpd.GeoDataFrame(geometry=[mgrs_polygon], crs="EPSG:4326")
 
-        # Convert the MGRS polygon to a GeoSeries for intersection
-        mgrs_gdf = gpd.GeoDataFrame(geometry=[mgrs_polygon], crs="EPSG:4326")
+            # Perform the intersection
+            intersection_gdf = gpd.overlay(mgrs_gdf, gzd_gdf, how='intersection')
 
-        # Perform the intersection
-        intersection_gdf = gpd.overlay(mgrs_gdf, gzd_gdf, how='intersection')
+            # Check if the intersection result is empty
+            if not intersection_gdf.empty:
+                # Convert lat/lon to a Shapely point
+                point = Point(lon, lat)
 
-        # Check if the intersection result is empty
-        if not intersection_gdf.empty:
-            # Convert lat/lon to a Shapely point
-            point = Point(lon, lat)
-
-            # Check if the point is inside any of the intersection polygons
-            for intersection_polygon in intersection_gdf.geometry:
-                if intersection_polygon.contains(point):
-                    # Return the intersection as GeoJSON if the point is inside
-                    intersection_geojson = geojson.Feature(
-                        geometry=geojson.Polygon([list(intersection_polygon.exterior.coords)]),
-                        properties={
-                            "mgrs": mgrs_code,
-                            "origin_lat": origin_lat,
-                            "origin_lon": origin_lon,
-                            "bbox_height": bbox_height,
-                            "bbox_width": bbox_width,
-                            "precision": precision
-                        }
-                    )
-                    intersection_feature_collection = geojson.FeatureCollection([intersection_geojson])
-                    return intersection_feature_collection
+                # Check if the point is inside any of the intersection polygons
+                for intersection_polygon in intersection_gdf.geometry:
+                    if intersection_polygon.contains(point):
+                        # Return the intersection as GeoJSON if the point is inside
+                        intersection_geojson = geojson.Feature(
+                            geometry=geojson.Polygon([list(intersection_polygon.exterior.coords)]),
+                            properties={
+                                "mgrs": mgrs_code,
+                                "origin_lat": origin_lat,
+                                "origin_lon": origin_lon,
+                                "bbox_height": bbox_height,
+                                "bbox_width": bbox_width,
+                                "precision": precision
+                            }
+                        )
+                        intersection_feature_collection = geojson.FeatureCollection([intersection_geojson])
+                        return intersection_feature_collection
 
         # If no intersection or point not contained, return the original MGRS GeoJSON
         # Create a FeatureCollection
         feature_collection = geojson.FeatureCollection([geojson_feature])
         return feature_collection
+
+def mgrs2geojson_cli():
+    """
+    Command-line interface for mgrs2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert MGRS code to GeoJSON")
+    parser.add_argument("mgrs", help="Input MGRS code, e.g., 34TGK56063228")
+    args = parser.parse_args()
+    geojson_data = mgrs2geojson(args.mgrs)
+    print(geojson_data)
 
 
 def georef2geojson(georef_code):
@@ -304,6 +359,16 @@ def georef2geojson(georef_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
         return feature_collection
 
+def georef2geojson_cli():
+    """
+    Command-line interface for georef2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert GEOREF code to GeoJSON")
+    parser.add_argument("georef", help="Input GEOREF code, e.g., VGBL42404651")
+    args = parser.parse_args()
+    geojson_data = georef2geojson(args.georef)
+    print(geojson_data)
+
 
 def h32geojson(h3_code):
     # Get the boundary coordinates of the H3 cell
@@ -331,6 +396,16 @@ def h32geojson(h3_code):
         feature_collection = geojson.FeatureCollection([geojson_feature])
 
         return feature_collection
+
+def h32geojson_cli():
+    """
+    Command-line interface for h32geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert H3 code to GeoJSON")
+    parser.add_argument("h3", help="Input H3 code, e.g., 8d65b56628e46bf")
+    args = parser.parse_args()
+    geojson_data = h32geojson(args.h3)
+    print(geojson_data)
 
 
 def s22geojson(cell_id_token):
@@ -395,3 +470,13 @@ def s22geojson(cell_id_token):
         feature_collection = geojson.FeatureCollection([geojson_feature])
 
         return feature_collection
+
+def s22geojson_cli():
+    """
+    Command-line interface for s22geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert S2 token to GeoJSON")
+    parser.add_argument("s2", help="Input S2 token, e.g., 31752f45cc94")
+    args = parser.parse_args()
+    geojson_data = s22geojson(args.s2)
+    print(geojson_data)

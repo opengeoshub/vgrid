@@ -11,10 +11,10 @@ print(f'latitude, longitude = {latitude},{longitude}')
 print(f'H3 code at precision = {h3_precision}: {h3_code}')
 print(f'Decode {h3_code} to WGS84 = {h3_decode}')
 
-bbox = h3.cell_to_boundary(h3_code)
+bbox = h3.cell_to_boundary("8d65b56628e46bf")
 print(bbox)
 
-data = h32geojson(h3_code)
+data = h32geojson("8d65b56628e46bf")
 output_file = f'h3_{h3_precision}.geojson'
 with open(output_file, 'w') as f:
     geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
