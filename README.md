@@ -11,7 +11,8 @@
 ## Usage - Python:
 ### Import vgrid, initialize Latitude and Longitude for testing:
 ``` python
-from vgrid.geocode import gars, geohash, georef, h3, maidenhead, mgrs, olc, s2
+from vgrid.geocode import geohash, georef, maidenhead, mgrs, olc
+import h3
 from vgrid.geocode.gars import GARSGrid
 from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.geocode2geojson import *
