@@ -12,4 +12,4 @@ data = mgrs2geojson(mgrs_code)
 output_file = f'mgrs{mgrs_precision}.geojson'
 with open(output_file, 'w') as f:
     geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
-print(f'GeoJSON written to {output_file}'
+print(f'GeoJSON written to {output_file}')
