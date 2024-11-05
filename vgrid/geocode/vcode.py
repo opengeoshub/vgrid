@@ -527,7 +527,7 @@ def children2geojson(vcode):
         # Save the GeoJSON feature to a file
         with open(filename, 'w') as file:
             geojson.dump(feature_collection, file, indent=2)
-        print(f"Saved {child_vcode} to {filename}")
+        # print(f"Saved {child_vcode} to {filename}")
 
 def vcode_parent(vcode):
     """
@@ -659,7 +659,7 @@ def neighbors2geojson(vcode):
         # Save the GeoJSON feature to a file
         with open(filename, 'w') as file:
             geojson.dump(feature_collection, file, indent=2)
-        print(f"Saved {neighbor_vcode} to {filename}")
+        # print(f"Saved {neighbor_vcode} to {filename}")
 
 
 def bbox_vcodes(bbox, zoom):

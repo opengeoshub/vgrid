@@ -957,7 +957,7 @@ def mgrscell(mgrs_code):
     origin_lat = min_lat
     origin_lon = min_lon
 
-    print(f"Origins: ({origin_lat}, {origin_lon}), "
-              f"BBox: Min({min_lon}, {min_lat}), Max({max_lon}, {max_lat})")
+    # print(f"Origins: ({origin_lat}, {origin_lon}), "
+    #           f"BBox: Min({min_lon}, {min_lat}), Max({max_lon}, {max_lat})")
 
     return origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon, precision

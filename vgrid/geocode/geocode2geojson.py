@@ -426,7 +426,6 @@ def s22geojson(cell_id_token):
             lat_lng = LatLng.from_point(vertex)  # Convert Point to LatLng
             longitude = lat_lng.lng().degrees  # Access the degree value for longitude
             latitude = lat_lng.lat().degrees    # Access the degree value for latitude
-            # print(f"Extracted Point: Longitude = {longitude}, Latitude = {latitude}")  # Debug statement
             geojson_vertices.append((longitude, latitude))
 
         # Close the polygon by adding the first vertex again
