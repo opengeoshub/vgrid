@@ -7,6 +7,8 @@ import pyproj
 from shapely.geometry import box
 import argparse
 import string
+from geopy.distance import geodesic
+
 
 # Define the character set excluding 'z', 'x', and 'y'
 characters = string.digits + string.ascii_uppercase + string.ascii_lowercase.replace('z', '').replace('x', '').replace('y', '')
@@ -79,27 +81,51 @@ def vcode2geojson(vcode):
     y = int(match.group(3))
 
     # Get the bounds of the tile in (west, south, east, north)
-    bounds = mercantile.bounds(x, y, z)
+    bounds = mercantile.bounds(x, y, z)    
 
-    # Create the coordinates of the polygon using the bounds
-    polygon_coords = [
-        [bounds.west, bounds.south],  # Bottom-left
-        [bounds.east, bounds.south],  # Bottom-right
-        [bounds.east, bounds.north],  # Top-right
-        [bounds.west, bounds.north],  # Top-left
-        [bounds.west, bounds.south]   # Closing the polygon
-    ]
+    if bounds:
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
 
-    # Create a GeoJSON Feature with a Polygon geometry and vcode as a property
-    geojson_feature = geojson.Feature(
-        geometry=geojson.Polygon([polygon_coords]),
-        properties={
-            "vcode": vcode
-        }
-    )
+        # tile = mercantile.Tile(x, y, z)
+        # quadkey = mercantile.quadkey(tile)
 
-    feature_collection = geojson.FeatureCollection([geojson_feature])
-    return feature_collection
+        center_lat = (min_lat + max_lat) / 2
+        center_lon = (min_lon + max_lon) / 2
+               
+        lat_len = geodesic((min_lat, min_lon), (max_lat, min_lon)).meters 
+        lon_len = geodesic((min_lat, min_lon), (min_lat, max_lon)).meters  
+
+        bbox_width =  f'{round(lon_len,1)} m'
+        bbox_height =  f'{round(lat_len,1)} m'
+        if lon_len >= 10000:
+            bbox_width = f'{round(lon_len/1000,1)} km'
+            bbox_height = f'{round(lat_len/1000,1)} km'
+
+        # Define the polygon based on the bounding box
+        polygon_coords = [
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ]
+        
+        geojson_feature = geojson.Feature(
+            geometry=geojson.Polygon([polygon_coords]),
+            properties={
+                "vcode": vcode,  # Include the OLC as a property
+                # "quadkey": quadkey,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "precision": z  # Using the code length as precision
+                }
+            )
+        feature_collection = geojson.FeatureCollection([geojson_feature])
+        return feature_collection
 
 
 def vcode2bbox(vcode):

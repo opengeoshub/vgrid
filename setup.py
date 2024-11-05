@@ -13,8 +13,7 @@ requirements = [
     'pyproj~=3.6.1',
     'pyclipper~=1.3.0',
     'h3~=4.1.1',
-    'pandas~=2.2.3',
-    'gars-field~=0.3.3'
+    'pandas~=2.2.3'
 ],
 
 def clean_build():
@@ -29,7 +28,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.3',
+    version='1.1.4',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
