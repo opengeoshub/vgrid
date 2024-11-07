@@ -9,7 +9,6 @@ requirements = [
     'shapely~=2.0.1',
     'protobuf~=5.26.1',
     'fiona~=1.10.0',
-    'geojson~=3.0.1',
     'pyproj~=3.6.1',
     'pyclipper~=1.3.0',
     'h3~=4.1.1',
@@ -28,7 +27,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.4',
+    version='1.1.6',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -59,7 +58,7 @@ setup(
             'mgrsgrid = vgrid.grid.mgrsgrid:main',
             'geohashgrid = vgrid.grid.geohashgrid:main',           
             'maidenheadgrid = vgrid.grid.maidenheadgrid:main',           
-            'olcgrid = vgrid.grid.olcgrid:main',
+            # 'olcgrid = vgrid.grid.olcgrid:main',
             'h3grid = vgrid.grid.h3grid:main',
             's2grid = vgrid.grid.s2grid:main'      
         ],

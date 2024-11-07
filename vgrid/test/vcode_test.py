@@ -1,5 +1,5 @@
 from vgrid.geocode import vcode
-import geojson
+import json
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
 precision = 23
@@ -9,7 +9,9 @@ print(f'Vcode at zoom level = {precision}: {vcode_code}')
 print(f'Convert {vcode_code} to WGS84 = {vcode_encode}')
 
 data = vcode.vcode2geojson(vcode_code)
+print(data)
+
 output_file = f'vcode_{precision}.geojson'
 with open(output_file, 'w') as f:
-    geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
+    json.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
 print(f'GeoJSON written to {output_file}')

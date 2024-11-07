@@ -1,4 +1,4 @@
-import geojson
+import json
 from vgrid.geocode import s2
 from vgrid.geocode.geocode2geojson import *
 from vgrid.geocode.s2 import LatLng, CellId
@@ -13,7 +13,9 @@ cell_id_token= CellId.to_token(cell_id)
 print(cell_id_token)
 
 data = s22geojson(cell_id_token)
+print(data)
+
 output_file = f's2_{s2_precision}.geojson'
 with open(output_file, 'w') as f:
-    geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
+    json.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
 print(f'GeoJSON written to {output_file}')

@@ -9,7 +9,8 @@ print(f'OLC at precision = {olc_precision}: {olc_code}')
 print(f'Decode {olc_code} to center and cell in WGS84 = {olc_decode}')
 
 data = olc2geojson(olc_code)
+print(data)
 output_file = f'olc{olc_precision}.geojson'
 with open(output_file, 'w') as f:
-    geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
+    json.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
 print(f'GeoJSON written to {output_file}')

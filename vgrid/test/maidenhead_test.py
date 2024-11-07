@@ -1,6 +1,6 @@
 from vgrid.geocode import maidenhead
 from vgrid.geocode.geocode2geojson import *
-
+import json
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
 maidenhead_precision = 4 #[1-->4]
@@ -10,7 +10,9 @@ print(f'Maidenhead Code at precision = {maidenhead_precision}: {maidenhead_code}
 print(f'Convert {maidenhead_code} to center and cell in WGS84 = {maidenGrid}')
 
 data = maidenhead2geojson(maidenhead_code)
-output_file = 'maidenhead.geojson'
+print(data)
+output_file = f'maidenhead{maidenhead_precision}.geojson'
+
 with open(output_file, 'w') as f:
-    geojson.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
+    json.dump(data, f, indent=2)  # 'indent' makes the JSON output more readable
 print(f'GeoJSON written to {output_file}')
