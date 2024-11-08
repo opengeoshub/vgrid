@@ -88,129 +88,6 @@ def olc2geojson_cli():
     print(geojson_data)
 
 
-def maidenhead2geojson(maidenhead_code):
-    # Decode the Open Location Code into a CodeArea object
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
-    precision = int(len(maidenhead_code)/2)
-    
-    lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-    lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-
-    bbox_width =  f'{round(lon_len,1)} m'
-    bbox_height =  f'{round(lat_len,1)} m'
-    
-    if lon_len >= 10000:
-        bbox_width = f'{round(lon_len/1000,1)} km'
-        bbox_height = f'{round(lat_len/1000,1)} km'
-        
-    if center_lat:
-        # Define the polygon based on the bounding box
-        polygon_coords = [
-            [min_lon, min_lat],  # Bottom-left corner
-            [max_lon, min_lat],  # Bottom-right corner
-            [max_lon, max_lat],  # Top-right corner
-            [min_lon, max_lat],  # Top-left corner
-            [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
-
-        feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]
-            },
-            "properties": {
-                "maidenhead": maidenhead_code,  # Include the OLC as a property
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
-                "precision": precision
-            }
-        }
-
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
-
-def maidenhead2geojson_cli():
-    """
-    Command-line interface for maidenhead2geojson.
-    """
-    parser = argparse.ArgumentParser(description="Convert Maidenhead code to GeoJSON")
-    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., maidenhead2geojson OK30is46")
-    args = parser.parse_args()
-    geojson_data = json.dumps(maidenhead2geojson(args.maidenhead))
-    print(geojson_data)
-
-# SOS: Convert gars_code object to str first
-def gars2geojson(gars_code):
-    gars_grid = GARSGrid(gars_code)
-    wkt_polygon = gars_grid.polygon
-    if wkt_polygon:
-        # # Create the bounding box coordinates for the polygon
-        x, y = wkt_polygon.exterior.xy
-        precision_minute = gars_grid.resolution
-        
-        min_lon = min(x)
-        max_lon = max(x)
-        min_lat = min(y)
-        max_lat = max(y)
-
-        # Calculate center latitude and longitude
-        center_lon = (min_lon + max_lon) / 2
-        center_lat = (min_lat + max_lat) / 2
-
-        # Calculate bounding box width and height
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
- 
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-
-        if lon_len >= 10000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-
-        polygon_coords = list(wkt_polygon.exterior.coords)
-
-        feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
-            "properties": {
-                "gars": gars_code,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
-                "precision_minute": precision_minute
-                }
-            }
-        
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
-     
-def gars2geojson_cli():
-    """
-    Command-line interface for gars2geojson.
-    """
-    parser = argparse.ArgumentParser(description="Convert GARS code to GeoJSON")
-    parser.add_argument("gars", help="Input GARS code, e.g., gars2geojson 574JK1918")
-    args = parser.parse_args()
-    geojson_data = json.dumps(gars2geojson(args.gars))
-    print(geojson_data)
-
-
 def geohash2geojson(geohash_code):
     # Decode the Open Location Code into a CodeArea object
     bbox =  geohash.bbox(geohash_code)
@@ -490,7 +367,6 @@ def h32geojson_cli():
     geojson_data = json.dumps(h32geojson(args.h3))
     print(geojson_data)
 
-
 def s22geojson(cell_id_token):
     # Create an S2 cell from the given cell ID
     cell_id = CellId.from_token(cell_id_token)
@@ -536,7 +412,8 @@ def s22geojson(cell_id_token):
   
         bbox_width = f'{round(lon_len, 1)} m'
         bbox_height = f'{round(lat_len, 1)} m'
-        
+        cell_size= cell_id.get_size_ij()
+
         if lon_len >= 10000:
             bbox_width = f'{round(lon_len / 1000, 1)} km'
             bbox_height = f'{round(lat_len / 1000, 1)} km'
@@ -549,6 +426,7 @@ def s22geojson(cell_id_token):
             "center_lon": center_lon,
             "bbox_width": bbox_width,
             "bbox_height": bbox_height,
+            "cell_size": cell_size,
             "level": cell_id.level()
         }
 
@@ -576,4 +454,126 @@ def s22geojson_cli():
     parser.add_argument("s2", help="Input S2 cell token, e.g., s22geojson 31752f45cc94")
     args = parser.parse_args()
     geojson_data = json.dumps(s22geojson(args.s2))
+    print(geojson_data)
+
+def maidenhead2geojson(maidenhead_code):
+    # Decode the Open Location Code into a CodeArea object
+    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
+    precision = int(len(maidenhead_code)/2)
+    
+    lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+    lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+
+    bbox_width =  f'{round(lon_len,1)} m'
+    bbox_height =  f'{round(lat_len,1)} m'
+    
+    if lon_len >= 10000:
+        bbox_width = f'{round(lon_len/1000,1)} km'
+        bbox_height = f'{round(lat_len/1000,1)} km'
+        
+    if center_lat:
+        # Define the polygon based on the bounding box
+        polygon_coords = [
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ]
+
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [polygon_coords]
+            },
+            "properties": {
+                "maidenhead": maidenhead_code,  # Include the OLC as a property
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "precision": precision
+            }
+        }
+
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        
+        return feature_collection
+
+def maidenhead2geojson_cli():
+    """
+    Command-line interface for maidenhead2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Maidenhead code to GeoJSON")
+    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., maidenhead2geojson OK30is46")
+    args = parser.parse_args()
+    geojson_data = json.dumps(maidenhead2geojson(args.maidenhead))
+    print(geojson_data)
+
+# SOS: Convert gars_code object to str first
+def gars2geojson(gars_code):
+    gars_grid = GARSGrid(gars_code)
+    wkt_polygon = gars_grid.polygon
+    if wkt_polygon:
+        # # Create the bounding box coordinates for the polygon
+        x, y = wkt_polygon.exterior.xy
+        precision_minute = gars_grid.resolution
+        
+        min_lon = min(x)
+        max_lon = max(x)
+        min_lat = min(y)
+        max_lat = max(y)
+
+        # Calculate center latitude and longitude
+        center_lon = (min_lon + max_lon) / 2
+        center_lat = (min_lat + max_lat) / 2
+
+        # Calculate bounding box width and height
+        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+ 
+        bbox_width =  f'{round(lon_len,1)} m'
+        bbox_height =  f'{round(lat_len,1)} m'
+
+        if lon_len >= 10000:
+            bbox_width = f'{round(lon_len/1000,1)} km'
+            bbox_height = f'{round(lat_len/1000,1)} km'
+
+        polygon_coords = list(wkt_polygon.exterior.coords)
+
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [polygon_coords]  # Directly use the coordinates list
+            },
+            "properties": {
+                "gars": gars_code,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "precision_minute": precision_minute
+                }
+            }
+        
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        
+        return feature_collection
+     
+def gars2geojson_cli():
+    """
+    Command-line interface for gars2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert GARS code to GeoJSON")
+    parser.add_argument("gars", help="Input GARS code, e.g., gars2geojson 574JK1918")
+    args = parser.parse_args()
+    geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
