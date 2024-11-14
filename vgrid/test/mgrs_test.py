@@ -3,8 +3,9 @@ from vgrid.geocode.geocode2geojson import *
 import json
 latitude, longitude = 40.00194441, 23.99972080
 latitude, longitude = 10.775275567242561, 106.70679737574993
+latitude, longitude = -80,40
 
-mgrs_precision = 4 # [0 -->5]
+mgrs_precision = 0 # [0 -->5]
 mgrs_code = mgrs.toMgrs(latitude, longitude, mgrs_precision)
 mgrs_code_to_wgs = mgrs.toWgs(mgrs_code)
 print(f'MGRS Code at precision = {mgrs_precision}: {mgrs_code}')

@@ -130,7 +130,7 @@ def geohash2geojson(geohash_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision_minute": precision
+                "precision": precision
                 }
             }
         
@@ -189,7 +189,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                 "origin_lon": origin_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision_minute": precision
+                "precision": precision
                 }
             }
         
@@ -295,7 +295,7 @@ def georef2geojson(georef_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision_minute": precision
+                "precision": precision
                 }
             }
         
