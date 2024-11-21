@@ -8,7 +8,6 @@ latitude, longitude = 10.775275567242561, 106.70679737574993
 s2_precision = 21 #[0 -->30]
 lat_lng = LatLng.from_degrees(latitude, longitude)
 cell_id = CellId.from_lat_lng(lat_lng)
-CellId.get
 cell_id = cell_id.parent(s2_precision)
 cell_id_token= CellId.to_token(cell_id)
 print(cell_id_token)
