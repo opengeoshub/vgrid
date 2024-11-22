@@ -1,84 +1,87 @@
 #Reference: https://observablehq.com/@claude-ducharme/h3-map
 # https://h3-snow.streamlit.app/
 
-import argparse
 import h3
-from shapely.geometry import Polygon, mapping
 import json
-from tqdm import tqdm
+from shapely.geometry import Polygon, mapping
+import argparse
+import geopandas as gdp
 
-def h3_to_polygon(h3_index):
-    """Convert H3 index to a Shapely Polygon."""
-    boundary = h3.h3_to_geo_boundary(h3_index, geo_json=True)
-    polygon = Polygon(boundary)
-    return polygon
+def generate_h3_hexagons(bbox, resolution):
+    """
+    Generate H3 hexagons within a bounding box.
 
-def generate_h3_indices(resolution):
-    """Generate H3 indices at a given resolution level covering the entire world."""
-    if resolution < 0 or resolution > 15:
-        raise ValueError("Resolution level must be between 0 and 15.")
-    
-    # Use H3's built-in methods to get all hexagons at a given resolution
-    h3_indices = set()
-    for lat in range(-90, 90):
-        for lon in range(-180, 0): # western
-        # for lon in range(0, 180):  # eastern
-            h3_index = h3.geo_to_h3(lat, lon, resolution)
-            h3_indices.update(h3.h3_to_children(h3_index, resolution))
-    
-    return h3_indices
+    Args:
+        bbox (list): Bounding box [min_lat, min_lon, max_lat, max_lon].
+        resolution (int): H3 resolution (0 to 15).
 
-def create_world_polygons_at_resolution(resolution):
-    """Create a JSON-compatible structure of polygons at a given resolution level."""
-    h3_polygons = []
-    h3_indices = generate_h3_indices(resolution)
-    
-    for h3_index in tqdm(h3_indices, desc='Generating Polygons'):
-        polygon = h3_to_polygon(h3_index)
-        
-        # Create a polygon in the JSON structure format
-        json_polygon = {
-            "type": "Polygon",
-            "coordinates": [list(polygon.exterior.coords)]  # Ensure it's in the correct format for GeoJSON
-        }
+    Returns:
+        list: List of GeoJSON-like feature dictionaries.
+    """
+    # Define the bounding box polygon in GeoJSON format
+    # geojson_bbox = {
+    #     "type": "Polygon",
+    #     "coordinates": [[
+    #         [bbox[1], bbox[0]],  # [min_lon, min_lat]
+    #         [bbox[1], bbox[2]],  # [min_lon, max_lat]
+    #         [bbox[3], bbox[2]],  # [max_lon, max_lat]
+    #         [bbox[3], bbox[0]],  # [max_lon, min_lat]
+    #         [bbox[1], bbox[0]]   # Closing the loop
+    #     ]]
+    # }
+    geojson_bbox = [
+        [bbox[1], bbox[0]],  # [min_lon, min_lat]
+        [bbox[1], bbox[2]],  # [min_lon, max_lat]
+        [bbox[3], bbox[2]],  # [max_lon, max_lat]
+        [bbox[3], bbox[0]],  # [max_lon, min_lat]
+        [bbox[1], bbox[0]]   # Closing the loop
+    ]
 
-        # Create the feature dictionary
-        feature = {
+    # Generate H3 hexagons using h3.polygon_to_cells
+    h3_hexagons = h3.polygon_to_cells(geojson_bbox, resolution)
+
+    # Create GeoJSON features
+    features = []
+    for hexagon in h3_hexagons:
+        hex_boundary = h3.h3_to_geo_boundary(hexagon, geo_json=True)  # Correct method to get the boundary
+        polygon = Polygon(hex_boundary)
+        features.append({
             "type": "Feature",
-            "geometry": json_polygon,
-            "properties": {"h3": h3_index}
-        }
-        
-        # Append the feature to the list
-        h3_polygons.append(feature)
-    
-    # Create the FeatureCollection structure
+            "geometry": mapping(polygon),
+            "properties": {"h3_index": hexagon}
+        })
+    return features
+
+def save_as_geojson(features, output_file):
+    """
+    Save a list of features to a GeoJSON file.
+
+    Args:
+        features (list): List of feature dictionaries.
+        output_file (str): Path to the output GeoJSON file.
+    """
     feature_collection = {
         "type": "FeatureCollection",
-        "features": h3_polygons
+        "features": features
     }
-
-    # Convert to JSON format (optional step, if you need to return as a JSON string)
-    return json.dumps(feature_collection)
-
-def save_to_geojson(feature_collection, filename):
-    """Save the FeatureCollection to a GeoJSON file."""
-    with open(filename, 'w') as f:
-        json.dump(feature_collection, f)
+    with open(output_file, 'w') as f:
+        json.dump(feature_collection, f, indent=2)
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate world polygons based on H3 indices.')
-    parser.add_argument('-r', '--resolution', type=int, required=True, help='Resolution level for the H3 indices (0-15)')
+    parser = argparse.ArgumentParser(description="Generate H3 hexagons and save as GeoJSON.")
+    parser.add_argument("-r", "--resolution", type=int, required=True,
+                        help="H3 resolution (0 to 15).")
     args = parser.parse_args()
-    
-    try:
-        resolution = args.resolution
-        world_polygons = create_world_polygons_at_resolution(resolution)
-        output_filename = f'./h3_western_{resolution}.geojson'
-        save_to_geojson(world_polygons, output_filename)
-        print(f"GeoJSON file saved as: {output_filename}")
-    except ValueError as e:
-        print(f"Error: {e}")
+
+    # Parameters
+    bounding_box = [-90, -180, 90, 180]  # Global coverage (min_lat, min_lon, max_lat, max_lon)
+    output_file = "h3_hexagons.geojson"  # Output file name
+
+    # Generate and save hexagons
+    hex_features = generate_h3_hexagons(bounding_box, args.resolution)
+    save_as_geojson(hex_features, output_file)
+
+    print(f"H3 hexagons saved to {output_file} at resolution {args.resolution}")
 
 if __name__ == "__main__":
     main()
