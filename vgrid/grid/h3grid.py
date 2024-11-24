@@ -2,86 +2,92 @@
 # https://h3-snow.streamlit.app/
 
 import h3
-import json
 from shapely.geometry import Polygon, mapping
-import argparse
-import geopandas as gdp
+import json
 
-def generate_h3_hexagons(bbox, resolution):
+# def wrap_longitudes(boundary):
+#     """
+#     Adjust longitudes of a hexagon boundary to wrap correctly around the antimeridian.
+
+#     Parameters:
+#         boundary (list): List of (lat, lon) tuples representing the hexagon boundary.
+
+#     Returns:
+#         list: Adjusted boundary with longitudes wrapped as needed.
+#     """
+#     wrapped_boundary = []
+#     for lat, lon in boundary:
+#         # Wrap longitude if greater than 180 degrees
+#         if lon > 180:
+#             lon -= 360
+#         wrapped_boundary.append((lat, lon))
+#     return wrapped_boundary
+
+def filter_antimeridian_cells(hex_boundary, threshold=-128):
     """
-    Generate H3 hexagons within a bounding box.
+    Filters and adjusts hexagons crossing the antimeridian.
 
-    Args:
-        bbox (list): Bounding box [min_lat, min_lon, max_lat, max_lon].
-        resolution (int): H3 resolution (0 to 15).
+    Parameters:
+        hex_boundary (list): List of (lat, lon) tuples representing the hexagon boundary.
+        threshold (float): Longitude threshold to identify crossing cells.
 
     Returns:
-        list: List of GeoJSON-like feature dictionaries.
+        list: Adjusted boundary if it crosses the antimeridian.
     """
-    # Define the bounding box polygon in GeoJSON format
-    # geojson_bbox = {
-    #     "type": "Polygon",
-    #     "coordinates": [[
-    #         [bbox[1], bbox[0]],  # [min_lon, min_lat]
-    #         [bbox[1], bbox[2]],  # [min_lon, max_lat]
-    #         [bbox[3], bbox[2]],  # [max_lon, max_lat]
-    #         [bbox[3], bbox[0]],  # [max_lon, min_lat]
-    #         [bbox[1], bbox[0]]   # Closing the loop
-    #     ]]
-    # }
-    geojson_bbox = [
-        [bbox[1], bbox[0]],  # [min_lon, min_lat]
-        [bbox[1], bbox[2]],  # [min_lon, max_lat]
-        [bbox[3], bbox[2]],  # [max_lon, max_lat]
-        [bbox[3], bbox[0]],  # [max_lon, min_lat]
-        [bbox[1], bbox[0]]   # Closing the loop
-    ]
+    # Check if any longitude in the boundary is below the threshold
+    if any(lon < threshold for _, lon in hex_boundary):
+        # Adjust all longitudes accordingly
+        return [(lat, lon - 360 if lon > 0 else lon) for lat, lon in hex_boundary]
+    return hex_boundary
 
-    # Generate H3 hexagons using h3.polygon_to_cells
-    h3_hexagons = h3.polygon_to_cells(geojson_bbox, resolution)
+def generate_h3_geojson_with_filter(precision, output_file):
+    """
+    Generate H3 cells at a specified precision, filter for antimeridian crossings, 
+    and save them as a GeoJSON file.
 
-    # Create GeoJSON features
+    Parameters:
+        precision (int): The H3 resolution (0-15).
+        output_file (str): Path to save the GeoJSON file.
+
+    Returns:
+        None
+    """
+    if not (0 <= precision <= 15):
+        raise ValueError("Precision must be between 0 and 15.")
+
+    base_cells = h3.get_res0_cells()
     features = []
-    for hexagon in h3_hexagons:
-        hex_boundary = h3.h3_to_geo_boundary(hexagon, geo_json=True)  # Correct method to get the boundary
-        polygon = Polygon(hex_boundary)
-        features.append({
-            "type": "Feature",
-            "geometry": mapping(polygon),
-            "properties": {"h3_index": hexagon}
-        })
-    return features
 
-def save_as_geojson(features, output_file):
-    """
-    Save a list of features to a GeoJSON file.
+    for cell in base_cells:
+        child_cells = h3.cell_to_children(cell, precision)
+        for child_cell in child_cells:
+            # Get the boundary of the cell
+            hex_boundary = h3.cell_to_boundary(child_cell)
+            # Wrap and filter the boundary
+            filtered_boundary = filter_antimeridian_cells(hex_boundary)
+            # Reverse lat/lon to lon/lat for GeoJSON compatibility
+            reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
+            polygon = Polygon(reversed_boundary)
+            if polygon.is_valid:
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(polygon),
+                    "properties": {
+                        "h3_index": child_cell
+                    }
+                })
 
-    Args:
-        features (list): List of feature dictionaries.
-        output_file (str): Path to the output GeoJSON file.
-    """
-    feature_collection = {
+    geojson_data = {
         "type": "FeatureCollection",
         "features": features
     }
+
     with open(output_file, 'w') as f:
-        json.dump(feature_collection, f, indent=2)
+        json.dump(geojson_data, f)
 
-def main():
-    parser = argparse.ArgumentParser(description="Generate H3 hexagons and save as GeoJSON.")
-    parser.add_argument("-r", "--resolution", type=int, required=True,
-                        help="H3 resolution (0 to 15).")
-    args = parser.parse_args()
+    print(f"GeoJSON saved to {output_file}")
 
-    # Parameters
-    bounding_box = [-90, -180, 90, 180]  # Global coverage (min_lat, min_lon, max_lat, max_lon)
-    output_file = "h3_hexagons.geojson"  # Output file name
-
-    # Generate and save hexagons
-    hex_features = generate_h3_hexagons(bounding_box, args.resolution)
-    save_as_geojson(hex_features, output_file)
-
-    print(f"H3 hexagons saved to {output_file} at resolution {args.resolution}")
-
-if __name__ == "__main__":
-    main()
+# Example Usage
+precision = 0  # Choose a precision level
+output_file = f"h3_filtered_cells_precision_{precision}.geojson"
+generate_h3_geojson_with_filter(precision, output_file)
