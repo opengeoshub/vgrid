@@ -200,3 +200,14 @@ print(f'GeoJSON written to {output_file}')
 > gzd -o gzd.shp (Create Grid Zone Designators - used by MGRS)
 > mgrsgrid -o mgrs_32648.shp -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
 ```
+
+### rHEALPix
+https://github.com/manaakiwhenua/rhealpixdggs-py
+
+### DGGRID
+https://github.com/sahrk/DGGRID
+https://github.com/allixender/dggrid4py
+
+### OpenEaggr DGGS
+https://github.com/riskaware-ltd/open-eaggr?tab=readme-ov-file
+https://github.com/riskaware-ltd/open-eaggr/blob/master/EAGGRPython/eaggr/eaggr.py

@@ -88,6 +88,6 @@ def generate_h3_geojson_with_filter(precision, output_file):
     print(f"GeoJSON saved to {output_file}")
 
 # Example Usage
-precision = 0  # Choose a precision level
+precision = 1 # Choose a precision level
 output_file = f"h3_filtered_cells_precision_{precision}.geojson"
 generate_h3_geojson_with_filter(precision, output_file)

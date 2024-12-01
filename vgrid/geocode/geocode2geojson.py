@@ -1,6 +1,9 @@
 from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2
 from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.gars import GARSGrid
+from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
+from vgrid.utils.rhealpixdggs.utils import my_round
+
 import h3
 import math
 import json, os
@@ -325,7 +328,7 @@ def h32geojson(h3_code):
         # Get the center coordinates of the H3 cell
         center_lat, center_lon = h3.cell_to_latlng(h3_code)
         precision = h3.get_resolution(h3_code)
-        edge_len = h3.average_hexagon_edge_length(precision,unit='m')
+        edge_len = h3.edge_length(precision,unit='m')
         
         boundary = list(boundary)
         # Ensure the polygon boundary is closed
@@ -567,7 +570,60 @@ def gars2geojson(gars_code):
         }
         
         return feature_collection
-     
+
+def rhealpix2geojson(rhealpix_code):
+    gars_grid = GARSGrid(rhealpix_code)
+    wkt_polygon = gars_grid.polygon
+    if wkt_polygon:
+        # # Create the bounding box coordinates for the polygon
+        x, y = wkt_polygon.exterior.xy
+        precision_minute = gars_grid.resolution
+        
+        min_lon = min(x)
+        max_lon = max(x)
+        min_lat = min(y)
+        max_lat = max(y)
+
+        # Calculate center latitude and longitude
+        center_lon = (min_lon + max_lon) / 2
+        center_lat = (min_lat + max_lat) / 2
+
+        # Calculate bounding box width and height
+        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+ 
+        bbox_width =  f'{round(lon_len,1)} m'
+        bbox_height =  f'{round(lat_len,1)} m'
+
+        if lon_len >= 10000:
+            bbox_width = f'{round(lon_len/1000,1)} km'
+            bbox_height = f'{round(lat_len/1000,1)} km'
+
+        polygon_coords = list(wkt_polygon.exterior.coords)
+
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [polygon_coords]  # Directly use the coordinates list
+            },
+            "properties": {
+                "gars": rhealpix_code,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "precision_minute": precision_minute
+                }
+            }
+        
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        
+        return feature_collection
+
 def gars2geojson_cli():
     """
     Command-line interface for gars2geojson.

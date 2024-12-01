@@ -23,7 +23,7 @@ def create_s2_grid(zoom_level):
     coverer.min_level = level
     coverer.max_level = level
     coverer.max_cells = 1000000  # Adjust as needed
-    coverer.max_cells = 0  # Adjust as needed
+    # coverer.max_cells = 0  # Adjust as needed
 
 
     # Define the region to cover (in this example, we'll use the entire world)
@@ -47,8 +47,7 @@ def cell_to_polygon(cell_id):
         vertices.append((vertex.lng().degrees, vertex.lat().degrees))
     
     vertices.append(vertices[0])  # Close the polygon
-    
-    # Return a dictionary representing the GeoJSON polygon
+  # Return a dictionary representing the GeoJSON polygon
     polygon = {
         "type": "Polygon",
         "coordinates": [vertices]
