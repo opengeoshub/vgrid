@@ -1,12 +1,12 @@
 #Reference: 
 # https://github.com/aaliddell/s2cell, 
 # https://medium.com/@claude.ducharme/selecting-a-geo-representation-81afeaf3bf01
-# https://github.com/sidewalklabs/s2sphere
+# https://github.com/sidewalklabs/s2
 # https://github.com/google/s2geometry/tree/master/src/python
 # https://github.com/google/s2geometry
 # https://gis.stackexchange.com/questions/293716/creating-shapefile-of-s2-cells-for-given-level
-# https://s2sphere.readthedocs.io/en/latest/quickstart.html
-import s2sphere
+# https://s2.readthedocs.io/en/latest/quickstart.html
+from vgrid.geocode import s2
 import json
 import argparse
 from tqdm import tqdm
@@ -19,7 +19,7 @@ def create_s2_grid(zoom_level):
     cell_ids = []
 
     # Define the cell covering
-    coverer = s2sphere.RegionCoverer()
+    coverer = s2.RegionCoverer()
     coverer.min_level = level
     coverer.max_level = level
     coverer.max_cells = 1000000  # Adjust as needed
@@ -27,8 +27,8 @@ def create_s2_grid(zoom_level):
 
 
     # Define the region to cover (in this example, we'll use the entire world)
-    region = s2sphere.LatLngRect(s2sphere.LatLng.from_degrees(-90, -180),
-                                 s2sphere.LatLng.from_degrees(90, 180))
+    region = s2.LatLngRect(s2.LatLng.from_degrees(-90, -180),
+                                 s2.LatLng.from_degrees(90, 180))
 
     # Get the covering cells
     covering = coverer.get_covering(region)
@@ -40,10 +40,10 @@ def create_s2_grid(zoom_level):
     return cell_ids
 
 def cell_to_polygon(cell_id):
-    cell = s2sphere.Cell(cell_id)
+    cell = s2.Cell(cell_id)
     vertices = []
     for i in range(4):
-        vertex = s2sphere.LatLng.from_point(cell.get_vertex(i))
+        vertex = s2.LatLng.from_point(cell.get_vertex(i))
         vertices.append((vertex.lng().degrees, vertex.lat().degrees))
     
     vertices.append(vertices[0])  # Close the polygon

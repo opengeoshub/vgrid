@@ -6,7 +6,7 @@ import geojson
 rdggs = RHEALPixDGGS()
 
 # Specify resolution
-resolution = 2
+resolution = 1
 grid = rdggs.grid(resolution)
 # print([str(x) for x in grid])
 # Function to filter cells crossing the antimeridian

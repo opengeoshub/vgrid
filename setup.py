@@ -60,7 +60,12 @@ setup(
             'maidenheadgrid = vgrid.grid.maidenheadgrid:main',           
             # 'olcgrid = vgrid.grid.olcgrid:main',
             'h3grid = vgrid.grid.h3grid:main',
-            's2grid = vgrid.grid.s2grid:main'      
+            's2grid = vgrid.grid.s2grid:main',
+
+            'rhealpixstats = vgrid.grid.rhealpixstats:main'   ,
+            'h3stats = vgrid.grid.h3stats:main',
+
+
         ],
     },    
 
