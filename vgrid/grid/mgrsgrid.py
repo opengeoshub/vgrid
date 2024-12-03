@@ -62,17 +62,17 @@ def create_mgrs_grid(minx, miny, maxx, maxy, cell_size, crs):
     """
     # Calculate the number of rows and columns based on cell size
     if cell_size == 100000:
-        precision = 0
+        resolution = 0
     elif cell_size == 10000:
-        precision = 1
+        resolution = 1
     elif cell_size == 1000:
-        precision = 2
+        resolution = 2
     elif cell_size == 100:
-        precision = 3
+        resolution = 3
     elif cell_size == 10:
-        precision = 4
+        resolution = 4
     elif cell_size < 10:
-        precision = 5
+        resolution = 5
 
     rows = int((maxy - miny) / cell_size)
     cols = int((maxx - minx) / cell_size)
@@ -103,7 +103,7 @@ def create_mgrs_grid(minx, miny, maxx, maxy, cell_size, crs):
             lon, lat = transformer.transform(centroid.x, centroid.y)
             
             # Convert the WGS84 coordinates to MGRS
-            mgrs_code = mgrs.toMgrs(lat, lon, precision)
+            mgrs_code = mgrs.toMgrs(lat, lon, resolution)
             mgrs_codes.append(mgrs_code)
     
     # Create a GeoDataFrame with the polygons and MGRS codes, and set the CRS

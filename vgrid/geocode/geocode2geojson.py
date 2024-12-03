@@ -37,7 +37,7 @@ def olc2geojson(olc_code):
         max_lat, max_lon = coord.latitudeHi, coord.longitudeHi
 
         center_lat, center_lon = coord.latitudeCenter, coord.longitudeCenter
-        precision = coord.codeLength 
+        resolution = coord.codeLength 
        
         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
@@ -69,7 +69,7 @@ def olc2geojson(olc_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision": precision
+                "resolution": resolution
             }
         }
 
@@ -101,7 +101,7 @@ def geohash2geojson(geohash_code):
         center_lat = (min_lat + max_lat) / 2
         center_lon = (min_lon + max_lon) / 2
         
-        precision =  len(geohash_code)
+        resolution =  len(geohash_code)
 
         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
@@ -133,7 +133,7 @@ def geohash2geojson(geohash_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision": precision
+                "resolution": resolution
                 }
             }
         
@@ -156,7 +156,7 @@ def geohash2geojson_cli():
 
 
 def mgrs2geojson(mgrs_code,lat=None,lon=None):
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,precision = mgrs.mgrscell(mgrs_code)
+    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_code)
 
     lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
     lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
@@ -192,7 +192,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                 "origin_lon": origin_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision": precision
+                "resolution": resolution
                 }
             }
         
@@ -232,7 +232,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                                 "origin_lon": origin_lon,
                                 "bbox_height": bbox_height,
                                 "bbox_width": bbox_width,
-                                "precision": precision
+                                "resolution": resolution
                             }
                         }
 
@@ -264,7 +264,7 @@ def mgrs2geojson_cli():
 
 
 def georef2geojson(georef_code):
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,precision = georef.georefcell(georef_code)
+    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_code)
 
     lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
     lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
@@ -298,7 +298,7 @@ def georef2geojson(georef_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision": precision
+                "resolution": resolution
                 }
             }
         
@@ -327,8 +327,8 @@ def h32geojson(h3_code):
     if boundary:
         # Get the center coordinates of the H3 cell
         center_lat, center_lon = h3.cell_to_latlng(h3_code)
-        precision = h3.get_resolution(h3_code)
-        edge_len = h3.edge_length(precision,unit='m')
+        resolution = h3.get_resolution(h3_code)
+        edge_len = h3.edge_length(resolution,unit='m')
         
         boundary = list(boundary)
         # Ensure the polygon boundary is closed
@@ -348,7 +348,7 @@ def h32geojson(h3_code):
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "edge_len": edge_len,
-                "precision": precision
+                "resolution": resolution
             }
         }
         # Wrap the feature in a FeatureCollection
@@ -462,7 +462,7 @@ def s22geojson_cli():
 def maidenhead2geojson(maidenhead_code):
     # Decode the Open Location Code into a CodeArea object
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
-    precision = int(len(maidenhead_code)/2)
+    resolution = int(len(maidenhead_code)/2)
     
     lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
     lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
@@ -496,7 +496,7 @@ def maidenhead2geojson(maidenhead_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision": precision
+                "resolution": resolution
             }
         }
 
@@ -524,7 +524,7 @@ def gars2geojson(gars_code):
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
         x, y = wkt_polygon.exterior.xy
-        precision_minute = gars_grid.resolution
+        resolution_minute = gars_grid.resolution
         
         min_lon = min(x)
         max_lon = max(x)
@@ -560,7 +560,7 @@ def gars2geojson(gars_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision_minute": precision_minute
+                "resolution_minute": resolution_minute
                 }
             }
         
@@ -577,7 +577,7 @@ def rhealpix2geojson(rhealpix_code):
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
         x, y = wkt_polygon.exterior.xy
-        precision_minute = gars_grid.resolution
+        resolution_minute = gars_grid.resolution
         
         min_lon = min(x)
         max_lon = max(x)
@@ -613,7 +613,7 @@ def rhealpix2geojson(rhealpix_code):
                 "center_lon": center_lon,
                 "bbox_height": bbox_height,
                 "bbox_width": bbox_width,
-                "precision_minute": precision_minute
+                "resolution_minute": resolution_minute
                 }
             }
         

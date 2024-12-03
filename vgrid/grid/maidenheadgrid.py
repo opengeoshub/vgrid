@@ -10,18 +10,18 @@ import fiona
 from shapely.geometry import Point, Polygon, mapping
 
 
-def maidenheadgrid(precision):
-    # Define the grid parameters based on the precision
-    if precision == 1:
+def maidenheadgrid(resolution):
+    # Define the grid parameters based on the resolution
+    if resolution == 1:
         x_cells, y_cells, lon_width, lat_width = 18, 18, 20, 10
-    elif precision == 2:
+    elif resolution == 2:
         x_cells, y_cells, lon_width, lat_width = 180, 180, 2, 1
-    elif precision == 3:
+    elif resolution == 3:
         x_cells, y_cells, lon_width, lat_width = 1800, 1800, 0.2, 0.1
-    elif precision == 4:
+    elif resolution == 4:
         x_cells, y_cells, lon_width, lat_width = 18000, 18000, 0.02, 0.01
     else:
-        raise ValueError("Unsupported precision")
+        raise ValueError("Unsupported resolution")
 
     cells = []
     base_lat, base_lon = -90, -180  # Starting latitude and longitude
@@ -35,7 +35,7 @@ def maidenheadgrid(precision):
             max_lat = min_lat + lat_width
             center_lat = (min_lat + max_lat) / 2
             center_lon = (min_lon + max_lon) / 2
-            maidenhead_code = maidenhead.toMaiden(center_lat, center_lon, precision)
+            maidenhead_code = maidenhead.toMaiden(center_lat, center_lon, resolution)
 
             cells.append({
                 'center_lat': center_lat,
@@ -137,17 +137,17 @@ def maidengrid2shapefile(cells, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Maidenhead grid cells and save as Shapefile")
-    parser.add_argument('-p', '--precision', type=int, choices=[1, 2, 3, 4], default=1,
-                        help="Precision level for Maidenhead grid (1 to 4)")
+    parser.add_argument('-r', '--resolution', type=int, choices=[1, 2, 3, 4], default=1,
+                        help="resolution for Maidenhead grid (1 to 4)")
     parser.add_argument('-o', '--output', type=str, required=True,
                         help="Output file path for the Shapefile data (e.g., output.shp)")
     args = parser.parse_args()
     
     try:
-        cells = maidenheadgrid(args.precision)
+        cells = maidenheadgrid(args.resolution)
         maidengrid2shapefile(cells, args.output)
 
-        print(f"Shapefile data for Maidenhead precision {args.precision} written to {args.output}")
+        print(f"Shapefile data for Maidenhead at resolution {args.resolution} written to {args.output}")
 
     except Exception as e:
         print(f"An error occurred: {e}")

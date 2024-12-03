@@ -75,7 +75,7 @@ def generate_gars_grid():
     
     # Initialize a list to store GARS grid polygons
     gars_grid = []
-    res = 0.25
+    res = 0.5
     # Use numpy to generate ranges with floating-point steps
     longitudes = np.arange(lon_min, lon_max, res)
     latitudes = np.arange(lat_min, lat_max, res)
@@ -92,13 +92,13 @@ def generate_gars_grid():
             # print(poly)
             gars_grid.append({'geometry': poly, 'gars': str(gars_code)})
     
-    print(gars_grid)
+    # print(gars_grid)
     
     # # Create a GeoDataFrame
     gars_gdf = gpd.GeoDataFrame(gars_grid, crs=CRS.from_epsg(4326))
     
     # # Save the grid
-    gars_gdf.to_file('./data/grid/gars/gars_grid_15minutes.geojson', driver='GeoJSON')
+    gars_gdf.to_file('./gars_grid_30minutes.geojson', driver='GeoJSON')
 
 # Run the function
 generate_gars_grid()

@@ -40,26 +40,26 @@ def filter_antimeridian_cells(hex_boundary, threshold=-128):
         return [(lat, lon - 360 if lon > 0 else lon) for lat, lon in hex_boundary]
     return hex_boundary
 
-def generate_h3_geojson_with_filter(precision, output_file):
+def generate_h3_geojson_with_filter(resolution, output_file):
     """
-    Generate H3 cells at a specified precision, filter for antimeridian crossings, 
+    Generate H3 cells at a specified resolution, filter for antimeridian crossings, 
     and save them as a GeoJSON file.
 
     Parameters:
-        precision (int): The H3 resolution (0-15).
+        resolution (int): The H3 resolution (0-15).
         output_file (str): Path to save the GeoJSON file.
 
     Returns:
         None
     """
-    if not (0 <= precision <= 15):
-        raise ValueError("Precision must be between 0 and 15.")
+    if not (0 <= resolution <= 15):
+        raise ValueError("resolution must be between 0 and 15.")
 
     base_cells = h3.get_res0_cells()
     features = []
 
     for cell in base_cells:
-        child_cells = h3.cell_to_children(cell, precision)
+        child_cells = h3.cell_to_children(cell, resolution)
         for child_cell in child_cells:
             # Get the boundary of the cell
             hex_boundary = h3.cell_to_boundary(child_cell)
@@ -88,6 +88,6 @@ def generate_h3_geojson_with_filter(precision, output_file):
     print(f"GeoJSON saved to {output_file}")
 
 # Example Usage
-precision = 1 # Choose a precision level
-output_file = f"h3_filtered_cells_precision_{precision}.geojson"
-generate_h3_geojson_with_filter(precision, output_file)
+resolution = 1 # Choose a resolution level
+output_file = f"h3_{resolution}.geojson"
+generate_h3_geojson_with_filter(resolution, output_file)

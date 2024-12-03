@@ -5,7 +5,7 @@ from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round, wrap_longitude, wrap_latitude
 from texttable import Texttable
 
-def rheapix_stats(min_res=0, max_res=14, output_file=None):
+def rheapix_stats(min_res=0, max_res=15, output_file=None):
     rdggs = RHEALPixDGGS()
     
     # Create a Texttable object for displaying in the terminal
@@ -56,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export or display RHEALPix DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=14, help="Maximum resolution.")
+    parser.add_argument('-maxres','--maxres', type=int, default=15, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)

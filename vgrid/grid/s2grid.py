@@ -11,9 +11,9 @@ import json
 import argparse
 from tqdm import tqdm
 
-def create_s2_grid(zoom_level):
+def create_s2_grid(resolution):
     # Define the cell level (S2 uses a level system for zoom, where level 30 is the highest resolution)
-    level = zoom_level
+    level = resolution
 
     # Create a list to store the S2 cell IDs
     cell_ids = []
@@ -80,17 +80,17 @@ def save_s2_grid_as_geojson(cell_ids, output_filename):
         json.dump(feature_collection, f)
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate S2 grid at a specific zoom level and save as GeoJSON.")
-    parser.add_argument('-z', '--zoom', type=int, required=True, help="Zoom level for the S2 grid.")
+    parser = argparse.ArgumentParser(description="Generate S2 grid at a specific resolution and save as GeoJSON.")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="resolution for the S2 grid.")
     parser.add_argument('-o', '--output', type=str, required=True, help="Output GeoJSON file name.")
     args = parser.parse_args()
     
-    zoom_level = args.zoom
+    res = args.resolution
     output_filename = args.output
     
-    cell_ids = create_s2_grid(zoom_level)
+    cell_ids = create_s2_grid(res)
     save_s2_grid_as_geojson(cell_ids, output_filename)
-    print(f"S2 grid at zoom level {zoom_level} saved to {output_filename}")
+    print(f"S2 grid at resolution {res} saved to {output_filename}")
 
 if __name__ == "__main__":
     main()

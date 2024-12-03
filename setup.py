@@ -62,9 +62,16 @@ setup(
             'h3grid = vgrid.grid.h3grid:main',
             's2grid = vgrid.grid.s2grid:main',
 
-            'rhealpixstats = vgrid.grid.rhealpixstats:main'   ,
-            'h3stats = vgrid.grid.h3stats:main',
+            'rhealpixstats = vgrid.stats.rhealpixstats:main'   ,
+            'h3stats = vgrid.stats.h3stats:main',
+            's2stats = vgrid.stats.s2stats:main',
 
+            # 'olcstats = vgrid.stats.olcstats:main',
+            'geohashstats = vgrid.stats.geohashstats:main',
+            'maidenheadstats = vgrid.stats.maidenheadstats:main',
+            'garsstats = vgrid.stats.garsstats:main',
+            'georefstats = vgrid.stats.georefstats:main',
+            'mgrsstats = vgrid.stats.mgrsstats:main',
 
         ],
     },    

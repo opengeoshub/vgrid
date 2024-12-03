@@ -63,14 +63,14 @@ def generate_shapefile_for_olc_length(length, bbox):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Shapefile with OLC codes and centroids.")
-    parser.add_argument('-p', '--precision', type=int, required=True, help="Length of the plus code [2,4,8]")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Length of the plus code [2,4,8]")
     parser.add_argument('-o', '--output', type=str, required=True, help="Output filename for the Shapefile")
     
     args = parser.parse_args()
     
-    length = args.precision
+    length = args.resolution
     if length not in [2, 4, 8]:
-        print("Error: Precision (code length) must be one of [2, 4, 8].")
+        print("Error: resolution (code length) must be one of [2, 4, 8].")
         return
     
     bbox = [-180, -85.051129, 180, 85.051129]  # Bounding box for the entire globe

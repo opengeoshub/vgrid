@@ -32,10 +32,10 @@ def geohash_to_polygon(gh):
     
     return polygon
 
-def generate_geohashes(precision):
-    """Generate geohashes at a given precision level."""
-    if precision < 1 or precision > 12:
-        raise ValueError("Precision level must be between 1 and 12.")
+def generate_geohashes(resolution):
+    """Generate geohashes at a given resolution level."""
+    if resolution < 1 or resolution > 12:
+        raise ValueError("resolution level must be between 1 and 12.")
     
     geohashes = set()
     initial_geohashes = ["b", "c", "f", "g", "u", "v", "y", "z", "8", "9", "d", "e", "s", "t", "w", "x", "0", "1", "2", "3", "p", "q", "r", "k", "m", "n", "h", "j", "4", "5", "6", "7"]
@@ -48,14 +48,14 @@ def generate_geohashes(precision):
             expand_geohash(gh + char, target_length)
     
     for gh in initial_geohashes:
-        expand_geohash(gh, precision)
+        expand_geohash(gh, resolution)
     
     return geohashes
 
-def create_world_polygons_at_precision(precision):
-    """Create a GeoDataFrame of polygons at a given precision level."""
+def create_world_polygons_at_resolution(resolution):
+    """Create a GeoDataFrame of polygons at a given resolution level."""
     geohash_polygons = []
-    geohashes = generate_geohashes(precision)
+    geohashes = generate_geohashes(resolution)
     
     for gh in tqdm(geohashes, desc='Generating Polygons'):
         polygon = geohash_to_polygon(gh)
@@ -81,18 +81,18 @@ def save_to_shapefile(gdf, filename):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate world polygons based on geohashes.')
-    parser.add_argument('-p', '--precision', type=int, required=True, help='Precision level for the geohashes (1-12)')
+    parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution level for the geohashes (1-12)')
     parser.add_argument('-o', '--output', type=str, required=True, help='Output file path for the Shapefile')
     args = parser.parse_args()
     
     try:
-        precision = args.precision
+        resolution = args.resolution
         output_filename = args.output
         
-        world_polygons_gdf = create_world_polygons_at_precision(precision)
+        world_polygons_gdf = create_world_polygons_at_resolution(resolution)
         save_to_shapefile(world_polygons_gdf, output_filename)
         
-        print(f"Shapefile created for geohash precision {precision}")
+        print(f"Shapefile created for geohash resolution {resolution}")
         # p=1 --> zoom level: 0-4
         # p=2 --> zoom level: 5-6
         # p=3 --> zoom level: 7-9

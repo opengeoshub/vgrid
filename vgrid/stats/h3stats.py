@@ -4,20 +4,20 @@ import csv
 import h3
 from texttable import Texttable
 
-def h3_stats(min_res=0, max_res=14, output_file=None):
+def h3_stats(min_res=0, max_res=15, output_file=None):
 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
     # Add header to the table, including the new 'Cell Width' and 'Cell Area' columns
-    t.add_row(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)"])
+    t.add_row(["Resolution", "Number of Cells", "Avg Hex Length (m)", "Avg Hex Area (sq m)"])
     
     # Check if an output file is specified (for CSV export)
     if output_file:
         # Open the output CSV file for writing
         with open(output_file, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)"])
+            writer.writerow(["Resolution", "Number of Cells", "Avg Hex Edge Length (m)", "Avg Hex Area (sq m)"])
             
             # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res + 1):
@@ -54,7 +54,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export or display H3 DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=14, help="Maximum resolution.")
+    parser.add_argument('-maxres','--maxres', type=int, default=15, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)

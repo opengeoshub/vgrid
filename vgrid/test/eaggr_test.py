@@ -17,9 +17,9 @@ dggs = Eaggr(Model.ISEA3H)
 dggs = Eaggr(Model.ISEA4T)
 
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
-precision =  10
+resolution =  10
  # Create the lat/long points
-lat_long_point = LatLongPoint(10.775275567242561, 106.70679737574993, precision)
+lat_long_point = LatLongPoint(10.775275567242561, 106.70679737574993, resolution)
 # Initialise the DGGS model
 # Convert the first lat/long point
 dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
