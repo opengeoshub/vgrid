@@ -4,21 +4,22 @@ from vgrid.utils.rhealpixdggs.utils import my_round
 
 E = WGS84_ELLIPSOID
 # rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=2, N_side=3)
-# rdggs = RHEALPixDGGS(N_side=15)
 # rdggs = RHEALPixDGGS()
-rdggs = RHEALPixDGGS(ellipsoid=E, north_square=4, south_square=100, N_side=3)
+rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
 # rdggs = WGS84_003
 # print(rdggs)
 latitude, longitude = 10.775275567242561, 106.70679737574993
 p = (longitude, latitude)
-c = rdggs.cell_from_point(13, p, plane=False)
-rdggs.cell_area(1)
-print(rdggs.cell_area(1))
+resolution = 0 # [0,15]
+c = rdggs.cell_from_point(15, p, plane=False)
+# rdggs.cell_area(1)
+# print(rdggs.cell_area(1))
+print (c)
 for p in c.vertices(plane=False, trim_dart=True):
     print(tuple(x.tolist() for x in p))
 
-c = rdggs.cell(['N', 7])
-print(rdggs.triangle(*c.nucleus(), inverse=False))
+# c = rdggs.cell(['N', 7])
+# print(rdggs.triangle(*c.nucleus(), inverse=False))
 
 # c = rdggs.cell(['R', 8])
 # cell = rdggs.cell(('R3126036255355',))
@@ -28,18 +29,18 @@ print(rdggs.triangle(*c.nucleus(), inverse=False))
 # for p in c.vertices():
 #     print (p)
 # print(c)
-def rhealpix_cell_from_id(cell_id):
-    # Example parsing logic (adjust according to your format)
-    region = int(cell_id[1:2])  # Extract the region (e.g., 'R3' -> 3)
-    level = int(cell_id[3:4])   # Extract the level (e.g., 'L2' -> 2)
-    pixel = int(cell_id[5:])    # Extract the pixel index (e.g., 'P12345' -> 12345)
+# def rhealpix_cell_from_id(cell_id):
+#     # Example parsing logic (adjust according to your format)
+#     region = int(cell_id[1:2])  # Extract the region (e.g., 'R3' -> 3)
+#     level = int(cell_id[3:4])   # Extract the level (e.g., 'L2' -> 2)
+#     pixel = int(cell_id[5:])    # Extract the pixel index (e.g., 'P12345' -> 12345)
 
-    # Return a dictionary or a custom object representing the cell
-    return {
-        "region": region,
-        "level": level,
-        "pixel": pixel
-    }
+#     # Return a dictionary or a custom object representing the cell
+#     return {
+#         "region": region,
+#         "level": level,
+#         "pixel": pixel
+#     }
 
 # Example usage
 # cell_id = "N"

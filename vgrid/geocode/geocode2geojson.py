@@ -1,13 +1,16 @@
-from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2
+from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2, tilecode
 from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.gars import GARSGrid
+from ..utils import mercantile
+import re
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
-
+from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
+from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 import h3
 import math
 import json, os
-import geopandas as gpd
+# import geopandas as gpd
 from shapely.geometry import Polygon, Point
 import argparse
 
@@ -196,53 +199,53 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                 }
             }
         
-        if lat is not None and lon is not None:
-            # Load the GZD JSON file (treated as GeoJSON format) from the same folder
-            gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
-            with open(gzd_json_path) as f:
-                gzd_json = json.load(f)
+        # if lat is not None and lon is not None:
+        #     # Load the GZD JSON file (treated as GeoJSON format) from the same folder
+        #     gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
+        #     with open(gzd_json_path) as f:
+        #         gzd_json = json.load(f)
 
-            # Convert the GZD JSON to a GeoDataFrame
-            gzd_gdf = gpd.GeoDataFrame.from_features(gzd_json['features'], crs="EPSG:4326")
+        #     # Convert the GZD JSON to a GeoDataFrame
+        #     gzd_gdf = gpd.GeoDataFrame.from_features(gzd_json['features'], crs="EPSG:4326")
 
-            # Convert the MGRS polygon to a GeoDataFrame for intersection
-            mgrs_gdf = gpd.GeoDataFrame(geometry=[mgrs_polygon], crs="EPSG:4326")
+        #     # Convert the MGRS polygon to a GeoDataFrame for intersection
+        #     mgrs_gdf = gpd.GeoDataFrame(geometry=[mgrs_polygon], crs="EPSG:4326")
 
-            # Perform the intersection
-            intersection_gdf = gpd.overlay(mgrs_gdf, gzd_gdf, how='intersection')
+        #     # Perform the intersection
+        #     intersection_gdf = gpd.overlay(mgrs_gdf, gzd_gdf, how='intersection')
 
-            # Check if the intersection result is empty
-            if not intersection_gdf.empty:
-                # Convert lat/lon to a Shapely point
-                point = Point(lon, lat)
+        #     # Check if the intersection result is empty
+        #     if not intersection_gdf.empty:
+        #         # Convert lat/lon to a Shapely point
+        #         point = Point(lon, lat)
 
-                # Check if the point is inside any of the intersection polygons
-                for intersection_polygon in intersection_gdf.geometry:
-                    if intersection_polygon.contains(point):
-                        # Manually construct the intersection as a JSON-like structure
-                        intersection_feature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [list(intersection_polygon.exterior.coords)]
-                            },
-                            "properties": {
-                                "mgrs": mgrs_code,
-                                "origin_lat": origin_lat,
-                                "origin_lon": origin_lon,
-                                "bbox_height": bbox_height,
-                                "bbox_width": bbox_width,
-                                "resolution": resolution
-                            }
-                        }
+        #         # Check if the point is inside any of the intersection polygons
+        #         for intersection_polygon in intersection_gdf.geometry:
+        #             if intersection_polygon.contains(point):
+        #                 # Manually construct the intersection as a JSON-like structure
+        #                 intersection_feature = {
+        #                     "type": "Feature",
+        #                     "geometry": {
+        #                         "type": "Polygon",
+        #                         "coordinates": [list(intersection_polygon.exterior.coords)]
+        #                     },
+        #                     "properties": {
+        #                         "mgrs": mgrs_code,
+        #                         "origin_lat": origin_lat,
+        #                         "origin_lon": origin_lon,
+        #                         "bbox_height": bbox_height,
+        #                         "bbox_width": bbox_width,
+        #                         "resolution": resolution
+        #                     }
+        #                 }
 
-                        # Wrap the feature in a FeatureCollection
-                        intersection_feature_collection = {
-                            "type": "FeatureCollection",
-                            "features": [intersection_feature]
-                        }
+        #                 # Wrap the feature in a FeatureCollection
+        #                 intersection_feature_collection = {
+        #                     "type": "FeatureCollection",
+        #                     "features": [intersection_feature]
+        #                 }
 
-                        return intersection_feature_collection
+        #                 return intersection_feature_collection
 
         # If no intersection or point not contained, return the original MGRS GeoJSON
         feature_collection = {
@@ -459,6 +462,96 @@ def s22geojson_cli():
     geojson_data = json.dumps(s22geojson(args.s2))
     print(geojson_data)
 
+def tilecode2geojson(tile_code):
+    """
+    Converts a tilecode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
+    representing the tile's bounds and includes the original tilecode as a property.
+
+    Args:
+        tilecode (str): The tile code in the format 'zXxYyZ'.
+
+    Returns:
+        dict: A GeoJSON Feature with a Polygon geometry and tilecode as a property.
+    """
+    # Extract z, x, y from the tilecode using regex
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', tile_code)
+    if not match:
+        raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+
+    # Convert matched groups to integers
+    z = int(match.group(1))
+    x = int(match.group(2))
+    y = int(match.group(3))
+
+    # Get the bounds of the tile in (west, south, east, north)
+    bounds = mercantile.bounds(x, y, z)    
+
+    if bounds:
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
+
+        # tile = mercantile.Tile(x, y, z)
+        # quadkey = mercantile.quadkey(tile)
+
+        center_lat = (min_lat + max_lat) / 2
+        center_lon = (min_lon + max_lon) / 2
+               
+        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+
+        bbox_width =  f'{round(lon_len,1)} m'
+        bbox_height =  f'{round(lat_len,1)} m'
+        if lon_len >= 10000:
+            bbox_width = f'{round(lon_len/1000,1)} km'
+            bbox_height = f'{round(lat_len/1000,1)} km'
+
+        # Define the polygon based on the bounding box
+        polygon_coords = [
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ]
+        
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [polygon_coords]
+            },
+            "properties": {
+                "tilecode": tilecode,  # Include the OLC as a property
+                # "quadkey": quadkey,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "bbox_height": bbox_height,
+                "bbox_width": bbox_width,
+                "resolution": z  # Using the code length as precision
+            }
+        }
+
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        
+        return feature_collection
+
+def tilecode2geojson_cli():
+    """
+    Command-line interface for tilecode2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Tilecode to GeoJSON")
+    parser.add_argument("tilecode", help="Input Tilecode, e.g. z0x0y0")
+    args = parser.parse_args()
+
+    # Generate the GeoJSON feature
+    geojson_data = json.dumps(tilecode2geojson(args.tilecode))
+    print(geojson_data)
+
+
 def maidenhead2geojson(maidenhead_code):
     # Decode the Open Location Code into a CodeArea object
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
@@ -571,59 +664,6 @@ def gars2geojson(gars_code):
         
         return feature_collection
 
-def rhealpix2geojson(rhealpix_code):
-    gars_grid = GARSGrid(rhealpix_code)
-    wkt_polygon = gars_grid.polygon
-    if wkt_polygon:
-        # # Create the bounding box coordinates for the polygon
-        x, y = wkt_polygon.exterior.xy
-        resolution_minute = gars_grid.resolution
-        
-        min_lon = min(x)
-        max_lon = max(x)
-        min_lat = min(y)
-        max_lat = max(y)
-
-        # Calculate center latitude and longitude
-        center_lon = (min_lon + max_lon) / 2
-        center_lat = (min_lat + max_lat) / 2
-
-        # Calculate bounding box width and height
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
- 
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-
-        if lon_len >= 10000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-
-        polygon_coords = list(wkt_polygon.exterior.coords)
-
-        feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
-            "properties": {
-                "gars": rhealpix_code,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
-                "resolution_minute": resolution_minute
-                }
-            }
-        
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
-
 def gars2geojson_cli():
     """
     Command-line interface for gars2geojson.
@@ -633,3 +673,57 @@ def gars2geojson_cli():
     args = parser.parse_args()
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
+
+# def rhealpix2geojson(rhealpix_code):
+#     E = WGS84_ELLIPSOID
+#     rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
+#     wkt_polygon = gars_grid.polygon
+#     if wkt_polygon:
+#         # # Create the bounding box coordinates for the polygon
+#         x, y = wkt_polygon.exterior.xy
+#         resolution_minute = gars_grid.resolution
+        
+#         min_lon = min(x)
+#         max_lon = max(x)
+#         min_lat = min(y)
+#         max_lat = max(y)
+
+#         # Calculate center latitude and longitude
+#         center_lon = (min_lon + max_lon) / 2
+#         center_lat = (min_lat + max_lat) / 2
+
+#         # Calculate bounding box width and height
+#         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+#         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+ 
+#         bbox_width =  f'{round(lon_len,1)} m'
+#         bbox_height =  f'{round(lat_len,1)} m'
+
+#         if lon_len >= 10000:
+#             bbox_width = f'{round(lon_len/1000,1)} km'
+#             bbox_height = f'{round(lat_len/1000,1)} km'
+
+#         polygon_coords = list(wkt_polygon.exterior.coords)
+
+#         feature = {
+#             "type": "Feature",
+#             "geometry": {
+#                 "type": "Polygon",
+#                 "coordinates": [polygon_coords]  # Directly use the coordinates list
+#             },
+#             "properties": {
+#                 "gars": rhealpix_code,
+#                 "center_lat": center_lat,
+#                 "center_lon": center_lon,
+#                 "bbox_height": bbox_height,
+#                 "bbox_width": bbox_width,
+#                 "resolution_minute": resolution_minute
+#                 }
+#             }
+        
+#         feature_collection = {
+#             "type": "FeatureCollection",
+#             "features": [feature]
+#         }
+        
+#         return feature_collection

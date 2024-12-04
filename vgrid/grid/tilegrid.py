@@ -42,9 +42,9 @@ def create_tile(z, x, y):
         tile_geometry = box(0, 0, 4096, 4096)
         quadkey = mercantile.quadkey(x, y, z)
         properties = {
-            'vcode': f'z{z}x{x}y{y}',
+            'tilecode': f'z{z}x{x}y{y}',
+            'tilename': f'{z}/{x}/{y}',
             'tmscode': f'z{z}x{x}y{flip_y}',
-            'vname': f'{z}/{x}/{y}',
             'tmsname': f'{z}/{x}/{flip_y}',
             'quadkey': quadkey
         }
