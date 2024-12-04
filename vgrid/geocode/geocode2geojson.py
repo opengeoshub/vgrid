@@ -331,7 +331,7 @@ def h32geojson(h3_code):
         # Get the center coordinates of the H3 cell
         center_lat, center_lon = h3.cell_to_latlng(h3_code)
         resolution = h3.get_resolution(h3_code)
-        edge_len = h3.edge_length(resolution,unit='m')
+        avg_edge_len = h3.average_hexagon_edge_length(resolution,unit='m')
         
         boundary = list(boundary)
         # Ensure the polygon boundary is closed
@@ -350,7 +350,7 @@ def h32geojson(h3_code):
                 "h3": h3_code,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "edge_len": edge_len,
+                "avg_edge_len": avg_edge_len,
                 "resolution": resolution
             }
         }
