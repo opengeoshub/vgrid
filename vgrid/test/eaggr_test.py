@@ -13,7 +13,7 @@ from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
 from vgrid.utils.eaggr.enums.dggs_analysis_type import DggsAnalysisType
 from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
 
-dggs = Eaggr(Model.ISEA3H)
+# dggs = Eaggr(Model.ISEA3H)
 dggs = Eaggr(Model.ISEA4T)
 
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
@@ -23,4 +23,9 @@ lat_long_point = LatLongPoint(10.775275567242561, 106.70679737574993, resolution
 # Initialise the DGGS model
 # Convert the first lat/long point
 dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
+boundings = dggs.get_bounding_dggs_cell([dggs_cell])
+bounding2shape  = dggs.convert_dggs_cells_to_shape_string([boundings],ShapeStringFormat.WKT)
+print(bounding2shape)
 print (dggs_cell.get_cell_id())
+cell2shape = dggs.convert_dggs_cells_to_shape_string([dggs_cell],ShapeStringFormat.WKT)
+print (cell2shape)

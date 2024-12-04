@@ -686,9 +686,12 @@ def rhealpix2geojson(rhealpix_code):
     planar_cell_width = rdggs.cell_width(resolution, plane=True) # If plane = False, then return None, because the ellipsoidal cells don't have constant width.
     geodesic_cell_area = rdggs.cell_area(resolution, plane=False)
     
+    planar_cell_width_str =  f'{round(planar_cell_width,2)} m'
+    geodesic_cell_area_str=  f'{round(geodesic_cell_area,2)} m'
+
     if geodesic_cell_area >= 100_000:
-        planar_cell_width = f'{round(planar_cell_width/1000,2)} km'
-        geodesic_cell_area = f'{round(geodesic_cell_area/(10**6),2)} km2'
+        planar_cell_width_str = f'{round(planar_cell_width/1000,2)} km'
+        geodesic_cell_area_str = f'{round(geodesic_cell_area/(10**6),2)} km2'
     
     coordinates = []
     for vertice in rhealpix_cell.vertices(plane=False):  
@@ -698,8 +701,8 @@ def rhealpix2geojson(rhealpix_code):
    
     longitudes = [point[0] for point in coordinates]
     latitudes = [point[1] for point in coordinates]
-    center_lon = sum(longitudes) / len(longitudes)
-    center_lat = sum(latitudes) / len(latitudes)
+    center_lon = round(sum(longitudes) / len(longitudes),7)
+    center_lat = round(sum(latitudes) / len(latitudes),7)
 
     if coordinates:       
         feature = {
@@ -712,8 +715,8 @@ def rhealpix2geojson(rhealpix_code):
                 "rhealpix": rhealpix_code,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "planar_cell_width": planar_cell_width,
-                "geodesic_cell_area": geodesic_cell_area,
+                "planar_cell_width": planar_cell_width_str,
+                "geodesic_cell_area": geodesic_cell_area_str,
                 "resolution": resolution
                 }
             }
