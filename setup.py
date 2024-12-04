@@ -14,7 +14,8 @@ requirements = [
     'h3~=4.1.1',
     'pandas~=2.0.3',
     'scipy',
-    'future'
+    'future',
+    'rhealpixdggs'
     ],
 
 def clean_build():
@@ -29,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.17',
+    version='1.1.18',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',

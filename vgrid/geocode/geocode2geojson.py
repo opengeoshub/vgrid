@@ -462,7 +462,7 @@ def s22geojson_cli():
     geojson_data = json.dumps(s22geojson(args.s2))
     print(geojson_data)
 
-def tilecode2geojson(tile_code):
+def tilecode2geojson(tilecode):
     """
     Converts a tilecode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
     representing the tile's bounds and includes the original tilecode as a property.
@@ -474,7 +474,7 @@ def tilecode2geojson(tile_code):
         dict: A GeoJSON Feature with a Polygon geometry and tilecode as a property.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tile_code)
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
