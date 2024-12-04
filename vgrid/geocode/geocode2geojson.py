@@ -3,10 +3,9 @@ from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.gars import GARSGrid
 from ..utils import mercantile
 import re
-from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.utils.rhealpixdggs.utils import my_round
-from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+from rhealpixdggs.dggs import RHEALPixDGGS
+from rhealpixdggs.utils import my_round
+from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 import h3
 import math
 import json, os
@@ -674,56 +673,64 @@ def gars2geojson_cli():
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
 
-# def rhealpix2geojson(rhealpix_code):
-#     E = WGS84_ELLIPSOID
-#     rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
-#     wkt_polygon = gars_grid.polygon
-#     if wkt_polygon:
-#         # # Create the bounding box coordinates for the polygon
-#         x, y = wkt_polygon.exterior.xy
-#         resolution_minute = gars_grid.resolution
+
+def rhealpix2geojson(rhealpix_code):
+    rhealpix_code = str(rhealpix_code)
+    rhealpix_uids = (rhealpix_code[0],) + tuple(map(int, rhealpix_code[1:]))
+    
+    E = WGS84_ELLIPSOID
+    rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
+    
+    rhealpix_cell = rdggs.cell(rhealpix_uids)
+    resolution = rhealpix_cell.resolution
+    planar_cell_width = rdggs.cell_width(resolution, plane=True) # If plane = False, then return None, because the ellipsoidal cells don't have constant width.
+    geodesic_cell_area = rdggs.cell_area(resolution, plane=False)
+    
+    if geodesic_cell_area >= 100_000:
+        planar_cell_width = f'{round(planar_cell_width/1000,2)} km'
+        geodesic_cell_area = f'{round(geodesic_cell_area/(10**6),2)} km2'
+    
+    coordinates = []
+    for vertice in rhealpix_cell.vertices(plane=False):  
+        coordinates.append([vertice[0], vertice[1]])
+    # Close the polygon
+    coordinates.append(coordinates[0])
+   
+    longitudes = [point[0] for point in coordinates]
+    latitudes = [point[1] for point in coordinates]
+    center_lon = sum(longitudes) / len(longitudes)
+    center_lat = sum(latitudes) / len(latitudes)
+
+    if coordinates:       
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [coordinates]  # Directly use the coordinates list
+            },
+            "properties": {
+                "rhealpix": rhealpix_code,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "planar_cell_width": planar_cell_width,
+                "geodesic_cell_area": geodesic_cell_area,
+                "resolution": resolution
+                }
+            }
         
-#         min_lon = min(x)
-#         max_lon = max(x)
-#         min_lat = min(y)
-#         max_lat = max(y)
-
-#         # Calculate center latitude and longitude
-#         center_lon = (min_lon + max_lon) / 2
-#         center_lat = (min_lat + max_lat) / 2
-
-#         # Calculate bounding box width and height
-#         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-#         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
- 
-#         bbox_width =  f'{round(lon_len,1)} m'
-#         bbox_height =  f'{round(lat_len,1)} m'
-
-#         if lon_len >= 10000:
-#             bbox_width = f'{round(lon_len/1000,1)} km'
-#             bbox_height = f'{round(lat_len/1000,1)} km'
-
-#         polygon_coords = list(wkt_polygon.exterior.coords)
-
-#         feature = {
-#             "type": "Feature",
-#             "geometry": {
-#                 "type": "Polygon",
-#                 "coordinates": [polygon_coords]  # Directly use the coordinates list
-#             },
-#             "properties": {
-#                 "gars": rhealpix_code,
-#                 "center_lat": center_lat,
-#                 "center_lon": center_lon,
-#                 "bbox_height": bbox_height,
-#                 "bbox_width": bbox_width,
-#                 "resolution_minute": resolution_minute
-#                 }
-#             }
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
         
-#         feature_collection = {
-#             "type": "FeatureCollection",
-#             "features": [feature]
-#         }
-        
-#         return feature_collection
+        return feature_collection
+
+def rhealpix2geojson_cli():
+    """
+    Command-line interface for rhealpix2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Rhealpix code to GeoJSON")
+    parser.add_argument("rhealpix", help="Input Rhealpix code, e.g., rhealpix2geojson R31260335553825")
+    args = parser.parse_args()
+    geojson_data = json.dumps(rhealpix2geojson(args.rhealpix))
+    print(geojson_data)
