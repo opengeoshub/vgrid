@@ -88,6 +88,6 @@ def generate_h3_geojson_with_filter(resolution, output_file):
     print(f"GeoJSON saved to {output_file}")
 
 # Example Usage
-resolution = 1 # Choose a resolution level
+resolution = 0 # Choose a resolution level
 output_file = f"h3_{resolution}.geojson"
 generate_h3_geojson_with_filter(resolution, output_file)

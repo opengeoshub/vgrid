@@ -1,16 +1,28 @@
 from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2, tilecode
+import h3
 from vgrid.geocode.s2 import LatLng, CellId
-from vgrid.geocode.gars import GARSGrid
-from ..utils import mercantile
-import re
+
+from vgrid.utils.gars.garsgrid import GARSGrid
+from vgrid.utils import mercantile
+
 from rhealpixdggs.dggs import RHEALPixDGGS
 from rhealpixdggs.utils import my_round
 from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
-import h3
+
+from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+from vgrid.utils.eaggr.eaggr import Eaggr
+from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
+from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
+from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
+from vgrid.utils.eaggr.enums.model import Model
+from shapely.wkt import loads
+from pyproj import Geod
+
+
 import math
-import json, os
-# import geopandas as gpd
-from shapely.geometry import Polygon, Point
+import json, re
+from shapely.geometry import Polygon
 import argparse
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -673,7 +685,6 @@ def gars2geojson_cli():
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
 
-
 def rhealpix2geojson(rhealpix_code):
     rhealpix_code = str(rhealpix_code)
     rhealpix_uids = (rhealpix_code[0],) + tuple(map(int, rhealpix_code[1:]))
@@ -687,9 +698,9 @@ def rhealpix2geojson(rhealpix_code):
     geodesic_cell_area = rdggs.cell_area(resolution, plane=False)
     
     planar_cell_width_str =  f'{round(planar_cell_width,2)} m'
-    geodesic_cell_area_str=  f'{round(geodesic_cell_area,2)} m'
+    geodesic_cell_area_str=  f'{round(geodesic_cell_area,2)} m2'
 
-    if geodesic_cell_area >= 100_000:
+    if geodesic_cell_area >= 1000_000:
         planar_cell_width_str = f'{round(planar_cell_width/1000,2)} km'
         geodesic_cell_area_str = f'{round(geodesic_cell_area/(10**6),2)} km2'
     
@@ -736,4 +747,119 @@ def rhealpix2geojson_cli():
     parser.add_argument("rhealpix", help="Input Rhealpix code, e.g., rhealpix2geojson R31260335553825")
     args = parser.parse_args()
     geojson_data = json.dumps(rhealpix2geojson(args.rhealpix))
+    print(geojson_data)
+
+
+def eaggrisea4t2geojson(eaggrisea4t):
+    def fix_eaggr_wkt(eaggr_wkt):
+        # Extract the coordinate section
+        coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
+        coords = coords_section.split(",")
+        # Append the first point to the end if not already closed
+        if coords[0] != coords[-1]:
+            coords.append(coords[0])
+        fixed_coords = ", ".join(coords)
+        return f"POLYGON (({fixed_coords}))"
+
+    eaggr_dggs = Eaggr(Model.ISEA4T)
+    eaggr_cell_shape = DggsShape(DggsCell(eaggrisea4t), DggsShapeLocation.ONE_FACE)._shape
+    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
+    cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
+    cell_polygon = loads(cell_to_shp_fixed)
+
+    resolution = len(eaggrisea4t)-2
+    # Compute centroid
+    cell_centroid = cell_polygon.centroid
+    center_lat, center_lon = round(cell_centroid.y,7), round(cell_centroid.x,7)
+    # Compute area using PyProj Geod
+    geod = Geod(ellps="WGS84")
+    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters
+    # Compute perimeter using PyProj Geod
+    edge_len = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3  # Perimeter in meters/ 3
+    
+    gedge_len_str =  f'{round(edge_len,2)} m'
+    cell_area_str=  f'{round(cell_area,2)} m2'
+
+    if cell_area >= 1000_000:
+        gedge_len_str = f'{round(edge_len/1000,2)} km'
+        cell_area_str = f'{round(cell_area/(10**6),2)} km2'
+    
+
+    if cell_polygon:
+        coordinates = list(cell_polygon.exterior.coords)
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [coordinates]  
+            },
+            "properties": {
+                 "eaggr_isea4t": eaggrisea4t,
+                 "center_lat": center_lat,
+                 "center_lon": center_lon,
+                 "cell_area": cell_area_str,
+                 "edge_len": gedge_len_str,
+                 "resolution": resolution,
+                    }
+        }
+
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        return  feature_collection
+
+def eaggrisea4t2geojson_cli():
+    """
+    Command-line interface for eaggrisea4t2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert EaggrISEA4T code to GeoJSON")
+    parser.add_argument("eaggrisea4t", help="Input EaggrISEA4T code, e.g., eaggrisea4t2geojson 131023133313201333311333")
+    args = parser.parse_args()
+    geojson_data = json.dumps(eaggrisea4t2geojson(args.eaggrisea4t))
+    print(geojson_data)
+
+def eaggrisea3hgeojson(eaggrisea3h):
+    eaggr_dggs = Eaggr(Model.ISEA3H)
+    eaggr_cell_shape = DggsShape(DggsCell(eaggrisea3h), DggsShapeLocation.ONE_FACE)._shape
+    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
+    
+    if cell_to_shp:
+        coordinates_part = cell_to_shp.replace("POLYGON ((", "").replace("))", "")
+        coordinates = []
+        for coord_pair in coordinates_part.split(","):
+            lon, lat = map(float, coord_pair.strip().split())
+            coordinates.append([lon, lat])
+
+        # Ensure the polygon is closed (first and last point must be the same)
+        if coordinates[0] != coordinates[-1]:
+            coordinates.append(coordinates[0])
+
+        # Step 3: Construct the GeoJSON feature
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [coordinates]  # Directly use the coordinates list
+            },
+            "properties": {
+                    }
+        }
+
+        # Step 4: Construct the FeatureCollection
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        return  feature_collection
+
+
+def eaggrisea3h2geojson_cli():
+    """
+    Command-line interface for eaggriseah32geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert EeaggrISEA3H code to GeoJSON")
+    parser.add_argument("eaggrisea3h", help="Input EeaggrISEA3H code, e.g., eaggrisea3h2geojson '07024,0'")
+    args = parser.parse_args()
+    geojson_data = json.dumps(eaggrisea4t2geojson(args.eaggrisea3h))
     print(geojson_data)

@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.21',
+    version='1.1.23',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -46,6 +46,8 @@ setup(
             'h32geojson = vgrid.geocode.geocode2geojson:h32geojson_cli',  
             's22geojson = vgrid.geocode.geocode2geojson:s22geojson_cli',  
             'rhealpix2geojson = vgrid.geocode.geocode2geojson:rhealpix2geojson_cli',  
+            'eaggrisea4t2geojson = vgrid.geocode.geocode2geojson:eaggrisea4t2geojson_cli',  
+            'eaggrisea3h2geojson = vgrid.geocode.geocode2geojson:eaggrisea3h2geojson_cli',  
 
             'olc2geojson = vgrid.geocode.geocode2geojson:olc2geojson_cli',
             'geohash2geojson = vgrid.geocode.geocode2geojson:geohash2geojson_cli',  
