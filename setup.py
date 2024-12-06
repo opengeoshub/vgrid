@@ -81,14 +81,14 @@ setup(
             'geohashgrid = vgrid.grid.geohashgrid:main',           
             'gzd = vgrid.grid.gzd:main',  
             'mgrsgrid = vgrid.grid.mgrsgrid:main',
-            'tilegrid = vgrid.grid.tilegrid:main',   
-
+            'tilegrid = vgrid.grid.tilegrid:main', 
             'maidenheadgrid = vgrid.grid.maidenheadgrid:main',           
            
             # Grid Stats
             'h3stats = vgrid.stats.h3stats:main',
             's2stats = vgrid.stats.s2stats:main',
-            'rhealpixstats = vgrid.stats.rhealpixstats:main'   ,
+            'rhealpixstats = vgrid.stats.rhealpixstats:main',
+            'eaggrisea4tstats = vgrid.stats.eaggrisea4tstats:main',
 
             # 'olcstats = vgrid.stats.olcstats:main',
             'geohashstats = vgrid.stats.geohashstats:main',

@@ -80,7 +80,7 @@ def latlon2rhealpix_cli():
     rhealpix_cell = latlon2rhealpix(args.lat,args.lon,args.res)
     print(rhealpix_cell)
 
-def latlon2eaggrisea4t(lat,lon,res=14):
+def latlon2eaggrisea4t(lat,lon,res=21):
     # res: [0..38]
     eaggr_dggs = Eaggr(Model.ISEA4T)
     max_accuracy = 10**(-10) # maximum cell_id length with 40 characters
