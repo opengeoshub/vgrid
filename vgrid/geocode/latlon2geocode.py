@@ -26,8 +26,8 @@ def latlon2h3_cli():
     Command-line interface for latlon2h3.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to H3 code at a specific Resolution [0.15]. \
-                                     Usage: latlon2h3 <lat> <lon> <res>. \
-                                     Ex: latlon2h3 10.775275567242561, 106.70679737574993, 13")
+                                     Usage: latlon2h3 <lat> <lon> <res> [0..15]. \
+                                     Ex: latlon2h3 10.775275567242561 106.70679737574993 13")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument("res",type=int, help="Input Resolution [0..15]")
@@ -48,7 +48,7 @@ def latlon2s2_cli():
     Command-line interface for latlon2s2.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to S2 code at a specific Resolution [0..30]. \
-                                     Usage: latlon2s2 <lat> <lon> <res>. \
+                                     Usage: latlon2s2 <lat> <lon> <res> [0..30]. \
                                      Ex: latlon2s2 10.775275567242561 106.70679737574993 21")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -70,7 +70,7 @@ def latlon2rhealpix_cli():
     Command-line interface for latlon2rhealpix.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to Rhealpix code at a specific Resolution [0..15]. \
-                                     Usage: latlon2rhealpix <lat> <lon> <res>. \
+                                     Usage: latlon2rhealpix <lat> <lon> <res> [0..15]. \
                                      Ex: latlon2rhealpix 10.775275567242561 106.70679737574993 14")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -94,7 +94,7 @@ def latlon2eaggrisea4t_cli():
     Command-line interface for latlon2eaggrisea4t.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to EaggrISEA4T code at a specific Resolution [0..38]. \
-                                     Usage: latlon2eaggrisea4t <lat> <lon> <res>. \
+                                     Usage: latlon2eaggrisea4t <lat> <lon> <res> [0..38]. \
                                      Ex: latlon2eaggrisea4t 10.775275567242561 106.70679737574993 21")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -114,7 +114,7 @@ def latlon2olc_cli():
     Command-line interface for latlon2olc.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to OLC/ Google Plus Code at a specific Code length [10..15]. \
-                                     Usage: latlon2olc <lat> <lon> <res>. \
+                                     Usage: latlon2olc <lat> <lon> <res> [10..15]. \
                                      Ex: latlon2olc 10.775275567242561 106.70679737574993 11")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -133,7 +133,7 @@ def latlon2geohash_cli():
     Command-line interface for latlon2geohash.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to Geohash code at a specific resolution [1..30]. \
-                                     Usage: latlon2geohash <lat> <lon> <res>. \
+                                     Usage: latlon2geohash <lat> <lon> <res>[1..30]. \
                                      Ex: latlon2geohash 10.775275567242561 106.70679737574993 9")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -152,7 +152,7 @@ def latlon2georef_cli():
     Command-line interface for latlon2georef.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to GEOREF code at a specific resolution [0..10]. \
-                                     Usage: latlon2georef <lat> <lon> <res>. \
+                                     Usage: latlon2georef <lat> <lon> <res> [0..10]. \
                                      Ex: latlon2georef 10.775275567242561 106.70679737574993 4")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -171,7 +171,7 @@ def latlon2mgrs_cli():
     Command-line interface for latlon2mgrs.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to GEOREF code at a specific resolution [0..5]. \
-                                     Usage: latlon2mgrs <lat> <lon> <res>. \
+                                     Usage: latlon2mgrs <lat> <lon> <res> [0..5]. \
                                      Ex: latlon2mgrs 10.775275567242561 106.70679737574993 4")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -190,7 +190,7 @@ def latlon2tilecode_cli():
     Command-line interface for latlon2tilecode.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to Tile code at a specific resolution/ zoom level [0..26]. \
-                                     Usage: latlon2tilecode <lat> <lon> <res>. \
+                                     Usage: latlon2tilecode <lat> <lon> <res> [0..26]. \
                                      Ex: latlon2tilecode 10.775275567242561 106.70679737574993 23")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -210,7 +210,7 @@ def latlon2maidenhead_cli():
     Command-line interface for latlon2maidenhead.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to Tile code at a specific resolution [1..4]. \
-                                     Usage: latlon2maidenhead <lat> <lon> <res>. \
+                                     Usage: latlon2maidenhead <lat> <lon> <res> [1..4]. \
                                      Ex: latlon2maidenhead 10.775275567242561 106.70679737574993 4")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
@@ -229,8 +229,8 @@ def latlon2gars_cli():
     Command-line interface for latlon2gars.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to Tile code at a specific resolution [1, 5, 15, 30 minutes]. \
-                                     Usage: latlon2gars <lat> <lon> <res>. \
-                                     Ex: latlon2gars 10.775275567242561 106.70679737574993 4")
+                                     Usage: latlon2gars <lat> <lon> <res> [1, 5, 15, 30 minutes]. \
+                                     Ex: latlon2gars 10.775275567242561 106.70679737574993 1")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument("res",type=int, help="Input Resolution [1, 5, 15, 30 minutes]")

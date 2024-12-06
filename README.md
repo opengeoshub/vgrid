@@ -10,7 +10,96 @@
 
 ## Demo Page:  [Vgrid Home](https://vgrid.vn)
 
-## Usage - Python:
+## Usage - Vgrid CLI:
+### H3
+``` bash
+> h32geojson 8d65b56628e46bf 
+> latlon2h3 10.775275567242561 106.70679737574993 13 # latlon2h3 <lat> <lon> <res> [0..15] 
+> h3stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### S2
+``` bash
+> s22geojson 31752f45cc94 
+> latlon2s2 latlon2s2 10.775275567242561 106.70679737574993 21 # latlon2h3 <lat> <lon> <res> [0..30]
+> s2stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### Rhealpix
+``` bash
+> rhealpix2geojson R31260335553825
+> latlon2rhealpix 10.775275567242561 106.70679737574993 14 # latlon2rhealpix <lat> <lon> <res> [0..15]
+> rhealpixstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### EaggrISEA4T
+``` bash
+> eaggrisea4t2geojson 13102313331320133331133
+> latlon2eaggrisea4t 10.775275567242561 106.70679737574993 21 # latlon2eaggrisea4t <lat> <lon> <res> [0..38]
+> eaggrisea4tstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### OLC
+``` bash
+> olc2geojson 7P28QPG4+4P7
+> latlon2olc 10.775275567242561 106.70679737574993 11 # latlon2olc <lat> <lon> <res> [10..15]
+> olcstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### Geohash
+``` bash
+> geohash2geojson w3gvk1td8
+> latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..30]
+> geohashstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### GEOREF
+``` bash
+> georef2geojson VGBL42404651
+> latlon2georef 10.775275567242561 106.70679737574993 4 # latlon2georef <lat> <lon> <res> [0..10]
+> georeftats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### MGRS
+``` bash
+> mgrs2geojson 34TGK56063228
+> latlon2mgrs 10.775275567242561 106.70679737574993 4 # latlon2mgrs <lat> <lon> <res> [0..5]
+> mgrstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### Tilecode
+``` bash
+> tilecode2geojson z23x6680749y3941729
+> latlon2tilecode 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..26]
+> tilecodestats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### Maidenhead
+``` bash
+> maidenhead2geojson OK30is46 
+> latlon2maidenhead 10.775275567242561 106.70679737574993 4 # latlon2maidenhead <lat> <lon> <res> [1..4]
+> maidenheadstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### GARS
+``` bash
+> gars2geojson 574JK1918
+> latlon2gars 10.775275567242561 106.70679737574993 1 # latlon2gars <lat> <lon> <res> [1, 5, 15, 30 minutes]
+> garsstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+```
+
+### Command line for creating geocoding grids in shapefile format
+``` bash
+> h3grid -r 1 -o h3_1.shp (r = [0..15])
+> s2grid -r 1 -o s2_1.shp (r = [0..30])
+> rhealpixgrid -r 1 -o rhealpix_1.shp (r = [1..12])
+> geohashgrid -r 1 -o geohash_1.shp (r = [1..12])
+> gzd -o gzd.shp (Create Grid Zone Designators - used by MGRS)
+> mgrsgrid -o mgrs_32648.shp -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
+> maidenheadgrid -r 1 -o maidenhead_1.shp (r = [1, 2, 3, 4])
+```
+
+## Usage - Python code:
 ### Import vgrid, initialize latitude and longitude for testing:
 ``` python
 from vgrid.geocode import h3,s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars 
@@ -176,81 +265,3 @@ with open(output_file, 'w') as f:
     json.dump(data, f, indent=2)  
 print(f'GeoJSON written to {output_file}')
 ```
-## Usage - CLI:
-### H3
-``` bash
-> h32geojson 8d65b56628e46bf 
-> h3stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### S2
-``` bash
-> s22geojson 31752f45cc94 
-> s2stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### OLC
-``` bash
-> olc2geojson 7P28QPG4+4P7
-> olcstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### Geohash
-``` bash
-> geohash2geojson w3gvk1td8
-> geohashstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### GEOREF
-``` bash
-> georef2geojson VGBL42404651
-> georeftats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### MGRS
-``` bash
-> mgrs2geojson 34TGK56063228
-> mgrstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### Tilecode
-``` bash
-> tilecode2geojson z23x6680749y3941729
-> tilecodestats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### Maidenhead
-``` bash
-> maidenhead2geojson OK30is46 
-> maidenheadstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
-```
-
-### GARS
-``` bash
-> gars2geojson 574JK1918
-> garsstats 574JK1918
-```
-
-### Command line for creating geocoding grids in shapefile format
-``` bash
-> h3grid -r 1 -o h3_1.shp (r = [0..15])
-> s2grid -r 1 -o s2_1.shp (r = [0..30])
-> rhealpixgrid -r 1 -o rhealpix_1.shp (r = [1..12])
-> geohashgrid -r 1 -o geohash_1.shp (r = [1..12])
-> gzd -o gzd.shp (Create Grid Zone Designators - used by MGRS)
-> mgrsgrid -o mgrs_32648.shp -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
-> maidenheadgrid -r 1 -o maidenhead_1.shp (r = [1, 2, 3, 4])
-```
-
-## References
-
-### rHEALPix
-https://github.com/manaakiwhenua/rhealpixdggs-py
-
-### DGGRID
-https://github.com/sahrk/DGGRID
-https://github.com/allixender/dggrid4py
-
-### OpenEaggr DGGS
-https://github.com/riskaware-ltd/open-eaggr?tab=readme-ov-file
-https://github.com/riskaware-ltd/open-eaggr/blob/master/EAGGRPython/eaggr/eaggr.py

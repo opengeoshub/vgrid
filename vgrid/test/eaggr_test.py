@@ -23,7 +23,7 @@ import threading
 # dggs = Eaggr(Model.ISEA3H)
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
-# latitude, longitude = 10.775275567242561, 106.70679737574993# 
+latitude, longitude = 10.775275567242561, 106.70679737574993# 
 
 def convert_point_to_dggs_cell_in_thread(latitude, longitude):
     # Create the lat/long points
@@ -35,17 +35,17 @@ def convert_point_to_dggs_cell_in_thread(latitude, longitude):
     # Convert back to a lat/long point
     # converted_point = dggs.convert_dggs_cell_to_point(dggs_cell)
     print(dggs_cell._cell_id)
-
-for latitude in range(-16, 16):
-    for longitude in range(-34, 34):
-        dggsRunners = []
-        dggsRunners.append(threading.Thread(convert_point_to_dggs_cell_in_thread(5 * latitude, 5 * longitude)))
-    # Start the threads
-    for runner in dggsRunners:
-        runner.start()
-    # Join the threads to wait for completion
-    for runner in dggsRunners:
-        runner.join()
+convert_point_to_dggs_cell_in_thread(latitude, longitude)
+# for latitude in range(-16, 16):
+#     for longitude in range(-34, 34):
+#         dggsRunners = []
+#         dggsRunners.append(threading.Thread(convert_point_to_dggs_cell_in_thread(5 * latitude, 5 * longitude)))
+#     # Start the threads
+#     for runner in dggsRunners:
+#         runner.start()
+#     # Join the threads to wait for completion
+#     for runner in dggsRunners:
+#         runner.join()
 
 # res = -10
 # accuracy_sq_meters = 10**(res)
