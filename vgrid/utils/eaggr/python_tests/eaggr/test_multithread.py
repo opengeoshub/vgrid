@@ -29,7 +29,7 @@ class TestDggsPython(unittest.TestCase):
 
     def convert_point_to_dggs_cell_in_thread(self, latitude, longitude):
         # Create the lat/long points
-        lat_long_point = LatLongPoint(latitude, longitude, 1E-5);
+        lat_long_point = LatLongPoint(latitude, longitude, 1E-5)
         # Initialise the DGGS model
         dggs = Eaggr(Model.ISEA4T)
         # Convert the lat/long point

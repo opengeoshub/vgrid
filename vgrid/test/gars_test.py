@@ -1,5 +1,5 @@
 
-from vgrid.geocode.gars import GARSGrid
+from vgrid.utils.gars.garsgrid import GARSGrid
 from vgrid.geocode.geocode2geojson import *
 import json 
 

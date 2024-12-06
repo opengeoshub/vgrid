@@ -18,59 +18,81 @@ from shapely.geometry import Polygon
 from shapely.ops import transform
 import math
 from pyproj import Geod
-
+import threading
 
 # dggs = Eaggr(Model.ISEA3H)
-dggs = Eaggr(Model.ISEA4T)
+eaggr_dggs = Eaggr(Model.ISEA4T)
 
-latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# latitude, longitude = 10.775275567242561, 106.70679737574993# 
 
-res = -10
-accuracy_sq_meters = 10**(res)
-# 10^14 = maximum resolution - base cells; 10^(-10)= minimum resolution
- # Create the lat/long points
-# accuracy_sq_meters = 
+def convert_point_to_dggs_cell_in_thread(latitude, longitude):
+    # Create the lat/long points
+    lat_long_point = LatLongPoint(latitude, longitude, 10)
+    # Initialise the DGGS model
+    dggs = Eaggr(Model.ISEA4T)
+    # Convert the lat/long point
+    dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
+    # Convert back to a lat/long point
+    # converted_point = dggs.convert_dggs_cell_to_point(dggs_cell)
+    print(dggs_cell._cell_id)
 
-lat_long_point = LatLongPoint(10.775275567242561, 106.70679737574993, accuracy_sq_meters)
-# Initialise the DGGS model
-# Convert the first lat/long point
-dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
-cell_id_len = 23
-dggs_cell = DggsCell(dggs_cell._cell_id[:cell_id_len])
-cell_to_shp = dggs.convert_dggs_cell_outline_to_shape_string(dggs_cell,ShapeStringFormat.WKT)
-def fix_wkt(wkt):
-    # Extract the coordinate section
-    coords_section = wkt[wkt.index("((") + 2 : wkt.index("))")]
-    coords = coords_section.split(",")
-    # Append the first point to the end if not already closed
-    if coords[0] != coords[-1]:
-        coords.append(coords[0])
-    fixed_coords = ", ".join(coords)
-    return f"POLYGON (({fixed_coords}))"
+for latitude in range(-16, 16):
+    for longitude in range(-34, 34):
+        dggsRunners = []
+        dggsRunners.append(threading.Thread(convert_point_to_dggs_cell_in_thread(5 * latitude, 5 * longitude)))
+    # Start the threads
+    for runner in dggsRunners:
+        runner.start()
+    # Join the threads to wait for completion
+    for runner in dggsRunners:
+        runner.join()
 
-fixed_wkt_string = fix_wkt(cell_to_shp)
+# res = -10
+# accuracy_sq_meters = 10**(res)
+# # 10^14 = maximum resolution - base cells; 10^(-10)= minimum resolution
+#  # Create the lat/long points
+# # accuracy_sq_meters = 
 
-# Convert fixed WKT to Shapely Polygon
-cell_polygon = loads(fixed_wkt_string)
-centroid = cell_polygon.centroid
-center_lon, center_lat = centroid.x, centroid.y
-print(center_lat,center_lon)
-geod = Geod(ellps="WGS84")
-geod_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
-geod_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters
+# lat_long_point = LatLongPoint(10.775275567242561, 106.70679737574993, accuracy_sq_meters)
+# # Initialise the DGGS model
+# # Convert the first lat/long point
+# dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
+# cell_id_len = 23
+# dggs_cell = DggsCell(dggs_cell._cell_id[:cell_id_len])
+# cell_to_shp = dggs.convert_dggs_cell_outline_to_shape_string(dggs_cell,ShapeStringFormat.WKT)
+# def fix_wkt(wkt):
+#     # Extract the coordinate section
+#     coords_section = wkt[wkt.index("((") + 2 : wkt.index("))")]
+#     coords = coords_section.split(",")
+#     # Append the first point to the end if not already closed
+#     if coords[0] != coords[-1]:
+#         coords.append(coords[0])
+#     fixed_coords = ", ".join(coords)
+#     return f"POLYGON (({fixed_coords}))"
 
-print(geod_area)
-print(geod_perimeter/3)
+# fixed_wkt_string = fix_wkt(cell_to_shp)
+
+# # Convert fixed WKT to Shapely Polygon
+# cell_polygon = loads(fixed_wkt_string)
+# centroid = cell_polygon.centroid
+# center_lon, center_lat = centroid.x, centroid.y
+# print(center_lat,center_lon)
+# geod = Geod(ellps="WGS84")
+# geod_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+# geod_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters
+
+# print(geod_area)
+# print(geod_perimeter/3)
 
 
-# coordinates_part = cell_to_shp.replace("POLYGON ((", "").replace("))", "")
-# print(cell_to_shp)
-# triangle_coords = [
-#     (103.36956187681459, 6.112677457571387),
-#     (98.66047431289643, 13.781719950199278),
-#     (108.0, 12.373115939394218)
-# ]
-from shapely.wkt import loads
+# # coordinates_part = cell_to_shp.replace("POLYGON ((", "").replace("))", "")
+# # print(cell_to_shp)
+# # triangle_coords = [
+# #     (103.36956187681459, 6.112677457571387),
+# #     (98.66047431289643, 13.781719950199278),
+# #     (108.0, 12.373115939394218)
+# # ]
+# from shapely.wkt import loads
 
 
 # # Create a Shapely Polygon

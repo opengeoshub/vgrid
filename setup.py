@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.23',
+    version='1.1.24',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -53,11 +53,25 @@ setup(
             'geohash2geojson = vgrid.geocode.geocode2geojson:geohash2geojson_cli',  
             'georef2geojson = vgrid.geocode.geocode2geojson:georef2geojson_cli',  
             'mgrs2geojson = vgrid.geocode.geocode2geojson:mgrs2geojson_cli', 
-            'tilecode2geojson = vgrid.geocode.tilecode:tilecode2geojson_cli',  
+            'tilecode2geojson = vgrid.geocode.geocode2geojson:tilecode2geojson_cli',  
 
             'maidenhead2geojson = vgrid.geocode.geocode2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.geocode.geocode2geojson:gars2geojson_cli',  
             
+
+            # Latlon to Code
+            'latlon2h3 = vgrid.geocode.latlon2geocode:latlon2h3_cli',  
+            'latlon2s2 = vgrid.geocode.latlon2geocode:latlon2s2_cli',  
+            'latlon2rhealpix = vgrid.geocode.latlon2geocode:latlon2rhealpix_cli',  
+            'latlon2eaggrisea4t = vgrid.geocode.latlon2geocode:latlon2eaggrisea4t_cli',  
+            'latlon2olc = vgrid.geocode.latlon2geocode:latlon2olc_cli',  
+            'latlon2geohash = vgrid.geocode.latlon2geocode:latlon2geohash_cli',  
+            'latlon2georef = vgrid.geocode.latlon2geocode:latlon2georef_cli',  
+            'latlon2mgrs = vgrid.geocode.latlon2geocode:latlon2mgrs_cli',  
+            'latlon2tilecode = vgrid.geocode.latlon2geocode:latlon2tilecode_cli',  
+            'latlon2maidenhead = vgrid.geocode.latlon2geocode:latlon2maidenhead_cli',  
+            'latlon2gars = vgrid.geocode.latlon2geocode:latlon2gars_cli',  
+
             # Create Geocode Grid
             'h3grid = vgrid.grid.h3grid:main',
             's2grid = vgrid.grid.s2grid:main',

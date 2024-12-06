@@ -15,9 +15,11 @@
 ``` python
 from vgrid.geocode import h3,s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars 
 import h3, json
-from vgrid.geocode.gars import GARSGrid
+from vgrid.utils.gars.garsgrid import GARSGrid
 from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.geocode2geojson import *
+from vgrid.geocode.latlon2geocode import *
+
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 print(f'Latitude, Longitude: ({latitude}, {longitude})')

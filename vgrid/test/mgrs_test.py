@@ -5,7 +5,7 @@ latitude, longitude = 40.00194441, 23.99972080
 latitude, longitude = 10.775275567242561, 106.70679737574993
 latitude, longitude = -80,40
 
-mgrs_resolution = 0 # [0 -->5]
+mgrs_resolution = 4 # [0 -->5]
 mgrs_code = mgrs.toMgrs(latitude, longitude, mgrs_resolution)
 mgrs_code_to_wgs = mgrs.toWgs(mgrs_code)
 print(f'MGRS Code at resolution = {mgrs_resolution}: {mgrs_code}')
