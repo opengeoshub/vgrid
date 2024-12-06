@@ -750,8 +750,7 @@ def rhealpix2geojson_cli():
     print(geojson_data)
 
 
-def eaggrisea4t2geojson(eaggrisea4t):
-    def fix_eaggr_wkt(eaggr_wkt):
+def fix_eaggr_wkt(eaggr_wkt):
         # Extract the coordinate section
         coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
         coords = coords_section.split(",")
@@ -761,6 +760,7 @@ def eaggrisea4t2geojson(eaggrisea4t):
         fixed_coords = ", ".join(coords)
         return f"POLYGON (({fixed_coords}))"
 
+def eaggrisea4t2geojson(eaggrisea4t):
     eaggr_dggs = Eaggr(Model.ISEA4T)
     eaggr_cell_shape = DggsShape(DggsCell(eaggrisea4t), DggsShapeLocation.ONE_FACE)._shape
     cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
@@ -777,11 +777,11 @@ def eaggrisea4t2geojson(eaggrisea4t):
     # Compute perimeter using PyProj Geod
     edge_len = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3  # Perimeter in meters/ 3
     
-    gedge_len_str =  f'{round(edge_len,2)} m'
+    edge_len_str =  f'{round(edge_len,2)} m'
     cell_area_str=  f'{round(cell_area,2)} m2'
 
     if cell_area >= 1000_000:
-        gedge_len_str = f'{round(edge_len/1000,2)} km'
+        edge_len_str = f'{round(edge_len/1000,2)} km'
         cell_area_str = f'{round(cell_area/(10**6),2)} km2'
     
 
@@ -798,7 +798,7 @@ def eaggrisea4t2geojson(eaggrisea4t):
                  "center_lat": center_lat,
                  "center_lon": center_lon,
                  "cell_area": cell_area_str,
-                 "edge_len": gedge_len_str,
+                 "edge_len": edge_len_str,
                  "resolution": resolution,
                     }
         }

@@ -14,7 +14,6 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.utils.eaggr.enums.model import Model
 
-import json, re
 import argparse
 
 def latlon2h3(lat,lon,res=13):
