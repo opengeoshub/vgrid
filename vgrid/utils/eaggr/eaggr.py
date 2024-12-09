@@ -53,11 +53,11 @@ class Eaggr(object):
     _EAGGR_VERSION_STRING_LENGTH = 5
 
     ## Maximum number of parents a DGGS cell can have.
-    _EAGGR_MAX_PARENT_CELLS = 3
+    _EAGGR_MAX_PARENT_CELLS = 6
     ## Maximum number of children a DGGS cell can have.
     _EAGGR_MAX_CHILD_CELLS = 7
-    ## Maximum number of children a DGGS cell can have.
-    _EAGGR_MAX_SIBLING_CELLS = 15
+    ## Maximum number of siblings a DGGS cell can have.
+    _EAGGR_MAX_SIBLING_CELLS = 18
 
     ## Handle to the Proj.4 library DLL.
     _proj_dll_handle = None

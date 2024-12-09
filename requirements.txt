@@ -6,6 +6,7 @@ pyproj
 pyclipper~=1.3.0
 h3~=4.1.1
 pandas~=2.0.3
-scipy,
-future,
+geopandas
+scipy
+future
 rhealpixdggs

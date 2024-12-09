@@ -19,23 +19,49 @@ from shapely.ops import transform
 import math
 from pyproj import Geod
 import threading
+from vgrid.geocode.latlon2geocode import *
+from vgrid.geocode.geocode2geojson import *
+
 
 # dggs = Eaggr(Model.ISEA3H)
 eaggr_dggs = Eaggr(Model.ISEA4T)
-
+resolution = 21
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# get_dggs_cell_siblings
+# eaggrisea4t2geojson 13102313331320133331133
+# isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21) # latlon2eaggrisea4t <lat> <lon> <res> [0..38]
 
-def convert_point_to_dggs_cell_in_thread(latitude, longitude):
-    # Create the lat/long points
-    lat_long_point = LatLongPoint(latitude, longitude, 10)
-    # Initialise the DGGS model
-    dggs = Eaggr(Model.ISEA4T)
-    # Convert the lat/long point
-    dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
-    # Convert back to a lat/long point
-    # converted_point = dggs.convert_dggs_cell_to_point(dggs_cell)
-    print(dggs_cell._cell_id)
-convert_point_to_dggs_cell_in_thread(latitude, longitude)
+isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21)
+
+isea4t_cell = DggsCell('13102313331323203322')
+isea4t_cell_parent = eaggr_dggs.get_dggs_cell_parents(isea4t_cell)
+for i in isea4t_cell_parent:
+    print(i.get_cell_id())
+
+# siblings_of_parent = (eaggr_dggs.get_dggs_cell_siblings(isea4t_cell_parent[0]))
+ 
+# for sibling_parent in siblings_of_parent:
+#     print (sibling_parent.get_cell_id())
+#     sibling_parent_children = eaggr_dggs.get_dggs_cell_children(sibling_parent)
+#     for sibling_parent_child in sibling_parent_children:
+#         print (sibling_parent_child.get_cell_id())
+
+# isea4t_siblings = eaggr_dggs.get_dggs_cell_siblings(isea4t_cell_parent)
+# for sibling in isea4t_siblings:
+#     print (sibling.get_cell_id())
+
+
+# def convert_point_to_dggs_cell_in_thread(latitude, longitude):
+#     # Create the lat/long points
+#     lat_long_point = LatLongPoint(latitude, longitude, 10)
+#     # Initialise the DGGS model
+#     dggs = Eaggr(Model.ISEA4T)
+#     # Convert the lat/long point
+#     dggs_cell = dggs.convert_point_to_dggs_cell(lat_long_point)
+#     # Convert back to a lat/long point
+#     # converted_point = dggs.convert_dggs_cell_to_point(dggs_cell)
+#     print(dggs_cell._cell_id)
+# convert_point_to_dggs_cell_in_thread(latitude, longitude)
 # for latitude in range(-16, 16):
 #     for longitude in range(-34, 34):
 #         dggsRunners = []

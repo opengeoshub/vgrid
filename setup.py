@@ -13,6 +13,7 @@ requirements = [
     'pyclipper~=1.3.0',
     'h3~=4.1.1',
     'pandas~=2.0.3',
+    'geopandas',
     'scipy',
     'future',
     'rhealpixdggs'
@@ -76,6 +77,7 @@ setup(
             'h3grid = vgrid.grid.h3grid:main',
             's2grid = vgrid.grid.s2grid:main',
             'rhealpixgrid = vgrid.grid.rhealpixgrid:main',
+            'eaggrisea4tgrid = vgrid.grid.eaggrisea4tgrid:main',
 
             # 'olcgrid = vgrid.grid.olcgrid:main',
             'geohashgrid = vgrid.grid.geohashgrid:main',           
