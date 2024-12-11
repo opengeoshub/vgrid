@@ -26,7 +26,7 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
     rhealpix_grid = rhealpix_dggs.grid(resolution)
 
     bbox_polygon = box(*bbox)  # Create a bounding box polygon
-    with tqdm(total=total_cells, desc="Processing grid cells", unit="cell") as pbar:
+    with tqdm(total=total_cells, desc="Processing grid cells", unit=" cells") as pbar:
         for cell in rhealpix_grid:
             polygon = cell_to_polygon(cell)
             if polygon.intersects(bbox_polygon):  # Only include cells that intersect the bbox
