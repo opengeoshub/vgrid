@@ -5,24 +5,6 @@ import h3
 from shapely.geometry import Polygon, mapping
 import json
 
-# def wrap_longitudes(boundary):
-#     """
-#     Adjust longitudes of a hexagon boundary to wrap correctly around the antimeridian.
-
-#     Parameters:
-#         boundary (list): List of (lat, lon) tuples representing the hexagon boundary.
-
-#     Returns:
-#         list: Adjusted boundary with longitudes wrapped as needed.
-#     """
-#     wrapped_boundary = []
-#     for lat, lon in boundary:
-#         # Wrap longitude if greater than 180 degrees
-#         if lon > 180:
-#             lon -= 360
-#         wrapped_boundary.append((lat, lon))
-#     return wrapped_boundary
-
 def filter_antimeridian_cells(hex_boundary, threshold=-128):
     """
     Filters and adjusts hexagons crossing the antimeridian.
@@ -63,8 +45,10 @@ def generate_h3_geojson_with_filter(resolution, output_file):
         for child_cell in child_cells:
             # Get the boundary of the cell
             hex_boundary = h3.cell_to_boundary(child_cell)
+            print (hex_boundary)
             # Wrap and filter the boundary
-            filtered_boundary = filter_antimeridian_cells(hex_boundary)
+            # filtered_boundary = filter_antimeridian_cells(hex_boundary)
+            filtered_boundary = hex_boundary
             # Reverse lat/lon to lon/lat for GeoJSON compatibility
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             polygon = Polygon(reversed_boundary)
@@ -88,6 +72,6 @@ def generate_h3_geojson_with_filter(resolution, output_file):
     print(f"GeoJSON saved to {output_file}")
 
 # Example Usage
-resolution = 0 # Choose a resolution level
-output_file = f"h3_{resolution}.geojson"
+resolution = 1 # Choose a resolution level
+output_file = f"h3_{resolution+1}.geojson"
 generate_h3_geojson_with_filter(resolution, output_file)

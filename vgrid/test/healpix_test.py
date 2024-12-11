@@ -1,1 +1,0 @@
-import healpy as hp

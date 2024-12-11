@@ -26,17 +26,59 @@ from vgrid.geocode.geocode2geojson import *
 # dggs = Eaggr(Model.ISEA3H)
 eaggr_dggs = Eaggr(Model.ISEA4T)
 resolution = 21
-latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# latitude, longitude = -21.35158998051384, 179.9999999994089
+# lat_long_point = LatLongPoint(latitude, longitude,resolution)
+# # Initialise the DGGS model
+# # Convert the lat/long point
+# dggs_cell = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
+# print(dggs_cell.get_cell_id())
+# # dggs_cell_2 = DggsCell('14010000')
+# # Initialise the DGGS model
+# # Convert the DGGS cell
+# lat_long_point = eaggr_dggs.convert_dggs_cell_to_point(dggs_cell)
+# print(lat_long_point._latitude, lat_long_point._longitude)
+
+
+dggs_shape_cell = DggsShape(DggsCell("04111"), DggsShapeLocation.ONE_FACE)
+print(dggs_shape_cell)
+# dggs_shape_cell = DggsShape(DggsCell("14220230"), DggsShapeLocation.ONE_FACE)
+# # Compare the cell with another cell
+# another_dggs_shape_cell = DggsShape(DggsCell("14220231"), DggsShapeLocation.ONE_FACE)
+
+
+# analysisResult = eaggr_dggs.compare_dggs_shapes(dggs_shape_cell, another_dggs_shape_cell,
+# DggsAnalysisType.TOUCHES)
+# print(analysisResult)
+# bounding_cell = eaggr_dggs.get_bounding_dggs_cell([DggsCell("14220010"),DggsCell("14220011"),DggsCell("14220012"),\
+#                                                 DggsCell("14220200"),
+#                                                 DggsCell("14220201"),
+#                                                 DggsCell("14220203"),
+#                                                 DggsCell("14220230"),
+#                                                 DggsCell("14220231"),
+#                                                 DggsCell("14220232"),
+#                                                 DggsCell("14220233"),
+#                                                 DggsCell("14221230"),
+#                                                 DggsCell("14221232"),
+#                                                 DggsCell("14221233")
+#                                                 ])
+# print(bounding_cell.get_cell_id())
+
 # get_dggs_cell_siblings
 # eaggrisea4t2geojson 13102313331320133331133
 # isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21) # latlon2eaggrisea4t <lat> <lon> <res> [0..38]
 
-isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21)
+# isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21)
 
-isea4t_cell = DggsCell('13102313331323203322')
-isea4t_cell_parent = eaggr_dggs.get_dggs_cell_parents(isea4t_cell)
-for i in isea4t_cell_parent:
-    print(i.get_cell_id())
+# # isea4t_cell = DggsCell('13102313331323203322')
+# # isea4t_cell_parent = eaggr_dggs.get_dggs_cell_parents(isea4t_cell)
+# # for i in isea4t_cell_parent:
+# #     print(i.get_cell_id())
+
+# isea4t_cell = DggsCell('14220200')
+# isea4t_cell_siblings = eaggr_dggs.get_dggs_cell_siblings(isea4t_cell)
+# for i in isea4t_cell_siblings:
+#     print(i.get_cell_id())
 
 # siblings_of_parent = (eaggr_dggs.get_dggs_cell_siblings(isea4t_cell_parent[0]))
  
