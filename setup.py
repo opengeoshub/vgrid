@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.25',
+    version='1.1.26',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -78,6 +78,9 @@ setup(
             's2grid = vgrid.grid.s2grid:main',
             'rhealpixgrid = vgrid.grid.rhealpixgrid:main',
             'eaggrisea4tgrid = vgrid.grid.eaggrisea4tgrid:main',
+            
+            # Shape2grid
+            'geojson2rhealpix = vgrid.grid.geojson2rhealpix:main',
 
             # 'olcgrid = vgrid.grid.olcgrid:main',
             'geohashgrid = vgrid.grid.geohashgrid:main',           

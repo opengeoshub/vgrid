@@ -1,4 +1,4 @@
-from rhealpixdggs.dggs import RHEALPixDGGS, WGS84_003,UNIT_003,WGS84_003_RADIANS, array
+from rhealpixdggs.dggs import Cell, RHEALPixDGGS, WGS84_003,UNIT_003,WGS84_003_RADIANS, array
 from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 from vgrid.geocode.geocode2geojson import *
 
@@ -10,38 +10,54 @@ latitude, longitude = 10.775275567242561, 106.70679737574993
 resolution = 1
 # Function to convert degrees to radians
 
+p = (longitude, latitude)
+rhealpix_resolution = 2 # [0,15]
+rhealpix_cell = rhealpix_dggs.cell_from_point(rhealpix_resolution, p, plane=False)
+# rhealpix_cell = rhealpix_dggs.cell(['R',0])
+print (rhealpix_cell)
+for _, cell in rhealpix_cell.neighbors(plane=False).items():
+    print (cell)
+    
+# rhealpix_cell_west = rhealpix_cell.neighbor('west',plane = False)
+# rhealpix_cell_west_north = rhealpix_cell_west.neighbor('north',plane = False)
+# rhealpix_cell__west_south = rhealpix_cell_west.neighbor('south',plane = False)
+# print(rhealpix_cell_west)
+# print(rhealpix_cell_west_north)
+# print(rhealpix_cell__west_south)
 
-def deg_to_rad(degrees):
-    return degrees * (math.pi / 180)
 
-# Define the bounding box coordinates in degrees
-ul = (106.6908, 10.787395)  # Upper-left corner (longitude, latitude)
-dr = (106.733069, 10.759213)  # Lower-right corner (longitude, latitude)
-rhealpix_dggs = UNIT_003
+# rhealpix_cell_east = rhealpix_cell.neighbor('east',plane = False)
+# rhealpix_cell_east_north = rhealpix_cell_east.neighbor('north',plane = False)
+# rhealpix_cell_east_south = rhealpix_cell_east.neighbor('south',plane = False)
+# print(rhealpix_cell_east)
+# print(rhealpix_cell_east_north)
+# print(rhealpix_cell_east_south)
 
-rdggs = WGS84_003_RADIANS
-R_A = rdggs.ellipsoid.R_A
-# Convert the coordinates to radians (if necessary)
-ul_rad = (deg_to_rad(ul[0]), deg_to_rad(ul[1]))
-dr_rad = (deg_to_rad(dr[0]), deg_to_rad(dr[1]))
-pi = 3.14
-p = (0, pi/12)
-q = (pi/6 - 1e-6, 0)
-ul = R_A*array((-0.1, pi/4))
-dr = R_A*array((0.1, -pi/4))  # Rectangle
-            
 
- 
-# Assuming `dggs` is your DGGS grid system object
-result = rdggs.cells_from_region(1, p, q , plane=False)  # Assuming you are working with planar DGGS
-for row in result:
-    print([str(cell) for cell in row])
- 
-# p = (longitude, latitude)
-# rhealpix_resolution = 14 # [0,15]
-# rhealpix_code = rdggs.cell_from_point(rhealpix_resolution, p, plane=False)
-# print (rhealpix_code)
+# rhealpix_cell_north = rhealpix_cell.neighbor('north',plane = False)
+# print(rhealpix_cell_north)
 
+# rhealpix_cell_south = rhealpix_cell.neighbor('south',plane = False)
+# print(rhealpix_cell_south)
+
+
+# print(rhealpix_cell.centroid(plane = False))
+# print(rhealpix_cell.nucleus(plane = False))
+# print(rhealpix_cell.color.__name__)
+# parent_cell = rhealpix_dggs.cell_from_point(rhealpix_resolution-1, p, plane=False)
+# print (parent_cell)
+# print([str(cell) for cell in parent_cell.subcells()])
+
+# for (direction, cell) in sorted(rhealpix_cell.neighbors(plane=True).items()):
+#    print(direction, cell)
+
+# print(rhealpix_dggs.triangle(*rhealpix_cell.nucleus(), inverse=True))
+
+
+    
+# print(rhealpix_cell.neighbor('west',plane=False))
+
+    
 # geojson_features = rhealpix2geojson(rhealpix_code)
 # print(geojson_features)
 

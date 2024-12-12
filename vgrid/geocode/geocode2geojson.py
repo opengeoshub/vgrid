@@ -17,12 +17,10 @@ from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
 from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
+from shapely.geometry import Polygon,mapping
 from pyproj import Geod
-
-
 import math
 import json, re
-from shapely.geometry import Polygon
 import argparse
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -685,58 +683,68 @@ def gars2geojson_cli():
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
 
+def filter_antimeridian_cells(boundary, threshold=-128):
+    if any(lon < threshold for lon, _ in boundary):
+        return [(lon - 360 if lon > 0 else lon, lat) for lon, lat in boundary]
+    return boundary
+
+def rhealpix_cell_to_polygon(cell):
+    vertices = [tuple(my_round(coord, 14) for coord in vertex) for vertex in cell.vertices(plane=False)]
+    if vertices[0] != vertices[-1]:
+        vertices.append(vertices[0])
+    vertices = filter_antimeridian_cells(vertices)
+    return Polygon(vertices)
+
+
 def rhealpix2geojson(rhealpix_code):
     rhealpix_code = str(rhealpix_code)
     rhealpix_uids = (rhealpix_code[0],) + tuple(map(int, rhealpix_code[1:]))
     
     E = WGS84_ELLIPSOID
-    rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
-    
-    rhealpix_cell = rdggs.cell(rhealpix_uids)
+    rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3) 
+    rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
     resolution = rhealpix_cell.resolution
-    planar_cell_width = rdggs.cell_width(resolution, plane=True) # If plane = False, then return None, because the ellipsoidal cells don't have constant width.
-    geodesic_cell_area = rdggs.cell_area(resolution, plane=False)
+       
+    cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
+    features = []
     
-    planar_cell_width_str =  f'{round(planar_cell_width,2)} m'
-    geodesic_cell_area_str=  f'{round(geodesic_cell_area,2)} m2'
-
-    if geodesic_cell_area >= 1000_000:
-        planar_cell_width_str = f'{round(planar_cell_width/1000,2)} km'
-        geodesic_cell_area_str = f'{round(geodesic_cell_area/(10**6),2)} km2'
-    
-    coordinates = []
-    for vertice in rhealpix_cell.vertices(plane=False):  
-        coordinates.append([vertice[0], vertice[1]])
-    # Close the polygon
-    coordinates.append(coordinates[0])
-   
-    longitudes = [point[0] for point in coordinates]
-    latitudes = [point[1] for point in coordinates]
-    center_lon = round(sum(longitudes) / len(longitudes),7)
-    center_lat = round(sum(latitudes) / len(latitudes),7)
-
-    if coordinates:       
-        feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [coordinates]  # Directly use the coordinates list
-            },
-            "properties": {
-                "rhealpix": rhealpix_code,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "planar_cell_width": planar_cell_width_str,
-                "geodesic_cell_area": geodesic_cell_area_str,
-                "resolution": resolution
-                }
-            }
+    if cell_polygon:
+        geod = Geod(ellps="WGS84")
+        center_lon = cell_polygon.centroid.x
+        center_lat = cell_polygon.centroid.y
         
-        feature_collection = {
+        min_x, min_y, max_x, max_y = cell_polygon.bounds
+        cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
+        _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
+        _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
+        
+        cell_width_str =  f'{round(cell_width,2)} m'
+        cell_height_str =  f'{round(cell_height,2)} m'
+        cell_area_str=  f'{round(cell_area,2)} m2'
+
+        if cell_area >= 1000_000:
+            cell_width_str = f'{round(cell_width/1000,2)} km'
+            cell_height_str = f'{round(cell_height/1000,2)} km'
+            cell_area_str = f'{round(cell_area/(10**6),2)} km2'
+        
+        features. append({
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                        "rhealpix": str(rhealpix_cell),
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_width": cell_width_str,
+                        "cell_height": cell_height_str,
+                        "cell_area": cell_area_str,
+                        "resolution": resolution
+                    }
+                })
+        
+        feature_collection =  {
             "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
+            "features": features,
+        }                
         return feature_collection
 
 def rhealpix2geojson_cli():
