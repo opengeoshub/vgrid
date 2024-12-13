@@ -1,7 +1,7 @@
 import json
-from vgrid.geocode import s2
+from vgrid.utils import s2
 from vgrid.geocode.geocode2geojson import *
-from vgrid.geocode.s2 import LatLng, CellId, Cell
+from vgrid.utils.s2 import LatLng, CellId, Cell
 
 # latitude, longitude = 10.775275567242561, 106.70679737574993
 
@@ -22,7 +22,7 @@ from vgrid.geocode.s2 import LatLng, CellId, Cell
 
 
 import json
-from vgrid.geocode.s2 import CellId, Cell, LatLng, LatLngRect, RegionCoverer
+from vgrid.utils.s2 import CellId, Cell, LatLng, LatLngRect, RegionCoverer
 
 def s2_covering_to_geojson(min_lat, min_lng, max_lat, max_lng, max_cells):
     # Define the region as a LatLngRect

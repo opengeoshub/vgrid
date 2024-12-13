@@ -1,4 +1,4 @@
-from vgrid.geocode import mgrs
+from vgrid.utils import mgrs
 from vgrid.geocode.geocode2geojson import *
 import json
 latitude, longitude = 10.775275567242561, 106.70679737574993

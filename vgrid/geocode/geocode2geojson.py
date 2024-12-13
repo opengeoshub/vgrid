@@ -1,6 +1,10 @@
-from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2, tilecode
+from vgrid.utils import geohash
 import h3
-from vgrid.geocode.s2 import LatLng, CellId
+from vgrid.utils import georef
+from vgrid.utils import maidenhead
+from vgrid.utils import mgrs
+from vgrid.utils import olc
+from vgrid.utils.s2 import LatLng, CellId
 
 from vgrid.utils.gars.garsgrid import GARSGrid
 from vgrid.utils import mercantile
@@ -22,6 +26,9 @@ from pyproj import Geod
 import math
 import json, re
 import argparse
+
+from vgrid.utils import s2
+from vgrid.utils import tilecode
 
 def haversine(lat1, lon1, lat2, lon2):
     # Radius of the Earth in meters

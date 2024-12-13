@@ -1,5 +1,5 @@
 
-import vgrid.geocode.s2 as s2sphere
+import vgrid.utils.s2 as s2sphere
 import geojson
 from shapely.geometry import Polygon, mapping
 

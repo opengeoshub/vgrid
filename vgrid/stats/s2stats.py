@@ -2,7 +2,7 @@ import locale
 import argparse
 import csv
 import math
-from vgrid.geocode.s2 import CellId, LatLng, Cell
+from vgrid.utils.s2 import CellId, LatLng, Cell
 from texttable import Texttable
 
 def s2_metrics(res):

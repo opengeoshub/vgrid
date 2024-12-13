@@ -1,4 +1,4 @@
-from ..utils import mercantile
+from . import mercantile
 import math
 from shapely.geometry import Polygon
 from shapely.ops import transform

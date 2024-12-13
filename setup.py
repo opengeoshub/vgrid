@@ -59,7 +59,6 @@ setup(
             'maidenhead2geojson = vgrid.geocode.geocode2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.geocode.geocode2geojson:gars2geojson_cli',  
             
-
             # Latlon to Code
             'latlon2h3 = vgrid.geocode.latlon2geocode:latlon2h3_cli',  
             'latlon2s2 = vgrid.geocode.latlon2geocode:latlon2s2_cli',  
@@ -73,21 +72,20 @@ setup(
             'latlon2maidenhead = vgrid.geocode.latlon2geocode:latlon2maidenhead_cli',  
             'latlon2gars = vgrid.geocode.latlon2geocode:latlon2gars_cli',  
 
-            # Create Geocode Grid
-            'h3grid = vgrid.grid.h3grid:main',
-            's2grid = vgrid.grid.s2grid:main',
-            'rhealpixgrid = vgrid.grid.rhealpixgrid:main',
-            'eaggrisea4tgrid = vgrid.grid.eaggrisea4tgrid:main',
-            
-            # Shape2grid
-            'geojson2rhealpix = vgrid.grid.geojson2rhealpix:main',
+            # geojson2grid
+            'geojson2rhealpix = vgrid.grid.geojson2grid.geojson2rhealpix:main',
 
-            # 'olcgrid = vgrid.grid.olcgrid:main',
-            'geohashgrid = vgrid.grid.geohashgrid:main',           
-            'gzd = vgrid.grid.gzd:main',  
-            'mgrsgrid = vgrid.grid.mgrsgrid:main',
-            'tilegrid = vgrid.grid.tilegrid:main', 
-            'maidenheadgrid = vgrid.grid.maidenheadgrid:main',           
+            # Generate Geocode Grid
+            'h3grid = vgrid.grid.generator.h3grid:main',
+            's2grid = vgrid.grid.generator.s2grid:main',
+            'rhealpixgrid = vgrid.grid.generator.rhealpixgrid:main',
+            'eaggrisea4tgrid = vgrid.grid.generator.eaggrisea4tgrid:main',
+            # 'olcgrid = vgrid.grid.generator.olcgrid:main',
+            'geohashgrid = vgrid.grid.generator.geohashgrid:main',           
+            'gzd = vgrid.grid.generator.gzd:main',  
+            'mgrsgrid = vgrid.grid.generator.mgrsgrid:main',
+            'tilegrid = vgrid.grid.generator.tilegrid:main', 
+            'maidenheadgrid = vgrid.grid.generator.maidenheadgrid:main',           
            
             # Grid Stats
             'h3stats = vgrid.stats.h3stats:main',

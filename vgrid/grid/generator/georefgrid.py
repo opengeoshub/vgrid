@@ -1,6 +1,6 @@
 
 # https://github.com/corteva/gars-field
-from vgrid.geocode import georef
+from vgrid.utils import georef
 import geopandas as gpd
 from shapely.geometry import Polygon
 import numpy as np

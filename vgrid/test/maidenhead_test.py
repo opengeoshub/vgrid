@@ -1,4 +1,4 @@
-from vgrid.geocode import maidenhead
+from vgrid.utils import maidenhead
 from vgrid.geocode.geocode2geojson import *
 import json
 latitude, longitude = 10.775275567242561, 106.70679737574993

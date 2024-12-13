@@ -1,6 +1,10 @@
-from vgrid.geocode import mgrs, maidenhead, geohash, georef, olc, s2, tilecode
+from vgrid.utils import geohash
 import h3
-from vgrid.geocode.s2 import LatLng, CellId
+from vgrid.utils import georef
+from vgrid.utils import maidenhead
+from vgrid.utils import mgrs
+from vgrid.utils import olc
+from vgrid.utils.s2 import LatLng, CellId
 
 from vgrid.utils.gars.garsgrid import GARSGrid
 from vgrid.utils import mercantile
@@ -15,6 +19,9 @@ from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.utils.eaggr.enums.model import Model
 
 import argparse
+
+from vgrid.utils import s2
+from vgrid.utils import tilecode
 
 def latlon2h3(lat,lon,res=13):
     # res: [0..15]

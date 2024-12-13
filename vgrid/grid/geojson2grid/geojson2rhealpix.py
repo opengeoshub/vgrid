@@ -3,10 +3,8 @@ import json
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
 from shapely.geometry import Polygon, box, Point, LineString, mapping
-from tqdm import tqdm
 from pyproj import Geod
 import os
-from vgrid.grid.rhealpixgrid import generate_grid_within_bbox
 
 # Function to filter cells crossing the antimeridian
 def filter_antimeridian_cells(boundary, threshold=-128):
@@ -287,46 +285,56 @@ def main():
     
     geojson_features = []
 
-    # Iterate over each feature in the GeoJSON
-    for feature in geojson_data['features']:
-        if feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'Polygon':
-                coordinates = feature['geometry']['coordinates'][0]  # Only access the first set of coordinates
-                polygon = Polygon(coordinates)
-                polygon_features = polygon_to_grid(rhealpix_dggs, resolution, polygon)
-                geojson_features.extend(polygon_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPolygon':
-                for coords in feature['geometry']['coordinates']:
-                    polygon = Polygon(coords[0])  # Handle the first set of coordinates for each multi-polygon
-                    polygon_features = polygon_to_grid(rhealpix_dggs, resolution, polygon)
-                    geojson_features.extend(polygon_features['features'])
-
-        # Handle other geometry types (Point, Polyline) if needed
-        elif feature['geometry']['type'] in ['Point', 'MultiPoint']:
+    for feature in geojson_data['features']:      
+        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'Point':
-                coordinates = feature['geometry']['coordinates'] 
                 point = Point(coordinates)
                 point_features = point_to_grid(rhealpix_dggs, resolution, point)
                 geojson_features.extend(point_features['features'])
-    
-        # Process Polyline feature if needed
+
+            elif feature['geometry']['type'] == 'MultiPoint':
+                for point_coords in coordinates:
+                    point = Point(point_coords)  # Create Point for each coordinate set
+                    point_features = point_to_grid(rhealpix_dggs, resolution, point)
+                    geojson_features.extend(point_features['features'])
+        
         elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'LineString':
-                coordinates = feature['geometry']['coordinates'] 
+                # Directly process LineString geometry
                 polyline = LineString(coordinates)
                 polyline_features = polyline_to_grid(rhealpix_dggs, resolution, polyline)
                 geojson_features.extend(polyline_features['features'])
 
-            # elif feature['geometry']['type'] == 'MultiLineString':
-            #     for coords in feature['geometry']['coordinates']:
-            #         polyline = LineString(coords[0])  # Handle the first set of coordinates for each multi-polygon
-            #         polyline_features = polyline_to_grid(rhealpix_dggs, resolution, polyline)
-            #         geojson_features.extend(polyline_features['features'])
+            elif feature['geometry']['type'] == 'MultiLineString':
+                # Iterate through each line in MultiLineString geometry
+                for line_coords in coordinates:
+                    polyline = LineString(line_coords)  # Use each part's coordinates
+                    polyline_features = polyline_to_grid(rhealpix_dggs, resolution, polyline)
+                    geojson_features.extend(polyline_features['features'])
+            
+        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
+            coordinates = feature['geometry']['coordinates']
 
+            if feature['geometry']['type'] == 'Polygon':
+                # Create Polygon with exterior and interior rings
+                exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
+                interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
+                polygon = Polygon(exterior_ring, interior_rings)
+                polygon_features = polygon_to_grid(rhealpix_dggs, resolution, polygon)
+                geojson_features.extend(polygon_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                # Handle each sub-polygon in MultiPolygon geometry
+                for sub_polygon_coords in coordinates:
+                    exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
+                    interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
+                    polygon = Polygon(exterior_ring, interior_rings)
+                    polygon_features = polygon_to_grid(rhealpix_dggs, resolution, polygon)
+                    geojson_features.extend(polygon_features['features'])
+
+                    
     # Save the results to GeoJSON
     geojson_path = f"geojson2rhealpix_{resolution}.geojson"
     with open(geojson_path, 'w') as f:

@@ -2,7 +2,7 @@ import argparse
 import geopandas as gpd
 from shapely.geometry import Polygon
 from pyproj import CRS, Transformer
-from vgrid.geocode import mgrs
+from vgrid.utils import mgrs
 from tqdm import tqdm
 
 # Need to be reviewed

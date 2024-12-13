@@ -6,7 +6,7 @@
 # https://github.com/google/s2geometry
 # https://gis.stackexchange.com/questions/293716/creating-shapefile-of-s2-cells-for-given-level
 # https://s2.readthedocs.io/en/latest/quickstart.html
-from vgrid.geocode import s2
+from vgrid.utils import s2
 import json
 import argparse
 from tqdm import tqdm

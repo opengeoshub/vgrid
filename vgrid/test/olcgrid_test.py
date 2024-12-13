@@ -1,4 +1,4 @@
-import vgrid.geocode.olc as olc
+import vgrid.utils.olc as olc
 
 def generate_all_olcs(length):
     """Generate all OLC codes of a given length."""

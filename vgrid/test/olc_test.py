@@ -1,4 +1,4 @@
-from vgrid.geocode import olc
+from vgrid.utils import olc
 from vgrid.geocode.geocode2geojson import *
 latitude, longitude = 10.775275567242561, 106.70679737574993
 

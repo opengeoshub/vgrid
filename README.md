@@ -30,6 +30,7 @@
 > rhealpix2geojson R31260335553825
 > latlon2rhealpix 10.775275567242561 106.70679737574993 14 # latlon2rhealpix <lat> <lon> <res> [0..15]
 > rhealpixstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> geojson2rhealpix -geojson polygon.geojson # Convert GeoJSON to rhealpix grid
 ```
 
 ### EaggrISEA4T
@@ -88,24 +89,22 @@
 > garsstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
-### Command line for creating geocoding grids in shapefile format
+### Command line for creating geocoding grids in GeoJSON format
 ``` bash
-> h3grid -r 1 -o h3_1.shp (r = [0..15])
-> s2grid -r 1 -o s2_1.shp (r = [0..30])
-> rhealpixgrid -r 1 -o rhealpix_1.shp (r = [1..12])
-> geohashgrid -r 1 -o geohash_1.shp (r = [1..12])
-> gzd -o gzd.shp (Create Grid Zone Designators - used by MGRS)
-> mgrsgrid -o mgrs_32648.shp -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
-> maidenheadgrid -r 1 -o maidenhead_1.shp (r = [1, 2, 3, 4])
+> h3grid -r 1 (r = [0..15])
+> s2grid -r 1 (r = [0..30])
+> rhealpixgrid -r 1 (r = [1..12])
+> geohashgrid -r 1 (r = [1..12])
+> gzd (Create Grid Zone Designators - used by MGRS)
+> mgrsgrid -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
+> maidenheadgrid -r 1 (r = [1, 2, 3, 4])
 ```
 
 ## Usage - Python code:
 ### Import vgrid, initialize latitude and longitude for testing:
 ``` python
-from vgrid.geocode import h3,s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars 
+from vgrid.utils import s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars
 import h3, json
-from vgrid.utils.gars.garsgrid import GARSGrid
-from vgrid.geocode.s2 import LatLng, CellId
 from vgrid.geocode.geocode2geojson import *
 from vgrid.geocode.latlon2geocode import *
 
@@ -136,10 +135,10 @@ print(f'GeoJSON written to {output_file}')
 ``` python
 print('\S2:')
 s2_resolution = 21 #[0..30]
-lat_lng = LatLng.from_degrees(latitude, longitude)
-cell_id = CellId.from_lat_lng(lat_lng)
+lat_lng = s2.LatLng.from_degrees(latitude, longitude)
+cell_id = s2.CellId.from_lat_lng(lat_lng)
 cell_id = cell_id.parent(s2_resolution)
-cell_id_token= CellId.to_token(cell_id)
+cell_id_token= s2.CellId.to_token(cell_id)
 print(cell_id_token)
 
 data = s22geojson(cell_id_token)
@@ -255,7 +254,7 @@ print(f'GeoJSON written to {output_file}')
 ``` python
 print('\nGARS:')
 gars_resolution = 1 # [1, 5, 15, 30 minutes]
-gars_grid = GARSGrid.from_latlon(latitude, longitude, gars_resolution)
+gars_grid = gars.garsgrid.GARSGrid.from_latlon(latitude, longitude, gars_resolution)
 gars_code = gars_grid.gars_id
 print(gars_code)
 
