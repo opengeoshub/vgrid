@@ -21,11 +21,82 @@ from pyproj import Geod
 import threading
 from vgrid.geocode.latlon2geocode import *
 from vgrid.geocode.geocode2geojson import *
+from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
+import random
+
 
 
 # dggs = Eaggr(Model.ISEA3H)
 eaggr_dggs = Eaggr(Model.ISEA4T)
-resolution = 21
+accuracy = 10**-10 # len = 41
+accuracy = 5*10**-10 # len = 40
+accuracy = 10**-9 # len = 39
+accuracy = 10**-8 # len = 38
+accuracy = 5*10**-8 # len = 37
+accuracy = 10**-7 # len = 36
+accuracy = 5*10**-7 # len = 35
+accuracy = 10**-6 # len = 34
+accuracy = 5*10**-6 # len = 33
+accuracy = 5*10**-5 # len = 32
+accuracy = 10**-4 # len = 31
+accuracy = 5*10**-4 # len = 30
+accuracy = 9*10**-4 # len = 29
+accuracy = 5*10**-3 # len = 28
+accuracy = 2*10**-2 # len = 27
+accuracy = 5*10**-2 # len = 26
+accuracy = 5*10**-1 # len = 25
+accuracy = 1 # len = 24
+accuracy = 10 # len = 23
+accuracy = 5*10 # len = 22
+accuracy = 10**2 # len = 21
+accuracy = 5*10**2 # len = 20
+accuracy = 10**3 # len = 19
+accuracy = 5*10**3 # len = 18
+accuracy = 5*10**4 # len = 17
+accuracy = 10**5 # len = 16
+accuracy = 5*10**5 # len = 15
+accuracy = 10**6 # len = 14
+accuracy = 5*10**6 # len = 13
+accuracy = 5*10**7 # len = 12
+accuracy = 10**8 # len = 11
+accuracy = 5*10**8 # len = 10
+accuracy = 10**9 # len = 9
+accuracy = 10**10 # len = 8
+accuracy = 5*10**10 # len = 7
+accuracy = 10**11 # len = 6
+accuracy = 5*10**11 # len = 5
+accuracy = 10**12 # len = 4
+accuracy = 5*10**12 # len = 3
+accuracy = 5*10**13 # len = 2
+
+latitude, longitude = 10.775275567242561, 106.70679737574993# 
+lat_long_point = LatLongPoint(latitude, longitude,accuracy)
+
+dggs_cell = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
+print(len(dggs_cell.get_cell_id()))
+
+
+# wkt_string = 'LINESTRING(106.1 10.234, 107.2 14.322)'
+# wkt_string = 'POLYGON((106.58897968 10.76341669, 106.69972187 10.76341669, 106.69972187 10.82837501, 106.58897968 10.82837501, 106.58897968 10.76341669))'
+# string_format = ShapeStringFormat.WKT
+# # Invalid input types
+# shapes = eaggr_dggs.convert_shape_string_to_dggs_shapes(wkt_string, string_format, accuracy)
+# for shape in shapes:
+#     cells = shape.get_shape().get_outer_ring().get_cells()
+#     # bounding_cell = eaggr_dggs.get_bounding_dggs_cell(cells)
+#     # print(bounding_cell.get_cell_id())
+#     for cell in cells:
+#         # print(cell.get_cell_id())
+#         print (len(cell.get_cell_id()))
+    
+# print(eaggr_dggs.convert_dggs_cells_to_shape_string([DggsCell('01'),DggsCell('02')], string_format))
+
+# cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell('06'), ShapeStringFormat.WKT)
+# print(cell_to_shp)
+
+# eaggr_cell_shape = DggsShape(DggsCell('06'), DggsShapeLocation.ONE_FACE)._shape
+# cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape, ShapeStringFormat.WKT)
+# print(cell_to_shp)
 # latitude, longitude = 10.775275567242561, 106.70679737574993# 
 # latitude, longitude = -21.35158998051384, 179.9999999994089
 # lat_long_point = LatLongPoint(latitude, longitude,resolution)
@@ -40,8 +111,9 @@ resolution = 21
 # print(lat_long_point._latitude, lat_long_point._longitude)
 
 
-dggs_shape_cell = DggsShape(DggsCell("04111"), DggsShapeLocation.ONE_FACE)
-print(dggs_shape_cell)
+# dggs_shape_cell = DggsShape(DggsCell("05"), DggsShapeLocation.ONE_FACE)
+# wkt = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell("14"), ShapeStringFormat.WKT)
+# print(wkt)
 # dggs_shape_cell = DggsShape(DggsCell("14220230"), DggsShapeLocation.ONE_FACE)
 # # Compare the cell with another cell
 # another_dggs_shape_cell = DggsShape(DggsCell("14220231"), DggsShapeLocation.ONE_FACE)

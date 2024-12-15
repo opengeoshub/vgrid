@@ -89,7 +89,7 @@ def latlon2rhealpix_cli():
 def latlon2eaggrisea4t(lat,lon,res=21):
     # res: [0..38]
     eaggr_dggs = Eaggr(Model.ISEA4T)
-    max_accuracy = 10**(-10) # maximum cell_id length with 40 characters
+    max_accuracy = 10**(-10) # maximum cell_id length with 40 characters, 10**14 is mimum cell_id with 2 chacracters
     lat_long_point = LatLongPoint(lat, lon, max_accuracy)
     eaggr_cell_max_accuracy = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
     cell_id_len = res+2

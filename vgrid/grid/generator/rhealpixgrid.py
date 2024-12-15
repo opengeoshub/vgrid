@@ -137,7 +137,7 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Generate RHEALPix grid within a bounding box and save as a GeoJSON.")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15] of the grid")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

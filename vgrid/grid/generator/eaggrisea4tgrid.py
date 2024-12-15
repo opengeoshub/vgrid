@@ -1,5 +1,5 @@
 import argparse
-import pandas as pd
+import json
 from shapely.geometry import Polygon
 from shapely.wkt import loads
 from vgrid.utils.eaggr.eaggr import Eaggr
@@ -10,82 +10,74 @@ from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.geocode.geocode2geojson import fix_eaggr_wkt
 from pyproj import Geod
-from tqdm import tqdm  # Import tqdm for progress bars
-import fiona 
-from shapely import wkt
+from tqdm import tqdm
+from shapely.geometry import Polygon, box, mapping
 
-base_cells = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
-              '10', '11', '12', '13', '14', '15', '16', '17', '18', '19']
+# Initialize the DGGS system
+base_cells = [
+    '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
+    '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
+]
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
-from shapely.geometry import Polygon
-from shapely import wkt
+def filter_antimeridian_cells(isea4t_boundary, threshold=-100):
+    """
+    Adjusts polygon coordinates to handle antimeridian crossings.
+    """
+    lon_lat = [(float(lon), float(lat)) for lon, lat in isea4t_boundary.exterior.coords]
 
-def filter_antimeridian_cells(isea4t_boundary, threshold=-128):
-    # Get the coordinates of the polygon
-    isea4t_boundary_coordinates = isea4t_boundary.exterior.coords
-
-    # Convert the coordinates to a list of tuples (longitude, latitude)
-    lon_lat = [(float(lon), float(lat)) for lon, lat in isea4t_boundary_coordinates]
-
-    # Check if any longitude in the boundary is below the threshold
     if any(lon < threshold for lon, _ in lon_lat):
-        # Adjust all longitudes accordingly if any is below the threshold
         adjusted_coords = [(lon - 360 if lon > 0 else lon, lat) for lon, lat in lon_lat]
     else:
-        # No adjustment needed, use original coordinates
         adjusted_coords = lon_lat
 
-    # Create a new Polygon with the adjusted coordinates
-    adjusted_polygon = Polygon(adjusted_coords)
+    return Polygon(adjusted_coords)
 
-    return adjusted_polygon
+def cell_to_polygon(cell):
+    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(cell), ShapeStringFormat.WKT)
+    cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
+    cell_polygon = loads(cell_to_shp_fixed)
+    return Polygon(cell_polygon)
+
+
 def isea4t2feature(isea4t):
     """
     Converts a DGGS cell into a GeoJSON-like dictionary with additional metadata.
-
-    Parameters:
-        isea4t (str): The DGGS cell ID.
-
-    Returns:
-        dict: Feature information including geometry and properties.
     """
-    eaggr_cell_shape = DggsShape(DggsCell(isea4t), DggsShapeLocation.ONE_FACE)._shape
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape, ShapeStringFormat.WKT)
+    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t), ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
 
-    # Convert WKT to Shapely geometry
     cell_polygon = loads(cell_to_shp_fixed)
-    cell_polygon = filter_antimeridian_cells(cell_polygon)
-    
+    if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14') or isea4t.startswith('04') or isea4t.startswith('19'):
+        cell_polygon = filter_antimeridian_cells(cell_polygon)
+
     resolution = len(isea4t) - 2
-    # Compute centroid
     cell_centroid = cell_polygon.centroid
     center_lat, center_lon = round(cell_centroid.y, 7), round(cell_centroid.x, 7)
-    # Compute area using PyProj Geod
     geod = Geod(ellps="WGS84")
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters
-    # Compute perimeter using PyProj Geod
-    edge_len = abs(geod.geometry_area_perimeter(cell_polygon)[1]) / 3  # Perimeter in meters/3
+    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+    edge_len = abs(geod.geometry_area_perimeter(cell_polygon)[1]) / 3
 
     edge_len_str = f'{round(edge_len, 2)} m'
-    cell_area_str = f'{round(cell_area, 2)} m2'
+    cell_area_str = f'{round(cell_area, 2)} m²'
 
-    if cell_area >= 1000_000:
+    if cell_area >= 1_000_000:
         edge_len_str = f'{round(edge_len / 1000, 2)} km'
-        cell_area_str = f'{round(cell_area / (10**6), 2)} km2'
+        cell_area_str = f'{round(cell_area / 1_000_000, 2)} km²'
 
     return {
         "geometry": cell_polygon,
-        "isea4t": isea4t,
-        "center_lat": center_lat,
-        "center_lon": center_lon,
-        "cell_area": cell_area_str,
-        "edge_len": edge_len_str,
-        "resolution": resolution,
+        "properties": {
+            "isea4t": isea4t,
+            "center_lat": center_lat,
+            "center_lon": center_lon,
+            "cell_area": cell_area_str,
+            "edge_len": edge_len_str,
+            "resolution": resolution,
+        }
     }
 
-def get_cells_for_resolution(base_cells, target_resolution):
+def get_children_cells(base_cells, target_resolution):
     """
     Recursively generate DGGS cells for the desired resolution.
     """
@@ -98,66 +90,173 @@ def get_cells_for_resolution(base_cells, target_resolution):
         current_cells = next_cells
     return current_cells
 
-def save_as_shapefile(features, output_file):
+def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
     """
-    Save features as a Shapefile using pandas and shapely.
+    Recursively generate child cells for the given bounding cell up to the target resolution,
+    considering only cells that intersect with the given bounding box.
+
+    Parameters:
+        bounding_cell (str): The starting cell ID.
+        bbox (Polygon): The bounding box as a Shapely Polygon.
+        target_resolution (int): The target resolution for cell generation.
+
+    Returns:
+        list: List of cell IDs that intersect with the bounding box.
     """
-    df = pd.DataFrame({
-        "geometry": [f["geometry"].wkt for f in features],
-        "isea4t": [f["isea4t"] for f in features],
-        "center_lat": [f["center_lat"] for f in features],
-        "center_lon": [f["center_lon"] for f in features],
-        "cell_area": [f["cell_area"] for f in features],
-        "edge_len": [f["edge_len"] for f in features],
-        "resolution": [f["resolution"] for f in features],
-    })
+    current_cells = [bounding_cell]  # Start with a list containing the single bounding cell
+    bounding_resolution = len(bounding_cell) - 2
 
-    # Convert geometries to Shapely objects for Fiona compatibility
-    df["geometry"] = df["geometry"].apply(loads)
+    for _ in range(bounding_resolution, target_resolution):
+        next_cells = []
+        for cell in tqdm(current_cells, desc="Generating child cells", unit="cell"):
+            # Get the child cells for the current cell
+            children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
+            for child in children:
+                # Convert child cell to geometry
+                child_shape = cell_to_polygon(child._cell_id)
+                if child_shape.intersects(bbox):              
+                    # Add the child cell ID to the next_cells list
+                    next_cells.append(child._cell_id)  # Use append instead of extend
+        if not next_cells:  # Break early if no cells remain
+            break
+        current_cells = next_cells  # Update current_cells to process the next level of children
+    
+    return current_cells
 
-    # Save as Shapefile
-    schema = {
-        "geometry": "Polygon",
-        "properties": {
-            "isea4t": "str",
-            "center_lat": "float",
-            "center_lon": "float",
-            "cell_area": "str",
-            "edge_len": "str",
-            "resolution": "int",
-        },
+
+def generate_grid(resolution):
+    """
+    Generate DGGS cells and convert them to GeoJSON features.
+    """
+    cells = get_children_cells(base_cells, resolution)
+    features = []
+    for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+        features.append(isea4t2feature(cell))
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
+                "properties": feature["properties"],
+            }
+            for feature in features
+        ]
     }
 
-    with fiona.open(output_file, "w", driver="ESRI Shapefile", schema=schema, crs="EPSG:4326") as shp:
-        for _, row in df.iterrows():
-            shp.write({
-                "geometry": row["geometry"].__geo_interface__,
-                "properties": {
-                    "isea4t": row["isea4t"],
-                    "center_lat": row["center_lat"],
-                    "center_lon": row["center_lon"],
-                    "cell_area": row["cell_area"],
-                    "edge_len": row["edge_len"],
-                    "resolution": row["resolution"],
-                },
-            })
-    print(f"Shapefile saved as {output_file}.shp")
+length_accuracy_dict = {
+    41: 10**-10,
+    40: 5*10**-10,
+    39: 10**-9,
+    38: 10**-8,
+    37: 5*10**-8,
+    36: 10**-7,
+    35: 5*10**-7,
+    34: 10**-6,
+    33: 5*10**-6,
+    32: 5*10**-5,
+    31: 10**-4,
+    30: 5*10**-4,
+    29: 9*10**-4,
+    28: 5*10**-3,
+    27: 2*10**-2,
+    26: 5*10**-2,
+    25: 5*10**-1,
+    24: 1,
+    23: 10,
+    22: 5*10,
+    21: 10**2,
+    20: 5*10**2,
+    19: 10**3,
+    18: 5*10**3,
+    17: 5*10**4,
+    16: 10**5,
+    15: 5*10**5,
+    14: 10**6,
+    13: 5*10**6,
+    12: 5*10**7,
+    11: 10**8,
+    10: 5*10**8,
+     9: 10**9,
+     8: 10**10,
+     7: 5*10**10,
+     6: 10**11,
+     5: 5*10**11,
+     4: 10**12,
+     3: 5*10**12,
+     2: 5*10**13
+}
+
+def generate_grid_within_bbox(resolution,bbox):
+    cell_id_len = resolution +2
+    accuracy = length_accuracy_dict.get(cell_id_len)
+
+    bounding_box = box(*bbox)
+    bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
+    print(bounding_box_wkt)
+    shapes = eaggr_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
+    for shape in shapes:
+        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+        bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
+        print(bounding_cell.get_cell_id())
+        print (len(bounding_cell.get_cell_id())-2)
+        bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
+        features = []
+        for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            cell_polygon = isea4t2feature(cell)
+            cell_shape = cell_to_polygon(cell)
+            if cell_shape.intersects(bounding_box):
+                features.append(cell_polygon)
+        
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
+                    "properties": feature["properties"],
+                }
+                for feature in features
+            ]
+        }
+
 
 def main():
+    """
+    Main function to parse arguments and generate the DGGS grid.
+    """
     parser = argparse.ArgumentParser(description="Generate full DGGS grid at a specified resolution.")
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Desired resolution (e.g., 0, 1, 2, 3).")
+    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..22] of the grid")
+    # Resolution max range: [0..39]
+    parser.add_argument(
+        '-b', '--bbox', type=float, nargs=4, 
+        help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"
+    )
+
     args = parser.parse_args()
+    resolution = args.resolution
+    bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
+    
+    if bbox == [-180, -90, 180, 90]:        
+        geojson = generate_grid(resolution)
+        geojson_path = f"isea4t_grid_{resolution}.geojson"
 
-    # Generate the cells for the given resolution
-    cells = get_cells_for_resolution(base_cells, args.resolution)
+        with open(geojson_path, 'w', encoding='utf-8') as f:
+            json.dump(geojson, f, ensure_ascii=False, indent=4)
 
-    # Process the cells to create features
-    features = []
-    for cell in tqdm(cells, desc="Processing cells", unit="cell"):
-        features.append(isea4t2feature(cell))
+        print(f"GeoJSON saved as {geojson_path}")
+    else:
+        if resolution < 1 or resolution > 22:
+            print(f"Please select a resolution in [1..22] range and try again ")
+            return
+        # Generate grid within the bounding box
+        geojson_features = generate_grid_within_bbox(resolution, bbox)
+        # Define the GeoJSON file path
+        geojson_path = f"isea4t_grid_{resolution}_bbox.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-    # Save as Shapefile
-    save_as_shapefile(features, f"isea4t_{args.resolution}")
-
+        print (f"GeoJSON saved as {geojson_path}")
+        
 if __name__ == "__main__":
     main()
