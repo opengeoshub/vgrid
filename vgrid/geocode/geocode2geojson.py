@@ -777,8 +777,7 @@ def fix_eaggr_wkt(eaggr_wkt):
 
 def eaggrisea4t2geojson(eaggrisea4t):
     eaggr_dggs = Eaggr(Model.ISEA4T)
-    eaggr_cell_shape = DggsShape(DggsCell(eaggrisea4t), DggsShapeLocation.ONE_FACE)._shape
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
+    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea4t),ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
 
@@ -836,8 +835,7 @@ def eaggrisea4t2geojson_cli():
 
 def eaggrisea3hgeojson(eaggrisea3h):
     eaggr_dggs = Eaggr(Model.ISEA3H)
-    eaggr_cell_shape = DggsShape(DggsCell(eaggrisea3h), DggsShapeLocation.ONE_FACE)._shape
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
+    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea3h),ShapeStringFormat.WKT)
     
     if cell_to_shp:
         coordinates_part = cell_to_shp.replace("POLYGON ((", "").replace("))", "")

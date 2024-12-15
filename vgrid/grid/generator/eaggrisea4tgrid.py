@@ -33,25 +33,26 @@ def filter_antimeridian_cells(isea4t_boundary, threshold=-100):
 
     return Polygon(adjusted_coords)
 
-def cell_to_polygon(cell):
-    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(cell), ShapeStringFormat.WKT)
+def cell_to_polygon(eaggr_cell):
+    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell, ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     return Polygon(cell_polygon)
 
 
-def isea4t2feature(isea4t):
+def cell_to_feature(eaggr_cell):
     """
     Converts a DGGS cell into a GeoJSON-like dictionary with additional metadata.
     """
-    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t), ShapeStringFormat.WKT)
+    eaggr_cell_id = eaggr_cell.get_cell_id()
+    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell, ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
 
     cell_polygon = loads(cell_to_shp_fixed)
-    if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14') or isea4t.startswith('04') or isea4t.startswith('19'):
+    if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
         cell_polygon = filter_antimeridian_cells(cell_polygon)
 
-    resolution = len(isea4t) - 2
+    resolution = len(eaggr_cell_id) - 2
     cell_centroid = cell_polygon.centroid
     center_lat, center_lon = round(cell_centroid.y, 7), round(cell_centroid.x, 7)
     geod = Geod(ellps="WGS84")
@@ -68,7 +69,7 @@ def isea4t2feature(isea4t):
     return {
         "geometry": cell_polygon,
         "properties": {
-            "isea4t": isea4t,
+            "isea4t": eaggr_cell_id,
             "center_lat": center_lat,
             "center_lon": center_lon,
             "cell_area": cell_area_str,
@@ -82,9 +83,9 @@ def get_children_cells(base_cells, target_resolution):
     Recursively generate DGGS cells for the desired resolution.
     """
     current_cells = base_cells
-    for _ in range(target_resolution):
+    for res in range(target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc="Generating child cells", unit="cell"):
+        for cell in tqdm(current_cells, desc= f"Generating child cells at resolution {res}", unit="cell"):
             children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
             next_cells.extend([child._cell_id for child in children])
         current_cells = next_cells
@@ -106,14 +107,14 @@ def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
     current_cells = [bounding_cell]  # Start with a list containing the single bounding cell
     bounding_resolution = len(bounding_cell) - 2
 
-    for _ in range(bounding_resolution, target_resolution):
+    for res in range(bounding_resolution, target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc="Generating child cells", unit="cell"):
+        for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit="cell"):
             # Get the child cells for the current cell
             children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
             for child in children:
                 # Convert child cell to geometry
-                child_shape = cell_to_polygon(child._cell_id)
+                child_shape = cell_to_polygon(child)
                 if child_shape.intersects(bbox):              
                     # Add the child cell ID to the next_cells list
                     next_cells.append(child._cell_id)  # Use append instead of extend
@@ -131,7 +132,7 @@ def generate_grid(resolution):
     cells = get_children_cells(base_cells, resolution)
     features = []
     for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-        features.append(isea4t2feature(cell))
+        features.append(cell_to_feature(DggsCell(cell)))
     return {
         "type": "FeatureCollection",
         "features": [
@@ -193,20 +194,17 @@ def generate_grid_within_bbox(resolution,bbox):
 
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
-    print(bounding_box_wkt)
     shapes = eaggr_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
     for shape in shapes:
         bbox_cells = shape.get_shape().get_outer_ring().get_cells()
         bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
-        print(bounding_cell.get_cell_id())
-        print (len(bounding_cell.get_cell_id())-2)
         bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
         features = []
         for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-            cell_polygon = isea4t2feature(cell)
-            cell_shape = cell_to_polygon(cell)
+            cell_feature = cell_to_feature(DggsCell(cell))
+            cell_shape = cell_to_polygon(DggsCell(cell))
             if cell_shape.intersects(bounding_box):
-                features.append(cell_polygon)
+                features.append(cell_feature)
         
         return {
             "type": "FeatureCollection",

@@ -74,6 +74,7 @@ setup(
 
             # geojson2grid
             'geojson2rhealpix = vgrid.grid.geojson2grid.geojson2rhealpix:main',
+            'geojson2eaggrisea4t = vgrid.grid.geojson2grid.geojson2eaggrisea4t:main',
 
             # Generate Geocode Grid
             'h3grid = vgrid.grid.generator.h3grid:main',
