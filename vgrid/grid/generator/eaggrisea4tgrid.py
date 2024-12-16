@@ -4,14 +4,15 @@ from shapely.geometry import Polygon
 from shapely.wkt import loads
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
 from vgrid.utils.eaggr.enums.model import Model
-from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.geocode.geocode2geojson import fix_eaggr_wkt
 from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
+import locale
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 
 # Initialize the DGGS system
 base_cells = [
@@ -51,7 +52,7 @@ def cell_to_feature(eaggr_cell):
     cell_polygon = loads(cell_to_shp_fixed)
     if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
         cell_polygon = filter_antimeridian_cells(cell_polygon)
-
+    
     resolution = len(eaggr_cell_id) - 2
     cell_centroid = cell_polygon.centroid
     center_lat, center_lon = round(cell_centroid.y, 7), round(cell_centroid.x, 7)
@@ -236,6 +237,17 @@ def main():
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     
     if bbox == [-180, -90, 180, 90]:        
+        num_cells = 20*(4**resolution)
+        max_cells = 1_000_000
+        if num_cells > max_cells:
+            print(
+                f"The selected resolution will generate "
+                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
+                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+            )
+            print("Please select a smaller resolution and try again.")
+            return
+        
         geojson = generate_grid(resolution)
         geojson_path = f"isea4t_grid_{resolution}.geojson"
 

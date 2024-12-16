@@ -4,7 +4,6 @@ from vgrid.utils import georef
 from vgrid.utils import maidenhead
 from vgrid.utils import mgrs
 from vgrid.utils import olc
-from vgrid.utils.s2 import LatLng, CellId
 
 from vgrid.utils.gars.garsgrid import GARSGrid
 from vgrid.utils import mercantile
@@ -16,9 +15,6 @@ from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
-from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
-from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from shapely.geometry import Polygon,mapping
@@ -28,7 +24,9 @@ import json, re
 import argparse
 
 from vgrid.utils import s2
-from vgrid.utils import tilecode
+from pyproj import Geod
+geod = Geod(ellps="WGS84")
+from vgrid.utils.antimeridian import fix_polygon
 
 def haversine(lat1, lon1, lat2, lon2):
     # Radius of the Earth in meters
@@ -63,7 +61,7 @@ def olc2geojson(olc_code):
 
         bbox_width =  f'{round(lon_len,1)} m'
         bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 10000:
+        if lon_len >= 1000:
             bbox_width = f'{round(lon_len/1000,1)} km'
             bbox_height = f'{round(lat_len/1000,1)} km'
 
@@ -127,7 +125,7 @@ def geohash2geojson(geohash_code):
  
         bbox_width =  f'{round(lon_len,1)} m'
         bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 10000:
+        if lon_len >= 1000:
             bbox_width = f'{round(lon_len/1000,1)} km'
             bbox_height = f'{round(lat_len/1000,1)} km'
             
@@ -183,7 +181,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
     bbox_width =  f'{round(lon_len,1)} m'
     bbox_height =  f'{round(lat_len,1)} m'
     
-    if lon_len >= 10000:
+    if lon_len >= 1000:
         bbox_width = f'{round(lon_len/1000,1)} km'
         bbox_height = f'{round(lat_len/1000,1)} km'
         
@@ -291,7 +289,7 @@ def georef2geojson(georef_code):
     bbox_width =  f'{round(lon_len,1)} m'
     bbox_height =  f'{round(lat_len,1)} m'
     
-    if lon_len >= 10000:
+    if lon_len >= 1000:
         bbox_width = f'{round(lon_len/1000,1)} km'
         bbox_height = f'{round(lat_len/1000,1)} km'
         
@@ -341,44 +339,45 @@ def georef2geojson_cli():
 
 def h32geojson(h3_code):
     # Get the boundary coordinates of the H3 cell
-    boundary = h3.cell_to_boundary(h3_code)
-    
-    if boundary:
-        # Get the center coordinates of the H3 cell
+    cell_boundary = h3.cell_to_boundary(h3_code)    
+    if cell_boundary:
+        filtered_boundary = filter_antimeridian_cells(cell_boundary)
+        # Reverse lat/lon to lon/lat for GeoJSON compatibility
+        reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
+        cell_polygon = Polygon(reversed_boundary)
+        
         center_lat, center_lon = h3.cell_to_latlng(h3_code)
+        cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
+        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
+        edge_len = cell_perimeter/6
+        if (h3.is_pentagon(h3_code)):
+            edge_len = cell_perimeter/5    
         resolution = h3.get_resolution(h3_code)
-        avg_edge_len = h3.average_hexagon_edge_length(resolution,unit='m')
         
-        boundary = list(boundary)
-        # Ensure the polygon boundary is closed
-        if boundary[0] != boundary[-1]:
-            boundary.append(boundary[0])
-        
+        cell_area_str =  f'{round(cell_area,1)} m2'
+        edge_len_str =  f'{round(edge_len,1)} m'
+    
+        if cell_area >= 1000_000:
+            cell_area_str = f'{round(cell_area/1000_000,1)} km2'
+            edge_len_str = f'{round(edge_len/1000,1)} km'
+
         feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-               "coordinates": [[
-                [lon, lat] for lat, lon in boundary  # Convert boundary to the correct coordinate order
-                ]]
-            },
-            "properties": {
-                "h3": h3_code,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "resolution": resolution
-            }
-        }
-        # Wrap the feature in a FeatureCollection
-        feature_collection = {
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                        "h3": h3_code,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area_str,
+                        "edge_len": edge_len_str,
+                        "resolution": resolution
+                        }
+                    }
+        return {
             "type": "FeatureCollection",
-            "features": [feature]
+            "features": [feature],
         }
-
-        # Convert the feature collection to JSON formatted string
-        return feature_collection
-
+    
 def h32geojson_cli():
     """
     Command-line interface for h32geojson.
@@ -389,35 +388,112 @@ def h32geojson_cli():
     geojson_data = json.dumps(h32geojson(args.h3))
     print(geojson_data)
 
+# def s22geojson(cell_id_token):
+#     # Create an S2 cell from the given cell ID
+#     cell_id = CellId.from_token(cell_id_token)
+#     cell = s2.Cell(cell_id)
+    
+#     if cell:
+#         # Get the vertices of the cell (4 vertices for a rectangular cell)
+#         vertices = [cell.get_vertex(i) for i in range(4)]
+        
+#         # Prepare vertices in [longitude, latitude] format
+#         json_vertices = []
+#         for vertex in vertices:
+#             lat_lng = LatLng.from_point(vertex)  # Convert Point to LatLng
+#             longitude = lat_lng.lng().degrees  # Access longitude in degrees
+#             latitude = lat_lng.lat().degrees    # Access latitude in degrees
+#             json_vertices.append([longitude, latitude])
+
+#         # Close the polygon by adding the first vertex again
+#         json_vertices.append(json_vertices[0])  # Closing the polygon
+
+        
+#         # Create a JSON-compatible polygon structure
+#         json_polygon = {
+#             "type": "Polygon",
+#             "coordinates": [json_vertices]
+#         }
+
+#         # Get the center of the cell
+#         center = cell.get_center()
+#         center_lat_lng = LatLng.from_point(center)
+#         center_lat = center_lat_lng.lat().degrees
+#         center_lon = center_lat_lng.lng().degrees
+
+#         # Get rectangular bounds of the cell
+#         rect_bound = cell.get_rect_bound()
+#         min_lat = rect_bound.lat_lo().degrees
+#         max_lat = rect_bound.lat_hi().degrees
+#         min_lon = rect_bound.lng_lo().degrees
+#         max_lon = rect_bound.lng_hi().degrees
+        
+#         # Calculate width and height of the bounding box
+#         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
+#         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
+  
+#         bbox_width = f'{round(lon_len, 1)} m'
+#         bbox_height = f'{round(lat_len, 1)} m'
+#         cell_size= cell_id.get_size_ij()
+
+#         if lon_len >= 1000:
+#             bbox_width = f'{round(lon_len / 1000, 1)} km'
+#             bbox_height = f'{round(lat_len / 1000, 1)} km'
+
+#         # Create properties for the Feature
+#         properties = {
+#             # "s2": cell_id.id(),
+#             "s2": cell_id_token,
+#             "center_lat": center_lat,
+#             "center_lon": center_lon,
+#             "bbox_width": bbox_width,
+#             "bbox_height": bbox_height,
+#             "cell_size": cell_size,
+#             "level": cell_id.level()
+#         }
+
+#         # Manually create the Feature and FeatureCollection
+#         feature = {
+#             "type": "Feature",
+#             "geometry": json_polygon,
+#             "properties": properties
+#         }
+        
+#         # Create the FeatureCollection
+#         feature_collection = {
+#             "type": "FeatureCollection",
+#             "features": [feature]
+#         }
+
+#         # Convert to JSON format
+#         return feature_collection
+
 def s22geojson(cell_id_token):
     # Create an S2 cell from the given cell ID
-    cell_id = CellId.from_token(cell_id_token)
+    cell_id = s2.CellId.from_token(cell_id_token)
     cell = s2.Cell(cell_id)
     
     if cell:
         # Get the vertices of the cell (4 vertices for a rectangular cell)
         vertices = [cell.get_vertex(i) for i in range(4)]
         
-        # Prepare vertices in [longitude, latitude] format
-        json_vertices = []
+        # Prepare vertices in (longitude, latitude) format for Shapely
+        shapely_vertices = []
         for vertex in vertices:
-            lat_lng = LatLng.from_point(vertex)  # Convert Point to LatLng
+            lat_lng = s2.LatLng.from_point(vertex)  # Convert Point to LatLng
             longitude = lat_lng.lng().degrees  # Access longitude in degrees
-            latitude = lat_lng.lat().degrees    # Access latitude in degrees
-            json_vertices.append([longitude, latitude])
+            latitude = lat_lng.lat().degrees   # Access latitude in degrees
+            shapely_vertices.append((longitude, latitude))
 
         # Close the polygon by adding the first vertex again
-        json_vertices.append(json_vertices[0])  # Closing the polygon
+        shapely_vertices.append(shapely_vertices[0])  # Closing the polygon
 
-        # Create a JSON-compatible polygon structure
-        json_polygon = {
-            "type": "Polygon",
-            "coordinates": [json_vertices]
-        }
-
+        # Create a Shapely Polygon
+        polygon = fix_polygon(Polygon(shapely_vertices)) # Fix antimeridian
+        
         # Get the center of the cell
         center = cell.get_center()
-        center_lat_lng = LatLng.from_point(center)
+        center_lat_lng = s2.LatLng.from_point(center)
         center_lat = center_lat_lng.lat().degrees
         center_lon = center_lat_lng.lng().degrees
 
@@ -431,18 +507,17 @@ def s22geojson(cell_id_token):
         # Calculate width and height of the bounding box
         lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
         lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-  
+
         bbox_width = f'{round(lon_len, 1)} m'
         bbox_height = f'{round(lat_len, 1)} m'
-        cell_size= cell_id.get_size_ij()
+        cell_size = cell_id.get_size_ij()
 
-        if lon_len >= 10000:
+        if lon_len >= 1000:
             bbox_width = f'{round(lon_len / 1000, 1)} km'
             bbox_height = f'{round(lat_len / 1000, 1)} km'
 
         # Create properties for the Feature
         properties = {
-            # "s2": cell_id.id(),
             "s2": cell_id_token,
             "center_lat": center_lat,
             "center_lon": center_lon,
@@ -451,13 +526,14 @@ def s22geojson(cell_id_token):
             "cell_size": cell_size,
             "level": cell_id.level()
         }
+        geometry = mapping(polygon)
 
-        # Manually create the Feature and FeatureCollection
         feature = {
             "type": "Feature",
-            "geometry": json_polygon,
-            "properties": properties
+            "geometry": geometry,
+            "properties":properties
         }
+
         
         # Create the FeatureCollection
         feature_collection = {
@@ -465,7 +541,7 @@ def s22geojson(cell_id_token):
             "features": [feature]
         }
 
-        # Convert to JSON format
+        # Return the FeatureCollection
         return feature_collection
 
 def s22geojson_cli():
@@ -518,7 +594,7 @@ def tilecode2geojson(tilecode):
 
         bbox_width =  f'{round(lon_len,1)} m'
         bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 10000:
+        if lon_len >= 1000:
             bbox_width = f'{round(lon_len/1000,1)} km'
             bbox_height = f'{round(lat_len/1000,1)} km'
 
@@ -579,7 +655,7 @@ def maidenhead2geojson(maidenhead_code):
     bbox_width =  f'{round(lon_len,1)} m'
     bbox_height =  f'{round(lat_len,1)} m'
     
-    if lon_len >= 10000:
+    if lon_len >= 1000:
         bbox_width = f'{round(lon_len/1000,1)} km'
         bbox_height = f'{round(lat_len/1000,1)} km'
         
@@ -651,7 +727,7 @@ def gars2geojson(gars_code):
         bbox_width =  f'{round(lon_len,1)} m'
         bbox_height =  f'{round(lat_len,1)} m'
 
-        if lon_len >= 10000:
+        if lon_len >= 1000:
             bbox_width = f'{round(lon_len/1000,1)} km'
             bbox_height = f'{round(lat_len/1000,1)} km'
 

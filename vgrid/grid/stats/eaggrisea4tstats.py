@@ -28,8 +28,8 @@ def eaggrisea4t_metrics(res):
    
     eaggr_dggs = Eaggr(Model.ISEA4T)
     lat,lon = 10.775275567242561, 106.70679737574993
-    eaggr_cell_shape = DggsShape(DggsCell(latlon2eaggrisea4t(lat,lon,res)), DggsShapeLocation.ONE_FACE)._shape
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell_shape,ShapeStringFormat.WKT)
+    eaggr_cell = DggsCell(latlon2eaggrisea4t(lat,lon,res))
+    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell,ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     geod = Geod(ellps="WGS84")

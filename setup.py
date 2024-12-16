@@ -75,6 +75,7 @@ setup(
             # geojson2grid
             'geojson2rhealpix = vgrid.grid.geojson2grid.geojson2rhealpix:main',
             'geojson2eaggrisea4t = vgrid.grid.geojson2grid.geojson2eaggrisea4t:main',
+            'geojson2h3 = vgrid.grid.geojson2grid.geojson2h3:main',
 
             # Generate Geocode Grid
             'h3grid = vgrid.grid.generator.h3grid:main',
@@ -89,19 +90,19 @@ setup(
             'maidenheadgrid = vgrid.grid.generator.maidenheadgrid:main',           
            
             # Grid Stats
-            'h3stats = vgrid.stats.h3stats:main',
-            's2stats = vgrid.stats.s2stats:main',
-            'rhealpixstats = vgrid.stats.rhealpixstats:main',
-            'eaggrisea4tstats = vgrid.stats.eaggrisea4tstats:main',
+            'h3stats = vgrid.grid.stats.h3stats:main',
+            's2stats = vgrid.grid.stats.s2stats:main',
+            'rhealpixstats = vgrid.grid.stats.rhealpixstats:main',
+            'eaggrisea4tstats = vgrid.grid.stats.eaggrisea4tstats:main',
 
             # 'olcstats = vgrid.stats.olcstats:main',
-            'geohashstats = vgrid.stats.geohashstats:main',
-            'georefstats = vgrid.stats.georefstats:main',
-            'mgrsstats = vgrid.stats.mgrsstats:main',
+            'geohashstats = vgrid.grid.stats.geohashstats:main',
+            'georefstats = vgrid.grid.stats.georefstats:main',
+            'mgrsstats = vgrid.grid.stats.mgrsstats:main',
             # 'tilestats = vgrid.stats.tilestats:main',
             
-            'maidenheadstats = vgrid.stats.maidenheadstats:main',
-            'garsstats = vgrid.stats.garsstats:main',
+            'maidenheadstats = vgrid.grid.stats.maidenheadstats:main',
+            'garsstats = vgrid.grid.stats.garsstats:main',
 
         ],
     },    
