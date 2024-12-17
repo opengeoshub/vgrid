@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from shapely.geometry import MultiPoint, Point
 from shapely.ops import voronoi_diagram
-from srai.regionalizers import VoronoiRegionalizer, geocode_to_region_gdf
+from srai.regionalizers import VoronoiRegionalizer
 import pandas as pd
 
 # Function to generate flat Voronoi regions

@@ -9,7 +9,7 @@ from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from pyproj import Geod
-from vgrid.geocode.latlon2geocode import latlon2eaggrisea4t
+from vgrid.conversion.latlon2cell import latlon2eaggrisea4t
 
 from texttable import Texttable
 

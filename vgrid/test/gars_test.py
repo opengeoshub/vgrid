@@ -1,6 +1,6 @@
 
 # from vgrid.utils.gars.garsgrid import GARSGrid
-# from vgrid.geocode.geocode2geojson import *
+# from vgrid.conversion.cell2geojson import *
 # import json 
 
 # latitude, longitude = 10.775275567242561, 106.70679737574993# GARS encoding
@@ -18,8 +18,8 @@
 
 from vgrid.utils import s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars
 import h3, json
-from vgrid.geocode.geocode2geojson import *
-from vgrid.geocode.latlon2geocode import *
+from vgrid.conversion.cell2geojson import *
+from vgrid.conversion.latlon2cell import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 

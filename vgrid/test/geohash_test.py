@@ -1,5 +1,5 @@
 from vgrid.utils import geohash
-from vgrid.geocode.geocode2geojson import *
+from vgrid.conversion.cell2geojson import *
 import json
 latitude, longitude = 10.775275567242561, 106.70679737574993
 

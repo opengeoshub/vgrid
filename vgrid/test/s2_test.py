@@ -1,6 +1,6 @@
 import json
 from vgrid.utils import s2
-from vgrid.geocode.geocode2geojson import *
+from vgrid.conversion.cell2geojson import *
 from vgrid.utils.s2 import LatLng, CellId, Cell
 
 # latitude, longitude = 10.775275567242561, 106.70679737574993

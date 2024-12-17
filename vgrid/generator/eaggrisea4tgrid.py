@@ -6,7 +6,7 @@ from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.geocode.geocode2geojson import fix_eaggr_wkt
+from vgrid.conversion.cell2geojson import fix_eaggr_wkt
 from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping

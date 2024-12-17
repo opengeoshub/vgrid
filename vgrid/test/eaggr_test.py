@@ -16,11 +16,9 @@ from shapely.wkt import loads
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from shapely.geometry import Polygon
 from shapely.ops import transform
-import math
 from pyproj import Geod
-import threading
-from vgrid.geocode.latlon2geocode import *
-from vgrid.geocode.geocode2geojson import *
+from vgrid.conversion.latlon2cell import *
+from vgrid.conversion.cell2geojson import *
 from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
 import random
 

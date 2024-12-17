@@ -1,6 +1,6 @@
 from rhealpixdggs.dggs import Cell, RHEALPixDGGS, WGS84_003,UNIT_003,WGS84_003_RADIANS, array
 from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
-from vgrid.geocode.geocode2geojson import *
+from vgrid.conversion.cell2geojson import *
 
 E = WGS84_ELLIPSOID
 # rdggs = RHEALPixDGGS()

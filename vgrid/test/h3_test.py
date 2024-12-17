@@ -1,5 +1,5 @@
 import h3, json
-from vgrid.geocode.geocode2geojson import *
+from vgrid.conversion.cell2geojson import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 # # latitude, longitude =-79.220986356276, 72.57079775696259

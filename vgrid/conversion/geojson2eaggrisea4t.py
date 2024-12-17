@@ -8,9 +8,9 @@ from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.geocode.geocode2geojson import fix_eaggr_wkt
+from vgrid.conversion.cell2geojson import fix_eaggr_wkt
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.grid.generator.eaggrisea4tgrid import cell_to_feature, cell_to_polygon, length_accuracy_dict,\
+from vgrid.generator.eaggrisea4tgrid import cell_to_feature, cell_to_polygon, length_accuracy_dict,\
                                                 get_children_cells_within_bbox
 from tqdm import tqdm
 from shapely.geometry import shape, Polygon, box, Point, LineString, mapping
