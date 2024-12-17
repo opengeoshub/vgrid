@@ -1,14 +1,9 @@
-import argparse
-import json
+import argparse, json, os
 from shapely.geometry import Polygon
-from shapely.wkt import loads
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
 from vgrid.utils.eaggr.enums.model import Model
-from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.conversion.cell2geojson import fix_eaggr_wkt
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.generator.eaggrisea4tgrid import cell_to_feature, cell_to_polygon, length_accuracy_dict,\
                                                 get_children_cells_within_bbox
@@ -16,6 +11,7 @@ from tqdm import tqdm
 from shapely.geometry import shape, Polygon, box, Point, LineString, mapping
 from pyproj import Geod
 import os
+geod = Geod(ellps="WGS84")
 
 # Function to generate grid for Point
 def point_to_grid(eaggr_dggs, resolution, point):
@@ -28,18 +24,15 @@ def point_to_grid(eaggr_dggs, resolution, point):
 
     eaggr_cell = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
 
-    # Convert point to the seed cell
     cell_id = eaggr_cell.get_cell_id() # Unique identifier for the current cell
-    cell_polygon = cell_to_polygon(eaggr_dggs,eaggr_cell)
-    geod = Geod(ellps="WGS84")
+    cell_polygon = cell_to_polygon(eaggr_cell)
     
-    # Get the bounds and area of the cell
-    min_x, min_y, max_x, max_y = cell_polygon.bounds
-    center_lon = cell_polygon.centroid.x
-    center_lat = cell_polygon.centroid.y
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
-    _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-    _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
+    center_lat = round(cell_polygon.centroid.y,7)
+    center_lon = round(cell_polygon.centroid.x,7)
+
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    avg_edge_len = round(cell_perimeter/3,2)
     
     features.append({
         "type": "Feature",
@@ -48,9 +41,9 @@ def point_to_grid(eaggr_dggs, resolution, point):
             "isea4t": cell_id,
             "center_lat": center_lat,
             "center_lon": center_lon,
-            "cell_width": cell_width,
-            "cell_height": cell_height,
-            "cell_area": cell_area
+            "cell_area": cell_area,
+            "avg_edge_len": avg_edge_len,
+            "resolution": resolution
         },
     })
     
@@ -63,7 +56,6 @@ def point_to_grid(eaggr_dggs, resolution, point):
 # Function to generate grid for Polyline
 def polyline_to_grid(eaggr_dggs, resolution, geometry):
     features = []
-    geod = Geod(ellps="WGS84")
     # Extract points from polyline
     if geometry.geom_type == 'LineString':
         # Handle single Polygon as before
@@ -85,8 +77,8 @@ def polyline_to_grid(eaggr_dggs, resolution, geometry):
             features = []
             for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 cell_feature = cell_to_feature(DggsCell(cell))
-                cell_shape = cell_to_polygon(DggsCell(cell))
-                if cell_shape.intersects(geometry):
+                cell_polygon = cell_to_polygon(DggsCell(cell))
+                if cell_polygon.intersects(geometry):
                     features.append(cell_feature)
             
             return {
@@ -152,34 +144,10 @@ def polygon_to_grid(eaggr_dggs, resolution, geometry):
         "features": features,
     }
     
-def get_bounding_box(geojson_file):
-    # Load GeoJSON data
-    with open(geojson_file, 'r') as f:
-        data = json.load(f)
-    
-    # Initialize variables to store min/max bounds
-    min_x, min_y, max_x, max_y = float('inf'), float('inf'), float('-inf'), float('-inf')
-    
-    # Iterate through each feature
-    for feature in data['features']:
-        geom = shape(feature['geometry'])  # Convert to Shapely geometry
-        
-        # Get bounds for the geometry
-        geom_min_x, geom_min_y, geom_max_x, geom_max_y = geom.bounds
-        
-        # Update overall bounding box
-        min_x = min(min_x, geom_min_x)
-        min_y = min(min_y, geom_min_y)
-        max_x = max(max_x, geom_max_x)
-        max_y = max(max_y, geom_max_y)
-    
-    # Return the bounding box as a tuple
-    return (min_x, min_y, max_x, max_y)
-
 # Main function to handle different GeoJSON shapes
 def main():
     parser = argparse.ArgumentParser(description="Generate EaggrISEA4T grid for shapes in GeoJSON format")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..22]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
     )
@@ -189,8 +157,8 @@ def main():
 
     resolution = args.resolution
     
-    if resolution < 1 or resolution > 22:
-        print(f"Please select a resolution in [1..22] range and try again ")
+    if resolution < 0 or resolution > 22:
+        print(f"Please select a resolution in [0..22] range and try again ")
         return
     
     if not os.path.exists(geojson):

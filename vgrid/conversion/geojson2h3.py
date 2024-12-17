@@ -29,11 +29,13 @@ def point_to_grid(resolution, point):
     cell_polygon = Polygon(reversed_boundary)
     
     center_lat, center_lon = h3.cell_to_latlng(h3_cell)
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
+    center_lat = round(center_lat,7)
+    center_lon = round(center_lon,7)
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
     cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-    edge_len = cell_perimeter/6
+    avg_edge_len = round(cell_perimeter/6,2)
     if (h3.is_pentagon(h3_cell)):
-        edge_len = cell_perimeter/5
+        avg_edge_len = round(cell_perimeter/5,2)
                 
     features.append({
                     "type": "Feature",
@@ -43,8 +45,8 @@ def point_to_grid(resolution, point):
                         "center_lat": center_lat,
                         "center_lon": center_lon,
                         "cell_area": cell_area,
-                        "edge_len": edge_len
-
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
                     }
                 })
     return {
@@ -94,11 +96,13 @@ def polyline_to_grid(resolution, geometry):
             cell_polygon = Polygon(reversed_boundary)
             
             center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-            cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
+            center_lat = round(center_lat,7)
+            center_lon = round(center_lon,7)
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
             cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-            edge_len = cell_perimeter/6
+            avg_edge_len = round(cell_perimeter/6,2)
             if (h3.is_pentagon(bbox_buffer_cell)):
-                edge_len = cell_perimeter/5
+                avg_edge_len = round(cell_perimeter/5,2)
                 
             if cell_polygon.intersects(polyline):
                 features.append({
@@ -109,8 +113,8 @@ def polyline_to_grid(resolution, geometry):
                         "center_lat": center_lat,
                         "center_lon": center_lon,
                         "cell_area": cell_area,
-                        "edge_len": edge_len
-
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
                     }
                 })
 
@@ -148,11 +152,14 @@ def polygon_to_grid(resolution, geometry):
             cell_polygon = Polygon(reversed_boundary)
             
             center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-            cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
+            center_lat = round(center_lat,7)
+            center_lon = round(center_lon,7)
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
             cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-            edge_len = cell_perimeter/6
+            avg_edge_len = round(cell_perimeter/6,2)
+            
             if (h3.is_pentagon(bbox_buffer_cell)):
-                edge_len = cell_perimeter/5
+                avg_edge_len = round(cell_perimeter/5,2)
                 
             if cell_polygon.intersects(polygon):
                 features.append({
@@ -163,8 +170,8 @@ def polygon_to_grid(resolution, geometry):
                         "center_lat": center_lat,
                         "center_lon": center_lon,
                         "cell_area": cell_area,
-                        "edge_len": edge_len
-
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
                     }
                 })
 
@@ -177,7 +184,7 @@ def polygon_to_grid(resolution, geometry):
 # Main function to handle different GeoJSON shapes
 def main():
     parser = argparse.ArgumentParser(description="Generate H3 grid for shapes in GeoJSON format")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..15]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
     )

@@ -73,9 +73,10 @@ setup(
             'latlon2gars = vgrid.conversion.latlon2cell:latlon2gars_cli',  
 
             # GeoJSON to Grid
+            'geojson2h3 = vgrid.conversion.geojson2h3:main',
+            'geojson2s2 = vgrid.conversion.geojson2s2:main',
             'geojson2rhealpix = vgrid.conversion.geojson2rhealpix:main',
             'geojson2eaggrisea4t = vgrid.conversion.geojson2eaggrisea4t:main',
-            'geojson2h3 = vgrid.conversion.geojson2h3:main',
 
             # Grid Generator
             'h3grid = vgrid.generator.h3grid:main',

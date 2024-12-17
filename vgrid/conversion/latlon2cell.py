@@ -45,9 +45,9 @@ def latlon2h3_cli():
 def latlon2s2(lat,lon,res=21):
     # res: [0..30]
     lat_lng = LatLng.from_degrees(lat, lon)
-    cell_id = CellId.from_lat_lng(lat_lng)
-    cell_id = cell_id.parent(res)
-    cell_token = CellId.to_token(cell_id)
+    cell_id = CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
+    cell_id = cell_id.parent(res) # get S2 cell at resolution
+    cell_token = CellId.to_token(cell_id) # get Cell ID Token, shorter than cell_id.id()
     return cell_token
 
 def latlon2s2_cli():

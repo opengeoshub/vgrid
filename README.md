@@ -32,8 +32,8 @@
 ### Rhealpix
 ``` bash
 > rhealpix2geojson R31260335553825
-> geojson2rhealpix -geojson polygon.geojson # geojson2rhealpix -r <res>[0..15] -geojson <point/ linestring/ polygon GeoJSON file>
-> latlon2rhealpix 10.775275567242561 106.70679737574993 14 # latlon2rhealpix <lat> <lon> <res> [0..15]
+> geojson2rhealpix -geojson polygon.geojson # geojson2rhealpix -r <res>[1..15] -geojson <point/ linestring/ polygon GeoJSON file>
+> latlon2rhealpix 10.775275567242561 106.70679737574993 14 # latlon2rhealpix <lat> <lon> <res> [1..15]
 > rhealpix2grid -r 11 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # rhealpix2grid -r <res> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > rhealpixstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
@@ -41,7 +41,7 @@
 ### EaggrISEA4T
 ``` bash
 > eaggrisea4t2geojson 13102313331320133331133
-> geojson2eaggrisea4t -geojson polygon.geojson # geojson2eaggrisea4t -r <res>[0..39] -geojson <point/ linestring/ polygon GeoJSON file>
+> geojson2eaggrisea4t -r 18 -geojson polygon.geojson # geojson2eaggrisea4t -r <res>[0..22] -geojson <point/ linestring/ polygon GeoJSON file>
 > latlon2eaggrisea4t 10.775275567242561 106.70679737574993 21 # latlon2eaggrisea4t <lat> <lon> <res> [0..39]
 > eaggrisea4tgrid -r 21 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # eaggrisea4tgrid -r <res> [0..39] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > eaggrisea4tstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution

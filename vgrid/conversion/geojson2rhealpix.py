@@ -31,25 +31,26 @@ def point_to_grid(rhealpix_dggs, resolution, point):
     geod = Geod(ellps="WGS84")
     
     # Get the bounds and area of the cell
-    min_x, min_y, max_x, max_y = seed_cell_polygon.bounds
-    center_lon = seed_cell_polygon.centroid.x
-    center_lat = seed_cell_polygon.centroid.y
-    cell_area = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])
-    _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-    _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
+    center_lat = round(seed_cell_polygon.centroid.y,7)
+    center_lon = round(seed_cell_polygon.centroid.x,7)
+    cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)
+    cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[1])
+    avg_edge_len = round(cell_perimeter/4,2)
+    if seed_cell.ellipsoidal_shape() == 'dart':
+        avg_edge_len = round(cell_perimeter/3,2)  
     
     features.append({
-        "type": "Feature",
-        "geometry": mapping(seed_cell_polygon),
-        "properties": {
-            "rhealpix": seed_cell_id,
-            "center_lat": center_lat,
-            "center_lon": center_lon,
-            "cell_width": cell_width,
-            "cell_height": cell_height,
-            "cell_area": cell_area
-        },
-    })
+                "type": "Feature",
+                "geometry": mapping(seed_cell_polygon),
+                "properties": {
+                        "rhealpix": seed_cell_id,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
+                        },
+            })
     
     return {
         "type": "FeatureCollection",
@@ -83,13 +84,14 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
         seed_cell_polygon = cell_to_polygon(seed_cell)
 
         if seed_cell_polygon.contains(bbox_polygon):
-            center_lon = seed_cell_polygon.centroid.x
-            center_lat = seed_cell_polygon.centroid.y
-            min_x, min_y, max_x, max_y = seed_cell_polygon.bounds
+            center_lat = round(seed_cell_polygon.centroid.y,7)
+            center_lon = round(seed_cell_polygon.centroid.x,7)
             cell_area = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
-            _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-            _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
-
+            cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[1])
+            avg_edge_len = round(cell_perimeter/4,2)
+            if seed_cell.ellipsoidal_shape() == 'dart':
+                avg_edge_len = round(cell_perimeter/3,2)  
+            
             features.append({
                 "type": "Feature",
                 "geometry": mapping(seed_cell_polygon),
@@ -97,11 +99,12 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
                         "rhealpix": seed_cell_id,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_width": cell_width,
-                        "cell_height": cell_height,
-                        "cell_area": cell_area
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
                         },
             })
+        
             return {
                 "type": "FeatureCollection",
                 "features": features,
@@ -137,28 +140,29 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
 
             for cell_id in covered_cells:
                 rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-                cell = rhealpix_dggs.cell(rhealpix_uids)    
+                cell = rhealpix_dggs.cell(rhealpix_uids)   
                 cell_polygon = cell_to_polygon(cell)
-                min_x, min_y, max_x, max_y = cell_polygon.bounds           
-                center_lon = cell_polygon.centroid.x
-                center_lat = cell_polygon.centroid.y
+                center_lat = round(cell_polygon.centroid.y,7)
+                center_lon = round(cell_polygon.centroid.x,7)
                 cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
-                _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-                _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter/4,2)
+                if seed_cell.ellipsoidal_shape() == 'dart':
+                    avg_edge_len = round(cell_perimeter/3,2)  
+               
                 if cell_polygon.intersects(polyline):
                     features.append({
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),
                         "properties": {
-                                        "rhealpix": cell_id,
-                                        "center_lat": center_lat,
-                                        "center_lon": center_lon,
-                                        "cell_width": cell_width,
-                                        "cell_height": cell_height,
-                                        "cell_area": cell_area
-                                        },
+                                "rhealpix": cell_id,
+                                "center_lat": center_lat,
+                                "center_lon": center_lon,
+                                "cell_area": cell_area,
+                                "avg_edge_len": avg_edge_len,
+                                "resolution": resolution
+                                },
                     })
-
     return {
         "type": "FeatureCollection",
         "features": features,
@@ -188,24 +192,24 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
         seed_cell_polygon = cell_to_polygon(seed_cell)
 
         if seed_cell_polygon.contains(polygon):
-            center_lon = seed_cell_polygon.centroid.x
-            center_lat = seed_cell_polygon.centroid.y
-            min_x, min_y, max_x, max_y = seed_cell_polygon.bounds
-            cell_area = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters
-            _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-            _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
-
+            center_lat = round(seed_cell_polygon.centroid.y,7)
+            center_lon = round(seed_cell_polygon.centroid.x,7)
+            cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters
+            cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[1])
+            avg_edge_len = round(cell_perimeter/4,2)
+            if seed_cell.ellipsoidal_shape() == 'dart':
+                avg_edge_len = round(cell_perimeter/3,2)  
             features.append({
                 "type": "Feature",
                 "geometry": mapping(seed_cell_polygon),
                 "properties": {
-                    "rhealpix": seed_cell_id,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "cell_width": cell_width,
-                    "cell_height": cell_height,
-                    "cell_area": cell_area
-                },
+                        "rhealpix": seed_cell_id,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
+                        },
             })
         else:
             # Process grid for non-contained cells
@@ -234,12 +238,13 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
                 rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
                 cell = rhealpix_dggs.cell(rhealpix_uids)
                 cell_polygon = cell_to_polygon(cell)
-                min_x, min_y, max_x, max_y = cell_polygon.bounds
-                center_lon = cell_polygon.centroid.x
-                center_lat = cell_polygon.centroid.y
+                center_lat = round(cell_polygon.centroid.y,7)
+                center_lon = round(cell_polygon.centroid.x,7)
                 cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters
-                _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-                _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter/4,2)
+                if seed_cell.ellipsoidal_shape() == 'dart':
+                    avg_edge_len = round(cell_perimeter/3,2)  
                 if cell_polygon.intersects(polygon):
                     features.append({
                         "type": "Feature",
@@ -248,9 +253,8 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
                             "rhealpix": cell_id,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_width": cell_width,
-                            "cell_height": cell_height,
-                            "cell_area": cell_area
+                            "cell_area": cell_area,
+                            "avg_edge_len": avg_edge_len
                         },
                     })
 
@@ -262,7 +266,7 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
 # Main function to handle different GeoJSON shapes
 def main():
     parser = argparse.ArgumentParser(description="Generate RHEALPix grid for shapes in GeoJSON format")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..15]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
     )
@@ -272,8 +276,8 @@ def main():
     rhealpix_dggs = RHEALPixDGGS()
     resolution = args.resolution
     
-    if resolution < 1 or resolution > 15:
-        print(f"Please select a resolution in [1..15] range and try again ")
+    if resolution < 0 or resolution > 15:
+        print(f"Please select a resolution in [0..15] range and try again ")
         return
     
     if not os.path.exists(geojson):

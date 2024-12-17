@@ -13,6 +13,7 @@ from shapely.geometry import Polygon, box, mapping
 import locale
 current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
+geod = Geod(ellps="WGS84")
 
 # Initialize the DGGS system
 base_cells = [
@@ -55,17 +56,11 @@ def cell_to_feature(eaggr_cell):
     
     resolution = len(eaggr_cell_id) - 2
     cell_centroid = cell_polygon.centroid
-    center_lat, center_lon = round(cell_centroid.y, 7), round(cell_centroid.x, 7)
-    geod = Geod(ellps="WGS84")
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
-    edge_len = abs(geod.geometry_area_perimeter(cell_polygon)[1]) / 3
-
-    edge_len_str = f'{round(edge_len, 2)} m'
-    cell_area_str = f'{round(cell_area, 2)} m²'
-
-    if cell_area >= 1_000_000:
-        edge_len_str = f'{round(edge_len / 1000, 2)} km'
-        cell_area_str = f'{round(cell_area / 1_000_000, 2)} km²'
+    center_lat =  round(cell_centroid.y, 7)
+    center_lon = round(cell_centroid.x, 7)
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    avg_edge_len = round(cell_perimeter / 3,2)
 
     return {
         "geometry": cell_polygon,
@@ -73,8 +68,8 @@ def cell_to_feature(eaggr_cell):
             "isea4t": eaggr_cell_id,
             "center_lat": center_lat,
             "center_lon": center_lon,
-            "cell_area": cell_area_str,
-            "edge_len": edge_len_str,
+            "cell_area": cell_area,
+            "avg_edge_len": avg_edge_len,
             "resolution": resolution,
         }
     }

@@ -50,10 +50,8 @@ def generate_grid(resolution):
 
     # Convert the covering cells to S2 cell IDs
     for cell_id in covering:
-        print(cell_id)
         cell_ids.append(cell_id)
 
-    
     features = []
     for cell_id in tqdm(cell_ids, desc="Processing cells"):
         # Generate a Shapely Polygon

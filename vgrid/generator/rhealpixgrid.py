@@ -7,6 +7,7 @@ from tqdm import tqdm
 from pyproj import Geod
 import locale
 locale.setlocale(locale.LC_ALL, '')  # Use the system's default locale
+geod = Geod(ellps="WGS84")
 
 # Function to filter cells crossing the antimeridian
 def filter_antimeridian_cells(boundary, threshold=-128):
@@ -28,19 +29,32 @@ def generate_grid(rhealpix_dggs, resolution):
     rhealpix_grid = rhealpix_dggs.grid(resolution)
     with tqdm(total=total_cells, desc="Processing grid cells", unit=" cells") as pbar:
         for cell in rhealpix_grid:
-            polygon = cell_to_polygon(cell)
+            cell_polygon = cell_to_polygon(cell)
+            center_lat = round(cell_polygon.centroid.y,7)
+            center_lon = round(cell_polygon.centroid.x,7)
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters                
+            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
+            avg_edge_len = round(cell_perimeter/4,2)
+            if cell.ellipsoidal_shape() == 'dart':
+                avg_edge_len = round(cell_perimeter/3,2)
             features.append({
                 "type": "Feature",
-                "geometry": mapping(polygon),
-                "properties": {"rhealpix": str(cell)},
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                        "rhealpix": str(cell),
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
+                        },
             })
-            pbar.update(1)
-
-    return {
-        "type": "FeatureCollection",
-        "features": features,
-    }
-
+        
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+      
 
 def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):    
     bbox_polygon = box(*bbox)  # Create a bounding box polygon
@@ -52,16 +66,15 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
     seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
     seed_cell_id = str(seed_cell)  # Unique identifier for the current cell
     seed_cell_polygon = cell_to_polygon(seed_cell)
-    geod = Geod(ellps="WGS84")
 
     if seed_cell_polygon.contains(bbox_polygon):
-        center_lon = seed_cell_polygon.centroid.x
-        center_lat = seed_cell_polygon.centroid.y
-        min_x, min_y, max_x, max_y = seed_cell_polygon.bounds
-        cell_area = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
-        _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-        _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
-
+        center_lat = round(seed_cell_polygon.centroid.y,7)
+        center_lon = round(seed_cell_polygon.centroid.x,7)
+        cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
+        cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
+        avg_edge_len = round(cell_perimeter/4,2)
+        if seed_cell.ellipsoidal_shape() == 'dart':
+            avg_edge_len = round(cell_perimeter/3,2)
         features.append({
             "type": "Feature",
             "geometry": mapping(seed_cell_polygon),
@@ -69,9 +82,9 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
                     "rhealpix": seed_cell_id,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "cell_width": cell_width,
-                    "cell_height": cell_height,
-                    "cell_area": cell_area
+                    "cell_area": cell_area,
+                    "avg_edge_len": avg_edge_len,
+                    "resolution": resolution
                     },
         })
         return {
@@ -111,26 +124,25 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
             rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
             cell = rhealpix_dggs.cell(rhealpix_uids)    
             cell_polygon = cell_to_polygon(cell)
-            min_x, min_y, max_x, max_y = cell_polygon.bounds           
-            center_lon = cell_polygon.centroid.x
-            center_lat = cell_polygon.centroid.y
-            cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
-            _, _, cell_width = geod.inv(min_x, min_y, max_x, min_y)
-            _, _, cell_height = geod.inv(min_x, min_y, min_x, max_y)
-            if cell_polygon.intersects(bbox_polygon):
-                features.append({
-                    "type": "Feature",
-                    "geometry": mapping(cell_polygon),
-                    "properties": {
-                                    "rhealpix": cell_id,
-                                    "center_lat": center_lat,
-                                    "center_lon": center_lon,
-                                    "cell_width": cell_width,
-                                    "cell_height": cell_height,
-                                    "cell_area": cell_area
-                                    },
-                })
-
+            center_lat = round(seed_cell_polygon.centroid.y,7)
+            center_lon = round(seed_cell_polygon.centroid.x,7)
+            cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
+            cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
+            avg_edge_len = round(cell_perimeter/4,2)
+            if seed_cell.ellipsoidal_shape() == 'dart':
+                avg_edge_len = round(cell_perimeter/3,2)
+            features.append({
+                "type": "Feature",
+                "geometry": mapping(seed_cell_polygon),
+                "properties": {
+                        "rhealpix": seed_cell_id,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
+                        },
+            })
         return {
             "type": "FeatureCollection",
             "features": features,
