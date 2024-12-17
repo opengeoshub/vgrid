@@ -6,7 +6,6 @@ from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.conversion.cell2geojson import fix_eaggr_wkt
 from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
@@ -22,7 +21,17 @@ base_cells = [
 ]
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
-def fix_antimeridian_cells(isea4t_boundary, threshold=-100):
+def fix_isea4t_wkt(eaggr_wkt):
+        # Extract the coordinate section
+        coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
+        coords = coords_section.split(",")
+        # Append the first point to the end if not already closed
+        if coords[0] != coords[-1]:
+            coords.append(coords[0])
+        fixed_coords = ", ".join(coords)
+        return f"POLYGON (({fixed_coords}))"
+
+def fix_isea4t_antimeridian_cells(isea4t_boundary, threshold=-100):
     """
     Adjusts polygon coordinates to handle antimeridian crossings.
     """
@@ -37,7 +46,7 @@ def fix_antimeridian_cells(isea4t_boundary, threshold=-100):
 
 def cell_to_polygon(eaggr_cell):
     cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell, ShapeStringFormat.WKT)
-    cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
+    cell_to_shp_fixed = fix_isea4t_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     return Polygon(cell_polygon)
 
@@ -100,7 +109,7 @@ def generate_grid(resolution):
         eaggr_cell_id = eaggr_cell.get_cell_id()
 
         if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-            cell_polygon = fix_antimeridian_cells(cell_polygon)
+            cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
         
         # cell_centroid = cell_polygon.centroid
         # center_lat =  round(cell_centroid.y, 7)
@@ -189,7 +198,7 @@ def generate_grid_within_bbox(resolution,bbox):
             eaggr_cell_id = eaggr_cell.get_cell_id()
 
             if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-                cell_polygon = fix_antimeridian_cells(cell_polygon)
+                cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
             
             # cell_centroid = cell_polygon.centroid
             # center_lat =  round(cell_centroid.y, 7)

@@ -15,7 +15,7 @@ current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 max_cells = 1_000_000
 
-def fix_antimeridian_cells(hex_boundary, threshold=-128):
+def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
     if any(lon < threshold for _, lon in hex_boundary):
         # Adjust all longitudes accordingly
         return [(lat, lon - 360 if lon > 0 else lon) for lat, lon in hex_boundary]
@@ -34,7 +34,7 @@ def generate_grid(resolution):
                 # Get the boundary of the cell
                 hex_boundary = h3.cell_to_boundary(child_cell)
                 # Wrap and filter the boundary
-                filtered_boundary = fix_antimeridian_cells(hex_boundary)
+                filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
                 # Reverse lat/lon to lon/lat for GeoJSON compatibility
                 reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
                 polygon = Polygon(reversed_boundary)
@@ -88,7 +88,7 @@ def generate_grid_within_bbox(resolution,bbox):
                 # Get the boundary of the cell
                 hex_boundary = h3.cell_to_boundary(bbox_buffer_cell)
                 # Wrap and filter the boundary
-                filtered_boundary = fix_antimeridian_cells(hex_boundary)
+                filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
                 # Reverse lat/lon to lon/lat for GeoJSON compatibility
                 reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
                 cell_polygon = Polygon(reversed_boundary)

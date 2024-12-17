@@ -22,10 +22,12 @@ from pyproj import Geod
 import math
 import json, re
 import argparse
-
 from vgrid.utils import s2
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
+from vgrid.generator.h3grid import fix_h3_antimeridian_cells
+from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
+from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
 from vgrid.utils.antimeridian import fix_polygon
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -48,7 +50,7 @@ def h32geojson(h3_code):
     # Get the boundary coordinates of the H3 cell
     cell_boundary = h3.cell_to_boundary(h3_code)    
     if cell_boundary:
-        filtered_boundary = fix_antimeridian_cells(cell_boundary)
+        filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
         # Reverse lat/lon to lon/lat for GeoJSON compatibility
         reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
         cell_polygon = Polygon(reversed_boundary)
@@ -162,7 +164,7 @@ def rhealpix_cell_to_polygon(cell):
     vertices = [tuple(my_round(coord, 14) for coord in vertex) for vertex in cell.vertices(plane=False)]
     if vertices[0] != vertices[-1]:
         vertices.append(vertices[0])
-    vertices = fix_antimeridian_cells(vertices)
+    vertices = fix_rhealpix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
 
@@ -219,7 +221,7 @@ def rhealpix2geojson_cli():
     print(geojson_data)
 
 
-def fix_eaggr_wkt(eaggr_wkt):
+def fix_isea4t_wkt(eaggr_wkt):
         # Extract the coordinate section
         coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
         coords = coords_section.split(",")
@@ -232,9 +234,11 @@ def fix_eaggr_wkt(eaggr_wkt):
 def eaggrisea4t2geojson(eaggrisea4t):
     eaggr_dggs = Eaggr(Model.ISEA4T)
     cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea4t),ShapeStringFormat.WKT)
-    cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
+    cell_to_shp_fixed = fix_isea4t_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
-
+    if eaggrisea4t.startswith('00') or eaggrisea4t.startswith('09') or eaggrisea4t.startswith('14') or eaggrisea4t.startswith('04') or eaggrisea4t.startswith('19'):
+        cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
+        
     resolution = len(eaggrisea4t)-2
     # Compute centroid
     cell_centroid = cell_polygon.centroid
@@ -827,9 +831,3 @@ def gars2geojson_cli():
     args = parser.parse_args()
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
-
-def fix_antimeridian_cells(boundary, threshold=-128):
-    if any(lon < threshold for lon, _ in boundary):
-        return [(lon - 360 if lon > 0 else lon, lat) for lon, lat in boundary]
-    return boundary
-

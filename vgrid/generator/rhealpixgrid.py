@@ -10,7 +10,7 @@ locale.setlocale(locale.LC_ALL, '')  # Use the system's default locale
 geod = Geod(ellps="WGS84")
 
 # Function to filter cells crossing the antimeridian
-def fix_antimeridian_cells(boundary, threshold=-128):
+def fix_rhealpix_antimeridian_cells(boundary, threshold=-128):
     if any(lon < threshold for lon, _ in boundary):
         return [(lon - 360 if lon > 0 else lon, lat) for lon, lat in boundary]
     return boundary
@@ -20,7 +20,7 @@ def cell_to_polygon(cell):
     vertices = [tuple(my_round(coord, 14) for coord in vertex) for vertex in cell.vertices(plane=False)]
     if vertices[0] != vertices[-1]:
         vertices.append(vertices[0])
-    vertices = fix_antimeridian_cells(vertices)
+    vertices = fix_rhealpix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
 def generate_grid(rhealpix_dggs, resolution):

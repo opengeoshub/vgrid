@@ -6,12 +6,7 @@ from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 import os 
-
-# Function to filter cells crossing the antimeridian
-def fix_antimeridian_cells(hex_boundary, threshold=-128):
-    if any(lon < threshold for _, lon in hex_boundary):
-        return [(lat, lon - 360 if lon > 0 else lon) for lat, lon in hex_boundary]
-    return hex_boundary
+from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 
 # Function to generate grid for Point
 def point_to_grid(resolution, point):
@@ -23,7 +18,7 @@ def point_to_grid(resolution, point):
     
     cell_boundary = h3.cell_to_boundary(h3_cell)     
     # Wrap and filter the boundary
-    filtered_boundary = fix_antimeridian_cells(cell_boundary)
+    filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
     # Reverse lat/lon to lon/lat for GeoJSON compatibility
     reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
     cell_polygon = Polygon(reversed_boundary)
@@ -89,7 +84,7 @@ def polyline_to_grid(resolution, geometry):
             # Get the boundary of the cell
             cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)     
             # Wrap and filter the boundary
-            filtered_boundary = fix_antimeridian_cells(cell_boundary)
+            filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
             # Reverse lat/lon to lon/lat for GeoJSON compatibility
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             cell_polygon = Polygon(reversed_boundary)
@@ -144,7 +139,7 @@ def polygon_to_grid(resolution, geometry):
             # Get the boundary of the cell
             cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)     
             # Wrap and filter the boundary
-            filtered_boundary = fix_antimeridian_cells(cell_boundary)
+            filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
             # Reverse lat/lon to lon/lat for GeoJSON compatibility
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             cell_polygon = Polygon(reversed_boundary)
