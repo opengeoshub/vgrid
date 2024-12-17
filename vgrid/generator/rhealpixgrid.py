@@ -10,7 +10,7 @@ locale.setlocale(locale.LC_ALL, '')  # Use the system's default locale
 geod = Geod(ellps="WGS84")
 
 # Function to filter cells crossing the antimeridian
-def filter_antimeridian_cells(boundary, threshold=-128):
+def fix_antimeridian_cells(boundary, threshold=-128):
     if any(lon < threshold for lon, _ in boundary):
         return [(lon - 360 if lon > 0 else lon, lat) for lon, lat in boundary]
     return boundary
@@ -20,35 +20,36 @@ def cell_to_polygon(cell):
     vertices = [tuple(my_round(coord, 14) for coord in vertex) for vertex in cell.vertices(plane=False)]
     if vertices[0] != vertices[-1]:
         vertices.append(vertices[0])
-    vertices = filter_antimeridian_cells(vertices)
+    vertices = fix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
 def generate_grid(rhealpix_dggs, resolution):
     features = []
     total_cells = rhealpix_dggs.num_cells(resolution)
     rhealpix_grid = rhealpix_dggs.grid(resolution)
-    with tqdm(total=total_cells, desc="Processing grid cells", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Processing cells", unit=" cells") as pbar:
         for cell in rhealpix_grid:
             cell_polygon = cell_to_polygon(cell)
-            center_lat = round(cell_polygon.centroid.y,7)
-            center_lon = round(cell_polygon.centroid.x,7)
-            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters                
-            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
-            avg_edge_len = round(cell_perimeter/4,2)
-            if cell.ellipsoidal_shape() == 'dart':
-                avg_edge_len = round(cell_perimeter/3,2)
+            # center_lat = round(cell_polygon.centroid.y,7)
+            # center_lon = round(cell_polygon.centroid.x,7)
+            # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters                
+            # cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters                
+            # avg_edge_len = round(cell_perimeter/4,2)
+            # if cell.ellipsoidal_shape() == 'dart':
+            #     avg_edge_len = round(cell_perimeter/3,2)
             features.append({
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),
                 "properties": {
                         "rhealpix": str(cell),
-                        "center_lat": center_lat,
-                        "center_lon": center_lon,
-                        "cell_area": cell_area,
-                        "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        # "center_lat": center_lat,
+                        # "center_lon": center_lon,
+                        # "cell_area": cell_area,
+                        # "avg_edge_len": avg_edge_len,
+                        # "resolution": resolution
                         },
             })
+            pbar.update(1)
         
         return {
             "type": "FeatureCollection",
@@ -68,23 +69,23 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
     seed_cell_polygon = cell_to_polygon(seed_cell)
 
     if seed_cell_polygon.contains(bbox_polygon):
-        center_lat = round(seed_cell_polygon.centroid.y,7)
-        center_lon = round(seed_cell_polygon.centroid.x,7)
-        cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
-        cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
-        avg_edge_len = round(cell_perimeter/4,2)
-        if seed_cell.ellipsoidal_shape() == 'dart':
-            avg_edge_len = round(cell_perimeter/3,2)
+        # center_lat = round(seed_cell_polygon.centroid.y,7)
+        # center_lon = round(seed_cell_polygon.centroid.x,7)
+        # cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
+        # cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
+        # avg_edge_len = round(cell_perimeter/4,2)
+        # if seed_cell.ellipsoidal_shape() == 'dart':
+        #     avg_edge_len = round(cell_perimeter/3,2)
         features.append({
             "type": "Feature",
             "geometry": mapping(seed_cell_polygon),
             "properties": {
                     "rhealpix": seed_cell_id,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "cell_area": cell_area,
-                    "avg_edge_len": avg_edge_len,
-                    "resolution": resolution
+                    # "center_lat": center_lat,
+                    # "center_lon": center_lon,
+                    # "cell_area": cell_area,
+                    # "avg_edge_len": avg_edge_len,
+                    # "resolution": resolution
                     },
         })
         return {
@@ -120,29 +121,31 @@ def generate_grid_within_bbox(rhealpix_dggs, resolution, bbox):
                 if neighbor_id not in covered_cells:
                     queue.append(neighbor)
 
-        for cell_id in covered_cells:
+        for cell_id in tqdm(covered_cells, desc="Processing Cells"):
             rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
             cell = rhealpix_dggs.cell(rhealpix_uids)    
             cell_polygon = cell_to_polygon(cell)
-            center_lat = round(seed_cell_polygon.centroid.y,7)
-            center_lon = round(seed_cell_polygon.centroid.x,7)
-            cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
-            cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
-            avg_edge_len = round(cell_perimeter/4,2)
-            if seed_cell.ellipsoidal_shape() == 'dart':
-                avg_edge_len = round(cell_perimeter/3,2)
-            features.append({
-                "type": "Feature",
-                "geometry": mapping(seed_cell_polygon),
-                "properties": {
-                        "rhealpix": seed_cell_id,
-                        "center_lat": center_lat,
-                        "center_lon": center_lon,
-                        "cell_area": cell_area,
-                        "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
-                        },
-            })
+            # center_lat = round(seed_cell_polygon.centroid.y,7)
+            # center_lon = round(seed_cell_polygon.centroid.x,7)
+            # cell_area = round(abs(geod.geometry_area_perimeter(seed_cell_polygon)[0]),2)  # Area in square meters                
+            # cell_perimeter = abs(geod.geometry_area_perimeter(seed_cell_polygon)[0])  # Area in square meters                
+            # avg_edge_len = round(cell_perimeter/4,2)
+            # if seed_cell.ellipsoidal_shape() == 'dart':
+            #     avg_edge_len = round(cell_perimeter/3,2)
+            if cell_polygon.intersects(bbox_polygon):
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                            "rhealpix": cell_id,
+                            # "center_lat": center_lat,
+                            # "center_lon": center_lon,
+                            # "cell_area": cell_area,
+                            # "avg_edge_len": avg_edge_len,
+                            # "resolution": resolution
+                            },
+                })
+                
         return {
             "type": "FeatureCollection",
             "features": features,
@@ -166,10 +169,11 @@ def main():
         # Calculate the number of cells at the given resolution
         num_cells = rhealpix_dggs.num_cells(resolution)
         max_cells = 1_000_000
+        print(f"The selected resolution will generate "
+              f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+
         if num_cells > max_cells:
             print(
-                f"The selected resolution will generate "
-                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
                 f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
             )
             print("Please select a smaller resolution and try again.")

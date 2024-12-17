@@ -48,7 +48,7 @@ def h32geojson(h3_code):
     # Get the boundary coordinates of the H3 cell
     cell_boundary = h3.cell_to_boundary(h3_code)    
     if cell_boundary:
-        filtered_boundary = filter_antimeridian_cells(cell_boundary)
+        filtered_boundary = fix_antimeridian_cells(cell_boundary)
         # Reverse lat/lon to lon/lat for GeoJSON compatibility
         reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
         cell_polygon = Polygon(reversed_boundary)
@@ -162,7 +162,7 @@ def rhealpix_cell_to_polygon(cell):
     vertices = [tuple(my_round(coord, 14) for coord in vertex) for vertex in cell.vertices(plane=False)]
     if vertices[0] != vertices[-1]:
         vertices.append(vertices[0])
-    vertices = filter_antimeridian_cells(vertices)
+    vertices = fix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
 
@@ -828,7 +828,7 @@ def gars2geojson_cli():
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)
 
-def filter_antimeridian_cells(boundary, threshold=-128):
+def fix_antimeridian_cells(boundary, threshold=-128):
     if any(lon < threshold for lon, _ in boundary):
         return [(lon - 360 if lon > 0 else lon, lat) for lon, lat in boundary]
     return boundary

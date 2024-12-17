@@ -5,8 +5,8 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.generator.eaggrisea4tgrid import cell_to_feature, cell_to_polygon, length_accuracy_dict,\
-                                                get_children_cells_within_bbox
+from vgrid.generator.eaggrisea4tgrid import cell_to_polygon, length_accuracy_dict,\
+                                               fix_antimeridian_cells, get_children_cells_within_bbox
 from tqdm import tqdm
 from shapely.geometry import shape, Polygon, box, Point, LineString, mapping
 from pyproj import Geod
@@ -24,8 +24,11 @@ def point_to_grid(eaggr_dggs, resolution, point):
 
     eaggr_cell = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
 
-    cell_id = eaggr_cell.get_cell_id() # Unique identifier for the current cell
+    eaggr_cell_id = eaggr_cell.get_cell_id() # Unique identifier for the current cell
     cell_polygon = cell_to_polygon(eaggr_cell)
+    
+    if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+            cell_polygon = fix_antimeridian_cells(cell_polygon)
     
     center_lat = round(cell_polygon.centroid.y,7)
     center_lon = round(cell_polygon.centroid.x,7)
@@ -38,7 +41,7 @@ def point_to_grid(eaggr_dggs, resolution, point):
         "type": "Feature",
         "geometry": mapping(cell_polygon),
         "properties": {
-            "isea4t": cell_id,
+            "isea4t": eaggr_cell_id,
             "center_lat": center_lat,
             "center_lon": center_lon,
             "cell_area": cell_area,
@@ -54,9 +57,8 @@ def point_to_grid(eaggr_dggs, resolution, point):
 
 
 # Function to generate grid for Polyline
-def polyline_to_grid(eaggr_dggs, resolution, geometry):
+def polyline_to_grid(eaggr_dggs, resolution, geometry):    
     features = []
-    # Extract points from polyline
     if geometry.geom_type == 'LineString':
         # Handle single Polygon as before
         polylines = [geometry]
@@ -74,25 +76,34 @@ def polyline_to_grid(eaggr_dggs, resolution, geometry):
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
             bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
-            features = []
-            for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-                cell_feature = cell_to_feature(DggsCell(cell))
-                cell_polygon = cell_to_polygon(DggsCell(cell))
-                if cell_polygon.intersects(geometry):
-                    features.append(cell_feature)
-            
-            return {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
-                        "properties": feature["properties"],
-                    }
-                    for feature in features
-                ]
-            }
+            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+                eaggr_cell = DggsCell(child)
+                cell_polygon = cell_to_polygon(eaggr_cell)
+                eaggr_cell_id = eaggr_cell.get_cell_id()
 
+                if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+                    cell_polygon = fix_antimeridian_cells(cell_polygon)
+                
+                cell_centroid = cell_polygon.centroid
+                center_lat =  round(cell_centroid.y, 7)
+                center_lon = round(cell_centroid.x, 7)
+                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter / 3,2)
+                if cell_polygon.intersects(polyline):
+                    features.append({
+                        "type": "Feature",
+                        "geometry": mapping(cell_polygon),
+                        "properties": {
+                                "isea4t": eaggr_cell_id,
+                                "center_lat": center_lat,
+                                "center_lon": center_lon,
+                                "cell_area": cell_area,
+                                "avg_edge_len": avg_edge_len,
+                                "resolution": resolution
+                                },
+                    })
+                   
     return {
         "type": "FeatureCollection",
         "features": features,
@@ -101,8 +112,6 @@ def polyline_to_grid(eaggr_dggs, resolution, geometry):
 # Function to generate grid for Polygon
 def polygon_to_grid(eaggr_dggs, resolution, geometry):
     features = []
-    geod = Geod(ellps="WGS84")
-    
     if geometry.geom_type == 'Polygon':
         # Handle single Polygon as before
         polygons = [geometry]
@@ -120,25 +129,33 @@ def polygon_to_grid(eaggr_dggs, resolution, geometry):
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
             bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
-            features = []
-            for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-                cell_feature = cell_to_feature(DggsCell(cell))
-                cell_shape = cell_to_polygon(DggsCell(cell))
-                if cell_shape.intersects(geometry):
-                    features.append(cell_feature)
-            
-            return {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
-                        "properties": feature["properties"],
-                    }
-                    for feature in features
-                ]
-            }
+            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+                eaggr_cell = DggsCell(child)
+                cell_polygon = cell_to_polygon(eaggr_cell)
+                eaggr_cell_id = eaggr_cell.get_cell_id()
 
+                if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+                    cell_polygon = fix_antimeridian_cells(cell_polygon)
+                
+                cell_centroid = cell_polygon.centroid
+                center_lat =  round(cell_centroid.y, 7)
+                center_lon = round(cell_centroid.x, 7)
+                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter / 3,2)
+                if cell_polygon.intersects(polygon):
+                    features.append({
+                        "type": "Feature",
+                        "geometry": mapping(cell_polygon),
+                        "properties": {
+                                "isea4t": eaggr_cell_id,
+                                "center_lat": center_lat,
+                                "center_lon": center_lon,
+                                "cell_area": cell_area,
+                                "avg_edge_len": avg_edge_len,
+                                "resolution": resolution
+                                },
+                    })
     return {
         "type": "FeatureCollection",
         "features": features,

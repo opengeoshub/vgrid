@@ -22,7 +22,7 @@ base_cells = [
 ]
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
-def filter_antimeridian_cells(isea4t_boundary, threshold=-100):
+def fix_antimeridian_cells(isea4t_boundary, threshold=-100):
     """
     Adjusts polygon coordinates to handle antimeridian crossings.
     """
@@ -40,39 +40,6 @@ def cell_to_polygon(eaggr_cell):
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     return Polygon(cell_polygon)
-
-
-def cell_to_feature(eaggr_cell):
-    """
-    Converts a DGGS cell into a GeoJSON-like dictionary with additional metadata.
-    """
-    eaggr_cell_id = eaggr_cell.get_cell_id()
-    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell, ShapeStringFormat.WKT)
-    cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
-
-    cell_polygon = loads(cell_to_shp_fixed)
-    if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-        cell_polygon = filter_antimeridian_cells(cell_polygon)
-    
-    resolution = len(eaggr_cell_id) - 2
-    cell_centroid = cell_polygon.centroid
-    center_lat =  round(cell_centroid.y, 7)
-    center_lon = round(cell_centroid.x, 7)
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
-    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-    avg_edge_len = round(cell_perimeter / 3,2)
-
-    return {
-        "geometry": cell_polygon,
-        "properties": {
-            "isea4t": eaggr_cell_id,
-            "center_lat": center_lat,
-            "center_lon": center_lon,
-            "cell_area": cell_area,
-            "avg_edge_len": avg_edge_len,
-            "resolution": resolution,
-        }
-    }
 
 def get_children_cells(base_cells, target_resolution):
     """
@@ -125,21 +92,41 @@ def generate_grid(resolution):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
-    cells = get_children_cells(base_cells, resolution)
+    children = get_children_cells(base_cells, resolution)
     features = []
-    for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-        features.append(cell_to_feature(DggsCell(cell)))
+    for child in tqdm(children, desc="Processing cells", unit=" cells"):
+        eaggr_cell = DggsCell(child)
+        cell_polygon = cell_to_polygon(eaggr_cell)
+        eaggr_cell_id = eaggr_cell.get_cell_id()
+
+        if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+            cell_polygon = fix_antimeridian_cells(cell_polygon)
+        
+        # cell_centroid = cell_polygon.centroid
+        # center_lat =  round(cell_centroid.y, 7)
+        # center_lon = round(cell_centroid.x, 7)
+        # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+        # cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+        # avg_edge_len = round(cell_perimeter / 3,2)
+        
+        features.append({
+            "type": "Feature",
+            "geometry": mapping(cell_polygon),
+            "properties": {
+                    "isea4t": eaggr_cell_id,
+                    # "center_lat": center_lat,
+                    # "center_lon": center_lon,
+                    # "cell_area": cell_area,
+                    # "avg_edge_len": avg_edge_len,
+                    # "resolution": resolution
+                    },
+        })
+    
+    
     return {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
-                "properties": feature["properties"],
-            }
-            for feature in features
-        ]
-    }
+            "type": "FeatureCollection",
+            "features": features
+        }
 
 length_accuracy_dict = {
     41: 10**-10,
@@ -196,24 +183,39 @@ def generate_grid_within_bbox(resolution,bbox):
         bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
         bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
         features = []
-        for cell in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-            cell_feature = cell_to_feature(DggsCell(cell))
-            cell_shape = cell_to_polygon(DggsCell(cell))
-            if cell_shape.intersects(bounding_box):
-                features.append(cell_feature)
-        
+        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            eaggr_cell = DggsCell(child)
+            cell_polygon = cell_to_polygon(eaggr_cell)
+            eaggr_cell_id = eaggr_cell.get_cell_id()
+
+            if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+                cell_polygon = fix_antimeridian_cells(cell_polygon)
+            
+            # cell_centroid = cell_polygon.centroid
+            # center_lat =  round(cell_centroid.y, 7)
+            # center_lon = round(cell_centroid.x, 7)
+            # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+            # cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+            # avg_edge_len = round(cell_perimeter / 3,2)
+            
+            if cell_polygon.intersects(bounding_box):
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                            "isea4t": eaggr_cell_id,
+                            # "center_lat": center_lat,
+                            # "center_lon": center_lon,
+                            # "cell_area": cell_area,
+                            # "avg_edge_len": avg_edge_len,
+                            # "resolution": resolution
+                            },
+                })
+                 
         return {
             "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": json.loads(json.dumps(feature["geometry"].__geo_interface__)),
-                    "properties": feature["properties"],
-                }
-                for feature in features
-            ]
+            "features": features
         }
-
 
 def main():
     """

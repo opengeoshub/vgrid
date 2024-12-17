@@ -11,7 +11,7 @@ import json
 import argparse
 from tqdm import tqdm
 from vgrid.utils.antimeridian import fix_polygon
-from shapely.geometry import Polygon, mapping, box
+from shapely.geometry import Polygon, mapping
 
 def cell_to_polygon(cell_id):
     cell = s2.Cell(cell_id)
@@ -64,7 +64,7 @@ def generate_grid(resolution):
         feature = {
             "type": "Feature",
             "geometry": geometry,
-            "properties": {"cell_id": cell_id.to_token()}
+            "properties": {"s2_token": cell_id.to_token()}
         }
 
         features.append(feature)
@@ -110,7 +110,7 @@ def generate_grid_within_bbox(resolution,bbox):
         feature = {
             "type": "Feature",
             "geometry": geometry,
-            "properties": {"cell_id": cell_id.to_token()}
+            "properties": {"s2_token": cell_id.to_token()}
         }
         
         features.append(feature)

@@ -1,13 +1,13 @@
 from vgrid.utils import s2
-from vgrid.utils.antimeridian import fix_polygon
 from shapely.geometry import Point, LineString, Polygon, mapping, box
 import argparse
 import json
 from tqdm import tqdm
+import os
+from vgrid.generator.s2grid import cell_to_polygon
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
-import os, math
-
+ 
 # Function to generate grid for Point
 def point_to_grid(resolution, point):    
     features = []
@@ -21,22 +21,7 @@ def point_to_grid(resolution, point):
     cell_token = s2.CellId.to_token(s2_cell.id())
     
     if s2_cell:
-        # Get the vertices of the cell (4 vertices for a rectangular cell)
-        vertices = [s2_cell.get_vertex(i) for i in range(4)]
-        
-        # Prepare vertices in (longitude, latitude) format for Shapely
-        shapely_vertices = []
-        for vertex in vertices:
-            lat_lng = s2.LatLng.from_point(vertex)  # Convert Point to LatLng
-            longitude = lat_lng.lng().degrees  # Access longitude in degrees
-            latitude = lat_lng.lat().degrees   # Access latitude in degrees
-            shapely_vertices.append((longitude, latitude))
-
-        # Close the polygon by adding the first vertex again
-        shapely_vertices.append(shapely_vertices[0])  # Closing the polygon
-
-        # Create a Shapely Polygon
-        cell_polygon = fix_polygon(Polygon(shapely_vertices)) # Fix antimeridian
+        cell_polygon = cell_to_polygon(cell_id) # Fix antimeridian
         lat_lng = cell_id.to_lat_lng()            
         # Extract latitude and longitude in degrees
         center_lat = round(lat_lng.lat().degrees,7)
@@ -46,140 +31,163 @@ def point_to_grid(resolution, point):
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
         avg_edge_len = round(cell_perimeter/4,2)
 
-        # Create properties for the Feature
-        properties = {
-            "s2_token": cell_token,
-            "center_lat": center_lat,
-            "center_lon": center_lon,
-            "area": cell_area,
-            "avg_edge_len": avg_edge_len,
-            "resolution": cell_id.level()
-        }
-        geometry = mapping(cell_polygon)
-
-        feature = {
-            "type": "Feature",
-            "geometry": geometry,
-            "properties":properties
-        }
-        
-        # Create the FeatureCollection
-        feature_collection = {
+        features.append({
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                    "s2_token": cell_token,
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                    "area": cell_area,
+                    "avg_edge_len": avg_edge_len,
+                    "resolution": cell_id.level()
+                        },
+             })
+            
+        return {
             "type": "FeatureCollection",
-            "features": [feature]
+            "features": features,
         }
 
-        # Return the FeatureCollection
-    return feature_collection
 
 # Function to generate grid for Polyline
 def polyline_to_grid(resolution, geometry):
-    # features = []
-    # # Extract points from polyline
-    # if geometry.geom_type == 'LineString':
-    #     # Handle single Polygon as before
-    #     polylines = [geometry]
-    # elif geometry.geom_type == 'MultiLineString':
-    #     # Handle MultiPolygon: process each polygon separately
-    #     polylines = list(geometry)
+    features = []
+    # Extract points from polyline
+    if geometry.geom_type == 'LineString':
+        # Handle single Polygon as before
+        polylines = [geometry]
+    elif geometry.geom_type == 'MultiLineString':
+        # Handle MultiPolygon: process each polygon separately
+        polylines = list(geometry)
 
-    # features = []
-    # for polyline in polylines:    
-    #     bbox = box(*polyline.bounds)  # Create a bounding box polygon
-    #     distance = h3.average_hexagon_edge_length(resolution,unit='m')*2
-    #     bbox_buffer = geodesic_buffer(bbox, distance)
-    #     bbox_buffer_cells  = h3.geo_to_cells(bbox_buffer,resolution)
-    #     # Progress bar for base cells
-    #     for bbox_buffer_cell in bbox_buffer_cells:
-    #         # Get the boundary of the cell
-    #         cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)     
-    #         # Wrap and filter the boundary
-    #         filtered_boundary = filter_antimeridian_cells(cell_boundary)
-    #         # Reverse lat/lon to lon/lat for GeoJSON compatibility
-    #         reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-    #         cell_polygon = Polygon(reversed_boundary)
+    for polyline in polylines:    
+        min_lng, min_lat, max_lng, max_lat = polyline.bounds
+        # Define the cell level (S2 uses a level system for zoom, where level 30 is the highest resolution)
+        level = resolution
+        # Create a list to store the S2 cell IDs
+        cell_ids = []
+        # Define the cell covering
+        coverer = s2.RegionCoverer()
+        coverer.min_level = level
+        coverer.max_level = level
+        # coverer.max_cells = 1000_000  # Adjust as needed
+        # coverer.max_cells = 0  # Adjust as needed
+
+        # Define the region to cover (in this example, we'll use the entire world)
+        region = s2.LatLngRect(
+            s2.LatLng.from_degrees(min_lat, min_lng),
+            s2.LatLng.from_degrees(max_lat, max_lng)
+        )
+
+        # Get the covering cells
+        covering = coverer.get_covering(region)
+
+        # Convert the covering cells to S2 cell IDs
+        for cell_id in covering:
+            cell_ids.append(cell_id)
+
+        for cell_id in tqdm(cell_ids, desc="processing cells"):
+            cell_polygon = cell_to_polygon(cell_id)
+            lat_lng = cell_id.to_lat_lng()      
+            cell_token = s2.CellId.to_token(cell_id)      
+            # Extract latitude and longitude in degrees
+            center_lat = round(lat_lng.lat().degrees,7)
+            center_lon = round(lat_lng.lng().degrees,7)
+
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2) # Area in square meters     
+            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
+            avg_edge_len = round(cell_perimeter/4,2)
+                        
+            if cell_polygon.intersects(polyline):
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                            "s2_token": cell_token,
+                            "center_lat": center_lat,
+                            "center_lon": center_lon,
+                            "area": cell_area,
+                            "avg_edge_len": avg_edge_len,
+                            "resolution": cell_id.level()
+                            },
+                })
             
-    #         center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-    #         cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
-    #         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-    #         edge_len = cell_perimeter/6
-    #         if (h3.is_pentagon(bbox_buffer_cell)):
-    #             edge_len = cell_perimeter/5
-                
-    #         if cell_polygon.intersects(polyline):
-    #             features.append({
-    #                 "type": "Feature",
-    #                 "geometry": mapping(cell_polygon),
-    #                 "properties": {
-    #                     "h3": bbox_buffer_cell,
-    #                     "center_lat": center_lat,
-    #                     "center_lon": center_lon,
-    #                     "cell_area": cell_area,
-    #                     "edge_len": edge_len
+        # Create a FeatureCollection
+        return {
+                "type": "FeatureCollection",
+                "features": features,
+            }
 
-    #                 }
-    #             })
-
-    # return {
-    #     "type": "FeatureCollection",
-    #     "features": features,
-    # }
-    pass
-
-       
 # Function to generate grid for Polygon
 def polygon_to_grid(resolution, geometry):
-    # features = []
-    # geod = Geod(ellps="WGS84")
-    
-    # if geometry.geom_type == 'Polygon':
-    #     # Handle single Polygon as before
-    #     polygons = [geometry]
-    # elif geometry.geom_type == 'MultiPolygon':
-    #     # Handle MultiPolygon: process each polygon separately
-    #     polygons = list(geometry)
+    features = []
+    if geometry.geom_type == 'Polygon':
+        # Handle single Polygon as before
+        polygons = [geometry]
+    elif geometry.geom_type == 'MultiPolygon':
+        # Handle MultiPolygon: process each polygon separately
+        polygons = list(geometry)
 
-    # for polygon in polygons:
-    #     bbox = box(*polygon.bounds)  # Create a bounding box polygon
-    #     distance = h3.average_hexagon_edge_length(resolution,unit='m')*2
-    #     bbox_buffer = geodesic_buffer(bbox, distance)
-    #     bbox_buffer_cells  = h3.geo_to_cells(bbox_buffer,resolution)
-    #     # Progress bar for base cells
-    #     for bbox_buffer_cell in bbox_buffer_cells:
-    #         # Get the boundary of the cell
-    #         cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)     
-    #         # Wrap and filter the boundary
-    #         filtered_boundary = filter_antimeridian_cells(cell_boundary)
-    #         # Reverse lat/lon to lon/lat for GeoJSON compatibility
-    #         reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-    #         cell_polygon = Polygon(reversed_boundary)
+    for polygon in polygons:
+        min_lng, min_lat, max_lng, max_lat = polygon.bounds
+        # Define the cell level (S2 uses a level system for zoom, where level 30 is the highest resolution)
+        level = resolution
+        # Create a list to store the S2 cell IDs
+        cell_ids = []
+        # Define the cell covering
+        coverer = s2.RegionCoverer()
+        coverer.min_level = level
+        coverer.max_level = level
+        # coverer.max_cells = 1000_000  # Adjust as needed
+        # coverer.max_cells = 0  # Adjust as needed
+
+        # Define the region to cover (in this example, we'll use the entire world)
+        region = s2.LatLngRect(
+            s2.LatLng.from_degrees(min_lat, min_lng),
+            s2.LatLng.from_degrees(max_lat, max_lng)
+        )
+
+
+        # Get the covering cells
+        covering = coverer.get_covering(region)
+
+        # Convert the covering cells to S2 cell IDs
+        for cell_id in covering:
+            cell_ids.append(cell_id)
+
+        for cell_id in tqdm(cell_ids, desc="processing cells"):
+            cell_polygon = cell_to_polygon(cell_id)
+            lat_lng = cell_id.to_lat_lng()      
+            cell_token = s2.CellId.to_token(cell_id)      
+            # Extract latitude and longitude in degrees
+            center_lat = round(lat_lng.lat().degrees,7)
+            center_lon = round(lat_lng.lng().degrees,7)
+
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2) # Area in square meters     
+            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
+            avg_edge_len = round(cell_perimeter/4,2)
+                        
+            if cell_polygon.intersects(polygon):
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                            "s2_token": cell_token,
+                            "center_lat": center_lat,
+                            "center_lon": center_lon,
+                            "area": cell_area,
+                            "avg_edge_len": avg_edge_len,
+                            "resolution": cell_id.level()
+                            },
+                })
             
-    #         center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-    #         cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters     
-    #         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-    #         edge_len = cell_perimeter/6
-    #         if (h3.is_pentagon(bbox_buffer_cell)):
-    #             edge_len = cell_perimeter/5
-                
-    #         if cell_polygon.intersects(polygon):
-    #             features.append({
-    #                 "type": "Feature",
-    #                 "geometry": mapping(cell_polygon),
-    #                 "properties": {
-    #                     "h3": bbox_buffer_cell,
-    #                     "center_lat": center_lat,
-    #                     "center_lon": center_lon,
-    #                     "cell_area": cell_area,
-    #                     "edge_len": edge_len
+        # Create a FeatureCollection
+        return {
+                "type": "FeatureCollection",
+                "features": features,
+            }
 
-    #                 }
-    #             })
-
-    # return {
-    #     "type": "FeatureCollection",
-    #     "features": features,
-    # }
-    pass
 
 # Main function to handle different GeoJSON shapes
 def main():
@@ -256,7 +264,7 @@ def main():
                     geojson_features.extend(polygon_features['features'])
 
     # Save the results to GeoJSON
-    geojson_path = f"geojson2h3_{resolution}.geojson"
+    geojson_path = f"geojson2s2_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 
