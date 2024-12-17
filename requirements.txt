@@ -10,3 +10,4 @@ geopandas
 scipy
 future
 rhealpixdggs
+texttable

@@ -24,7 +24,7 @@
 ``` bash
 > s22geojson 31752f45cc94 
 > geojson2s2 -r 18 -geojson polygon.geojson # geojson2s2 -r <res>[0..30] -geojson <point/ linestring/ polygon GeoJSON file>
-> latlon2s2 latlon2s2 10.775275567242561 106.70679737574993 21 # latlon2h3 <lat> <lon> <res> [0..30]
+> latlon2s2 10.775275567242561 106.70679737574993 21 # latlon2h3 <lat> <lon> <res> [0..30]
 > s2grid -r 18 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # s2grid -r <res> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > s2stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
@@ -100,7 +100,8 @@
 ``` bash
 > h3grid -r 1 (r = [0..15])
 > s2grid -r 1 (r = [0..30])
-> rhealpixgrid -r 1 (r = [1..12])
+> rhealpixgrid -r 1 (r = [0..15])
+> eaggrisea4tgrid -r 1 (r = [0..22])
 > geohashgrid -r 1 (r = [1..12])
 > gzd (Create Grid Zone Designators - used by MGRS)
 > mgrsgrid -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  

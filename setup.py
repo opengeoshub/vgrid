@@ -16,7 +16,8 @@ requirements = [
     'geopandas',
     'scipy',
     'future',
-    'rhealpixdggs'
+    'rhealpixdggs',
+    'texttable'
     ],
 
 def clean_build():
