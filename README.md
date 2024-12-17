@@ -6,7 +6,7 @@
     pip install vgrid --upgrade
     ```
     
-- Visit vgrid on [PyPI](https://pypi.org/project/vgrid/)
+- Visit Vgrid on [PyPI](https://pypi.org/project/vgrid/)
 
 ## Demo Page:  [Vgrid Home](https://vgrid.vn)
 
@@ -96,7 +96,7 @@
 > garsstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
-### Command line for creating geocoding grids in GeoJSON format
+### Command line for creating DGGS and cell-based geocoding grids in GeoJSON format
 ``` bash
 > h3grid -r 1 (r = [0..15])
 > s2grid -r 1 (r = [0..30])
