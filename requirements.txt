@@ -9,5 +9,4 @@ pandas~=2.0.3
 geopandas
 scipy
 future
-rhealpixdggs
 texttable

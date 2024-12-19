@@ -16,14 +16,14 @@
 #     json.dump(data, f, indent=2)  
 # print(f'GeoJSON written to {output_file}')
 
-from vgrid.utils import s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars
+from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars, tile
 import h3, json
 from vgrid.conversion.cell2geojson import *
 from vgrid.conversion.latlon2cell import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-from vgrid.utils import s2, olc, geohash, georef, mgrs, tilecode, maidenhead, gars
+from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars
 print('\nGARS:')
 gars_resolution = 1 # [1, 5, 15, 30 minutes]
 gars_grid = gars.garsgrid.GARSGrid.from_latlon(latitude, longitude, gars_resolution)

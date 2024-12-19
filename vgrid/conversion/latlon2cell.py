@@ -21,7 +21,7 @@ from vgrid.utils.eaggr.enums.model import Model
 import argparse
 
 from vgrid.utils import s2
-from vgrid.utils import tilecode
+from vgrid.utils import tile
 
 def latlon2h3(lat,lon,res=13):
     # res: [0..15]
@@ -189,7 +189,7 @@ def latlon2mgrs_cli():
 
 def latlon2tilecode(lat,lon,res=23):
     # res: [0..26]
-    tilecode_cell = tilecode.latlon2tilecode(lat,lon,res)
+    tilecode_cell = tile.latlon2tilecode(lat,lon,res)
     return tilecode_cell
 
 def latlon2tilecode_cli():

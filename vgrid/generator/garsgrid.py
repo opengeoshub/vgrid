@@ -23,7 +23,6 @@ from vgrid.utils.gars.garsgrid import GARSGrid
 import numpy as np
 import math
 
-
 def gars(longitude, latitude):
     base = "ABCDEFGHJKLMNPQRSTUVWXYZ"
     longitude = (longitude+180) % 360

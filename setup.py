@@ -16,7 +16,6 @@ requirements = [
     'geopandas',
     'scipy',
     'future',
-    'rhealpixdggs',
     'texttable'
     ],
 
@@ -32,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.1.27',
+    version='1.1.30',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -84,7 +83,7 @@ setup(
             's2grid = vgrid.generator.s2grid:main',
             'rhealpixgrid = vgrid.generator.rhealpixgrid:main',
             'eaggrisea4tgrid = vgrid.generator.eaggrisea4tgrid:main',
-            # 'olcgrid = vgrid.generator.olcgrid:main',
+            'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',           
             'gzd = vgrid.generator.gzd:main',  
             'mgrsgrid = vgrid.generator.mgrsgrid:main',
@@ -101,7 +100,7 @@ setup(
             'geohashstats = vgrid.stats.geohashstats:main',
             'georefstats = vgrid.stats.georefstats:main',
             'mgrsstats = vgrid.stats.mgrsstats:main',
-            # 'tilestats = vgrid.stats.tilestats:main',
+            'tilestats = vgrid.stats.tilestats:main',
             
             'maidenheadstats = vgrid.stats.maidenheadstats:main',
             'garsstats = vgrid.stats.garsstats:main',

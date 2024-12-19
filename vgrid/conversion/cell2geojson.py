@@ -16,6 +16,7 @@ from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
+
 from shapely.wkt import loads
 from shapely.geometry import Polygon,mapping
 from pyproj import Geod
@@ -27,7 +28,7 @@ from pyproj import Geod
 geod = Geod(ellps="WGS84")
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
-from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
+# from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
 from vgrid.utils.antimeridian import fix_polygon
 
 def haversine(lat1, lon1, lat2, lon2):

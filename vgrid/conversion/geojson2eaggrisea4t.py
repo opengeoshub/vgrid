@@ -28,7 +28,7 @@ def point_to_grid(eaggr_dggs, resolution, point):
     cell_polygon = cell_to_polygon(eaggr_cell)
     
     if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-            cell_polygon = fix_antimeridian_cells(cell_polygon)
+            cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
     
     center_lat = round(cell_polygon.centroid.y,7)
     center_lon = round(cell_polygon.centroid.x,7)
@@ -82,7 +82,7 @@ def polyline_to_grid(eaggr_dggs, resolution, geometry):
                 eaggr_cell_id = eaggr_cell.get_cell_id()
 
                 if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-                    cell_polygon = fix_antimeridian_cells(cell_polygon)
+                    cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
                 
                 cell_centroid = cell_polygon.centroid
                 center_lat =  round(cell_centroid.y, 7)
@@ -135,7 +135,7 @@ def polygon_to_grid(eaggr_dggs, resolution, geometry):
                 eaggr_cell_id = eaggr_cell.get_cell_id()
 
                 if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
-                    cell_polygon = fix_antimeridian_cells(cell_polygon)
+                    cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
                 
                 cell_centroid = cell_polygon.centroid
                 center_lat =  round(cell_centroid.y, 7)

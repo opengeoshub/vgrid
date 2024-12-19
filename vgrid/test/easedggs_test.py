@@ -1,4 +1,4 @@
-from vgrid.utils.easedggs.dggs.grid_addressing import _grid_xy_to_grid_id, geos_to_grid_ids, grid_ids_to_geos, grid_ids_to_ease,geo_polygon_to_grid_ids
+from vgrid.utils.easedggs.dggs.grid_addressing import _grid_xy_to_grid_id, ease_polygon_to_grid_ids,geos_to_grid_ids, grid_ids_to_geos, grid_ids_to_ease,geo_polygon_to_grid_ids
 from vgrid.utils.easedggs.grid_align import  easedggs_grid_bounds,grid_id_to_corner_coord
 from vgrid.utils.easedggs.constants import grid_spec, levels_specs, ease_crs, geo_crs, cell_scale_factors
 from vgrid.utils.easedggs.dggs.transforms import *
@@ -9,138 +9,99 @@ import json
 import pyproj
 from pyproj import Transformer
 from vgrid.utils.easedggs.dggs.checks import check_gid_l0_index,check_coords_range
-
+import geopandas as gpd
 
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
 resolution = 6 #[0..6]
 coords_ease = coords_lon_lat_to_coords_ease([(longitude,latitude)],source_crs=geo_crs,target_crs=ease_crs)
-print(coords_ease[0].x)
+# for coord in coords_ease:
+#     print(coord.x)
+#     print(coord.y)
 
-
-# Extract the EASE and Geo min/max bounds
-ease_min_x, ease_min_y = grid_spec['ease']['min_x'], grid_spec['ease']['min_y']
-ease_max_x, ease_max_y = grid_spec['ease']['max_x'], grid_spec['ease']['max_y']
-
-geo_min_x, geo_min_y = grid_spec['geo']['min_x'], grid_spec['geo']['min_y']
-geo_max_x, geo_max_y = grid_spec['geo']['max_x'], grid_spec['geo']['max_y']
-
-# Calculate scaling factors for EASE to Geo transformation
-scale_x = (geo_max_x - geo_min_x) / (ease_max_x - ease_min_x)
-scale_y = (geo_max_y - geo_min_y) / (ease_max_y - ease_min_y)
-
-# Example EASE grid bounding box (min_x, min_y, max_x, max_y)
-# ease_box = {
-#     'min_x': -17367530.445161372,  # Example min_x of the bounding box
-#     'min_y': -7314540.830638504,  # Example min_y of the bounding box
-#     'max_x': 17367530.445161372,
-#     'max_y': 7314540.830638504}
-
-ease_box = {
-    'min_x': coords_ease[0].x,  # Example min_x of the bounding box
-    'min_y': coords_ease[0].y,  # Example min_y of the bounding box
-    'max_x': coords_ease[0].x+14616000,
-    'max_y': coords_ease[0].y+34704000
-}
-# Convert EASE bounding box to Geo (WGS84) coordinates
-geo_min_x_converted = geo_min_x + (ease_box['min_x'] - ease_min_x) * scale_x
-geo_min_y_converted = geo_min_y + (ease_box['min_y'] - ease_min_y) * scale_y
-geo_max_x_converted = geo_min_x + (ease_box['max_x'] - ease_min_x) * scale_x
-geo_max_y_converted = geo_min_y + (ease_box['max_y'] - ease_min_y) * scale_y
-
-# Create a polygon using the converted Geo coordinates
-polygon = Polygon([
-    (geo_min_x_converted, geo_min_y_converted),  # Bottom-left
-    (geo_max_x_converted, geo_min_y_converted),  # Bottom-right
-    (geo_max_x_converted, geo_max_y_converted),  # Top-right
-    (geo_min_x_converted, geo_max_y_converted),  # Top-left
-    (geo_min_x_converted, geo_min_y_converted)   # Close the polygon
-])
-
-# Print the polygon
-print(polygon)
-
-# Convert the polygon to GeoJSON format (FeatureCollection)
-geojson_feature_collection = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "geometry": polygon.__geo_interface__,  # Get GeoJSON representation of the polygon
-            "properties": {}  # You can add any properties here if needed
-        }
-    ]
-}
-
-# Convert the dictionary to a JSON string (GeoJSON format)
-geojson_str = json.dumps(geojson_feature_collection)
-
-# Print the GeoJSON output
-print(geojson_str)
-
-
-
-# # coords_grid = coords_ease_to_coords_grid(coords_ease)
-# # print(coords_grid)
-# # grid_ids = coords_grid.apply(lambda coord: _grid_xy_to_grid_id(coord, level = resolution))
-# easedggs_cell = geos_to_grid_ids([(longitude,latitude)],level = resolution)
-# easedggs_cell_id = easedggs_cell['result']['data'][0]
-# print(easedggs_cell_id)
+coords_grid = coords_ease_to_coords_grid(coords_ease)
+easedggs_cell = geos_to_grid_ids([(longitude,latitude)],level = resolution)
+easedggs_cell_id = easedggs_cell['result']['data'][0]
 # geo = grid_ids_to_geos([easedggs_cell_id])
 # print (geo)
-# # polygon_wkt = 'POLYGON((106.7050103098 10.7834344861, 106.7125825211 10.7834344861, 106.7125825211 10.7781930751, 106.7050103098 10.7781930751, 106.7050103098 10.7834344861))'
+polygon_wkt = 'POLYGON((106.7050103098 10.7834344861, 106.7125825211 10.7834344861, 106.7125825211 10.7781930751, 106.7050103098 10.7781930751, 106.7050103098 10.7834344861))'
 # polygon_wkt = 'POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))'
 
 # print(check_coords_range([(longitude,latitude)]))
-# print(geo_polygon_to_grid_ids(polygon_wkt,level=3))
-# import geopandas as gpd
+grid_ids = geo_polygon_to_grid_ids(polygon_wkt,level=3)
+grid_id = grid_ids['result']['data'][0]
+print(grid_id)
+# geos = grid_ids_to_geos([grid_id])
+# geo = geos['result']['data'][0]
+# print (geo)
+level = 3
+print(grid_id_to_corner_coord(grid_id, 6, shift=False))
+def convert_easedggs_bounds_to_wgs84(easedggs_bounds):
+    """
+    Convert EASE-Grid 2.0 (EPSG:6933) bounds to WGS84 (EPSG:4326).
 
-# def create_cell_polygon_from_point(levels_specs, level, point, origin=(0, 0)):
-#     """
-#     Creates a polygon for a grid cell based on the provided level's specifications and a Point geometry.
+    Parameters
+    ----------
+    easedggs_bounds : list or tuple
+        Bounds in EPSG:6933 format (min_x, min_y, max_x, max_y).
+
+    Returns
+    -------
+    wgs84_bounds : tuple
+        Bounds in WGS84 (longitude, latitude) format (min_lon, min_lat, max_lon, max_lat).
+    """
+    # Define a transformer from EPSG:6933 to EPSG:4326
+    transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
+
+    # Unpack the bounds
+    min_x, min_y, max_x, max_y = easedggs_bounds
+
+    # Transform each corner of the bounds
+    min_lon, min_lat = transformer.transform(min_x, min_y)
+    max_lon, max_lat = transformer.transform(max_x, max_y)
+
+    # Return the bounds in WGS84
+    return min_lon, min_lat, max_lon, max_lat
+
+bounds = (106.705, 10.783, 106.712, 10.778)  # (min_x, min_y, max_x, max_y)
+grid_bounds = easedggs_grid_bounds(bounds, geo_crs, 3)
+print("Ease Bounds:", grid_bounds)
+# Example usage
+# easedggs_bounds = [10295206.210173458, 1366221.7068721335, 10297208.000220157, 1368223.4969188329]
+wgs84_bounds = convert_easedggs_bounds_to_wgs84(grid_bounds)
+print("WGS84 Bounds:", wgs84_bounds)
+
+# print(ease_polygon_to_grid_ids(polygon_wkt,level=3))
+
+import geopandas as gpd
+
+def create_cell_polygon_from_point(levels_specs, level, point, origin=(0, 0)):
+    # Extract specifications for the given level
+    level_spec = levels_specs.get(level)
+    if not level_spec:
+        raise ValueError(f"Level {level} not found in levels_specs")
     
-#     Parameters:
-#     ----------
-#     levels_specs : dict
-#         The dictionary containing the grid specifications for each level.
-#     level : int
-#         The grid level for which the polygon needs to be generated.
-#     point : shapely.geometry.Point
-#         The Point geometry representing the center of the grid cell.
-#     origin : tuple, optional
-#         The origin (starting point) of the grid. Default is (0, 0).
-        
-#     Returns:
-#     -------
-#     Polygon
-#         A Shapely Polygon representing the grid cell.
-#     """
+    n_row = level_spec['n_row']
+    n_col = level_spec['n_col']
+    x_length = level_spec['x_length']
+    y_length = level_spec['y_length']
     
-#     # Extract specifications for the given level
-#     level_spec = levels_specs.get(level)
-#     if not level_spec:
-#         raise ValueError(f"Level {level} not found in levels_specs")
+    # Extract the x, y coordinates from the Point
+    x_center = point.x
+    y_center = point.y
     
-#     n_row = level_spec['n_row']
-#     n_col = level_spec['n_col']
-#     x_length = level_spec['x_length']
-#     y_length = level_spec['y_length']
+    # Calculate the bottom-left corner of the cell
+    x_min = x_center - x_length / 2
+    y_min = y_center - y_length / 2
     
-#     # Extract the x, y coordinates from the Point
-#     x_center = point.x
-#     y_center = point.y
+    # The top-right corner is just one step away in x and y directions
+    x_max = x_center + x_length / 2
+    y_max = y_center + y_length / 2
     
-#     # Calculate the bottom-left corner of the cell
-#     x_min = x_center - x_length / 2
-#     y_min = y_center - y_length / 2
+    # Create a Polygon for the grid cell (using the corners)
+    cell_polygon = Polygon([(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)])
     
-#     # The top-right corner is just one step away in x and y directions
-#     x_max = x_center + x_length / 2
-#     y_max = y_center + y_length / 2
-    
-#     # Create a Polygon for the grid cell (using the corners)
-#     cell_polygon = Polygon([(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)])
-    
-#     return cell_polygon
+    return cell_polygon
+
 
 # polygon = create_cell_polygon_from_point(levels_specs,resolution,coords_grid)
 # print(polygon)
@@ -173,40 +134,40 @@ print(geojson_str)
 
 # polygon_wgs84 = convert_polygon_to_wgs84(polygon)
 
-# # Print the WGS84 polygon coordinates
+# Print the WGS84 polygon coordinates
 # print(f"Converted WGS84 polygon coordinates: {polygon_wgs84}")
 
-# def polygon_to_geojson_featurecollection(polygon):
-#     """
-#     Convert a Shapely polygon to GeoJSON FeatureCollection format.
+def polygon_to_geojson_featurecollection(polygon):
+    """
+    Convert a Shapely polygon to GeoJSON FeatureCollection format.
     
-#     Parameters:
-#     ----------
-#     polygon : shapely.geometry.Polygon
-#         The polygon to convert to GeoJSON.
+    Parameters:
+    ----------
+    polygon : shapely.geometry.Polygon
+        The polygon to convert to GeoJSON.
         
-#     Returns:
-#     -------
-#     str
-#         The GeoJSON string representing a FeatureCollection containing the polygon.
-#     """
-#     # Extract the coordinates from the Polygon
-#     geojson = {
-#         "type": "FeatureCollection",
-#         "features": [
-#             {
-#                 "type": "Feature",
-#                 "geometry": {
-#                     "type": "Polygon",
-#                     "coordinates": [list(polygon.exterior.coords)]
-#                 },
-#                 "properties": {}
-#             }
-#         ]
-#     }
+    Returns:
+    -------
+    str
+        The GeoJSON string representing a FeatureCollection containing the polygon.
+    """
+    # Extract the coordinates from the Polygon
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [list(polygon.exterior.coords)]
+                },
+                "properties": {}
+            }
+        ]
+    }
     
-#     # Convert the dictionary to a GeoJSON string
-#     return json.dumps(geojson)
+    # Convert the dictionary to a GeoJSON string
+    return json.dumps(geojson)
 
 # geojson_featurecollection = polygon_to_geojson_featurecollection(polygon_wgs84)
 
@@ -234,70 +195,139 @@ print(geojson_str)
 # # upper_left = ease_to_wgs84(corner_coord[0], corner_coord[1])
 # # print (upper_left)
 
-# # def cell_id_to_geojson(cell_id, level, levels_specs):
-# #     """
-# #     Converts an EASE-DGGS cell ID to a GeoJSON FeatureCollection in WGS84 coordinates.
+def cell_id_to_geojson(cell_id, level, levels_specs):
+    """
+    Converts an EASE-DGGS cell ID to a GeoJSON FeatureCollection in WGS84 coordinates.
 
-# #     Parameters
-# #     ----------
-# #     cell_id : str
-# #         The cell ID (e.g., 'L3.165767.02.02.22').
-# #     level : int
-# #         The level of the cell.
-# #     levels_specs : dict
-# #         Specifications for the grid levels, containing x_length and y_length.
+    Parameters
+    ----------
+    cell_id : str
+        The cell ID (e.g., 'L3.165767.02.02.22').
+    level : int
+        The level of the cell.
+    levels_specs : dict
+        Specifications for the grid levels, containing x_length and y_length.
 
-# #     Returns
-# #     ----------
-# #     geojson : dict
-# #         A GeoJSON FeatureCollection representing the cell as a polygon in WGS84.
-# #     """
-# #     corners = {
-# #         "upper_left": grid_id_to_corner_coord(cell_id, level),
-# #         "upper_right": grid_id_to_corner_coord(cell_id, level, shift=True),
-# #         "lower_right": grid_id_to_corner_coord(cell_id, level, shift=True),
-# #         "lower_left": grid_id_to_corner_coord(cell_id, level),
-# #     }
+    Returns
+    ----------
+    geojson : dict
+        A GeoJSON FeatureCollection representing the cell as a polygon in WGS84.
+    """
+    # Coordinates of the cell corners in some local CRS
+    corners = {
+        "upper_left": grid_id_to_corner_coord(cell_id, level),
+        "upper_right": grid_id_to_corner_coord(cell_id, level, shift=True),
+        "lower_right": grid_id_to_corner_coord(cell_id, level, shift=True),
+        "lower_left": grid_id_to_corner_coord(cell_id, level),
+    }
 
-# #     # Convert coordinates to WGS84 using pyproj (assuming EASE-DGGS is in some local CRS)
-# #     proj_ease = pyproj.Proj(init="epsg:3395")  # Replace with correct CRS for EASE-DGGS
-# #     proj_wgs84 = pyproj.Proj(init="epsg:4326")
+    # Define projections using EPSG codes or PROJ strings
+    proj_ease = pyproj.CRS("EPSG:6933")  # Replace with the correct EPSG code or PROJ string for EASE-DGGS
+    proj_wgs84 = pyproj.CRS("EPSG:4326")  # WGS84 CRS
 
-# #     def ease_to_wgs84(x, y):
-# #         return Transformer.from_crs(proj_ease, proj_wgs84, always_xy=True).transform
+    # Define transformer
+    transformer = Transformer.from_crs(proj_ease, proj_wgs84, always_xy=True)
 
-# #     # Convert corner coordinates to WGS84
-# #     coordinates_wgs84 = [
-# #         list(ease_to_wgs84(corners["upper_left"][0], corners["upper_left"][1])),
-# #         list(ease_to_wgs84(corners["upper_right"][0], corners["upper_right"][1])),
-# #         list(ease_to_wgs84(corners["lower_right"][0], corners["lower_right"][1])),
-# #         list(ease_to_wgs84(corners["lower_left"][0], corners["lower_left"][1])),
-# #         list(ease_to_wgs84(corners["upper_left"][0], corners["upper_left"][1]))  # Close the polygon
-# #     ]
+    # Convert corner coordinates to WGS84
+    coordinates_wgs84 = [
+        list(transformer.transform(corners["upper_left"][0], corners["upper_left"][1])),
+        list(transformer.transform(corners["upper_right"][0], corners["upper_right"][1])),
+        list(transformer.transform(corners["lower_right"][0], corners["lower_right"][1])),
+        list(transformer.transform(corners["lower_left"][0], corners["lower_left"][1])),
+        list(transformer.transform(corners["upper_left"][0], corners["upper_left"][1]))  # Close the polygon
+    ]
 
-# #     # Create GeoJSON FeatureCollection in WGS84
-# #     geojson = {
-# #         "type": "FeatureCollection",
-# #         "features": [
-# #             {
-# #                 "type": "Feature",
-# #                 "geometry": {
-# #                     "type": "Polygon",
-# #                     "coordinates": [coordinates_wgs84]
-# #                 },
-# #                 "properties": {
-# #                     "cell_id": cell_id,
-# #                     "level": level
-# #                 }
-# #             }
-# #         ]
-# #     }
+    # Create GeoJSON FeatureCollection
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [coordinates_wgs84]
+                },
+                "properties": {
+                    "cell_id": cell_id,
+                    "level": level
+                }
+            }
+        ]
+    }
 
-# #     return geojson
+    return geojson
 
+# Example usage
+# latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# resolution = 6 #[0..6]
+# coords_ease = coords_lon_lat_to_coords_ease([(longitude,latitude)],source_crs=geo_crs,target_crs=ease_crs)
+# ids = geos_to_grid_ids(coords_lon_lat=[(106.70679737574993, 10.775275567242561)])
+# print(ids)
 # # cell_id = 'L3.165767.02.02.22'
-# # level = 3
-# # polygon_json = cell_id_to_geojson(cell_id, level,levels_specs)
+# cell_id = 'L0.165767'
+# print(grid_ids_to_geos(grid_ids = ['L0.165767']))
 
-# # # Print JSON Polygon
-# # print(json.dumps(polygon_json))
+# ease = grid_ids_to_ease([cell_id], cell_scale_factors  = cell_scale_factors, target_crs = ease_crs)
+# geojson = ease.to_json()
+
+# # Print GeoJSON
+# print(geojson)
+
+# level = 0
+# polygon_json = cell_id_to_geojson(cell_id, level, levels_specs)
+
+# # Print GeoJSON Polygon
+# print(json.dumps(polygon_json))
+
+# projected_crs = pyproj.CRS('EPSG:6933')  # Example: UTM Zone 33N
+# wgs84_crs = pyproj.CRS('EPSG:4326')  # WGS84
+
+# # Transformer to convert the coordinates
+# transformer = pyproj.Transformer.from_crs(projected_crs, wgs84_crs, always_xy=True)
+
+# # Input GeoJSON (example from your question)
+# geojson = {
+#     "type": "Point",
+#     "coordinates": [10287199.049986664, 1351208.2815218912],
+#     "bbox": [10287199.049986664, 1351208.2815218912, 10287199.049986664, 1351208.2815218912]
+# }
+
+# # Extract the coordinates and transform them
+# x, y = geojson["coordinates"]
+# longitude, latitude = transformer.transform(x, y)
+
+# # Convert bounding box coordinates to WGS84 (also transformed)
+# bbox = geojson["bbox"]
+# x_min, y_min, x_max, y_max = bbox
+# lon_min, lat_min = transformer.transform(x_min, y_min)
+# lon_max, lat_max = transformer.transform(x_max, y_max)
+
+# # Create the Point in WGS84
+# point = Point(lon_min, lat_min)
+
+# # Create the BBox Polygon in WGS84
+# bbox_polygon = Polygon([(lon_min, lat_min), 
+#                         (lon_max, lat_min), 
+#                         (lon_max, lat_max), 
+#                         (lon_min, lat_max), 
+#                         (lon_min, lat_min)])
+
+# # Create GeoJSON with Point and BBox Polygon
+# multi_type_geojson = {
+#     "type": "FeatureCollection",
+#     "features": [
+#         {
+#             "type": "Feature",
+#             "geometry": point.__geo_interface__,
+#             "properties": {"type": "Point"}
+#         },
+#         {
+#             "type": "Feature",
+#             "geometry": bbox_polygon.__geo_interface__,
+#             "properties": {"type": "Bounding Box Polygon"}
+#         }
+#     ]
+# }
+
+# # Print the result
+# print(json.dumps(multi_type_geojson))
