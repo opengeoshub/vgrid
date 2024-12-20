@@ -1,88 +1,87 @@
-#Reference: https://github.com/google/open-location-code/tree/main/tile_server/gridserver
-# https://github.com/google/open-location-code
-
+import json
 import argparse
 import vgrid.utils.olc as olc
-from tqdm import tqdm
-from shapely.geometry import Polygon, mapping
-import geopandas as gpd
-import pandas as pd
 
 
-def generate_all_olcs(length):
-    """Generate all OLC codes of a given length."""
-    olc_chars = '23456789CFGHJMPQRVWX'
-    if length < 2:
-        raise ValueError("OLC length should be at least 2.")
+def generate_grid(resolution, bounds):
+    """
+    Generate Plus Codes at a specific resolution and save as GeoJSON.
 
-    def olc_generator(prefix, depth):
-        if depth == length:
-            yield prefix
-        else:
-            for char in olc_chars:
-                yield from olc_generator(prefix + char, depth + 1)
+    Args:
+        bounds (tuple): Bounding box as (min_lon, min_lat, max_lon, max_lat).
+        resolution (int): Plus Code resolution (0 to 15).
+    """
+    min_lon, min_lat, max_lon, max_lat = bounds
+    step = 20.0 / (10 ** (resolution // 2))  # Approximate step size for given resolution.
 
-    return olc_generator("", 0)
+    geojson_features = []
+    lat = min_lat
+    while lat < max_lat:
+        lon = min_lon
+        while lon < max_lon:
+            # Generate Plus Code
+            olc_code = olc.encode(lat, lon, resolution)
+            coord = olc.decode(olc_code)
 
-def create_polygon_for_olc(olc_code):
-    """Create a Shapely Polygon feature for a given OLC code."""
-    decoded = olc.decode(olc_code)
-    coordinates = [
-        (decoded.longitudeLo, decoded.latitudeLo),
-        (decoded.longitudeLo, decoded.latitudeHi),
-        (decoded.longitudeHi, decoded.latitudeHi),
-        (decoded.longitudeHi, decoded.latitudeLo),
-        (decoded.longitudeLo, decoded.latitudeLo)
-    ]
-    polygon = Polygon(coordinates)
-    return polygon
+            if coord:
+                # Create bounding box coordinates for the polygon
+                min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
+                max_lat, max_lon = coord.latitudeHi, coord.longitudeHi
 
-def is_within_bounding_box(decoded, bbox):
-    """Check if the OLC's bounding box is within the specified bounding box."""
-    return (decoded.longitudeLo < bbox[2] and decoded.longitudeHi > bbox[0] and
-            decoded.latitudeLo < bbox[3] and decoded.latitudeHi > bbox[1])
+                # GeoJSON feature for the Plus Code
+                feature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [min_lon, min_lat],
+                            [min_lon, max_lat],
+                            [max_lon, max_lat],
+                            [max_lon, min_lat],
+                            [min_lon, min_lat]
+                        ]]
+                    },
+                    "properties": {
+                        "plus_code": olc_code
+                    }
+                }
+                geojson_features.append(feature)
+            lon += step
+        lat += step
 
-def generate_shapefile_for_olc_length(length, bbox):
-    """Generate a GeoDataFrame of OLC polygons of a given length within a bounding box."""
-    features = []
-    total_codes = 20 ** length  # Total number of possible codes of the given length
-    for olc_code in tqdm(generate_all_olcs(length), total=total_codes, desc="Generating Shapefile"):
-        decoded = olc.decode(olc_code)
-        if is_within_bounding_box(decoded, bbox):
-            polygon = create_polygon_for_olc(olc_code)
-            features.append({
-                "geometry": polygon,
-                "olc": olc_code  # Directly use pluscode as a column
-            })
-    
-    # Convert list of features to DataFrame
-    df = pd.DataFrame(features)
-    # Create GeoDataFrame
-    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
-    return gdf
+    # Create GeoJSON structure
+    return {
+        "type": "FeatureCollection",
+        "features": geojson_features
+    }
 
+ 
 def main():
-    parser = argparse.ArgumentParser(description="Generate Shapefile with OLC codes and centroids.")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Length of the plus code [2,4,8]")
-    parser.add_argument('-o', '--output', type=str, required=True, help="Output filename for the Shapefile")
-    
+    """
+    Main function to parse command-line arguments and generate OLC grid.
+    """
+    parser = argparse.ArgumentParser(description="Generate Plus Codes (OLC) grid as GeoJSON.")
+    parser.add_argument(
+        '-r', '--resolution', type=int, required=True, 
+        help="Resolution [0..15] of the grid."
+    )
+    parser.add_argument(
+        '-b', '--bbox', type=float, nargs=4, 
+        help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)."
+    )
     args = parser.parse_args()
+    resolution = args.resolution
+    # Set default bounding box to the whole world if not provided
+    bounds = args.bbox if args.bbox else (-180, -90, 180, 90)
+
+    # Generate the grid and save as GeoJSON
+    geojson_features = generate_grid(resolution, bounds)
+   # Save to GeoJSON file
+    geojson_path = f"olc_grid_{resolution}.geojson"
+    with open(geojson_path, "w") as f:
+        json.dump(geojson_features, f, indent=2)
     
-    length = args.resolution
-    if length not in [2, 4, 8]:
-        print("Error: resolution (code length) must be one of [2, 4, 8].")
-        return
-    
-    bbox = [-180, -85.051129, 180, 85.051129]  # Bounding box for the entire globe
-    
-    gdf = generate_shapefile_for_olc_length(length, bbox)
-    
-    output_filename = args.output
-    if not output_filename.lower().endswith('.shp'):
-        output_filename += '.shp'
-    
-    gdf.to_file(output_filename, driver='ESRI Shapefile')
-    print(f"Shapefile saved as {output_filename}")
+    print(f"GeoJSON saved as {geojson_path}")
 
 if __name__ == "__main__":
     main()
