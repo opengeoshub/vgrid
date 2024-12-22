@@ -166,6 +166,10 @@ def main():
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     if bbox == [-180, -90, 180, 90]:
+        if resolution < 0 or resolution > 15:
+            print(f"Please select a resolution in [0..15] range and try again ")
+        return
+
         # Calculate the number of cells at the given resolution
         num_cells = rhealpix_dggs.num_cells(resolution)
         max_cells = 1_000_000
