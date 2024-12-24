@@ -22,14 +22,14 @@ base_cells = [
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
 def fix_isea4t_wkt(eaggr_wkt):
-        # Extract the coordinate section
-        coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
-        coords = coords_section.split(",")
-        # Append the first point to the end if not already closed
-        if coords[0] != coords[-1]:
-            coords.append(coords[0])
-        fixed_coords = ", ".join(coords)
-        return f"POLYGON (({fixed_coords}))"
+    # Extract the coordinate section
+    coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
+    coords = coords_section.split(",")
+    # Append the first point to the end if not already closed
+    if coords[0] != coords[-1]:
+        coords.append(coords[0])
+    fixed_coords = ", ".join(coords)
+    return f"POLYGON (({fixed_coords}))"
 
 def fix_isea4t_antimeridian_cells(isea4t_boundary, threshold=-100):
     """

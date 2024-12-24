@@ -1,13 +1,7 @@
-from vgrid.utils import geohash
+from vgrid.utils import s2, olc, geohash, georef, mgrs, tile, maidenhead
 import h3
-from vgrid.utils import georef
-from vgrid.utils import maidenhead
-from vgrid.utils import mgrs
-from vgrid.utils import olc
-from vgrid.utils.s2 import LatLng, CellId
 
 from vgrid.utils.gars.garsgrid import GARSGrid
-from vgrid.utils import mercantile
 
 from rhealpixdggs.dggs import RHEALPixDGGS
 from rhealpixdggs.utils import my_round
@@ -19,9 +13,6 @@ from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.utils.eaggr.enums.model import Model
 
 import argparse
-
-from vgrid.utils import s2
-from vgrid.utils import tile
 
 def latlon2h3(lat,lon,res=13):
     # res: [0..15]
@@ -44,10 +35,10 @@ def latlon2h3_cli():
 
 def latlon2s2(lat,lon,res=21):
     # res: [0..30]
-    lat_lng = LatLng.from_degrees(lat, lon)
-    cell_id = CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
+    lat_lng = s2.LatLng.from_degrees(lat, lon)
+    cell_id = s2.CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
     cell_id = cell_id.parent(res) # get S2 cell at resolution
-    cell_token = CellId.to_token(cell_id) # get Cell ID Token, shorter than cell_id.id()
+    cell_token = s2.CellId.to_token(cell_id) # get Cell ID Token, shorter than cell_id.id()
     return cell_token
 
 def latlon2s2_cli():
@@ -228,7 +219,7 @@ def latlon2maidenhead_cli():
 
 def latlon2gars(lat,lon,res=1):
     # res: [1, 5, 15, 30 minutes]
-    gars_cell = gars_grid = GARSGrid.from_latlon(lat,lon,res)
+    gars_cell = GARSGrid.from_latlon(lat,lon,res)
     return gars_cell
 
 def latlon2gars_cli():

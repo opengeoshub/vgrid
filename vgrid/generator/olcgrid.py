@@ -12,7 +12,7 @@ def calculate_total_cells(code_length, bbox):
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
-    sw_lng,sw_lat, ne_lng,ne_lat = bbox
+    sw_lng,sw_lat,ne_lng,ne_lat = bbox
     total_lat_steps = int((ne_lat - sw_lat) / lat_step)
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
     
@@ -80,7 +80,7 @@ def generate_grid(code_length):
         "features": features
     }
 
-def generate_grid_within_bbox(output_resolution, bbox):
+def generate_grid_within_bbox(code_length, bbox):
     """
     Generate a grid of Open Location Codes (Plus Codes) within the specified bounding box.
     """
@@ -104,17 +104,17 @@ def generate_grid_within_bbox(output_resolution, bbox):
     for seed_cell in seed_cells:
         seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
 
-        if seed_cell_poly.contains(bbox_poly) and output_resolution == base_resolution:
+        if seed_cell_poly.contains(bbox_poly) and code_length == base_resolution:
             # Append the seed cell directly if fully contained and resolution matches
             refined_features.append(seed_cell)
         else:
             # Refine the seed cell to the output resolution and add it to the output
             refined_features.extend(
-                refine_cell(seed_cell_poly.bounds, base_resolution, output_resolution, bbox_poly)
+                refine_cell(seed_cell_poly.bounds, base_resolution, code_length, bbox_poly)
             )
 
     resolution_features = [
-        feature for feature in refined_features if feature["properties"]["resolution"] == output_resolution
+        feature for feature in refined_features if feature["properties"]["resolution"] == code_length
     ]
 
     final_features = []
@@ -221,7 +221,7 @@ def main():
         "-r", "--resolution",
         type=int,
         required=True,
-        help="OLC precision (must be an even number between 2 and 15)."
+        help="OLC code length/ resolution must be in [2..15] range, and ensure it is an even number when < 10."
     )
     
     parser.add_argument(
@@ -255,7 +255,6 @@ def main():
         geojson_path = f"olc_grid_bbox_{resolution}.geojson"
 
     
-
     with open(geojson_path, "w") as f:
         json.dump(geojson_features, f, indent=2)
     

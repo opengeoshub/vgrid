@@ -157,10 +157,6 @@ def main():
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     
-    if resolution not in [1,2,3,4]:
-        print(f"Please select a resolution in [1..4] range and try again ")
-        return
-
     if bbox == [-180, -90, 180, 90]:
         # Calculate the number of cells at the given resolution
         num_cells,_,_ = maidenhead_metrics(resolution)

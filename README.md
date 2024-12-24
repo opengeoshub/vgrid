@@ -58,6 +58,7 @@
 ``` bash
 > geohash2geojson w3gvk1td8
 > latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..30]
+> geohashgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # eaggrisea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
 > geohashstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
@@ -72,6 +73,7 @@
 ``` bash
 > mgrs2geojson 34TGK56063228
 > latlon2mgrs 10.775275567242561 106.70679737574993 4 # latlon2mgrs <lat> <lon> <res> [0..5]
+> gzd # Create Grid Zone Designators - used by MGRS
 > mgrstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
@@ -86,26 +88,21 @@
 ``` bash
 > maidenhead2geojson OK30is46 
 > latlon2maidenhead 10.775275567242561 106.70679737574993 4 # latlon2maidenhead <lat> <lon> <res> [1..4]
+> maidenheadgrid -r 4 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # maidenheadgrid -r <res> [1..4] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > maidenheadstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
 ### GARS
 ``` bash
 > gars2geojson 574JK1918
-> latlon2gars 10.775275567242561 106.70679737574993 1 # latlon2gars <lat> <lon> <res> [1, 5, 15, 30 minutes]
+> latlon2gars 10.775275567242561 106.70679737574993 1 # latlon2gars <lat> <lon> <res> [30,15,5,1] minutes
+> garsgrid -r 1 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # garsgrid -r <res> = [30,15,5,1] minutes -b <min_lon> <min_lat> <max_lon> <max_lat>
 > garsstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
 ### Command line for creating DGGS and cell-based geocoding grids in GeoJSON format
 ``` bash
-> h3grid -r 1 (r = [0..15])
-> s2grid -r 1 (r = [0..30])
-> rhealpixgrid -r 1 (r = [0..15])
-> eaggrisea4tgrid -r 1 (r = [0..22])
-> geohashgrid -r 1 (r = [1..12])
-> gzd (Create Grid Zone Designators - used by MGRS)
 > mgrsgrid -cellsize 100000 -epsg 32648 (Create MGRS Grid with cell size 100km x 100km at UTM zone 48N)  
-> maidenheadgrid -r 1 (r = [1, 2, 3, 4])
 ```
 
 ## Usage - Python code:

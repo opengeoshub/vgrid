@@ -16,88 +16,197 @@
 # epsg_code = ggrid.utm_epsg
 # print(epsg_code)
 # https://github.com/Moustikitos/gryd/blob/c79edde94f19d46e3b3532ae14eb351e91d55322/Gryd/geodesy.py
-import geopandas as gpd
-import shapely.geometry as geom
-from pyproj import CRS
-from vgrid.utils.gars.garsgrid import GARSGrid
+
+import json, argparse
+from tqdm import tqdm
+from shapely.geometry import Polygon, mapping, box
 import numpy as np
-import math
+from pyproj import Geod
+from vgrid.utils.gars.garsgrid import GARSGrid  # Ensure the correct import path
+import locale
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
+max_cells = 1_000_000
 
-def gars(longitude, latitude):
-    base = "ABCDEFGHJKLMNPQRSTUVWXYZ"
-    longitude = (longitude+180) % 360
-    latitude = (latitude+90) % 180
+geod = Geod(ellps="WGS84")  # Initialize a Geod object for calculations
 
-    lon_idx = longitude / 0.5
-    lat_idx = latitude / 0.5
+def generate_grid(resolution_minutes):
+    # Default to the whole world if no bounding box is provided
+    lon_min, lat_min, lon_max, lat_max = -180, -90, 180, 90
 
-    quadrant = "%03d" % (lon_idx+1) + base[int(math.floor(lat_idx//24))] + base[int(math.floor(lat_idx%24))]
+    resolution_degrees = resolution_minutes / 60.0
+
+    # Initialize a list to store GARS grid features
+
+    # Generate ranges for longitudes and latitudes
+    longitudes = np.arange(lon_min, lon_max, resolution_degrees)
+    latitudes = np.arange(lat_min, lat_max, resolution_degrees)
+
+    total_cells = len(longitudes) * len(latitudes)
+    features = []
+    # Loop over longitudes and latitudes with tqdm progress bar
+    with tqdm(total=total_cells, desc="Generating GARS grid", unit=" cells") as pbar:
+        for lon in longitudes:
+            for lat in latitudes:
+                # Create the GARS grid code
+                gars_cell= GARSGrid.from_latlon(lat, lon, resolution_minutes)
+                wkt_polygon = gars_cell.polygon
+                
+                if wkt_polygon:
+                    # Extract coordinates and create polygon
+                    # x, y = wkt_polygon.exterior.xy
+                    # min_lon = min(x)
+                    # max_lon = max(x)
+                    # min_lat = min(y)
+                    # max_lat = max(y)
+
+                    # Calculate center coordinates
+                    # center_lon = round((min_lon + max_lon) / 2, 7)
+                    # center_lat = round((min_lat + max_lat) / 2, 7)
+
+                    # Create a shapely polygon
+                    cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
+                    
+                    # Calculate area, width, and height
+                    # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]), 2)
+                    # cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]), 2)
+                    # cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]), 2)
+
+                    # Add feature to the list
+                    features.append({
+                        "type": "Feature",
+                        "geometry": mapping(cell_polygon),
+                        "properties": {
+                            "gars": gars_cell.gars_id,
+                            # "center_lat": center_lat,
+                            # "center_lon": center_lon,
+                            # "cell_area": cell_area,
+                            # "cell_width": cell_width,
+                            # "cell_height": cell_height,
+                            # "resolution_minute": gars_grid.resolution,
+                        },
+                    })
+
+                pbar.update(1)
+
+    # Create a FeatureCollection
+    return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+ 
+def generate_grid_within_bbox(bbox, resolution_minutes):
+    # Default to the whole world if no bounding box is provided
+    bbox_polygon = box(*bbox)
+    lon_min, lat_min, lon_max, lat_max = bbox
+
+    resolution_degrees = resolution_minutes / 60.0
+
+    # Generate ranges for longitudes and latitudes
+    # longitudes = np.arange(lon_min, lon_max, resolution_degrees)
+    # latitudes = np.arange(lat_min, lat_max, resolution_degrees)
     
-    lon_num_idx = (lon_idx - math.floor(lon_idx)) * 2.
-    lat_num_idx = (lat_idx - math.floor(lat_idx)) * 2.
-    j = math.floor(lon_num_idx)
-    i = 1-math.floor(lat_num_idx)
-    number = i*(j+1)+j+1
+    longitudes = np.arange(lon_min-resolution_degrees, lon_max + resolution_degrees, resolution_degrees)
+    latitudes = np.arange(lat_min-resolution_degrees, lat_max + resolution_degrees, resolution_degrees)
 
-    lon_key_idx = (lon_num_idx - math.floor(lon_num_idx)) * 3.
-    lat_key_idx = (lat_num_idx - math.floor(lat_num_idx)) * 3.
-    j = math.floor(lon_key_idx)
-    i = 2-math.floor(lat_key_idx)
-    key = i*(j+1)+j+1
+    # total_cells = len(longitudes) * len(latitudes)
+    features = []
+    # Loop over longitudes and latitudes with tqdm progress bar
+    with tqdm(desc="Generating GARS grid", unit=" cells") as pbar:
+        for lon in longitudes:
+            for lat in latitudes:
+                # Create the GARS grid code
+                gars_cell= GARSGrid.from_latlon(lat, lon, resolution_minutes)
+                wkt_polygon = gars_cell.polygon
+                
+                if wkt_polygon:
+                    # Extract coordinates and create polygon
+                    # x, y = wkt_polygon.exterior.xy
+                    # min_lon = min(x)
+                    # max_lon = max(x)
+                    # min_lat = min(y)
+                    # max_lat = max(y)
 
-    return quadrant+str(number)+str(key)
+                    # Calculate center coordinates
+                    # center_lon = round((min_lon + max_lon) / 2, 7)
+                    # center_lat = round((min_lat + max_lat) / 2, 7)
 
-def from_gars(gars, anchor=""):
-	"""return Geodesic object from gars. Optional anchor value to define where to handle 5minx5min tile"""
-	base = "ABCDEFGHJKLMNPQRSTUVWXYZ"
-	longitude = 5./60. * (0 if "w" in anchor else 1 if "e" in anchor else 0.5)
-	latitude = 5./60. * (0 if "s" in anchor else 1 if "n" in anchor else 0.5)
+                    # Create a shapely polygon
+                    cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
+                    
+                    # Calculate area, width, and height
+                    # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]), 2)
+                    # cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]), 2)
+                    # cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]), 2)
 
-	key = gars[6]
-	longitude += 5./60. * (0 if key in "147" else 1 if key in "258" else 2)
-	latitude += 5./60. * (0 if key in "789" else 1 if key in "456" else 2)
-	
-	number = gars[5]
-	longitude += 15./60. * (0 if number in "13" else 1)
-	latitude += 15./60. * (0 if number in "34" else 1)
+                    # Add feature to the list
+                    if bbox_polygon.intersects(cell_polygon):
+                        features.append({
+                            "type": "Feature",
+                            "geometry": mapping(cell_polygon),
+                            "properties": {
+                                "gars": gars_cell.gars_id,
+                                # "center_lat": center_lat,
+                                # "center_lon": center_lon,
+                                # "cell_area": cell_area,
+                                # "cell_width": cell_width,
+                                # "cell_height": cell_height,
+                                # "resolution_minute": gars_grid.resolution,
+                            },
+                        })
 
-	longitude += (int(gars[:3])-1)*0.5
-	latitude += (base.index(gars[3])*24 + base.index(gars[4]))*0.5
+                        pbar.update(1)
 
-	return (longitude-180, latitude-90)
+    # Create a FeatureCollection
+    return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
 
 
-def generate_gars_grid():
-    # Define bounds for the whole planet
-    lon_min, lon_max = -180.0, 180.0
-    lat_min, lat_max = -90.0, 90.0
-    
-    # Initialize a list to store GARS grid polygons
-    gars_grid = []
-    res = 0.5
-    # Use numpy to generate ranges with floating-point steps
-    longitudes = np.arange(lon_min, lon_max, res)
-    latitudes = np.arange(lat_min, lat_max, res)
-    
-    # Loop over longitudes and latitudes in 30-minute intervals
-    for lon in longitudes:
-        for lat in latitudes:
-            # Create a polygon for each GARS cell
-            poly = geom.box(lon, lat, lon + res, lat + res)
-            # gars_code = EDGARSGrid.from_latlon(lat, lon,1)  
-            gars_code = GARSGrid.from_latlon(lat,lon,res*60) 
-            # poly = gars_code.polygon
-            # print(gars_code)
-            # print(poly)
-            gars_grid.append({'geometry': poly, 'gars': str(gars_code)})
-    
-    # print(gars_grid)
-    
-    # # Create a GeoDataFrame
-    gars_gdf = gpd.GeoDataFrame(gars_grid, crs=CRS.from_epsg(4326))
-    
-    # # Save the grid
-    gars_gdf.to_file('./gars_grid_30minutes.geojson', driver='GeoJSON')
+def main():
+    parser = argparse.ArgumentParser(description="Generate GARS grid")
+    parser.add_argument(
+        "-r", "--resolution", type=int, choices=[30, 15, 5, 1], required=True,
+        help="Resolution in minutes (30, 15, 5, 1)"
+    )
+    parser.add_argument(
+        "-b", "--bbox", type=float, nargs=4,
+        help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"
+    )
 
-# Run the function
-generate_gars_grid()
+    args = parser.parse_args()
+    resolution_minutes=args.resolution
+    bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
+
+    # Write to a GeoJSON file
+    if bbox == [-180, -90, 180, 90]:
+         # Calculate the number of cells at the given resolution
+        lon_min, lat_min, lon_max, lat_max = bbox
+        resolution_degrees = resolution_minutes / 60.0
+        longitudes = np.arange(lon_min, lon_max, resolution_degrees)
+        latitudes = np.arange(lat_min, lat_max, resolution_degrees)
+
+        total_cells = len(longitudes) * len(latitudes)
+
+        print(f"Resolution {resolution_minutes} minutes will generate "
+                f"{locale.format_string('%d', total_cells, grouping=True)} cells")
+        if total_cells > max_cells:
+            print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+            print("Please select a smaller resolution and try again.")
+            return
+   
+        feature_collection = generate_grid(resolution_minutes)
+        output_filename = f'gars_grid_{resolution_minutes}_minutes.geojson'
+    else: 
+        feature_collection = generate_grid_within_bbox(bbox, resolution_minutes)
+        output_filename = f'gars_grid_{resolution_minutes}_minutes_bbox.geojson'
+   
+    with open(output_filename, 'w') as f:
+        json.dump(feature_collection, f, indent=2)
+
+    print(f"GARS grid saved to {output_filename}")
+
+
+if __name__ == "__main__":
+    main()

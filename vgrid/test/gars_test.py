@@ -30,8 +30,8 @@ gars_grid = gars.garsgrid.GARSGrid.from_latlon(latitude, longitude, gars_resolut
 gars_code = gars_grid.gars_id
 print(gars_code)
 
-data = gars2geojson(gars_code)
-output_file = f'gars_{gars_resolution}.geojson'
-with open(output_file, 'w') as f:
-    json.dump(data, f, indent=2)  
-print(f'GeoJSON written to {output_file}')
+# data = gars2geojson(gars_code)
+# output_file = f'gars_{gars_resolution}.geojson'
+# with open(output_file, 'w') as f:
+#     json.dump(data, f, indent=2)  
+# print(f'GeoJSON written to {output_file}')

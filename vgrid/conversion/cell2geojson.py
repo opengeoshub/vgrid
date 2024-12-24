@@ -1,12 +1,7 @@
-from vgrid.utils import geohash
-import h3
-from vgrid.utils import georef
-from vgrid.utils import maidenhead
-from vgrid.utils import mgrs
-from vgrid.utils import olc
+from vgrid.utils import s2, olc, geohash, georef, mgrs, mercantile, maidenhead
+from vgrid.utils.gars import garsgrid
 
-from vgrid.utils.gars.garsgrid import GARSGrid
-from vgrid.utils import mercantile
+import h3
 
 from rhealpixdggs.dggs import RHEALPixDGGS
 from rhealpixdggs.utils import my_round
@@ -18,34 +13,18 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 
 from shapely.wkt import loads
-from shapely.geometry import Polygon,mapping
-from pyproj import Geod
-import math
-import json, re
-import argparse
-from vgrid.utils import s2
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
+from shapely.geometry import shape, Point,Polygon,mapping
+
+import json, re,os,argparse
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
-# from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
+from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
+from vgrid.generator.eaggrisea4tgrid import fix_isea4t_wkt
 from vgrid.utils.antimeridian import fix_polygon
 
-def haversine(lat1, lon1, lat2, lon2):
-    # Radius of the Earth in meters
-    R = 6371000  
-
-    # Convert latitude and longitude from degrees to radians
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    # Haversine formula
-    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    return R * c  # Distance in meters
+from pyproj import Geod
+geod = Geod(ellps="WGS84")
+E = WGS84_ELLIPSOID
 
 def h32geojson(h3_code):
     # Get the boundary coordinates of the H3 cell
@@ -98,7 +77,6 @@ def s22geojson(cell_id_token):
     # Create an S2 cell from the given cell ID
     cell_id = s2.CellId.from_token(cell_id_token)
     cell = s2.Cell(cell_id)
-    
     if cell:
         # Get the vertices of the cell (4 vertices for a rectangular cell)
         vertices = [cell.get_vertex(i) for i in range(4)]
@@ -123,21 +101,17 @@ def s22geojson(cell_id_token):
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
         avg_edge_len = round(cell_perimeter/4,2)
 
-        # Create properties for the Feature
-        properties = {
-            "s2_token": cell_id_token,
-            "center_lat": center_lat,
-            "center_lon": center_lon,
-            "area": cell_area,
-            "avg_edge_len": avg_edge_len,
-            "resolution": cell_id.level()
-        }
-        geometry = mapping(cell_polygon)
-
         feature = {
             "type": "Feature",
-            "geometry": geometry,
-            "properties":properties
+            "geometry": mapping(cell_polygon),
+            "properties":{
+                "s2_token": cell_id_token,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "cell_area": cell_area,
+                "avg_edge_len": avg_edge_len,
+                "resolution": cell_id.level()
+                }
         }
         
         # Create the FeatureCollection
@@ -168,21 +142,16 @@ def rhealpix_cell_to_polygon(cell):
     vertices = fix_rhealpix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
-
 def rhealpix2geojson(rhealpix_code):
     rhealpix_code = str(rhealpix_code)
     rhealpix_uids = (rhealpix_code[0],) + tuple(map(int, rhealpix_code[1:]))
-    
-    E = WGS84_ELLIPSOID
     rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3) 
     rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
-    resolution = rhealpix_cell.resolution
-       
-    cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
-    features = []
     
-    if cell_polygon:
-        geod = Geod(ellps="WGS84")
+    if rhealpix_cell:
+        resolution = rhealpix_cell.resolution        
+        cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
+        
         center_lat = round(cell_polygon.centroid.y,7)
         center_lon = round(cell_polygon.centroid.x,7)
 
@@ -192,7 +161,7 @@ def rhealpix2geojson(rhealpix_code):
         if rhealpix_cell.ellipsoidal_shape() == 'dart':
             avg_edge_len = round(cell_perimeter/3,2)
 
-        features. append({
+        feature =({
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),
                 "properties": {
@@ -205,10 +174,11 @@ def rhealpix2geojson(rhealpix_code):
                     }
                 })
         
-        feature_collection =  {
+        feature_collection = {
             "type": "FeatureCollection",
-            "features": features,
-        }                
+            "features": [feature]
+        }
+            
         return feature_collection
 
 def rhealpix2geojson_cli():
@@ -222,42 +192,28 @@ def rhealpix2geojson_cli():
     print(geojson_data)
 
 
-def fix_isea4t_wkt(eaggr_wkt):
-        # Extract the coordinate section
-        coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
-        coords = coords_section.split(",")
-        # Append the first point to the end if not already closed
-        if coords[0] != coords[-1]:
-            coords.append(coords[0])
-        fixed_coords = ", ".join(coords)
-        return f"POLYGON (({fixed_coords}))"
-
 def eaggrisea4t2geojson(eaggrisea4t):
     eaggr_dggs = Eaggr(Model.ISEA4T)
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea4t),ShapeStringFormat.WKT)
-    cell_to_shp_fixed = fix_isea4t_wkt(cell_to_shp)
-    cell_polygon = loads(cell_to_shp_fixed)
+    cell_to_shape = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea4t),ShapeStringFormat.WKT)
+    cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
     if eaggrisea4t.startswith('00') or eaggrisea4t.startswith('09') or eaggrisea4t.startswith('14') or eaggrisea4t.startswith('04') or eaggrisea4t.startswith('19'):
-        cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
-        
-    resolution = len(eaggrisea4t)-2
-    # Compute centroid
-    cell_centroid = cell_polygon.centroid
-    center_lat, center_lon = round(cell_centroid.y,7), round(cell_centroid.x,7)
-    # Compute area using PyProj Geod
-    geod = Geod(ellps="WGS84")
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters
-    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-    avg_edge_len = round(cell_perimeter/3,2)  
+        cell_to_shape_fixed = fix_isea4t_antimeridian_cells(cell_to_shape_fixed)
     
-    if cell_polygon:
-        coordinates = list(cell_polygon.exterior.coords)
+    if cell_to_shape_fixed:
+        resolution = len(eaggrisea4t)-2
+        # Compute centroid
+        cell_centroid = cell_to_shape_fixed.centroid
+        center_lat, center_lon = round(cell_centroid.y,7), round(cell_centroid.x,7)
+        # Compute area using PyProj Geod
+        cell_polygon = Polygon(list(cell_to_shape_fixed.exterior.coords))
+
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters
+        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
+        avg_edge_len = round(cell_perimeter/3,2)  
+
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [coordinates]  
-            },
+            "geometry": mapping(cell_polygon),
             "properties": {
                  "eaggr_isea4t": eaggrisea4t,
                  "center_lat": center_lat,
@@ -284,12 +240,13 @@ def eaggrisea4t2geojson_cli():
     geojson_data = json.dumps(eaggrisea4t2geojson(args.eaggrisea4t))
     print(geojson_data)
 
-def eaggrisea3hgeojson(eaggrisea3h):
+
+def eaggrisea3h2geojson(eaggrisea3h):
     eaggr_dggs = Eaggr(Model.ISEA3H)
-    cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea3h),ShapeStringFormat.WKT)
+    cell_to_shape = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea3h),ShapeStringFormat.WKT)
     
-    if cell_to_shp:
-        coordinates_part = cell_to_shp.replace("POLYGON ((", "").replace("))", "")
+    if cell_to_shape:
+        coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
         coordinates = []
         for coord_pair in coordinates_part.split(","):
             lon, lat = map(float, coord_pair.strip().split())
@@ -325,7 +282,7 @@ def eaggrisea3h2geojson_cli():
     parser = argparse.ArgumentParser(description="Convert EeaggrISEA3H code to GeoJSON")
     parser.add_argument("eaggrisea3h", help="Input EeaggrISEA3H code, e.g., eaggrisea3h2geojson '07024,0'")
     args = parser.parse_args()
-    geojson_data = json.dumps(eaggrisea4t2geojson(args.eaggrisea3h))
+    geojson_data = json.dumps(eaggrisea3h2geojson(args.eaggrisea3h))
     print(geojson_data)
     
 def olc2geojson(olc_code):
@@ -337,39 +294,36 @@ def olc2geojson(olc_code):
         min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
         max_lat, max_lon = coord.latitudeHi, coord.longitudeHi
 
-        center_lat, center_lon = coord.latitudeCenter, coord.longitudeCenter
+        center_lat = round(coord.latitudeCenter,7)
+        center_lon = round(coord.longitudeCenter,7)
         resolution = coord.codeLength 
-       
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 1000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
 
         # Define the polygon based on the bounding box
-        polygon_coords = [
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
+        ])
         
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]
-            },
+            "geometry": mapping(cell_polygon),
             "properties": {
                 "olc": olc_code,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": resolution
             }
         }
@@ -399,44 +353,41 @@ def geohash2geojson(geohash_code):
         min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
         max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner
         
-        center_lat = (min_lat + max_lat) / 2
-        center_lon = (min_lon + max_lon) / 2
+        center_lat = round((min_lat + max_lat) / 2,7)
+        center_lon = round((min_lon + max_lon) / 2,7)
         
         resolution =  len(geohash_code)
 
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
- 
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 1000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-            
         # Define the polygon based on the bounding box
-        polygon_coords = [
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
+        ])
+        
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+
+        # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
 
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
+            "geometry": mapping(cell_polygon),
             "properties": {
-                "geohash": geohash_code,
+                "geohash": geohash_code,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": resolution
-                }
             }
+        }
         
         feature_collection = {
             "type": "FeatureCollection",
@@ -458,92 +409,98 @@ def geohash2geojson_cli():
 
 def mgrs2geojson(mgrs_code,lat=None,lon=None):
     origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_code)
-
-    lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-    lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-  
-    bbox_width =  f'{round(lon_len,1)} m'
-    bbox_height =  f'{round(lat_len,1)} m'
-    
-    if lon_len >= 1000:
-        bbox_width = f'{round(lon_len/1000,1)} km'
-        bbox_height = f'{round(lat_len/1000,1)} km'
-        
     if origin_lat:
         # Define the polygon based on the bounding box
-        polygon_coords = [
+        origin_lat = round(origin_lat,7)
+        origin_lon = round(origin_lon,7)
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
+        ])
 
-        mgrs_polygon = Polygon(polygon_coords)
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
         
+        # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+
+                      
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
+            "geometry": mapping(cell_polygon),
             "properties": {
                 "mgrs": mgrs_code,
-                "origin_lat": origin_lat,
-                "origin_lon": origin_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "origin_lat": round(origin_lat,7),
+                "origin_lon": round(origin_lon,7),
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": resolution
                 }
             }
         
-        # if lat is not None and lon is not None:
-        #     # Load the GZD JSON file (treated as GeoJSON format) from the same folder
-        #     gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
-        #     with open(gzd_json_path) as f:
-        #         gzd_json = json.load(f)
+        if lat is not None and lon is not None:
+            # Load the GZD JSON file (treated as GeoJSON format) from the same folder
+            gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
+            with open(gzd_json_path) as f:
+                gzd_json = json.load(f)
 
-        #     # Convert the GZD JSON to a GeoDataFrame
-        #     gzd_gdf = gpd.GeoDataFrame.from_features(gzd_json['features'], crs="EPSG:4326")
+            # Convert GZD GeoJSON features to Shapely polygons
+            gzd_polygons = [
+                {"geometry": shape(feature["geometry"]), "properties": feature["properties"]}
+                for feature in gzd_json["features"]
+            ]
 
-        #     # Convert the MGRS polygon to a GeoDataFrame for intersection
-        #     mgrs_gdf = gpd.GeoDataFrame(geometry=[mgrs_polygon], crs="EPSG:4326")
+            # Perform the intersection with the MGRS polygon
+            intersection_features = []
+            for gzd_polygon_data in gzd_polygons:
+                gzd_polygon = gzd_polygon_data["geometry"]
+                if cell_polygon.intersects(gzd_polygon):
+                    # Find the intersection polygon
+                    intersection_polygon = cell_polygon.intersection(gzd_polygon)
+                    intersection_min_lon, intersection_min_lat, intersection_max_lon, intersection_max_lat = intersection_polygon.bounds  # Bounds of the polygon
+                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),2)  # Area in square meters     
+                    intersection_width = round(geod.line_length([intersection_min_lon, intersection_max_lon], [intersection_min_lat, intersection_min_lat]),2)
+                    intersection_height = round(geod.line_length([intersection_min_lon, intersection_min_lon], [intersection_min_lat, intersection_max_lat]),2)
 
-        #     # Perform the intersection
-        #     intersection_gdf = gpd.overlay(mgrs_gdf, gzd_gdf, how='intersection')
+                    # Convert lat/lon to a Shapely point
+                    point = Point(lon, lat)
 
-        #     # Check if the intersection result is empty
-        #     if not intersection_gdf.empty:
-        #         # Convert lat/lon to a Shapely point
-        #         point = Point(lon, lat)
+                    # Check if the point is inside the intersection polygon
+                    if intersection_polygon.contains(point):
+                        # Manually construct the intersection as a JSON-like structure
+                        intersection_feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [list(intersection_polygon.exterior.coords)]
+                            },
+                            "properties": {
+                                "mgrs": mgrs_code,
+                                "origin_lat": origin_lat,
+                                "origin_lon": origin_lon,
+                                "cell_area": interection_area,
+                                "cell_width": intersection_width,
+                                "cell_height": intersection_height,
+                                "resolution": resolution,
+                                # **gzd_polygon_data["properties"],  # Include properties from GZD
+                            }
+                        }
+                        intersection_features.append(intersection_feature)
 
-        #         # Check if the point is inside any of the intersection polygons
-        #         for intersection_polygon in intersection_gdf.geometry:
-        #             if intersection_polygon.contains(point):
-        #                 # Manually construct the intersection as a JSON-like structure
-        #                 intersection_feature = {
-        #                     "type": "Feature",
-        #                     "geometry": {
-        #                         "type": "Polygon",
-        #                         "coordinates": [list(intersection_polygon.exterior.coords)]
-        #                     },
-        #                     "properties": {
-        #                         "mgrs": mgrs_code,
-        #                         "origin_lat": origin_lat,
-        #                         "origin_lon": origin_lon,
-        #                         "bbox_height": bbox_height,
-        #                         "bbox_width": bbox_width,
-        #                         "resolution": resolution
-        #                     }
-        #                 }
+            # If intersections are found, wrap them in a FeatureCollection
+            if intersection_features:
+                intersection_feature_collection = {
+                    "type": "FeatureCollection",
+                    "features": intersection_features
+                }
+                return intersection_feature_collection
 
-        #                 # Wrap the feature in a FeatureCollection
-        #                 intersection_feature_collection = {
-        #                     "type": "FeatureCollection",
-        #                     "features": [intersection_feature]
-        #                 }
-
-        #                 return intersection_feature_collection
 
         # If no intersection or point not contained, return the original MGRS GeoJSON
         feature_collection = {
@@ -566,39 +523,33 @@ def mgrs2geojson_cli():
 
 def georef2geojson(georef_code):
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_code)
-
-    lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-    lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-  
-    bbox_width =  f'{round(lon_len,1)} m'
-    bbox_height =  f'{round(lat_len,1)} m'
-    
-    if lon_len >= 1000:
-        bbox_width = f'{round(lon_len/1000,1)} km'
-        bbox_height = f'{round(lat_len/1000,1)} km'
-        
     if center_lat:
-        # Define the polygon based on the bounding box
-        polygon_coords = [
+        center_lat = round(center_lat,7)
+        center_lon = round(center_lon,7)
+
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
+        ])
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+          # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
 
         feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
+            "type": "Feature",            
+            "geometry": mapping(cell_polygon),          
             "properties": {
                 "georef": georef_code,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area" : cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": resolution
                 }
             }
@@ -653,40 +604,33 @@ def tilecode2geojson(tilecode):
         # tile = mercantile.Tile(x, y, z)
         # quadkey = mercantile.quadkey(tile)
 
-        center_lat = (min_lat + max_lat) / 2
-        center_lon = (min_lon + max_lon) / 2
-               
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-        if lon_len >= 1000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-
-        # Define the polygon based on the bounding box
-        polygon_coords = [
+        center_lat = round((min_lat + max_lat) / 2,2)
+        center_lon = round((min_lon + max_lon) / 2,2)
+        
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
-        
+        ])
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+          # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]
-            },
+            "geometry": mapping(cell_polygon),          
             "properties": {
                 "tilecode": tilecode,  # Include the OLC as a property
                 # "quadkey": quadkey,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": z  # Using the code length as precision
             }
         }
@@ -714,40 +658,35 @@ def tilecode2geojson_cli():
 def maidenhead2geojson(maidenhead_code):
     # Decode the Open Location Code into a CodeArea object
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
-    resolution = int(len(maidenhead_code)/2)
-    
-    lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-    lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
-
-    bbox_width =  f'{round(lon_len,1)} m'
-    bbox_height =  f'{round(lat_len,1)} m'
-    
-    if lon_len >= 1000:
-        bbox_width = f'{round(lon_len/1000,1)} km'
-        bbox_height = f'{round(lat_len/1000,1)} km'
-        
     if center_lat:
+        center_lat = round(center_lat,7)
+        center_lon  = round(center_lon,7)
+        resolution = int(len(maidenhead_code)/2)
+    
         # Define the polygon based on the bounding box
-        polygon_coords = [
+        cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
             [max_lon, max_lat],  # Top-right corner
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ]
+        ])
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+          # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
 
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]
-            },
+            "geometry": mapping(cell_polygon),       
             "properties": {
                 "maidenhead": maidenhead_code,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution": resolution
             }
         }
@@ -771,7 +710,7 @@ def maidenhead2geojson_cli():
 
 # SOS: Convert gars_code object to str first
 def gars2geojson(gars_code):
-    gars_grid = GARSGrid(gars_code)
+    gars_grid = garsgrid.GARSGrid(gars_code)
     wkt_polygon = gars_grid.polygon
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
@@ -784,34 +723,26 @@ def gars2geojson(gars_code):
         max_lat = max(y)
 
         # Calculate center latitude and longitude
-        center_lon = (min_lon + max_lon) / 2
-        center_lat = (min_lat + max_lat) / 2
+        center_lon = round((min_lon + max_lon) / 2,7)
+        center_lat = round((min_lat + max_lat) / 2, 7)
 
-        # Calculate bounding box width and height
-        lat_len = haversine(min_lat, min_lon, max_lat, min_lon)
-        lon_len = haversine(min_lat, min_lon, min_lat, max_lon)
- 
-        bbox_width =  f'{round(lon_len,1)} m'
-        bbox_height =  f'{round(lat_len,1)} m'
-
-        if lon_len >= 1000:
-            bbox_width = f'{round(lon_len/1000,1)} km'
-            bbox_height = f'{round(lat_len/1000,1)} km'
-
-        polygon_coords = list(wkt_polygon.exterior.coords)
-
+        cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+          # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        
         feature = {
             "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [polygon_coords]  # Directly use the coordinates list
-            },
+            "geometry": mapping(cell_polygon),       
             "properties": {
                 "gars": gars_code,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "bbox_height": bbox_height,
-                "bbox_width": bbox_width,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "resolution_minute": resolution_minute
                 }
             }
