@@ -77,28 +77,28 @@ def latlon2rhealpix_cli():
     rhealpix_cell = latlon2rhealpix(args.lat,args.lon,args.res)
     print(rhealpix_cell)
 
-def latlon2eaggrisea4t(lat,lon,res=21):
+def latlon2isea4t(lat,lon,res=21):
     # res: [0..38]
     eaggr_dggs = Eaggr(Model.ISEA4T)
-    max_accuracy = 10**(-10) # maximum cell_id length with 40 characters, 10**14 is mimum cell_id with 2 chacracters
+    max_accuracy = 10**(-10) # maximum cell_id length with 40 characters, 10**14 is min cell_id length with 2 chacracters
     lat_long_point = LatLongPoint(lat, lon, max_accuracy)
     eaggr_cell_max_accuracy = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
     cell_id_len = res+2
     eaggr_cell = DggsCell(eaggr_cell_max_accuracy._cell_id[:cell_id_len])
     return eaggr_cell._cell_id
 
-def latlon2eaggrisea4t_cli():
+def latlon2isea4t_cli():
     """
-    Command-line interface for latlon2eaggrisea4t.
+    Command-line interface for latlon2isea4t.
     """
-    parser = argparse.ArgumentParser(description="Convert Lat, Long to EaggrISEA4T code at a specific Resolution [0..38]. \
-                                     Usage: latlon2eaggrisea4t <lat> <lon> <res> [0..38]. \
-                                     Ex: latlon2eaggrisea4t 10.775275567242561 106.70679737574993 21")
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to OpenEaggr ISEA4T code at a specific Resolution [0..38]. \
+                                     Usage: latlon2isea4t <lat> <lon> <res> [0..38]. \
+                                     Ex: latlon2isea4t 10.775275567242561 106.70679737574993 21")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument("res",type=int, help="Input Resolution [0..38]")
     args = parser.parse_args()
-    eaggr_cell = latlon2eaggrisea4t(args.lat,args.lon,args.res)
+    eaggr_cell = latlon2isea4t(args.lat,args.lon,args.res)
     print(eaggr_cell)
 
 

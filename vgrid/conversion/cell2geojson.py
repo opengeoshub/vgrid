@@ -18,8 +18,7 @@ from shapely.geometry import shape, Point,Polygon,mapping
 import json, re,os,argparse
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
-from vgrid.generator.eaggrisea4tgrid import fix_isea4t_antimeridian_cells
-from vgrid.generator.eaggrisea4tgrid import fix_isea4t_wkt
+from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
 from vgrid.utils.antimeridian import fix_polygon
 
 from pyproj import Geod
@@ -191,16 +190,15 @@ def rhealpix2geojson_cli():
     geojson_data = json.dumps(rhealpix2geojson(args.rhealpix))
     print(geojson_data)
 
-
-def eaggrisea4t2geojson(eaggrisea4t):
-    eaggr_dggs = Eaggr(Model.ISEA4T)
-    cell_to_shape = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea4t),ShapeStringFormat.WKT)
+def isea4t2geojson(isea4t):
+    isea4t_dggs = Eaggr(Model.ISEA4T)
+    cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t),ShapeStringFormat.WKT)
     cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
-    if eaggrisea4t.startswith('00') or eaggrisea4t.startswith('09') or eaggrisea4t.startswith('14') or eaggrisea4t.startswith('04') or eaggrisea4t.startswith('19'):
+    if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14') or isea4t.startswith('04') or isea4t.startswith('19'):
         cell_to_shape_fixed = fix_isea4t_antimeridian_cells(cell_to_shape_fixed)
     
     if cell_to_shape_fixed:
-        resolution = len(eaggrisea4t)-2
+        resolution = len(isea4t)-2
         # Compute centroid
         cell_centroid = cell_to_shape_fixed.centroid
         center_lat, center_lon = round(cell_centroid.y,7), round(cell_centroid.x,7)
@@ -215,7 +213,7 @@ def eaggrisea4t2geojson(eaggrisea4t):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                 "eaggr_isea4t": eaggrisea4t,
+                 "isea4t": isea4t,
                  "center_lat": center_lat,
                  "center_lon": center_lon,
                  "cell_area": cell_area,
@@ -230,21 +228,19 @@ def eaggrisea4t2geojson(eaggrisea4t):
         }
         return  feature_collection
 
-def eaggrisea4t2geojson_cli():
+def isea4t2geojson_cli():
     """
-    Command-line interface for eaggrisea4t2geojson.
+    Command-line interface for isea4t2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert EaggrISEA4T code to GeoJSON")
-    parser.add_argument("eaggrisea4t", help="Input EaggrISEA4T code, e.g., eaggrisea4t2geojson 131023133313201333311333")
+    parser = argparse.ArgumentParser(description="Convert isea4t code to GeoJSON")
+    parser.add_argument("isea4t", help="Input isea4t code, e.g., isea4t2geojson 131023133313201333311333")
     args = parser.parse_args()
-    geojson_data = json.dumps(eaggrisea4t2geojson(args.eaggrisea4t))
+    geojson_data = json.dumps(isea4t2geojson(args.isea4t))
     print(geojson_data)
 
-
-def eaggrisea3h2geojson(eaggrisea3h):
-    eaggr_dggs = Eaggr(Model.ISEA3H)
-    cell_to_shape = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(eaggrisea3h),ShapeStringFormat.WKT)
-    
+def isea3h_cell_to_polygon(isea3h):
+    isea3h_dggs = Eaggr(Model.ISEA3H)
+    cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h),ShapeStringFormat.WKT)
     if cell_to_shape:
         coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
         coordinates = []
@@ -256,33 +252,54 @@ def eaggrisea3h2geojson(eaggrisea3h):
         if coordinates[0] != coordinates[-1]:
             coordinates.append(coordinates[0])
 
-        # Step 3: Construct the GeoJSON feature
-        feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [coordinates]  # Directly use the coordinates list
-            },
-            "properties": {
-                    }
-        }
+    cell_polygon = Polygon(coordinates)
+    fixed_polygon = fix_polygon(cell_polygon)    
+    return fixed_polygon
 
-        # Step 4: Construct the FeatureCollection
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        return  feature_collection
+def isea3h2geojson(isea3h):
+    cell_polygon = isea3h_cell_to_polygon(isea3h)
+    # if isea3h.startswith('00') or isea3h.startswith('09') or isea3h.startswith('14')\
+    #     or isea3h.startswith('19') or isea3h.startswith('04') :
+    #     cell_polygon = fix_isea3h_antimeridian_cells(cell_polygon)            
+   
+    cell_centroid = cell_polygon.centroid
+    center_lat =  round(cell_centroid.y, 7)
+    center_lon = round(cell_centroid.x, 7)
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    avg_edge_len = round(cell_perimeter / 6,2)
+    resolution = len(isea3h)-7
+    
+    # Step 3: Construct the GeoJSON feature
+    feature = {
+        "type": "Feature",
+        "geometry": mapping(cell_polygon),
+        "properties": {
+                "isea3h": isea3h,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "cell_area": cell_area,
+                "avg_edge_len": avg_edge_len,
+                "resolution": resolution
+                }
+    }
+
+    # Step 4: Construct the FeatureCollection
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": [feature]
+    }
+    return  feature_collection
 
 
-def eaggrisea3h2geojson_cli():
+def isea3h2geojson_cli():
     """
-    Command-line interface for eaggriseah32geojson.
+    Command-line interface for isea3h2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert EeaggrISEA3H code to GeoJSON")
-    parser.add_argument("eaggrisea3h", help="Input EeaggrISEA3H code, e.g., eaggrisea3h2geojson '07024,0'")
+    parser = argparse.ArgumentParser(description="Convert ISEA3H code to GeoJSON")
+    parser.add_argument("isea3h", help="Input ISEA3H code, e.g., isea3h2geojson '07024,0'")
     args = parser.parse_args()
-    geojson_data = json.dumps(eaggrisea3h2geojson(args.eaggrisea3h))
+    geojson_data = json.dumps(isea3h2geojson(args.isea3h))
     print(geojson_data)
     
 def olc2geojson(olc_code):

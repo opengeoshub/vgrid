@@ -9,7 +9,7 @@ from vgrid.utils.eaggr.enums.dggs_shape_location import DggsShapeLocation
 from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from pyproj import Geod
-from vgrid.conversion.latlon2cell import latlon2eaggrisea4t
+from vgrid.conversion.latlon2cell import latlon2isea4t
 
 from texttable import Texttable
 
@@ -23,12 +23,12 @@ def fix_eaggr_wkt(eaggr_wkt):
         fixed_coords = ", ".join(coords)
         return f"POLYGON (({fixed_coords}))"
 
-def eaggrisea4t_metrics(res):
+def isea4t_metrics(res):
     num_cells = 20*(4**res)
    
     eaggr_dggs = Eaggr(Model.ISEA4T)
     lat,lon = 10.775275567242561, 106.70679737574993
-    eaggr_cell = DggsCell(latlon2eaggrisea4t(lat,lon,res))
+    eaggr_cell = DggsCell(latlon2isea4t(lat,lon,res))
     cell_to_shp = eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell,ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_eaggr_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
@@ -39,7 +39,7 @@ def eaggrisea4t_metrics(res):
     return num_cells, avg_edge_length, avg_area
 
 
-def eaggrisea4t_stats(min_res=0, max_res=38, output_file=None):
+def isea4t_stats(min_res=0, max_res=38, output_file=None):
     
     t = Texttable()
     
@@ -55,10 +55,10 @@ def eaggrisea4t_stats(min_res=0, max_res=38, output_file=None):
             
             # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res + 1):
-                num_cells, avg_edge_length, avg_area = eaggrisea4t_metrics(res)              
+                num_cells, avg_edge_length, avg_area = isea4t_metrics(res)              
                 # Write to CSV without formatting locale
                 writer.writerow([res, num_cells, avg_edge_length, avg_area])
-        print(f'EaggrISEA4T Stats saved to {output_file}.')
+        print(f'OpenEAGGGR ISEA4T stats saved to {output_file}.')
     else:
         # If no output file is provided, print the result using locale formatting in Texttable
         current_locale = locale.getlocale()  # Get the current locale setting
@@ -66,7 +66,7 @@ def eaggrisea4t_stats(min_res=0, max_res=38, output_file=None):
         
         # Iterate through resolutions and add rows to the table
         for res in range(min_res, max_res + 1):
-            num_cells, avg_edge_length, avg_area = eaggrisea4t_metrics(res)  
+            num_cells, avg_edge_length, avg_area = isea4t_metrics(res)  
 
             formatted_cells = locale.format_string("%d", num_cells, grouping=True)
             
@@ -84,14 +84,14 @@ def eaggrisea4t_stats(min_res=0, max_res=38, output_file=None):
 
 def main():
     # Set up command-line argument parsing
-    parser = argparse.ArgumentParser(description="Export or display EaggrISEA4T DGGS stats.")
+    parser = argparse.ArgumentParser(description="Export or display OpenEAGGR ISEA4T DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
     parser.add_argument('-maxres','--maxres', type=int, default=38, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)
-    eaggrisea4t_stats(args.minres, args.maxres, args.output)
+    isea4t_stats(args.minres, args.maxres, args.output)
 
 if __name__ == "__main__":
     main()

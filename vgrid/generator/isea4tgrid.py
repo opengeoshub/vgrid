@@ -108,7 +108,8 @@ def generate_grid(resolution):
         cell_polygon = cell_to_polygon(eaggr_cell)
         eaggr_cell_id = eaggr_cell.get_cell_id()
 
-        if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+        if eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09')\
+            or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
             cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
         
         # cell_centroid = cell_polygon.centroid
@@ -122,7 +123,7 @@ def generate_grid(resolution):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                    "isea4t": eaggr_cell_id,
+                    "eaggr_isea4t": eaggr_cell_id,
                     # "center_lat": center_lat,
                     # "center_lon": center_lon,
                     # "cell_area": cell_area,
@@ -212,7 +213,7 @@ def generate_grid_within_bbox(resolution,bbox):
                     "type": "Feature",
                     "geometry": mapping(cell_polygon),
                     "properties": {
-                            "isea4t": eaggr_cell_id,
+                            "eaggr_isea4t": eaggr_cell_id,
                             # "center_lat": center_lat,
                             # "center_lon": center_lon,
                             # "cell_area": cell_area,

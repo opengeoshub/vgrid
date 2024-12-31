@@ -5,7 +5,7 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.generator.eaggrisea4tgrid import cell_to_polygon, length_accuracy_dict,\
+from vgrid.generator.isea4tgrid import cell_to_polygon, length_accuracy_dict,\
                                                fix_isea4t_antimeridian_cells, get_children_cells_within_bbox
 from tqdm import tqdm
 from shapely.geometry import shape, Polygon, box, Point, LineString, mapping
@@ -163,7 +163,7 @@ def polygon_to_grid(eaggr_dggs, resolution, geometry):
     
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Generate EaggrISEA4T grid for shapes in GeoJSON format")
+    parser = argparse.ArgumentParser(description="Generate OpenEAGGR ISEA4T grid for shapes in GeoJSON format")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..22]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
@@ -238,7 +238,7 @@ def main():
 
                     
     # Save the results to GeoJSON
-    geojson_path = f"geojson2eaggrisea4t_{resolution}.geojson"
+    geojson_path = f"geojson2isea4t_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

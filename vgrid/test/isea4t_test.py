@@ -21,57 +21,55 @@ from vgrid.conversion.latlon2cell import *
 from vgrid.conversion.cell2geojson import *
 from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
 import random
-
-
-
-# dggs = Eaggr(Model.ISEA3H)
-eaggr_dggs = Eaggr(Model.ISEA4T)
-accuracy = 10**-10 # len = 41
-accuracy = 5*10**-10 # len = 40
-accuracy = 10**-9 # len = 39
-accuracy = 10**-8 # len = 38
-accuracy = 5*10**-8 # len = 37
-accuracy = 10**-7 # len = 36
-accuracy = 5*10**-7 # len = 35
-accuracy = 10**-6 # len = 34
-accuracy = 5*10**-6 # len = 33
-accuracy = 5*10**-5 # len = 32
-accuracy = 10**-4 # len = 31
-accuracy = 5*10**-4 # len = 30
-accuracy = 9*10**-4 # len = 29
-accuracy = 5*10**-3 # len = 28
-accuracy = 2*10**-2 # len = 27
-accuracy = 5*10**-2 # len = 26
-accuracy = 5*10**-1 # len = 25
-accuracy = 1 # len = 24
-accuracy = 10 # len = 23
-accuracy = 5*10 # len = 22
-accuracy = 10**2 # len = 21
-accuracy = 5*10**2 # len = 20
-accuracy = 10**3 # len = 19
-accuracy = 5*10**3 # len = 18
-accuracy = 5*10**4 # len = 17
-accuracy = 10**5 # len = 16
-accuracy = 5*10**5 # len = 15
-accuracy = 10**6 # len = 14
-accuracy = 5*10**6 # len = 13
-accuracy = 5*10**7 # len = 12
-accuracy = 10**8 # len = 11
-accuracy = 5*10**8 # len = 10
-accuracy = 10**9 # len = 9
-accuracy = 10**10 # len = 8
-accuracy = 5*10**10 # len = 7
-accuracy = 10**11 # len = 6
-accuracy = 5*10**11 # len = 5
-accuracy = 10**12 # len = 4
-accuracy = 5*10**12 # len = 3
+# eaggr_dggs = Eaggr(Model.ISEA4T)
+# accuracy = 10**-10 # len = 41
+# accuracy = 5*10**-10 # len = 40
+# accuracy = 10**-9 # len = 39
+# accuracy = 10**-8 # len = 38
+# accuracy = 5*10**-8 # len = 37
+# accuracy = 10**-7 # len = 36
+# accuracy = 5*10**-7 # len = 35
+# accuracy = 10**-6 # len = 34
+# accuracy = 5*10**-6 # len = 33
+# accuracy = 5*10**-5 # len = 32
+# accuracy = 10**-4 # len = 31
+# accuracy = 5*10**-4 # len = 30
+# accuracy = 9*10**-4 # len = 29
+# accuracy = 5*10**-3 # len = 28
+# accuracy = 2*10**-2 # len = 27
+# accuracy = 5*10**-2 # len = 26
+# accuracy = 5*10**-1 # len = 25
+# accuracy = 1 # len = 24
+# accuracy = 10 # len = 23
+# accuracy = 5*10 # len = 22
+# accuracy = 10**2 # len = 21
+# accuracy = 5*10**2 # len = 20
+# accuracy = 10**3 # len = 19
+# accuracy = 5*10**3 # len = 18
+# accuracy = 5*10**4 # len = 17
+# accuracy = 10**5 # len = 16
+# accuracy = 5*10**5 # len = 15
+# accuracy = 10**6 # len = 14
+# accuracy = 5*10**6 # len = 13
+# accuracy = 5*10**7 # len = 12
+# accuracy = 10**8 # len = 11
+# accuracy = 5*10**8 # len = 10
+# accuracy = 10**9 # len = 9
+# accuracy = 10**10 # len = 8
+# accuracy = 5*10**10 # len = 7
+# accuracy = 10**11 # len = 6
+# accuracy = 5*10**11 # len = 5
+# accuracy = 10**12 # len = 4
+# accuracy = 5*10**12 # len = 3
 accuracy = 5*10**13 # len = 2
 
+eaggr_dggs = Eaggr(Model.ISEA4T)
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
 lat_long_point = LatLongPoint(latitude, longitude,accuracy)
 
 dggs_cell = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
-print(len(dggs_cell.get_cell_id()))
+print(dggs_cell.get_cell_id())
+# print(len(dggs_cell.get_cell_id()))
 
 
 # wkt_string = 'LINESTRING(106.1 10.234, 107.2 14.322)'
@@ -135,10 +133,10 @@ print(len(dggs_cell.get_cell_id()))
 # print(bounding_cell.get_cell_id())
 
 # get_dggs_cell_siblings
-# eaggrisea4t2geojson 13102313331320133331133
-# isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21) # latlon2eaggrisea4t <lat> <lon> <res> [0..38]
+# isea4t2geojson 13102313331320133331133
+# isea4t_cell_id =  latlon2isea4t (latitude,longitude, 21) # latlon2isea4t <lat> <lon> <res> [0..38]
 
-# isea4t_cell_id =  latlon2eaggrisea4t (latitude,longitude, 21)
+# isea4t_cell_id =  latlon2isea4t (latitude,longitude, 21)
 
 # # isea4t_cell = DggsCell('13102313331323203322')
 # # isea4t_cell_parent = eaggr_dggs.get_dggs_cell_parents(isea4t_cell)

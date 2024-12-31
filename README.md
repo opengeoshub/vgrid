@@ -38,13 +38,13 @@
 > rhealpixstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
-### EaggrISEA4T
+### OpenEAGGR ISEA4T
 ``` bash
-> eaggrisea4t2geojson 13102313331320133331133
-> geojson2eaggrisea4t -r 17 -geojson polygon.geojson # geojson2eaggrisea4t -r <res>[0..22] -geojson <point/ linestring/ polygon GeoJSON file>
-> latlon2eaggrisea4t 10.775275567242561 106.70679737574993 21 # latlon2eaggrisea4t <lat> <lon> <res> [0..39]
-> eaggrisea4tgrid -r 17 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # eaggrisea4tgrid -r <res> [0..39] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> eaggrisea4tstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> isea4t2geojson 13102313331320133331133
+> geojson2isea4t -r 17 -geojson polygon.geojson # geojson2isea4t -r <res>[0..22] -geojson <point/ linestring/ polygon GeoJSON file>
+> latlon2isea4t 10.775275567242561 106.70679737574993 21 # latlon2isea4t <lat> <lon> <res> [0..39]
+> isea4tgrid -r 17 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [0..39] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> isea4tstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
 ### OLC
@@ -58,7 +58,7 @@
 ``` bash
 > geohash2geojson w3gvk1td8
 > latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..30]
-> geohashgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # eaggrisea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
+> geohashgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
 > geohashstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
 ```
 
