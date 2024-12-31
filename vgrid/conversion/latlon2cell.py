@@ -3,9 +3,8 @@ import h3
 
 from vgrid.utils.gars.garsgrid import GARSGrid
 
-from rhealpixdggs.dggs import RHEALPixDGGS
-from rhealpixdggs.utils import my_round
-from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
+from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell

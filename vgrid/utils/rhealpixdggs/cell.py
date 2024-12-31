@@ -1,4 +1,4 @@
-# from rhealpixdggs.dggs import WGS84_003
+# from vgrid.utils.rhealpixdggs.dggs import WGS84_003
 
 from numpy import array, base_repr, pi  # pi is just for the doctests
 from scipy import integrate

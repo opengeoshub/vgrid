@@ -98,7 +98,7 @@ class Projection(object):
         if proj in HOMEMADE_PROJECTIONS:
             try:
                 # Import projection module for proj.
-                module = importlib.import_module("rhealpixdggs.pj_" + proj)
+                module = importlib.import_module("vgrid.utils.rhealpixdggs.pj_" + proj)
                 f = getattr(module, proj)(a=a, e=e, **kwargs)
             except NameError:
                 print("Oops! Projection %s is not implemented." % proj)

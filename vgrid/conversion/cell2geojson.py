@@ -3,9 +3,9 @@ from vgrid.utils.gars import garsgrid
 
 import h3
 
-from rhealpixdggs.dggs import RHEALPixDGGS
-from rhealpixdggs.utils import my_round
-from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
+from vgrid.utils.rhealpixdggs.utils import my_round
+from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 
 from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.utils.eaggr.eaggr import Eaggr
