@@ -79,13 +79,13 @@ def latlon2rhealpix_cli():
 
 def latlon2isea4t(lat,lon,res=21):
     # res: [0..38]
-    eaggr_dggs = Eaggr(Model.ISEA4T)
+    isea4t_dggs = Eaggr(Model.ISEA4T)
     max_accuracy = 10**(-10) # maximum cell_id length with 40 characters, 10**14 is min cell_id length with 2 chacracters
     lat_long_point = LatLongPoint(lat, lon, max_accuracy)
-    eaggr_cell_max_accuracy = eaggr_dggs.convert_point_to_dggs_cell(lat_long_point)
+    isea4t_cell_max_accuracy = isea4t_dggs.convert_point_to_dggs_cell(lat_long_point)
     cell_id_len = res+2
-    eaggr_cell = DggsCell(eaggr_cell_max_accuracy._cell_id[:cell_id_len])
-    return eaggr_cell._cell_id
+    isea4t_cell = DggsCell(isea4t_cell_max_accuracy._cell_id[:cell_id_len])
+    return isea4t_cell._cell_id
 
 def latlon2isea4t_cli():
     """
@@ -100,6 +100,53 @@ def latlon2isea4t_cli():
     args = parser.parse_args()
     eaggr_cell = latlon2isea4t(args.lat,args.lon,args.res)
     print(eaggr_cell)
+
+
+def latlon2isea3h(lat,lon,res=11):
+    # res: [0..18], res=11 is suitable for geocoding with avg_edg_len = 4.87m
+    isea3h_dggs = Eaggr(Model.ISEA3H)
+    res_accuracy_dict = {
+            18: 10**-5,   
+            17: 10**-4,
+            16: 10**-3,
+            15: 10**-2,
+            14: 10**-1,
+            13: 10**0,
+            12: 10**1,  
+            11: 10**2,
+            10: 10**3, 
+            9: 10**4, 
+            8: 5*10**4, 
+            7: 10**5, 
+            6: 10**7,
+            5: 10**8,
+            4: 10**9,
+            3: 10**10,
+            2: 10**11,
+            1: 10**12,
+            0: 10**14
+        }
+    accuracy = res_accuracy_dict.get(res)
+    if accuracy is None:
+        accuracy =  10**-5
+    lat_long_point = LatLongPoint(lat, lon, accuracy)
+    isea3h_cell = isea3h_dggs.convert_point_to_dggs_cell(lat_long_point)
+
+    return isea3h_cell.get_cell_id()
+
+def latlon2isea3h_cli():
+    """
+    Command-line interface for latlon2isea3h.
+    """
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to OpenEaggr ISEA3H code at a specific Resolution [0..18]. \
+                                     Usage: latlon2isea3h <lat> <lon> <res> [0..18]. \
+                                     Ex: latlon2isea3h 10.775275567242561 106.70679737574993 11")
+    parser.add_argument("lat",type=float, help="Input Latitude")
+    parser.add_argument("lon", type=float, help="Input Longitude")
+    parser.add_argument("res",type=int, help="Input Resolution [0..18]")
+    args = parser.parse_args()
+    isea3h_cell = latlon2isea3h(args.lat,args.lon,args.res)
+    print(isea3h_cell)
 
 
 def latlon2olc(lat,lon,res=11):

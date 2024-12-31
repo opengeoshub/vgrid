@@ -191,8 +191,8 @@ class TestDggsPython(unittest.TestCase):
 
     def test_convert_point_to_dggs_cell(self):
         # Create the lat/long points
-        lat_long_point1 = LatLongPoint(1.234, 2.345, 3.884);
-        lat_long_point2 = LatLongPoint(3.456, 4.567, 3.884);
+        lat_long_point1 = LatLongPoint(1.234, 2.345, 3.884)
+        lat_long_point2 = LatLongPoint(3.456, 4.567, 3.884)
         # Initialise the DGGS model
         dggs = Eaggr(Model.ISEA4T)
         # Convert the first lat/long point
@@ -524,7 +524,7 @@ class TestDggsPython(unittest.TestCase):
     #  with each other.
     def test_multiple_instances(self):
         # Create a point to convert
-        lat_long_point = LatLongPoint(1.234, 2.345, 3.884);
+        lat_long_point = LatLongPoint(1.234, 2.345, 3.884)
         # Create two different DGGS models
         isea4tDggs = Eaggr(Model.ISEA4T)
         isea3hDggs = Eaggr(Model.ISEA3H)
