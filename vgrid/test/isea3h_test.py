@@ -31,7 +31,7 @@ res_accuracy_dict = {
     1: 10**12,
     0: 10**14
 }
-res = 11 # res=11 is suitable for geocoding with avg_edg_len = 4.87m
+res = 12 # res=12 is suitable for geocoding
 accuracy = res_accuracy_dict.get(res)
 latitude, longitude = 10.775275567242561, 106.70679737574993# 
 # latitude, longitude = 11.88595373, 8.31375000

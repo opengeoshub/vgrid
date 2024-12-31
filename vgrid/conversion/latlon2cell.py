@@ -101,8 +101,8 @@ def latlon2isea4t_cli():
     print(eaggr_cell)
 
 
-def latlon2isea3h(lat,lon,res=11):
-    # res: [0..18], res=11 is suitable for geocoding with avg_edg_len = 4.87m
+def latlon2isea3h(lat,lon,res=12):
+    # res: [0..18], res=12 is suitable for geocoding
     isea3h_dggs = Eaggr(Model.ISEA3H)
     res_accuracy_dict = {
             18: 10**-5,   
