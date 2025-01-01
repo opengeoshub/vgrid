@@ -69,7 +69,8 @@ setup(
             'latlon2rhealpix = vgrid.conversion.latlon2cell:latlon2rhealpix_cli',  
             'latlon2isea4t = vgrid.conversion.latlon2cell:latlon2isea4t_cli',  
             'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
-
+            'latlon2easedggs = vgrid.conversion.latlon2cell:latlon2easedggs_cli',
+            
             'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
             'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
             'latlon2georef = vgrid.conversion.latlon2cell:latlon2georef_cli',  

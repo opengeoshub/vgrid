@@ -11,6 +11,8 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.utils.eaggr.enums.model import Model
 
+from vgrid.utils.easedggs.dggs.grid_addressing import geos_to_grid_ids
+
 import argparse
 
 def latlon2h3(lat,lon,res=13):
@@ -147,6 +149,27 @@ def latlon2isea3h_cli():
     isea3h_cell = latlon2isea3h(args.lat,args.lon,args.res)
     print(isea3h_cell)
 
+def latlon2easedggs(lat,lon,res=6):
+    # res = [0..6]
+    easedggs_cell = geos_to_grid_ids([(lon,lat)],level = res)
+    easedggs_cell_id = easedggs_cell['result']['data'][0]
+    return easedggs_cell_id
+
+def latlon2easedggs_cli():
+    """
+    Command-line interface for latlon2isea3h.
+    """
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to EASEDGGS cell at a specific Resolution [0..6]. \
+                                     Usage: latlon2easedggs <lat> <lon> <res> [0..6]. \
+                                     Ex: latlon2easedggs 10.775275567242561 106.70679737574993 6")
+    parser.add_argument("lat",type=float, help="Input Latitude")
+    parser.add_argument("lon", type=float, help="Input Longitude")
+    parser.add_argument("res",type=int, help="Input Resolution [0..6]")
+    args = parser.parse_args()
+    easedggs_cell = latlon2easedggs(args.lat,args.lon,args.res)
+    print(easedggs_cell)
+    
+    
 
 def latlon2olc(lat,lon,res=11):
     # res: [10..15]
