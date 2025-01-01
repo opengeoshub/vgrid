@@ -104,6 +104,7 @@ setup(
             's2stats = vgrid.stats.s2stats:main',
             'rhealpixstats = vgrid.stats.rhealpixstats:main',
             'isea4tstats = vgrid.stats.isea4tstats:main',
+            'isea3hstats = vgrid.stats.isea3hstats:main',
 
             # 'olcstats = vgrid.stats.olcstats:main',
             'geohashstats = vgrid.stats.geohashstats:main',
