@@ -19,6 +19,7 @@ base_cells = [
     '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
     '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
 ]
+max_cells = 1_000_000
 eaggr_dggs = Eaggr(Model.ISEA4T)
 
 def fix_isea4t_wkt(eaggr_wkt):
@@ -57,7 +58,7 @@ def get_children_cells(base_cells, target_resolution):
     current_cells = base_cells
     for res in range(target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc= f"Generating child cells at resolution {res}", unit="cell"):
+        for cell in tqdm(current_cells, desc= f"Generating child cells at resolution {res}", unit=" cells"):
             children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
             next_cells.extend([child._cell_id for child in children])
         current_cells = next_cells
@@ -81,7 +82,7 @@ def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
 
     for res in range(bounding_resolution, target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit="cell"):
+        for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit=" cells"):
             # Get the child cells for the current cell
             children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
             for child in children:
@@ -89,7 +90,7 @@ def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
                 child_shape = cell_to_polygon(child)
                 if child_shape.intersects(bbox):              
                     # Add the child cell ID to the next_cells list
-                    next_cells.append(child._cell_id)  # Use append instead of extend
+                    next_cells.append(child._cell_id)  
         if not next_cells:  # Break early if no cells remain
             break
         current_cells = next_cells  # Update current_cells to process the next level of children
@@ -245,7 +246,6 @@ def main():
     
     if bbox == [-180, -90, 180, 90]:        
         num_cells = 20*(4**resolution)
-        max_cells = 1_000_000
         if num_cells > max_cells:
             print(
                 f"The selected resolution will generate "

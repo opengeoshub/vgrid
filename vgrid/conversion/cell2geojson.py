@@ -260,25 +260,46 @@ def isea3h2geojson(isea3h):
     isea3h_dggs = Eaggr(Model.ISEA3H)
     accuracy_res_dict = {
         25503281086204.43: 0,
-        629710644103.8047: 1,
-        69967849344.8546: 2,
-        7774205482.77106: 3,
-        863800609.1842003: 4,
-        95977845.45861907: 5,
-        10664205.060395785: 6,
-        131656.84875232293: 7,
-        43885.62568888426: 8,
-        14628.541896294753: 9,
-        541.7947019742651: 10,
-        60.196265293822194: 11,
-        6.6821818482323785: 12,
-        0.7361725765001773: 13,
-        0.0849429895961743: 14,
-        0.0:                15
-        # 0.0:                16,                             
-        # 0.0:                17,                             
-        # 0.0:                18                   
-        }
+        17002187390802.953: 1,  
+        5667395796934.327: 2,
+        1889131932311.4424: 3,
+        629710644103.8047: 4,
+        209903548034.5921: 5,
+        69967849344.8546: 6,
+        23322616448.284866: 7,
+        7774205482.77106:8,
+        2591401827.5809155: 9,
+        863800609.1842003: 10,
+        287933536.4041716: 11,
+        95977845.45861907: 12,
+        31992615.152873024: 13,
+        10664205.060395785: 14,
+        3554735.0295700384: 15,
+        1184911.6670852362: 16,
+        394970.54625696875:17,
+        131656.84875232293: 18,
+        43885.62568888426: 19,
+        14628.541896294753: 20,
+        4876.180632098251: 21,
+        1625.3841059227952: 22,
+        541.7947019742651: 23,
+        180.58879588146658: 24,
+        60.196265293822194: 25,
+        20.074859874562527: 26,
+        6.6821818482323785: 27,
+        2.2368320593659234: 28,
+        0.7361725765001773: 29,
+        0.2548289687885229: 30,
+        0.0849429895961743: 31,
+        0.028314329865391435: 32,
+        0.0: 33,  # avg_edge_len = 0.06
+        0.0: 34,  # avg_edge_len = 0.034  
+        0.0: 35,  # avg_edg_len = 0.02       
+        0.0: 36,  # avg_edg_len = 0.007   
+        0.0: 37,  # avg_edg_len = 0.004   
+        0.0: 38,  # avg_edg_len = 0.002       
+        0.0: 39,  # avg_edg_len = 0.001                            
+    }
 
     cell_polygon = isea3h_cell_to_polygon(isea3h)
     # if isea3h.startswith('00') or isea3h.startswith('09') or isea3h.startswith('14')\
@@ -295,20 +316,20 @@ def isea3h2geojson(isea3h):
     
     
     accuracy = isea3h2point._accuracy
-    avg_edge_len = round(cell_perimeter / 6,2)
+    avg_edge_len = round(cell_perimeter / 6,3)
     if (accuracy== 25503281086204.43): # icosahedron faces at resolution = 0
-        avg_edge_len = round(cell_perimeter / 3,2)
+        avg_edge_len = round(cell_perimeter / 3,3)
     
     resolution  = accuracy_res_dict.get(accuracy)
-    if accuracy == 0.0:
-        # if avg_edge_len ==0.06:
-        #     resolution = 15
-        if avg_edge_len ==0.02:
-            resolution = 16
-        elif avg_edge_len ==0.01:
-            resolution = 17
-        elif avg_edge_len ==0.0:
-            resolution = 18
+    # if accuracy == 0.0:
+    #     # if avg_edge_len ==0.06:
+    #     #     resolution = 15
+    #     if avg_edge_len ==0.02:
+    #         resolution = 16
+    #     elif avg_edge_len ==0.01:
+    #         resolution = 17
+    #     elif avg_edge_len ==0.0:
+    #         resolution = 18
             
     # Step 3: Construct the GeoJSON feature
     feature = {
@@ -320,7 +341,7 @@ def isea3h2geojson(isea3h):
                 "center_lon": center_lon,
                 "cell_area": cell_area,
                 "avg_edge_len": avg_edge_len,
-                # "accuracy": accuracy,
+                "accuracy": accuracy,
                 "resolution": resolution
                 }
     }

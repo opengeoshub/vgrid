@@ -17,7 +17,7 @@
 > geojson2h3 -r 11 -geojson polygon.geojson # geojson2h3 -r <res>[0..15] -geojson <point/ linestring/ polygon GeoJSON file>
 > latlon2h3 10.775275567242561 106.70679737574993 13 # latlon2h3 <lat> <lon> <res> [0..15] 
 > h3grid -r 11 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # h3grid -r <res> [0..15] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> h3stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> h3stats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### S2
@@ -26,7 +26,7 @@
 > geojson2s2 -r 18 -geojson polygon.geojson # geojson2s2 -r <res>[0..30] -geojson <point/ linestring/ polygon GeoJSON file>
 > latlon2s2 10.775275567242561 106.70679737574993 21 # latlon2h3 <lat> <lon> <res> [0..30]
 > s2grid -r 18 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # s2grid -r <res> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> s2stats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> s2stats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### Rhealpix
@@ -35,23 +35,31 @@
 > geojson2rhealpix -r 11 -geojson polygon.geojson # geojson2rhealpix -r <res>[1..15] -geojson <point/ linestring/ polygon GeoJSON file>
 > latlon2rhealpix 10.775275567242561 106.70679737574993 14 # latlon2rhealpix <lat> <lon> <res> [1..15]
 > rhealpixgrid -r 11 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # rhealpix2grid -r <res> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> rhealpixstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> rhealpixstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### OpenEAGGR ISEA4T
 ``` bash
 > isea4t2geojson 13102313331320133331133
 > geojson2isea4t -r 17 -geojson polygon.geojson # geojson2isea4t -r <res>[0..22] -geojson <point/ linestring/ polygon GeoJSON file>
-> latlon2isea4t 10.775275567242561 106.70679737574993 21 # latlon2isea4t <lat> <lon> <res> [0..39]
-> isea4tgrid -r 17 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [0..39] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> isea4tstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> latlon2isea4t 10.775275567242561 106.70679737574993 21 # latlon2isea4t <lat> <lon> <res> [0..38]
+> isea4tgrid -r 17 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [0..38] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> isea4tstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
+
+### OpenEAGGR ISEA3H
+``` bash
+> latlon2isea3h 10.775275567242561 106.70679737574993 12 # latlon2isea4t <lat> <lon> <res> [0..18]
+> isea3hgrid -r 0 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea3hgrid -r <res> [0..14] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> isea3hstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
+```
+
 
 ### OLC
 ``` bash
 > olc2geojson 7P28QPG4+4P7
 > latlon2olc 10.775275567242561 106.70679737574993 11 # latlon2olc <lat> <lon> <res> [10..15]
-> olcstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> olcstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### Geohash
@@ -59,14 +67,14 @@
 > geohash2geojson w3gvk1td8
 > latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..30]
 > geohashgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
-> geohashstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> geohashstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### GEOREF
 ``` bash
 > georef2geojson VGBL42404651
 > latlon2georef 10.775275567242561 106.70679737574993 4 # latlon2georef <lat> <lon> <res> [0..10]
-> georeftats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> georeftats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### MGRS
@@ -74,14 +82,14 @@
 > mgrs2geojson 34TGK56063228
 > latlon2mgrs 10.775275567242561 106.70679737574993 4 # latlon2mgrs <lat> <lon> <res> [0..5]
 > gzd # Create Grid Zone Designators - used by MGRS
-> mgrstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> mgrstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### Tilecode
 ``` bash
 > tilecode2geojson z23x6680749y3941729
 > latlon2tilecode 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..26]
-> tilecodestats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> tilecodestats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### Maidenhead
@@ -89,7 +97,7 @@
 > maidenhead2geojson OK30is46 
 > latlon2maidenhead 10.775275567242561 106.70679737574993 4 # latlon2maidenhead <lat> <lon> <res> [1..4]
 > maidenheadgrid -r 4 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # maidenheadgrid -r <res> [1..4] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> maidenheadstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> maidenheadstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### GARS
@@ -97,7 +105,7 @@
 > gars2geojson 574JK1918
 > latlon2gars 10.775275567242561 106.70679737574993 1 # latlon2gars <lat> <lon> <res> [30,15,5,1] minutes
 > garsgrid -r 1 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # garsgrid -r <res> = [30,15,5,1] minutes -b <min_lon> <min_lat> <max_lon> <max_lat>
-> garsstats # Number of cells, Average Edge Leng, Avagrae Cell Area at each resolution
+> garsstats # Number of cells, Average Edge Leng, Average Cell Area at each resolution
 ```
 
 ### Command line for creating DGGS and cell-based geocoding grids in GeoJSON format

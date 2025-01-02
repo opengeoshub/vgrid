@@ -29,6 +29,28 @@ def cell_to_polygon(isea3h_cell):
     fixed_polygon = fix_polygon(cell_polygon)    
     return fixed_polygon
 
+accuracy_res_dict = {
+        25503281086204.43: 0,
+        629710644103.8047: 1,
+        69967849344.8546: 2,
+        7774205482.77106: 3,
+        863800609.1842003: 4,
+        95977845.45861907: 5,
+        # 10664205.060395785: 6,
+        31992615.152873024:6,
+        131656.84875232293: 7,
+        43885.62568888426: 8,
+        14628.541896294753: 9,
+        541.7947019742651: 10,
+        60.196265293822194: 11,
+        6.6821818482323785: 12,
+        0.7361725765001773: 13,
+        0.0849429895961743: 14,
+        0.0:                15
+        # 0.0:                16,                             
+        # 0.0:                17,                             
+        # 0.0:                18                   
+        }
 
 def parent2geojson(isea3h):    
     child_cell = DggsCell(isea3h)
@@ -49,8 +71,23 @@ def parent2geojson(isea3h):
         center_lon = round(cell_centroid.x, 7)
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-        avg_edge_len = round(cell_perimeter / 6,2)
-        resolution = len(isea3h)-7
+        
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(parent_id))
+        accuracy = isea3h2point._accuracy
+        avg_edge_len = round(cell_perimeter / 6,3)
+        if (accuracy== 25503281086204.43): # icosahedron faces at resolution = 0
+            avg_edge_len = round(cell_perimeter / 3,3)
+        
+        resolution  = accuracy_res_dict.get(accuracy)
+        # if accuracy == 0.0:
+        #     # if avg_edge_len ==0.06:
+        #     #     resolution = 15
+        #     if avg_edge_len ==0.02:
+        #         resolution = 16
+        #     elif avg_edge_len ==0.01:
+        #         resolution = 17
+        #     elif avg_edge_len ==0.0:
+        #         resolution = 18
         
         # Step 3: Construct the GeoJSON feature
         feature = {
@@ -62,6 +99,7 @@ def parent2geojson(isea3h):
                     "center_lon": center_lon,
                     "cell_area": cell_area,
                     "avg_edge_len": avg_edge_len,
+                    "accuracy": accuracy,
                     "resolution": resolution
                     }
         }
