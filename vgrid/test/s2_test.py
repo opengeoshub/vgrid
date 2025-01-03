@@ -5,18 +5,29 @@ from vgrid.utils.s2 import LatLng, CellId, Cell
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-s2_resolution = 21 #[0 -->30]
-# latitude = point.y
-# longitude = point.x
+s2_resolution = 21 #[0..30]
 lat_lng = s2.LatLng.from_degrees(latitude, longitude)
-cell_id_max_res = s2.CellId.from_lat_lng(lat_lng)
-cell_id = cell_id_max_res.parent(s2_resolution)
-cell = s2.Cell(cell_id)
-cell_token = CellId.to_token(cell.id()) # get Cell ID Token, shorter than cell_id.id()
-print(cell)
-print(cell_token)
-# data = s22geojson(cell_id_token)
-# print(data)
+cell_id = s2.CellId.from_lat_lng(lat_lng)
+cell_id = cell_id.parent(s2_resolution)
+cell_id_token= s2.CellId.to_token(cell_id)
+print(f'S2 Cell Token at resolution {s2_resolution}: {cell_id_token}')
+lat_lng = cell_id.to_lat_lng() 
+print(f'Decode {cell_id_token} to WGS84: {lat_lng}')
+print(f'{cell_id_token} to GeoJSON:\n', s22geojson(cell_id_token))
+
+
+# s2_resolution = 21 #[0 -->30]
+# # latitude = point.y
+# # longitude = point.x
+# lat_lng = s2.LatLng.from_degrees(latitude, longitude)
+# cell_id_max_res = s2.CellId.from_lat_lng(lat_lng)
+# cell_id = cell_id_max_res.parent(s2_resolution)
+# cell = s2.Cell(cell_id)
+# cell_token = CellId.to_token(cell.id()) # get Cell ID Token, shorter than cell_id.id()
+# print(cell)
+# print(cell_token)
+# # data = s22geojson(cell_id_token)
+# # print(data)
 
 # output_file = f's2_{s2_resolution}.geojson'
 # with open(output_file, 'w') as f:

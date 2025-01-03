@@ -23,12 +23,18 @@ from vgrid.conversion.latlon2cell import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
-from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars
-print('\nGARS:')
 gars_resolution = 1 # [1, 5, 15, 30 minutes]
 gars_grid = gars.garsgrid.GARSGrid.from_latlon(latitude, longitude, gars_resolution)
 gars_code = gars_grid.gars_id
-print(gars_code)
+print(f'GARS code at resolution {gars_resolution}: {gars_code}')
+print(f'{gars_code} to GeoJSON:\n', gars2geojson(gars_code))
+
+# from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars
+# print('\nGARS:')
+# gars_resolution = 1 # [1, 5, 15, 30 minutes]
+# gars_grid = gars.garsgrid.GARSGrid.from_latlon(latitude, longitude, gars_resolution)
+# gars_code = gars_grid.gars_id
+# print(gars_code)
 
 # data = gars2geojson(gars_code)
 # output_file = f'gars_{gars_resolution}.geojson'

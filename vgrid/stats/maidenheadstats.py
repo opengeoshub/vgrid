@@ -4,6 +4,9 @@ import csv
 import math
 from texttable import Texttable
 
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+
 def maidenhead_metrics(res):
     earth_surface_area_km2 = 510_065_621.724 
     base_cells = 324    
@@ -11,7 +14,6 @@ def maidenhead_metrics(res):
     avg_area = (earth_surface_area_km2 / num_cells)*(10**6)
     avg_edge_length = math.sqrt(avg_area)
     return num_cells, avg_edge_length, avg_area
-
 
 def maidenhead_stats(min_res=1, max_res=4, output_file=None):
     # Create a Texttable object for displaying in the terminal
@@ -30,30 +32,14 @@ def maidenhead_stats(min_res=1, max_res=4, output_file=None):
             # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res + 1):
                 num_cells, avg_edge_length, avg_area = maidenhead_metrics(res)
-                avg_edge_length = round(avg_edge_length,2)
-                avg_area = round(avg_area,2)    
-                # Write to CSV without formatting locale
                 writer.writerow([res, num_cells, avg_edge_length, avg_area])
     else:
-        # If no output file is provided, print the result using locale formatting in Texttable
-        current_locale = locale.getlocale()  # Get the current locale setting
-        locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
-        
-        # Iterate through resolutions and add rows to the table
         for res in range(min_res, max_res + 1):
-            num_cells, avg_edge_length, avg_area = maidenhead_metrics(res)
-           
-            formatted_cells = locale.format_string("%d", num_cells, grouping=True)
-            
-            avg_edge_length = round(avg_edge_length,2)
-            formatted_length = locale.format_string("%.2f", avg_edge_length, grouping=True)
-
-            avg_area = round(avg_area,2)    
-            formatted_area = locale.format_string("%.2f", avg_area, grouping=True)
-            
-            # Add a row to the table
-            t.add_row([res, formatted_cells, formatted_length, formatted_area])
-        
+            num_cells, avg_edge_length, avg_area = maidenhead_metrics(res)           
+            formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)            
+            formatted_edge_length = locale.format_string("%.2f", avg_edge_length, grouping=True)
+            formatted_area = locale.format_string("%.2f", avg_area, grouping=True)            
+            t.add_row([res, formatted_num_cells, formatted_edge_length, formatted_area])        
         # Print the formatted table to the console
         print(t.draw())
 

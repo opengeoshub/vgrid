@@ -233,7 +233,7 @@ def main():
     Main function to parse arguments and generate the DGGS grid.
     """
     parser = argparse.ArgumentParser(description="Generate full DGGS grid at a specified resolution.")
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..22] of the grid")
+    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..25] of the grid")
     # Resolution max range: [0..39]
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
@@ -263,8 +263,8 @@ def main():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        if resolution < 1 or resolution > 22:
-            print(f"Please select a resolution in [1..22] range and try again ")
+        if resolution < 1 or resolution > 25:
+            print(f"Please select a resolution in [1..25] range and try again ")
             return
         # Generate grid within the bounding box
         geojson_features = generate_grid_within_bbox(resolution, bbox)

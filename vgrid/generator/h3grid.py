@@ -76,35 +76,35 @@ def generate_grid_within_bbox(resolution,bbox):
     print(f"Resolution {resolution} within bounding box {bbox} will generate "
         f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
     
-    # if num_cells > max_cells:
-    #     # print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
-    #     # print("Please select a smaller resolution and try again.")
-    #     # return
-    # else:    
-    features = []
+    if num_cells > max_cells:
+        print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+        print("Please select a smaller resolution and try again.")
+        return
+    else:    
+        features = []
 
-    # Progress bar for base cells
-    for bbox_buffer_cell in tqdm(bbox_buffer_cells, desc="Processing cells"):
-            # Get the boundary of the cell
-            hex_boundary = h3.cell_to_boundary(bbox_buffer_cell)
-            # Wrap and filter the boundary
-            filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
-            # Reverse lat/lon to lon/lat for GeoJSON compatibility
-            reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-            cell_polygon = Polygon(reversed_boundary)
-            if cell_polygon.intersects(bbox_polygon):
-                features.append({
-                    "type": "Feature",
-                    "geometry": mapping(cell_polygon),
-                    "properties": {
-                        "h3": bbox_buffer_cell
-                    }
-                })
+        # Progress bar for base cells
+        for bbox_buffer_cell in tqdm(bbox_buffer_cells, desc="Processing cells"):
+                # Get the boundary of the cell
+                hex_boundary = h3.cell_to_boundary(bbox_buffer_cell)
+                # Wrap and filter the boundary
+                filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
+                # Reverse lat/lon to lon/lat for GeoJSON compatibility
+                reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
+                cell_polygon = Polygon(reversed_boundary)
+                if cell_polygon.intersects(bbox_polygon):
+                    features.append({
+                        "type": "Feature",
+                        "geometry": mapping(cell_polygon),
+                        "properties": {
+                            "h3": bbox_buffer_cell
+                        }
+                    })
 
-    return {
-        "type": "FeatureCollection",
-        "features": features,
-    }
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
 
 
 # Example Usage
@@ -129,10 +129,10 @@ def main():
         num_cells = h3.get_num_cells(resolution)
         print(f"Resolution {resolution} will generate "
               f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
-        # if num_cells > max_cells:
-        #     print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
-        #     print("Please select a smaller resolution and try again.")
-        #     return
+        if num_cells > max_cells:
+            print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+            print("Please select a smaller resolution and try again.")
+            return
 
         # Generate grid within the bounding box
         geojson_features = generate_grid(resolution)

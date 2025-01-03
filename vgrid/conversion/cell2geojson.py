@@ -38,11 +38,11 @@ def h32geojson(h3_code):
         center_lat = round(center_lat,7)
         center_lon = round(center_lon,7)
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/6,2)
+        avg_edge_len = round(cell_perimeter/6,3)
         if (h3.is_pentagon(h3_code)):
-            avg_edge_len = round(cell_perimeter/5 ,2)   
+            avg_edge_len = round(cell_perimeter/5 ,3)   
         resolution = h3.get_resolution(h3_code)        
         
         feature = {
@@ -96,9 +96,9 @@ def s22geojson(cell_id_token):
         center_lat = round(lat_lng.lat().degrees,7)
         center_lon = round(lat_lng.lng().degrees,7)
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/4,2)
+        avg_edge_len = round(cell_perimeter/4,3)
 
         feature = {
             "type": "Feature",
@@ -154,11 +154,11 @@ def rhealpix2geojson(rhealpix_code):
         center_lat = round(cell_polygon.centroid.y,7)
         center_lon = round(cell_polygon.centroid.x,7)
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters                
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters                
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/4,2)
+        avg_edge_len = round(cell_perimeter/4,3)
         if rhealpix_cell.ellipsoidal_shape() == 'dart':
-            avg_edge_len = round(cell_perimeter/3,2)
+            avg_edge_len = round(cell_perimeter/3,3)
 
         feature =({
                 "type": "Feature",
@@ -194,7 +194,8 @@ def isea4t2geojson(isea4t):
     isea4t_dggs = Eaggr(Model.ISEA4T)
     cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t),ShapeStringFormat.WKT)
     cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
-    if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14') or isea4t.startswith('04') or isea4t.startswith('19'):
+    if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14')\
+        or isea4t.startswith('04') or isea4t.startswith('19'):
         cell_to_shape_fixed = fix_isea4t_antimeridian_cells(cell_to_shape_fixed)
     
     if cell_to_shape_fixed:
@@ -205,9 +206,11 @@ def isea4t2geojson(isea4t):
         # Compute area using PyProj Geod
         cell_polygon = Polygon(list(cell_to_shape_fixed.exterior.coords))
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/3,2)  
+        avg_edge_len = round(cell_perimeter/3,3)  
+        isea4t2point = isea4t_dggs.convert_dggs_cell_to_point(DggsCell(isea4t))
+        accuracy = isea4t2point._accuracy
 
         feature = {
             "type": "Feature",
@@ -219,6 +222,7 @@ def isea4t2geojson(isea4t):
                  "cell_area": cell_area,
                  "avg_edge_len": avg_edge_len,
                  "resolution": resolution,
+                 "accuracy": accuracy
                     }
         }
 
@@ -259,47 +263,49 @@ def isea3h_cell_to_polygon(isea3h):
 def isea3h2geojson(isea3h):
     isea3h_dggs = Eaggr(Model.ISEA3H)
     accuracy_res_dict = {
-        25503281086204.43: 0,
-        17002187390802.953: 1,  
-        5667395796934.327: 2,
-        1889131932311.4424: 3,
-        629710644103.8047: 4,
-        209903548034.5921: 5,
-        69967849344.8546: 6,
-        23322616448.284866: 7,
-        7774205482.77106:8,
-        2591401827.5809155: 9,
-        863800609.1842003: 10,
-        287933536.4041716: 11,
-        95977845.45861907: 12,
-        31992615.152873024: 13,
-        10664205.060395785: 14,
-        3554735.0295700384: 15,
-        1184911.6670852362: 16,
-        394970.54625696875:17,
-        131656.84875232293: 18,
-        43885.62568888426: 19,
-        14628.541896294753: 20,
-        4876.180632098251: 21,
-        1625.3841059227952: 22,
-        541.7947019742651: 23,
-        180.58879588146658: 24,
-        60.196265293822194: 25,
-        20.074859874562527: 26,
-        6.6821818482323785: 27,
-        2.2368320593659234: 28,
-        0.7361725765001773: 29,
-        0.2548289687885229: 30,
-        0.0849429895961743: 31,
-        0.028314329865391435: 32,
-        0.0: 33,  # avg_edge_len = 0.06
-        0.0: 34,  # avg_edge_len = 0.034  
-        0.0: 35,  # avg_edg_len = 0.02       
-        0.0: 36,  # avg_edg_len = 0.007   
-        0.0: 37,  # avg_edg_len = 0.004   
-        0.0: 38,  # avg_edg_len = 0.002       
-        0.0: 39,  # avg_edg_len = 0.001                            
-    }
+            25_503_281_086_204.43: 0,
+            17_002_187_390_802.953: 1,
+            5_667_395_796_934.327: 2,
+            1_889_131_932_311.4424: 3,
+            629_710_644_103.8047: 4,
+            209_903_548_034.5921: 5,
+            69_967_849_344.8546: 6,
+            23_322_616_448.284866: 7,
+            7_774_205_482.77106: 8,
+            2_591_401_827.5809155: 9,
+            863_800_609.1842003: 10,
+            287_933_536.4041716: 11,
+            95_977_845.45861907: 12,
+            31_992_615.152873024: 13,
+            10_664_205.060395785: 14,
+            3_554_735.0295700384: 15,
+            1_184_911.6670852362: 16,
+            394_970.54625696875: 17,
+            131_656.84875232293: 18,
+            43_885.62568888426: 19,
+            14628.541896294753: 20,
+            4_876.180632098251: 21,
+            1_625.3841059227952: 22,
+            541.7947019742651: 23,
+            180.58879588146658: 24,
+            60.196265293822194: 25,
+            20.074859874562527: 26,
+            6.6821818482323785: 27,
+            2.2368320593659234: 28,
+            0.7361725765001773: 29,
+            0.2548289687885229: 30,
+            0.0849429895961743: 31,
+            0.028314329865391435: 32,
+            
+            0.0: 33, # isea3h2point._accuracy always returns 0.0 from res 33
+            0.0: 34,
+            0.0: 35,
+            0.0: 36,
+            0.0: 37,
+            0.0: 38,
+            0.0: 39,
+            0.0: 40
+        }
 
     cell_polygon = isea3h_cell_to_polygon(isea3h)
     # if isea3h.startswith('00') or isea3h.startswith('09') or isea3h.startswith('14')\
@@ -309,27 +315,36 @@ def isea3h2geojson(isea3h):
     cell_centroid = cell_polygon.centroid
     center_lat =  round(cell_centroid.y, 7)
     center_lon = round(cell_centroid.x, 7)
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+    
+    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
     cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-    
-    isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h))
-    
+    isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h))      
     
     accuracy = isea3h2point._accuracy
-    avg_edge_len = round(cell_perimeter / 6,3)
-    if (accuracy== 25503281086204.43): # icosahedron faces at resolution = 0
-        avg_edge_len = round(cell_perimeter / 3,3)
+        
+    avg_edge_len = cell_perimeter / 6
+    if (accuracy== 25_503_281_086_204.43): # icosahedron faces at resolution = 0
+        avg_edge_len = cell_perimeter / 3
     
     resolution  = accuracy_res_dict.get(accuracy)
-    # if accuracy == 0.0:
-    #     # if avg_edge_len ==0.06:
-    #     #     resolution = 15
-    #     if avg_edge_len ==0.02:
-    #         resolution = 16
-    #     elif avg_edge_len ==0.01:
-    #         resolution = 17
-    #     elif avg_edge_len ==0.0:
-    #         resolution = 18
+    if accuracy == 0.0:
+        if round(avg_edge_len,2) == 0.06:
+            resolution = 33
+        elif round(avg_edge_len,2) == 0.03:
+            resolution = 34
+        elif round(avg_edge_len,2) == 0.02:
+            resolution = 35
+        elif round(avg_edge_len,2) == 0.01:
+            resolution = 36
+        
+        elif round(avg_edge_len,3) == 0.007:
+            resolution = 37
+        elif round(avg_edge_len,3) == 0.004:
+            resolution = 38
+        elif round(avg_edge_len,3) == 0.002:
+            resolution = 39
+        elif round(avg_edge_len,3) <= 0.001:
+            resolution = 40
             
     # Step 3: Construct the GeoJSON feature
     feature = {
@@ -339,10 +354,10 @@ def isea3h2geojson(isea3h):
                 "isea3h": isea3h,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "cell_area": cell_area,
-                "avg_edge_len": avg_edge_len,
-                "accuracy": accuracy,
-                "resolution": resolution
+                "cell_area": round(cell_area,3),
+                "avg_edge_len": round(avg_edge_len,3),
+                "resolution": resolution,
+                "accuracy": accuracy
                 }
     }
 
@@ -359,7 +374,7 @@ def isea3h2geojson_cli():
     Command-line interface for isea3h2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert ISEA3H code to GeoJSON")
-    parser.add_argument("isea3h", help="Input ISEA3H code, e.g., isea3h2geojson '07024,0'")
+    parser.add_argument("isea3h", help="Input ISEA3H code, e.g., geojson 1327916769,-55086 ")
     args = parser.parse_args()
     geojson_data = json.dumps(isea3h2geojson(args.isea3h))
     print(geojson_data)
@@ -386,12 +401,12 @@ def olc2geojson(olc_code):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
         
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
         # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
         feature = {
             "type": "Feature",
@@ -446,13 +461,13 @@ def geohash2geojson(geohash_code):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
         
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
 
         # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
         feature = {
             "type": "Feature",
@@ -500,13 +515,13 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
         
         # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
                       
         feature = {
@@ -514,8 +529,8 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
             "geometry": mapping(cell_polygon),
             "properties": {
                 "mgrs": mgrs_code,
-                "origin_lat": round(origin_lat,7),
-                "origin_lon": round(origin_lon,7),
+                "origin_lat": origin_lat,
+                "origin_lon": origin_lon,
                 "cell_area": cell_area,
                 "cell_width": cell_width,
                 "cell_height": cell_height,
@@ -543,9 +558,9 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                     # Find the intersection polygon
                     intersection_polygon = cell_polygon.intersection(gzd_polygon)
                     intersection_min_lon, intersection_min_lat, intersection_max_lon, intersection_max_lat = intersection_polygon.bounds  # Bounds of the polygon
-                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),2)  # Area in square meters     
-                    intersection_width = round(geod.line_length([intersection_min_lon, intersection_max_lon], [intersection_min_lat, intersection_min_lat]),2)
-                    intersection_height = round(geod.line_length([intersection_min_lon, intersection_min_lon], [intersection_min_lat, intersection_max_lat]),2)
+                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),3)  # Area in square meters     
+                    intersection_width = round(geod.line_length([intersection_min_lon, intersection_max_lon], [intersection_min_lat, intersection_min_lat]),3)
+                    intersection_height = round(geod.line_length([intersection_min_lon, intersection_min_lon], [intersection_min_lat, intersection_max_lat]),3)
 
                     # Convert lat/lon to a Shapely point
                     point = Point(lon, lat)
@@ -613,11 +628,11 @@ def georef2geojson(georef_code):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
           # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
         feature = {
             "type": "Feature",            
@@ -683,8 +698,8 @@ def tilecode2geojson(tilecode):
         # tile = mercantile.Tile(x, y, z)
         # quadkey = mercantile.quadkey(tile)
 
-        center_lat = round((min_lat + max_lat) / 2,2)
-        center_lon = round((min_lon + max_lon) / 2,2)
+        center_lat = round((min_lat + max_lat) / 2,7)
+        center_lon = round((min_lon + max_lon) / 2,7)
         
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
@@ -693,11 +708,11 @@ def tilecode2geojson(tilecode):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
           # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
         feature = {
             "type": "Feature",
@@ -750,11 +765,11 @@ def maidenhead2geojson(maidenhead_code):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
           # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
 
         feature = {
             "type": "Feature",
@@ -803,14 +818,14 @@ def gars2geojson(gars_code):
 
         # Calculate center latitude and longitude
         center_lon = round((min_lon + max_lon) / 2,7)
-        center_lat = round((min_lat + max_lat) / 2, 7)
+        center_lat = round((min_lat + max_lat) / 2,7)
 
         cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
           # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
         # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
         
         feature = {
             "type": "Feature",

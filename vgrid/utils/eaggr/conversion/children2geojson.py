@@ -29,25 +29,49 @@ def cell_to_polygon(isea3h_cell):
     return fixed_polygon
 
 accuracy_res_dict = {
-        25503281086204.43: 0,
-        629710644103.8047: 1,
-        69967849344.8546: 2,
-        7774205482.77106: 3,
-        863800609.1842003: 4,
-        95977845.45861907: 5,
-        31992615.152873024: 6,
-        131656.84875232293: 7,
-        43885.62568888426: 8,
-        14628.541896294753: 9,
-        541.7947019742651: 10,
-        60.196265293822194: 11,
-        6.6821818482323785: 12,
-        0.7361725765001773: 13,
-        0.0849429895961743: 14,
-        0.0:                15
-        # 0.0:                16,                             
-        # 0.0:                17,                             
-        # 0.0:                18                   
+            25_503_281_086_204.43: 0,
+            17_002_187_390_802.953: 1,
+            5_667_395_796_934.327: 2,
+            1_889_131_932_311.4424: 3,
+            629_710_644_103.8047: 4,
+            209_903_548_034.5921: 5,
+            69_967_849_344.8546: 6,
+            23_322_616_448.284866: 7,
+            7_774_205_482.77106: 8,
+            2_591_401_827.5809155: 9,
+            863_800_609.1842003: 10,
+            287_933_536.4041716: 11,
+            95_977_845.45861907: 12,
+            31_992_615.152873024: 13,
+            10_664_205.060395785: 14,
+            3_554_735.0295700384: 15,
+            1_184_911.6670852362: 16,
+            394_970.54625696875: 17,
+            131_656.84875232293: 18,
+            43_885.62568888426: 19,
+            14628.541896294753: 20,
+            4_876.180632098251: 21,
+            1_625.3841059227952: 22,
+            541.7947019742651: 23,
+            180.58879588146658: 24,
+            60.196265293822194: 25,
+            20.074859874562527: 26,
+            6.6821818482323785: 27,
+            
+            2.2368320593659234: 28,
+            0.7361725765001773: 29,
+            0.2548289687885229: 30,
+            0.0849429895961743: 31,
+            0.028314329865391435: 32,
+            
+            0.0: 33, # isea3h2point._accuracy always returns 0.0 from res 33
+            0.0: 34,
+            0.0: 35,
+            0.0: 36,
+            0.0: 37,
+            0.0: 38,
+            0.0: 39,
+            0.0: 40
         }
 
 def children2geojson(isea3h):
@@ -70,27 +94,37 @@ def children2geojson(isea3h):
         cell_centroid = cell_polygon.centroid
         center_lat =  round(cell_centroid.y, 7)
         center_lon = round(cell_centroid.x, 7)
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+       
+        cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h))      
         
-        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(child_id))
         accuracy = isea3h2point._accuracy
-        print (accuracy)
-        avg_edge_len = round(cell_perimeter / 6,3)
-        if (accuracy== 25503281086204.43): # icosahedron faces at resolution = 0
-            avg_edge_len = round(cell_perimeter / 3,3)
+            
+        avg_edge_len = cell_perimeter / 6
+        if (accuracy== 25_503_281_086_204.43): # icosahedron faces at resolution = 0
+            avg_edge_len = cell_perimeter / 3
         
         resolution  = accuracy_res_dict.get(accuracy)
         if accuracy == 0.0:
-            # if avg_edge_len ==0.06:
-            #     resolution = 15
-            if avg_edge_len ==0.02:
-                resolution = 16
-            elif avg_edge_len ==0.01:
-                resolution = 17
-            elif avg_edge_len ==0.0:
-                resolution = 18
-        
+            if round(avg_edge_len,2) == 0.06:
+                resolution = 33
+            elif round(avg_edge_len,2) == 0.03:
+                resolution = 34
+            elif round(avg_edge_len,2) == 0.02:
+                resolution = 35
+            elif round(avg_edge_len,2) == 0.01:
+                resolution = 36
+            
+            elif round(avg_edge_len,3) == 0.007:
+                resolution = 37
+            elif round(avg_edge_len,3) == 0.004:
+                resolution = 38
+            elif round(avg_edge_len,3) == 0.002:
+                resolution = 39
+            elif round(avg_edge_len,3) <= 0.001:
+                resolution = 40
+                
         # Step 3: Construct the GeoJSON feature
         feature = {
             "type": "Feature",
@@ -99,21 +133,21 @@ def children2geojson(isea3h):
                     "isea3h": child_id,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "cell_area": cell_area,
-                    "avg_edge_len": avg_edge_len,
-                    "accuracy": accuracy,
-                    "resolution": resolution
+                    "cell_area": round(cell_area,3),
+                    "avg_edge_len": round(avg_edge_len,3),
+                    "resolution": resolution,
+                    "accuracy": accuracy
                     }
         }
 
         features.append(feature)
-
-    # Construct and return the GeoJSON FeatureCollection
+        
+    # Step 4: Construct the FeatureCollection
     feature_collection = {
         "type": "FeatureCollection",
-        "features": features,
+        "features": features
     }
-    return feature_collection
+    return  feature_collection
 
 def children2geojson_cli():
     """

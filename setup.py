@@ -91,6 +91,7 @@ setup(
             'rhealpixgrid = vgrid.generator.rhealpixgrid:main',
             'isea4tgrid = vgrid.generator.isea4tgrid:main',
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
+           
             'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',    
             'georefgrid = vgrid.generator.georefgrid:main',           

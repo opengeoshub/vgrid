@@ -69,26 +69,37 @@ def parent2geojson(isea3h):
         cell_centroid = cell_polygon.centroid
         center_lat =  round(cell_centroid.y, 7)
         center_lon = round(cell_centroid.x, 7)
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
         
-        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(parent_id))
+        cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h))      
+        
         accuracy = isea3h2point._accuracy
-        avg_edge_len = round(cell_perimeter / 6,3)
-        if (accuracy== 25503281086204.43): # icosahedron faces at resolution = 0
-            avg_edge_len = round(cell_perimeter / 3,3)
+            
+        avg_edge_len = cell_perimeter / 6
+        if (accuracy== 25_503_281_086_204.43): # icosahedron faces at resolution = 0
+            avg_edge_len = cell_perimeter / 3
         
         resolution  = accuracy_res_dict.get(accuracy)
-        # if accuracy == 0.0:
-        #     # if avg_edge_len ==0.06:
-        #     #     resolution = 15
-        #     if avg_edge_len ==0.02:
-        #         resolution = 16
-        #     elif avg_edge_len ==0.01:
-        #         resolution = 17
-        #     elif avg_edge_len ==0.0:
-        #         resolution = 18
-        
+        if accuracy == 0.0:
+            if round(avg_edge_len,2) == 0.06:
+                resolution = 33
+            elif round(avg_edge_len,2) == 0.03:
+                resolution = 34
+            elif round(avg_edge_len,2) == 0.02:
+                resolution = 35
+            elif round(avg_edge_len,2) == 0.01:
+                resolution = 36
+            
+            elif round(avg_edge_len,3) == 0.007:
+                resolution = 37
+            elif round(avg_edge_len,3) == 0.004:
+                resolution = 38
+            elif round(avg_edge_len,3) == 0.002:
+                resolution = 39
+            elif round(avg_edge_len,3) <= 0.001:
+                resolution = 40
+                
         # Step 3: Construct the GeoJSON feature
         feature = {
             "type": "Feature",
@@ -97,21 +108,21 @@ def parent2geojson(isea3h):
                     "isea3h": parent_id,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "cell_area": cell_area,
-                    "avg_edge_len": avg_edge_len,
-                    "accuracy": accuracy,
-                    "resolution": resolution
+                    "cell_area": round(cell_area,3),
+                    "avg_edge_len": round(avg_edge_len,3),
+                    "resolution": resolution,
+                    "accuracy": accuracy
                     }
         }
 
         features.append(feature)
-
-    # Construct and return the GeoJSON FeatureCollection
+        
+    # Step 4: Construct the FeatureCollection
     feature_collection = {
         "type": "FeatureCollection",
-        "features": features,
+        "features": features
     }
-    return feature_collection
+    return  feature_collection
 
 def parent2geojson_cli():
     parser = argparse.ArgumentParser(description="Convert OpenEAGGR ISEA3H code to GeoJSON")

@@ -2,8 +2,10 @@ import locale
 import argparse
 import csv
 import math
-from vgrid.utils.s2 import CellId, LatLng, Cell
 from texttable import Texttable
+
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
 
 def s2_metrics(res):
     earth_surface_area_km2 = 510_065_621.724 # 510.1 million square kilometers
@@ -27,33 +29,18 @@ def s2_stats(min_res=0, max_res=22, output_file=None):
         with open(output_file, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)"])
-            # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res + 1):
                 num_cells, avg_edge_length, avg_area = s2_metrics(res)
-                avg_edge_length = round(avg_edge_length,2)
-                avg_area = round(avg_area,2)                
-                # Write to CSV without formatting locale
                 writer.writerow([res, num_cells, avg_edge_length, avg_area])
     else:
-        # If no output file is provided, print the result using locale formatting in Texttable
-        current_locale = locale.getlocale()  # Get the current locale setting
-        locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
-        
-        # Iterate through resolutions and add rows to the table
         for res in range(min_res, max_res + 1):
             num_cells, avg_edge_length, avg_area = s2_metrics(res)
-            formatted_cells = locale.format_string("%d", num_cells, grouping=True)
-            
-            avg_edge_length = round(avg_edge_length,2)
-            formatted_length = locale.format_string("%.2f", avg_edge_length, grouping=True)
+            formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)            
+            formatted_length = locale.format_string("%.3f", avg_edge_length, grouping=True)  
+            formatted_area = locale.format_string("%.3f", avg_area, grouping=True)            
 
-            avg_area = round(avg_area,2)   
-            formatted_area = locale.format_string("%.2f", avg_area, grouping=True)
-            
-            # Add a row to the table
-            t.add_row([res, formatted_cells, formatted_length, formatted_area])
+            t.add_row([res, formatted_num_cells, formatted_length, formatted_area])
         
-        # Print the formatted table to the console
         print(t.draw())
 
 def main():
