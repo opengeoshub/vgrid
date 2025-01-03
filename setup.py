@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.0',
+    version='1.2.1',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -43,6 +43,22 @@ setup(
     include_package_data=True,  # Include package data specified in MANIFEST.in
     entry_points={
         'console_scripts': [  
+            # Latlon to Cell
+            'latlon2h3 = vgrid.conversion.latlon2cell:latlon2h3_cli',  
+            'latlon2s2 = vgrid.conversion.latlon2cell:latlon2s2_cli',  
+            'latlon2rhealpix = vgrid.conversion.latlon2cell:latlon2rhealpix_cli',  
+            'latlon2isea4t = vgrid.conversion.latlon2cell:latlon2isea4t_cli',  
+            'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
+            'latlon2easedggs = vgrid.conversion.latlon2cell:latlon2easedggs_cli',
+            
+            'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
+            'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
+            'latlon2georef = vgrid.conversion.latlon2cell:latlon2georef_cli',  
+            'latlon2mgrs = vgrid.conversion.latlon2cell:latlon2mgrs_cli',  
+            'latlon2tilecode = vgrid.conversion.latlon2cell:latlon2tilecode_cli',  
+            'latlon2maidenhead = vgrid.conversion.latlon2cell:latlon2maidenhead_cli',  
+            'latlon2gars = vgrid.conversion.latlon2cell:latlon2gars_cli',  
+
             # Cell to GeoJSON
             'h32geojson = vgrid.conversion.cell2geojson:h32geojson_cli',  
             's22geojson = vgrid.conversion.cell2geojson:s22geojson_cli',  
@@ -63,22 +79,6 @@ setup(
             'maidenhead2geojson = vgrid.conversion.cell2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.conversion.cell2geojson:gars2geojson_cli',  
             
-            # Latlon to Cell
-            'latlon2h3 = vgrid.conversion.latlon2cell:latlon2h3_cli',  
-            'latlon2s2 = vgrid.conversion.latlon2cell:latlon2s2_cli',  
-            'latlon2rhealpix = vgrid.conversion.latlon2cell:latlon2rhealpix_cli',  
-            'latlon2isea4t = vgrid.conversion.latlon2cell:latlon2isea4t_cli',  
-            'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
-            'latlon2easedggs = vgrid.conversion.latlon2cell:latlon2easedggs_cli',
-            
-            'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
-            'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
-            'latlon2georef = vgrid.conversion.latlon2cell:latlon2georef_cli',  
-            'latlon2mgrs = vgrid.conversion.latlon2cell:latlon2mgrs_cli',  
-            'latlon2tilecode = vgrid.conversion.latlon2cell:latlon2tilecode_cli',  
-            'latlon2maidenhead = vgrid.conversion.latlon2cell:latlon2maidenhead_cli',  
-            'latlon2gars = vgrid.conversion.latlon2cell:latlon2gars_cli',  
-
             # GeoJSON to Grid
             'geojson2h3 = vgrid.conversion.geojson2h3:main',
             'geojson2s2 = vgrid.conversion.geojson2s2:main',

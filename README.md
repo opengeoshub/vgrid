@@ -190,7 +190,7 @@ print(f'{mgrs_code} to GeoJSON:\n', mgrs2geojson(mgrs_code))
 
 ### Tilecode
 ``` python
-tile_esolution = 23  # [0..26]
+tile_esolution = 23  # [0..29]
 tile_code = tile.latlon2tilecode(latitude, longitude, tile_esolution)
 tile_encode = tile.tilecode2latlon(tile_code)
 print(f'Tilecode at zoom level {tile_esolution}: {tile_code}')
