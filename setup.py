@@ -79,11 +79,12 @@ setup(
             'maidenhead2geojson = vgrid.conversion.cell2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.conversion.cell2geojson:gars2geojson_cli',  
             
-            # GeoJSON to Grid
+            # GeoJSON to Cell
             'geojson2h3 = vgrid.conversion.geojson2h3:main',
             'geojson2s2 = vgrid.conversion.geojson2s2:main',
             'geojson2rhealpix = vgrid.conversion.geojson2rhealpix:main',
             'geojson2isea4t = vgrid.conversion.geojson2isea4t:main',
+            'geojson2isea3h = vgrid.conversion.geojson2isea3h:main',
 
             # Grid Generator
             'h3grid = vgrid.generator.h3grid:main',
