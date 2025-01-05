@@ -194,6 +194,7 @@ def isea4t2geojson(isea4t):
     isea4t_dggs = Eaggr(Model.ISEA4T)
     cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t),ShapeStringFormat.WKT)
     cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
+   
     if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14')\
         or isea4t.startswith('04') or isea4t.startswith('19'):
         cell_to_shape_fixed = fix_isea4t_antimeridian_cells(cell_to_shape_fixed)
@@ -206,9 +207,9 @@ def isea4t2geojson(isea4t):
         # Compute area using PyProj Geod
         cell_polygon = Polygon(list(cell_to_shape_fixed.exterior.coords))
 
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),5)  # Area in square meters
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/3,3)  
+        avg_edge_len = round(cell_perimeter/3,5)  
         isea4t2point = isea4t_dggs.convert_dggs_cell_to_point(DggsCell(isea4t))
         accuracy = isea4t2point._accuracy
 
@@ -308,10 +309,7 @@ def isea3h2geojson(isea3h):
         }
 
     cell_polygon = isea3h_cell_to_polygon(isea3h)
-    # if isea3h.startswith('00') or isea3h.startswith('09') or isea3h.startswith('14')\
-    #     or isea3h.startswith('19') or isea3h.startswith('04') :
-    #     cell_polygon = fix_isea3h_antimeridian_cells(cell_polygon)            
-   
+  
     cell_centroid = cell_polygon.centroid
     center_lat =  round(cell_centroid.y, 7)
     center_lon = round(cell_centroid.x, 7)
@@ -323,10 +321,11 @@ def isea3h2geojson(isea3h):
     accuracy = isea3h2point._accuracy
         
     avg_edge_len = cell_perimeter / 6
-    if (accuracy== 25_503_281_086_204.43): # icosahedron faces at resolution = 0
+    resolution  = accuracy_res_dict.get(accuracy)
+    
+    if (resolution == 0): # icosahedron faces at resolution = 0
         avg_edge_len = cell_perimeter / 3
     
-    resolution  = accuracy_res_dict.get(accuracy)
     if accuracy == 0.0:
         if round(avg_edge_len,2) == 0.06:
             resolution = 33
@@ -346,7 +345,6 @@ def isea3h2geojson(isea3h):
         elif round(avg_edge_len,3) <= 0.001:
             resolution = 40
             
-    # Step 3: Construct the GeoJSON feature
     feature = {
         "type": "Feature",
         "geometry": mapping(cell_polygon),
@@ -361,7 +359,6 @@ def isea3h2geojson(isea3h):
                 }
     }
 
-    # Step 4: Construct the FeatureCollection
     feature_collection = {
         "type": "FeatureCollection",
         "features": [feature]

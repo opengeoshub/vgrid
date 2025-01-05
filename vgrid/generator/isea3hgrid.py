@@ -20,10 +20,6 @@ base_cells = [
     '00000,0', '01000,0', '02000,0', '03000,0', '04000,0', '05000,0', '06000,0', '07000,0', '08000,0', '09000,0',
     '10000,0', '11000,0', '12000,0', '13000,0', '14000,0', '15000,0', '16000,0', '17000,0', '18000,0', '19000,0'
 ]
-base_cells = [
-    '05000,0','07000,0', '09000,0'  
-]
-
 
 max_cells = 1_000_000
 isea3h_dggs = Eaggr(Model.ISEA3H)
@@ -205,7 +201,9 @@ def generate_grid(resolution):
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
         avg_edge_len = round(cell_perimeter / 6,3)
-        
+        if resolution == 0:
+            avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+            
         features.append({
             "type": "Feature",
             "geometry": mapping(cell_polygon),
@@ -252,7 +250,9 @@ def generate_grid_within_bbox(resolution,bbox):
                 cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
                 cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
                 avg_edge_len = round(cell_perimeter / 6,3)
-                
+                if resolution == 0:
+                    avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+            
                 if cell_polygon.intersects(bounding_box):
                     features.append({
                         "type": "Feature",
@@ -278,7 +278,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Generate full DGGS grid at a specified resolution.")
     parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..32] of the grid")
-    # Resolution max range: [0..32]
+    # Resolution max range: [0..40]
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

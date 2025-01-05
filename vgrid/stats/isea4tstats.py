@@ -43,7 +43,6 @@ def isea4t_metrics(res):
     avg_edge_length = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3  # Perimeter in meters/ 3      
     return num_cells, avg_edge_length, avg_area, accuracy
 
-
 def isea4t_stats(min_res=0, max_res=39, output_file=None):
     
     t = Texttable()
@@ -67,8 +66,8 @@ def isea4t_stats(min_res=0, max_res=39, output_file=None):
         for res in range(min_res, max_res+1):
             num_cells, avg_edge_length, avg_area,accuracy = isea4t_metrics(res)  
             formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)
-            formatted_edge_length = locale.format_string("%.3f", avg_edge_length, grouping=True)            
-            formatted_area = locale.format_string("%.3f", avg_area, grouping=True)   
+            formatted_edge_length = locale.format_string("%.5f", avg_edge_length, grouping=True)            
+            formatted_area = locale.format_string("%.5f", avg_area, grouping=True)   
             formatted_accuracy = locale.format_string("%.3f", accuracy, grouping=True)
         
             t.add_row([res, formatted_num_cells, formatted_edge_length, formatted_area,formatted_accuracy])

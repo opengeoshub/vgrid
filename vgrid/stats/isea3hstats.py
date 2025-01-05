@@ -28,7 +28,7 @@ def fix_eaggr_wkt(eaggr_wkt):
 
 def isea3h_metrics(res):    
     num_cells = 20*(7**res)
-    lat,lon = -10.775275567242561, 106.70679737574993
+    lat,lon = 10.775275567242561, 106.70679737574993
 
     isea3h_cell = DggsCell(latlon2isea3h(lat,lon,res))
     
@@ -41,7 +41,9 @@ def isea3h_metrics(res):
     
     avg_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])  # Area in square meters
     avg_edge_length = abs(geod.geometry_area_perimeter(cell_polygon)[1])/6  # Perimeter in meters/ 6 
-    
+    if res == 0:
+        avg_edge_length = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3 # icosahedron faces
+            
     return num_cells, avg_edge_length, avg_area, accuracy
 
 def isea3h_stats(min_res=0, max_res=40, output_file=None):    
