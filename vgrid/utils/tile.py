@@ -163,6 +163,11 @@ def latlon2tilecode(lat, lon, zoom):
     
     return tilecode
 
+def latlon2quadkey(lat, lon, zoom):   
+    tile = mercantile.tile(lon, lat, zoom)
+    quadkey = mercantile.quadkey(tile)   
+    return quadkey
+
 def tilecode2latlon(tilecode):
     """
     Calculates the center latitude and longitude of a tile given its tilecode.

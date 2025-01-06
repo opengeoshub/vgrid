@@ -92,9 +92,18 @@
 
 ### Tilecode
 ``` bash
-> latlon2tilecode 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..26]
+> latlon2tilecode 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..29]
 > tilecode2geojson z23x6680749y3941729
-> tilecodestats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..29] 
+> tilestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
+```
+
+### Quadkey
+``` bash
+> latlon2quadkey 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..29]
+> quadkey2geojson 13223011131020212310000
+> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..29]
+> tilestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
 ```
 
 ### Maidenhead

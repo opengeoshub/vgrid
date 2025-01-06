@@ -202,19 +202,19 @@ def latlon2isea3h_cli():
     isea3h_cell = latlon2isea3h(args.lat,args.lon,res)
     print(isea3h_cell)
 
-def latlon2easedggs(lat,lon,res=6):
+def latlon2ease(lat,lon,res=6):
     # res = [0..6]  
     easedggs_cell = geos_to_grid_ids([(lon,lat)],level = res)
     easedggs_cell_id = easedggs_cell['result']['data'][0]
     return easedggs_cell_id
 
-def latlon2easedggs_cli():
+def latlon2ease_cli():
     """
     Command-line interface for latlon2isea3h.
     """
-    parser = argparse.ArgumentParser(description="Convert Lat, Long to EASEDGGS cell at a specific Resolution [0..6]. \
-                                     Usage: latlon2easedggs <lat> <lon> <res> [0..6]. \
-                                     Ex: latlon2easedggs 10.775275567242561 106.70679737574993 6")
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to EASE-DGGS cell at a specific Resolution [0..6]. \
+                                     Usage: latlon2ease <lat> <lon> <res> [0..6]. \
+                                     Ex: latlon2ease 10.775275567242561 106.70679737574993 6")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument("res",type=int, help="Input Resolution [0..6]")
@@ -226,7 +226,7 @@ def latlon2easedggs_cli():
         return  
     
     
-    easedggs_cell = latlon2easedggs(args.lat,args.lon,res)
+    easedggs_cell = latlon2ease(args.lat,args.lon,res)
     print(easedggs_cell)
     
     
@@ -332,7 +332,7 @@ def latlon2mgrs_cli():
     print(mgrs_cell)
 
 def latlon2tilecode(lat,lon,res=23):
-    # res: [0..26]        
+    # res: [0..29]        
     tilecode_cell = tile.latlon2tilecode(lat,lon,res)
     return tilecode_cell
 
@@ -355,6 +355,32 @@ def latlon2tilecode_cli():
     
     tilecode_cell = latlon2tilecode(args.lat,args.lon,res)
     print(tilecode_cell)
+
+
+def latlon2quadkey(lat,lon,res=23):
+    # res: [0..29]        
+    quadkey = tile.latlon2quadkey(lat,lon,res)
+    return quadkey
+
+def latlon2quadkey_cli():
+    """
+    Command-line interface for latlon2tilecode.
+    """
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to Quadkey at a specific resolution/ zoom level [0..29]. \
+                                     Usage: latlon2quadkey <lat> <lon> <res> [0..29]. \
+                                     Ex: latlon2quadkey 10.775275567242561 106.70679737574993 23")
+    parser.add_argument("lat",type=float, help="Input Latitude")
+    parser.add_argument("lon", type=float, help="Input Longitude")
+    parser.add_argument("res",type=int, help="Input Resolution/ Zoom level [0..29]")
+    args = parser.parse_args()
+    
+    res = args.res
+    if res < 0 or res > 29:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [0..29].")
+        return 
+    
+    quadkey = latlon2quadkey(args.lat,args.lon,res)
+    print(quadkey)
 
 
 def latlon2maidenhead(lat,lon,res=4):  

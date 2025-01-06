@@ -1,0 +1,364 @@
+import argparse 
+import json
+from shapely.geometry import mapping, Polygon, box
+from tqdm import tqdm
+from pyproj import Geod
+import locale
+from vgrid.utils.easedggs.constants import grid_spec, levels_specs, ease_crs, geo_crs
+from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geo_polygon_to_grid_ids
+
+# Initialize the geodetic model
+geod = Geod(ellps="WGS84")
+
+# Locale settings
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL, current_locale)  # Use the system's default locale
+
+max_cells = 1_000_000
+chunk_size=10_000
+
+geo_bounds = grid_spec['geo']
+min_longitude = geo_bounds['min_x']
+min_lattitude = geo_bounds['min_y']
+max_longitude = geo_bounds['max_x']
+max_latitude = geo_bounds['max_y']
+
+def get_cells(resolution):
+    """
+    Generate a list of cell IDs based on the resolution, row, and column.
+    """
+    n_row = levels_specs[resolution]["n_row"]
+    n_col = levels_specs[resolution]["n_col"]
+
+    # Generate list of cell IDs
+    cell_ids = []
+
+    # Loop through all rows and columns at the specified resolution
+    for row in range(n_row):
+        for col in range(n_col):
+            # Generate base ID (e.g., L0.RRRCCC for res=0)
+            base_id = f"L{resolution}.{row:03d}{col:03d}"
+
+            # Add additional ".RC" for each higher resolution
+            cell_id = base_id
+            for i in range(1, resolution + 1):
+                cell_id += f".{row:1d}{col:1d}"  # For res=1: L0.RRRCCC.RC, res=2: L0.RRRCCC.RC.RC, etc.
+
+            # Append the generated cell ID to the list
+            cell_ids.append(cell_id)
+
+    return cell_ids
+
+
+def get_cells_bbox(resolution, bbox):
+    bounding_box = box(*bbox)
+    bounding_box_wkt = bounding_box.wkt
+    print(bounding_box_wkt)
+    cells_bbox = geo_polygon_to_grid_ids(bounding_box_wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
+    print (cells_bbox)
+    return cells_bbox
+
+# def generate_grid(resolution, bbox=None):
+#     features = []
+#     min_lon, min_lat, max_lon, max_lat = bbox or [min_longitude, min_lattitude, max_longitude, max_latitude]
+    
+#     max_bounds = grid_spec['geo']
+#     min_lon = max_bounds['min_x']
+#     min_lat = max_bounds['min_y']
+#     max_lon = max_bounds['max_x']
+#     max_lat = max_bounds['max_y']
+        
+#     level_spec = levels_specs[resolution]
+#     n_row = level_spec["n_row"]
+#     n_col = level_spec["n_col"]
+#     x_length = level_spec["x_length"]
+#     y_length = level_spec["y_length"]
+
+    
+#     cells = get_cells(resolution)
+#     for cell in tqdm(cells, total=len(cells), desc=f"Processing cells", unit=" cells"):
+#         geo = grid_ids_to_geos([cell])
+#         center_lon, center_lat = geo['result']['data'][0] 
+
+#         n_row = level_spec["n_row"]
+#         n_col = level_spec["n_col"]
+#         x_length = level_spec["x_length"]
+#         y_length = level_spec["y_length"]
+
+#         # Calculate the cell indices
+#         row = int((max_lat - center_lat) / (180 / n_row))
+#         col = int((center_lon - min_lon) / (360 / n_col))
+
+#         # Validate row and col within bounds
+#         row = max(0, min(row, n_row - 1))
+#         col = max(0, min(col, n_col - 1))
+
+#         # Optional: Create a GeoJSON for the cell (bounding box)
+#         cell_min_lat = max_lat - (row + 1) * (180 / n_row)
+#         cell_max_lat = max_lat - row * (180 / n_row)
+#         cell_min_lon = min_lon + col * (360 / n_col)
+#         cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+
+#         cell_polygon = Polygon([
+#         [cell_min_lon, cell_min_lat],
+#             [cell_max_lon, cell_min_lat],
+#             [cell_max_lon, cell_max_lat],
+#             [cell_min_lon, cell_max_lat],
+#             [cell_min_lon, cell_min_lat]
+#         ])
+
+#         cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+
+#         features.append({
+#                 "type": "Feature",
+#                 "geometry": mapping(cell_polygon),
+#                 "properties": {
+#                     "ease": cell,
+#                     "center_lat": round(center_lat, 7),
+#                     "center_lon": round(center_lon, 7),
+#                     "cell_area": cell_area,
+#                     "avg_edge_len": round(x_length,3),
+#                     "resolution": resolution,       
+#                 }
+#                 })    
+        
+#     # # Generate grid cells with tqdm for progress tracking
+#     # for row in tqdm(range(n_row), desc="Rows", unit=" row"):
+#     #     for col in range(n_col):
+#     #         # Calculate cell bounds
+#     #         cell_min_x = min_lon + col * x_length
+#     #         cell_max_x = cell_min_x + x_length
+#     #         cell_min_y = max_lat - (row + 1) * y_length
+#     #         cell_max_y = cell_min_y + y_length
+
+#     #         cell_polygon = Polygon([
+#     #             [cell_min_x, cell_min_y],
+#     #             [cell_max_x, cell_min_y],
+#     #             [cell_max_x, cell_max_y],
+#     #             [cell_min_x, cell_max_y],
+#     #             [cell_min_x, cell_min_y],
+#     #         ])
+#     #         cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+       
+#     #         features.append({
+#     #             "type": "Feature",
+#     #             "geometry": mapping(cell_polygon),
+#     #             "properties": {
+#     #                 # "ease": ease_cell_id,
+#     #                 # "center_lat": round(center_lat, 7),
+#     #                 # "center_lon": round(center_lon, 7),
+#     #                 "cell_area": cell_area,
+#     #                 "avg_edge_len": round(x_length,3),
+#     #                 "resolution": resolution,       
+#     #             }
+#     #             })
+
+#     # Create GeoJSON FeatureCollection
+#     geojson_features = {
+#         "type": "FeatureCollection",
+#         "features": features
+#     }
+
+#     return geojson_features        
+
+def generate_grid(resolution):
+    features = []
+    min_lon, min_lat, max_lon, max_lat = [min_longitude, min_lattitude, max_longitude, max_latitude]
+    
+    # max_bounds = grid_spec['geo']
+    # min_lon = max_bounds['min_x']
+    # min_lat = max_bounds['min_y']
+    # max_lon = max_bounds['max_x']
+    # max_lat = max_bounds['max_y']
+        
+    level_spec = levels_specs[resolution]
+    n_row = level_spec["n_row"]
+    n_col = level_spec["n_col"]
+    x_length = level_spec["x_length"]
+    y_length = level_spec["y_length"]
+
+    cells = get_cells(resolution)
+
+    # Process cells in chunks with tqdm progress bar
+    for i in tqdm(range(0, len(cells), chunk_size), total=(len(cells) // chunk_size) + 1, desc="Processing cells in chunks", unit="chunk"):
+        chunk = cells[i:i + chunk_size]
+        for cell in chunk:
+            geo = grid_ids_to_geos([cell])
+            center_lon, center_lat = geo['result']['data'][0]
+
+            # Calculate the cell indices
+            row = int((max_lat - center_lat) / (180 / n_row))
+            col = int((center_lon - min_lon) / (360 / n_col))
+
+            # Validate row and col within bounds
+            row = max(0, min(row, n_row - 1))
+            col = max(0, min(col, n_col - 1))
+
+            # Optional: Create a GeoJSON for the cell (bounding box)
+            cell_min_lat = max_lat - (row + 1) * (180 / n_row)
+            cell_max_lat = max_lat - row * (180 / n_row)
+            cell_min_lon = min_lon + col * (360 / n_col)
+            cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+
+            cell_polygon = Polygon([
+                [cell_min_lon, cell_min_lat],
+                [cell_max_lon, cell_min_lat],
+                [cell_max_lon, cell_max_lat],
+                [cell_min_lon, cell_max_lat],
+                [cell_min_lon, cell_min_lat]
+            ])
+
+            cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+
+            features.append({
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                    "ease": cell,
+                    "center_lat": round(center_lat, 7),
+                    "center_lon": round(center_lon, 7),
+                    "cell_area": cell_area,
+                    "avg_edge_len": round(x_length, 3),
+                    "resolution": resolution,
+                }
+            })
+
+    # Create GeoJSON FeatureCollection
+    geojson_features = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+
+    return geojson_features
+
+def generate_grid_bbox(resolution, bbox):
+    features = []
+    min_lon, min_lat, max_lon, max_lat = bbox
+    bounding_box = box(*bbox)
+
+    level_spec = levels_specs[resolution]
+    n_row = level_spec["n_row"]
+    n_col = level_spec["n_col"]
+    x_length = level_spec["x_length"]
+    y_length = level_spec["y_length"]
+
+    # Get all grid cells within the bounding box
+    cells = get_cells_bbox(resolution, bbox)['result']['data']
+    
+    if cells:
+        # Use tqdm for progress bar, processing cells sequentially
+        for cell in tqdm(cells, desc="Processing cells", unit="cell"):
+            geo = grid_ids_to_geos([cell])
+            if geo:
+                center_lon, center_lat = geo['result']['data'][0]
+                # Calculate the cell indices
+                row = int((max_lat - center_lat) / (180 / n_row))
+                col = int((center_lon - min_lon) / (360 / n_col))
+
+                # Validate row and col within bounds
+                row = max(0, min(row, n_row - 1))
+                col = max(0, min(col, n_col - 1))
+
+                # Optional: Create a GeoJSON for the cell (bounding box)
+                cell_min_lat = max_lat - (row + 1) * (180 / n_row)
+                cell_max_lat = max_lat - row * (180 / n_row)
+                cell_min_lon = min_lon + col * (360 / n_col)
+                cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+
+                cell_polygon = Polygon([
+                    [cell_min_lon, cell_min_lat],
+                    [cell_max_lon, cell_min_lat],
+                    [cell_max_lon, cell_max_lat],
+                    [cell_min_lon, cell_max_lat],
+                    [cell_min_lon, cell_min_lat]
+                ])
+
+                # Calculate cell area
+                cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+
+                # Append feature to list
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
+                    "properties": {
+                        "ease": cell,
+                        "center_lat": round(center_lat, 7),
+                        "center_lon": round(center_lon, 7),
+                        "cell_area": cell_area,
+                        "avg_edge_len": round(x_length, 3),
+                        "resolution": resolution,
+                    }
+                })
+
+            # Create GeoJSON FeatureCollection
+            geojson_features = {
+                "type": "FeatureCollection",
+                "features": features
+            }
+
+        return geojson_features
+
+def main():
+    parser = argparse.ArgumentParser(description='Create a debug EaseGrid based on XYZ vector tile scheme as a GeoJSON file.')
+    parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..6]')
+    parser.add_argument('-b', '--bbox', type=float, nargs=4, help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)")
+
+    args = parser.parse_args()
+    resolution = args.resolution
+    bbox = args.bbox if args.bbox else [min_longitude, min_lattitude, max_longitude, max_latitude]
+
+    if resolution < 0 or resolution > 6:
+        print(f"Please select a resolution in [0..6] range and try again")
+        return
+
+    if bbox == [min_longitude, min_lattitude, max_longitude, max_latitude]:
+        level_spec = levels_specs[resolution]        
+        n_row = level_spec["n_row"]
+        n_col = level_spec["n_col"]
+        num_cells = n_row*n_col
+        
+        if num_cells > max_cells:
+            print(
+                f"The selected resolution will generate "
+                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
+                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+            )
+            print("Please select a smaller resolution and try again.")
+            return
+
+        # Start generating and saving the grid in chunks
+        geojson_features = generate_grid(resolution)
+        
+        if geojson_features:
+            # Define the GeoJSON file path
+            geojson_path = f"easegrid_{resolution}.geojson"
+            with open(geojson_path, 'w') as f:
+                json.dump(geojson_features, f, indent=2)
+
+            print(f"GeoJSON saved as {geojson_path}")
+    else:        
+        num_cells = len(get_cells_bbox(resolution,bbox))        
+        if num_cells > max_cells:
+            print(
+                f"The selected resolution will generate "
+                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
+                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+            )
+            print("Please select a smaller resolution and try again.")
+            return
+
+        # Start generating and saving the grid in chunks
+        geojson_features = generate_grid_bbox(resolution, bbox)
+        
+        if geojson_features:
+            # Define the GeoJSON file path
+            geojson_path = f"easegrid_bbox_{resolution}.geojson"
+            with open(geojson_path, 'w') as f:
+                json.dump(geojson_features, f, indent=2)
+
+            print(f"GeoJSON saved as {geojson_path}")
+
+
+
+if __name__ == '__main__':
+    main()

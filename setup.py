@@ -49,13 +49,14 @@ setup(
             'latlon2rhealpix = vgrid.conversion.latlon2cell:latlon2rhealpix_cli',  
             'latlon2isea4t = vgrid.conversion.latlon2cell:latlon2isea4t_cli',  
             'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
-            'latlon2easedggs = vgrid.conversion.latlon2cell:latlon2easedggs_cli',
+            'latlon2ease = vgrid.conversion.latlon2cell:latlon2ease_cli',
             
             'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
             'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
             'latlon2georef = vgrid.conversion.latlon2cell:latlon2georef_cli',  
             'latlon2mgrs = vgrid.conversion.latlon2cell:latlon2mgrs_cli',  
             'latlon2tilecode = vgrid.conversion.latlon2cell:latlon2tilecode_cli',  
+            'latlon2quadkey = vgrid.conversion.latlon2cell:latlon2quadkey_cli',             
             'latlon2maidenhead = vgrid.conversion.latlon2cell:latlon2maidenhead_cli',  
             'latlon2gars = vgrid.conversion.latlon2cell:latlon2gars_cli',  
 
@@ -69,12 +70,16 @@ setup(
             'isea3hparent2geojson = vgrid.utils.eaggr.conversion.parent2geojson:parent2geojson_cli',  
             'isea3hsiblings2geojson = vgrid.utils.eaggr.conversion.siblings2geojson:siblings2geojson_cli',  
             'isea3hchildren2geojson = vgrid.utils.eaggr.conversion.children2geojson:children2geojson_cli',  
+            
+            'ease2geojson = vgrid.conversion.cell2geojson:ease2geojson_cli',  
 
+            
             'olc2geojson = vgrid.conversion.cell2geojson:olc2geojson_cli',
             'geohash2geojson = vgrid.conversion.cell2geojson:geohash2geojson_cli',  
             'georef2geojson = vgrid.conversion.cell2geojson:georef2geojson_cli',  
             'mgrs2geojson = vgrid.conversion.cell2geojson:mgrs2geojson_cli', 
             'tilecode2geojson = vgrid.conversion.cell2geojson:tilecode2geojson_cli',  
+            'quadkey2geojson = vgrid.conversion.cell2geojson:quadkey2geojson_cli',  
 
             'maidenhead2geojson = vgrid.conversion.cell2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.conversion.cell2geojson:gars2geojson_cli',  
@@ -92,7 +97,8 @@ setup(
             'rhealpixgrid = vgrid.generator.rhealpixgrid:main',
             'isea4tgrid = vgrid.generator.isea4tgrid:main',
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
-           
+            'easegrid = vgrid.generator.easegrid:main',
+
             'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',    
             'georefgrid = vgrid.generator.georefgrid:main',           

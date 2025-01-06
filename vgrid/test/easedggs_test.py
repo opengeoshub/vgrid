@@ -10,9 +10,153 @@ import pyproj
 from pyproj import Transformer
 from vgrid.utils.easedggs.dggs.checks import check_gid_l0_index,check_coords_range
 import geopandas as gpd
+from vgrid.utils.easedggs.constants import levels_specs
 
-latitude, longitude = 10.775275567242561, 106.70679737574993# 
-resolution = 0 #[0..6]
+def get_cells_bbox(resolution, bbox):
+    min_lon, min_lat, max_lon, max_lat = bbox
+    bbox_coords = [
+            (min_lon, min_lat),
+            (min_lon, max_lat),
+            (max_lon, max_lat),
+            (max_lon, min_lat),
+            (min_lon, min_lat)
+        ]
+    bbox_polygon = Polygon(bbox_coords)
+    cells_bbox = geo_polygon_to_grid_ids(bbox_polygon.wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
+    return cells_bbox
+
+resolution = 3
+bbox = [106.6990073571, 10.7628112647, 106.71767427, 10.7786496202]
+cells = get_cells_bbox(resolution, bbox)
+print(cells)
+for cell in cells['result']['data']:
+    print(cell)
+    geo = grid_ids_to_geos([cell])
+    print(geo)
+    # center_lon, center_lat = geo['result']['data'][0]
+        
+# def get_cells(res):
+#     """
+#     Generate a list of cell IDs based on the resolution, row, and column.
+#     """
+#     n_row = levels_specs[res]["n_row"]
+#     n_col = levels_specs[res]["n_col"]
+
+#     # Generate list of cell IDs
+#     cell_ids = []
+
+#     # Loop through all rows and columns at the specified resolution
+#     for row in range(n_row):
+#         for col in range(n_col):
+#             # Generate base ID (e.g., L0.RRRCCC for res=0)
+#             base_id = f"L{res}.{row:03d}{col:03d}"
+
+#             # Add additional ".RC" for each higher resolution
+#             cell_id = base_id
+#             for i in range(1, res + 1):
+#                 cell_id += f".{row:1d}{col:1d}"  # For res=1: L0.RRRCCC.RC, res=2: L0.RRRCCC.RC.RC, etc.
+
+#             # Append the generated cell ID to the list
+#             cell_ids.append(cell_id)
+
+#     return cell_ids
+
+
+# resolution = 0  # Change to desired resolution (0..6)
+# cell_ids = get_cells(resolution)
+# print(cell_ids)
+
+# latitude, longitude = 10.775275567242561, 106.70679737574993# 
+# resolution = 0 #[0..6]
+# from pyproj import Transformer
+
+# from pyproj import Geod
+
+# # Define the geodetic calculator (WGS84 ellipsoid)
+# geod = Geod(ellps="WGS84")
+# # Center point (centroid)
+# center_lon = 106.61825726141079
+# center_lat = 10.651251665700356
+
+# # # Dimensions in meters
+# # width = 36032.22084058376
+# # height = 36032.22084058376
+
+# # # Calculate half dimensions
+# half_width = width / 2
+# half_height = height / 2
+
+# Calculate the four corners of the bounding box
+# Top-left (northwest)
+# nw_lon, nw_lat, _ = geod.fwd(center_lon, center_lat, -90, half_width)
+# nw_lon, nw_lat, _ = geod.fwd(nw_lon, nw_lat, 0, half_height)
+
+# # Bottom-left (southwest)
+# sw_lon, sw_lat, _ = geod.fwd(center_lon, center_lat, -90, half_width)
+# sw_lon, sw_lat, _ = geod.fwd(sw_lon, sw_lat, 180, half_height)
+
+# # Top-right (northeast)
+# ne_lon, ne_lat, _ = geod.fwd(center_lon, center_lat, 90, half_width)
+# ne_lon, ne_lat, _ = geod.fwd(ne_lon, ne_lat, 0, half_height)
+
+# # Bottom-right (southeast)
+# se_lon, se_lat, _ = geod.fwd(center_lon, center_lat, 90, half_width)
+# se_lon, se_lat, _ = geod.fwd(se_lon, se_lat, 180, half_height)
+
+# # Create GeoJSON
+# geojson_features = {
+#     "type": "FeatureCollection",
+#     "features": [
+#         {
+#             "type": "Feature",
+#             "geometry": {
+#                 "type": "Polygon",
+#                 "coordinates": [[
+#                     [nw_lon, nw_lat],  # Top-left
+#                     [ne_lon, ne_lat],  # Top-right
+#                     [se_lon, se_lat],  # Bottom-right
+#                     [sw_lon, sw_lat],  # Bottom-left
+#                     [nw_lon, nw_lat],  # Close the polygon
+#                 ]]
+#             },
+#             "properties": {
+#                 "center": [center_lon, center_lat],
+#                 "width_meters": width,
+#                 "height_meters": height
+#             }
+#         }
+#     ]
+# }
+
+
+
+# print(json.dumps(geojson_features))
+
+# Define the bounding box in EPSG:6933
+# bbox_6933 = {
+#     'min_x': -17367530.445161372,
+#     'min_y': -7314540.830638504,
+#     'max_x': 17367530.445161372,
+#     'max_y': 7314540.830638504
+# }
+
+# # Create a transformer from EPSG:6933 to EPSG:4326
+# transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
+
+# # Transform the corners of the bounding box
+# min_lon, min_lat = transformer.transform(bbox_6933['min_x'], bbox_6933['min_y'])
+# max_lon, max_lat = transformer.transform(bbox_6933['max_x'], bbox_6933['max_y'])
+
+# # Output the converted bounding box
+# bbox_4326 = {
+#     'min_lon': min_lon,
+#     'min_lat': min_lat,
+#     'max_lon': max_lon,
+#     'max_lat': max_lat
+# }
+
+# print("Bounding box in EPSG:4326:", bbox_4326)
+
 # coords_ease = coords_lon_lat_to_coords_ease([(longitude,latitude)],source_crs=geo_crs,target_crs=ease_crs)
 # for coord in coords_ease:
 #     print(coord.x)
@@ -22,46 +166,51 @@ resolution = 0 #[0..6]
 # for coord in coords_grid:
 #     print(coord.x)
 #     print(coord.y)
-print(latitude, longitude)
-easedggs_cell = geos_to_grid_ids([(longitude,latitude)],level = resolution)
-easedggs_cell_id = easedggs_cell['result']['data'][0]
-print (easedggs_cell_id)
-geo = grid_ids_to_geos([easedggs_cell_id])
-print (geo)
-# corner_coord_1 = grid_id_to_corner_coord(easedggs_cell_id,False)
-# print(corner_coord_1)
+# print(latitude, longitude)
 
-corners = {
-        "upper_left": grid_id_to_corner_coord(easedggs_cell_id, resolution),
-        "upper_right": grid_id_to_corner_coord(easedggs_cell_id, resolution, shift=True),
-        "lower_right": grid_id_to_corner_coord(easedggs_cell_id, resolution, shift=True),
-        "lower_left": grid_id_to_corner_coord(easedggs_cell_id, resolution),
-    }
-print(corners)
-x_values = [point[0] for point in corners.values()]
-y_values = [point[1] for point in corners.values()]
+# easedggs_cell = geos_to_grid_ids([(longitude,latitude)],level = resolution)
+# easedggs_cell_id = easedggs_cell['result']['data'][0]
+# print (easedggs_cell_id)
+# geo = grid_ids_to_geos([easedggs_cell_id])
+# longitude, latitude = geo['result']['data'][0]  # Unpack tuple
+# print (longitude, latitude)
 
-# Compute bounding box
-min_x = min(x_values)
-max_x = max(x_values)
-min_y = min(y_values)
-max_y = max(y_values)
 
-# Bounding box
-easedggs_bounds = [min_x, min_y, max_x, max_y]
-transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
 
-# Extract the bounding box corners
-min_x, min_y, max_x, max_y = easedggs_bounds
+# # corner_coord_1 = grid_id_to_corner_coord(easedggs_cell_id,False)
+# # print(corner_coord_1)
 
-# Transform the corners
-min_lon, min_lat = transformer.transform(min_x, min_y)
-max_lon, max_lat = transformer.transform(max_x, max_y)
+# corners = {
+#         "upper_left": grid_id_to_corner_coord(easedggs_cell_id, resolution),
+#         "upper_right": grid_id_to_corner_coord(easedggs_cell_id, resolution, shift=True),
+#         "lower_right": grid_id_to_corner_coord(easedggs_cell_id, resolution, shift=True),
+#         "lower_left": grid_id_to_corner_coord(easedggs_cell_id, resolution),
+#     }
+# print(corners)
+# x_values = [point[0] for point in corners.values()]
+# y_values = [point[1] for point in corners.values()]
 
-# Construct the transformed bounding box
-bounding_box_epsg_4326 = [min_lon, min_lat, max_lon, max_lat]
+# # Compute bounding box
+# min_x = min(x_values)
+# max_x = max(x_values)
+# min_y = min(y_values)
+# max_y = max(y_values)
 
-print("Bounding box in EPSG:4326:", bounding_box_epsg_4326)
+# # Bounding box
+# easedggs_bounds = [min_x, min_y, max_x, max_y]
+# transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
+
+# # Extract the bounding box corners
+# min_x, min_y, max_x, max_y = easedggs_bounds
+
+# # Transform the corners
+# min_lon, min_lat = transformer.transform(min_x, min_y)
+# max_lon, max_lat = transformer.transform(max_x, max_y)
+
+# # Construct the transformed bounding box
+# bounding_box_epsg_4326 = [min_lon, min_lat, max_lon, max_lat]
+
+# print("Bounding box in EPSG:4326:", bounding_box_epsg_4326)
 
 
 # def convert_easedggs_bounds_to_wgs84(easedggs_bounds):

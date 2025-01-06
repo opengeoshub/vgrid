@@ -12,6 +12,9 @@ from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 from vgrid.utils.eaggr.enums.model import Model
 
+from vgrid.utils.easedggs.constants import grid_spec, levels_specs
+from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
+
 from shapely.wkt import loads
 from shapely.geometry import shape, Point,Polygon,mapping
 
@@ -371,11 +374,115 @@ def isea3h2geojson_cli():
     Command-line interface for isea3h2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert ISEA3H code to GeoJSON")
-    parser.add_argument("isea3h", help="Input ISEA3H code, e.g., geojson 1327916769,-55086 ")
+    parser.add_argument("isea3h", help="Input ISEA3H code, e.g., isea3h2geojson 1327916769,-55086 ")
     args = parser.parse_args()
     geojson_data = json.dumps(isea3h2geojson(args.isea3h))
     print(geojson_data)
+
+def ease2geojson(ease_cell_id):
+    level = int(ease_cell_id[1])  # Get the level (e.g., 'L0' -> 0)
+    # Get level specs
+    level_spec = levels_specs[level]
+    x_length = level_spec["x_length"]
+    y_length = level_spec["y_length"]
+
+    geo_bounds = grid_spec['geo']
+    min_lon = geo_bounds['min_x']
+    min_lat = geo_bounds['min_y']
+    max_lon = geo_bounds['max_x']
+    max_lat = geo_bounds['max_y']
     
+    geo = grid_ids_to_geos([ease_cell_id])
+    center_lon, center_lat = geo['result']['data'][0] 
+
+    # half_width = y_length / 2
+    # half_height = y_length / 2
+
+    # # Calculate the four corners of the bounding box
+    # # Top-left (northwest)
+    # nw_lon, nw_lat, _ = geod.fwd(center_lon, center_lat, min_lat, half_width)
+    # nw_lon, nw_lat, _ = geod.fwd(nw_lon, nw_lat, 0, half_height)
+
+    # # Bottom-left (southwest)
+    # sw_lon, sw_lat, _ = geod.fwd(center_lon, center_lat,min_lat, half_width)
+    # sw_lon, sw_lat, _ = geod.fwd(sw_lon, sw_lat, max_lon, half_height)
+
+    # # Top-right (northeast)
+    # ne_lon, ne_lat, _ = geod.fwd(center_lon, center_lat, max_lat, half_width)
+    # ne_lon, ne_lat, _ = geod.fwd(ne_lon, ne_lat, 0, half_height)
+
+    # # Bottom-right (southeast)
+    # se_lon, se_lat, _ = geod.fwd(center_lon, center_lat, max_lat, half_width)
+    # se_lon, se_lat, _ = geod.fwd(se_lon, se_lat, max_lon, half_height)
+
+    
+    # cell_polygon = Polygon([
+    #     [nw_lon, nw_lat],  # Top-left
+    #     [ne_lon, ne_lat],  # Top-right
+    #     [se_lon, se_lat],  # Bottom-right
+    #     [sw_lon, sw_lat],  # Bottom-left
+    #     [nw_lon, nw_lat],  # Close the polygon
+    #  ])
+    
+    n_row = level_spec["n_row"]
+    n_col = level_spec["n_col"]
+    x_length = level_spec["x_length"]
+    y_length = level_spec["y_length"]
+
+    # Calculate the cell indices
+    row = int((max_lat - center_lat) / (180 / n_row))
+    col = int((center_lon - min_lon) / (360 / n_col))
+
+    # Validate row and col within bounds
+    row = max(0, min(row, n_row - 1))
+    col = max(0, min(col, n_col - 1))
+
+    # Optional: Create a GeoJSON for the cell (bounding box)
+    cell_min_lat = max_lat - (row + 1) * (180 / n_row)
+    cell_max_lat = max_lat - row * (180 / n_row)
+    cell_min_lon = min_lon + col * (360 / n_col)
+    cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+
+    cell_polygon = Polygon([
+       [cell_min_lon, cell_min_lat],
+        [cell_max_lon, cell_min_lat],
+        [cell_max_lon, cell_max_lat],
+        [cell_min_lon, cell_max_lat],
+        [cell_min_lon, cell_min_lat]
+     ])
+
+    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+
+    feature = {
+        "type": "Feature",
+        "geometry": mapping(cell_polygon),
+        "properties": {
+            "ease": ease_cell_id,
+            "center_lat": round(center_lat, 7),
+            "center_lon": round(center_lon, 7),
+            "cell_area": cell_area,
+            "avg_edge_len": round(x_length,3),
+            "resolution": level,       
+        }
+    }
+
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": [feature]
+    }
+    return  feature_collection
+
+def ease2geojson_cli():
+    """
+    Command-line interface for ease2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert EASE-DGGS code to GeoJSON")
+    parser.add_argument("ease", help="Input ASE-DGGS code, e.g., ease2geojson L0.165767 ")
+    args = parser.parse_args()
+    geojson_data = json.dumps(ease2geojson(args.ease))
+    print(geojson_data)
+
+
 def olc2geojson(olc_code):
     # Decode the Open Location Code into a CodeArea object
     coord = olc.decode(olc_code)
@@ -692,8 +799,8 @@ def tilecode2geojson(tilecode):
         min_lat, min_lon = bounds.south, bounds.west
         max_lat, max_lon = bounds.north, bounds.east
 
-        # tile = mercantile.Tile(x, y, z)
-        # quadkey = mercantile.quadkey(tile)
+        tile = mercantile.Tile(x, y, z)
+        quadkey = mercantile.quadkey(tile)
 
         center_lat = round((min_lat + max_lat) / 2,7)
         center_lon = round((min_lon + max_lon) / 2,7)
@@ -716,7 +823,7 @@ def tilecode2geojson(tilecode):
             "geometry": mapping(cell_polygon),          
             "properties": {
                 "tilecode": tilecode,  # Include the OLC as a property
-                # "quadkey": quadkey,
+                "quadkey": quadkey,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -743,6 +850,72 @@ def tilecode2geojson_cli():
 
     # Generate the GeoJSON feature
     geojson_data = json.dumps(tilecode2geojson(args.tilecode))
+    print(geojson_data)
+
+
+def quadkey2geojson(quadkey):
+    tile = mercantile.quadkey_to_tile(quadkey)    
+    # Format as tilecode
+    tilecode = f"z{tile.z}x{tile.x}y{tile.y}"
+    z = tile.z
+    x = tile.x
+    y = tile.y
+    # Get the bounds of the tile in (west, south, east, north)
+    bounds = mercantile.bounds(x, y, z)    
+
+    if bounds:
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
+
+        center_lat = round((min_lat + max_lat) / 2,7)
+        center_lon = round((min_lon + max_lon) / 2,7)
+        
+        cell_polygon = Polygon([
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ])
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
+          # Calculate width (longitude difference at a constant latitude)
+        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
+        # Calculate height (latitude difference at a constant longitude)
+        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
+
+        feature = {
+            "type": "Feature",
+            "geometry": mapping(cell_polygon),          
+            "properties": {
+                "tilecode": tilecode,  # Include the OLC as a property
+                "quadkey": quadkey,
+                "center_lat": center_lat,
+                "center_lon": center_lon,
+                "cell_area": cell_area,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
+                "resolution": z  # Using the code length as precision
+            }
+        }
+
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [feature]
+        }
+        
+        return feature_collection
+
+def quadkey2geojson_cli():
+    """
+    Command-line interface for quadkey2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert Quadkey to GeoJSON")
+    parser.add_argument("quadkey", help="Input Quadkey, e.g. 13223011131020220011133")
+    args = parser.parse_args()
+
+    # Generate the GeoJSON feature
+    geojson_data = json.dumps(quadkey2geojson(args.quadkey))
     print(geojson_data)
 
 

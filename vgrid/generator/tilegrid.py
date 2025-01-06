@@ -1,128 +1,104 @@
 import argparse
-import os
-from vgrid.utils.mapbox_vector_tile import encode
-from vgrid.utils import mercantile
-from shapely.geometry import box, mapping
-import sqlite3
-import gzip
+import re
+import json
+from shapely.geometry import mapping,Polygon
 from tqdm import tqdm
+from vgrid.utils import mercantile
+from pyproj import Geod
+geod = Geod(ellps="WGS84")
+import locale
+current_locale = locale.getlocale()  # Get the current locale setting
+locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 
-def create_mbtiles(output_mbtiles, min_latitude, min_longitude, max_latitude, max_longitude, min_zoom, max_zoom):
-    if os.path.exists(output_mbtiles):
-        os.remove(output_mbtiles)
-    conn = sqlite3.connect(output_mbtiles)
-    cursor = conn.cursor()
+max_cells = 1_000_000
 
-    try:           
-        cursor.execute('''CREATE TABLE metadata (name TEXT, value TEXT);''')
-        cursor.execute('''CREATE UNIQUE INDEX name ON metadata (name);''')
-        cursor.execute('''CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);''')
-        cursor.execute('''CREATE UNIQUE INDEX tile_index ON tiles(zoom_level, tile_column, tile_row);''')
-
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('name', 'vgrid');")
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('description', 'Vgrid MBTiles created by vgrid.vgrid');")
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('type', 'overlay');")
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('version', '1');")
-        cursor.execute("INSERT INTO metadata (name, value) VALUES ('format', 'pbf');")
-        cursor.execute(f"INSERT INTO metadata (name, value) VALUES ('minzoom', '{min_zoom}');")
-        cursor.execute(f"INSERT INTO metadata (name, value) VALUES ('maxzoom', '{max_zoom}');")
-        cursor.execute(f"INSERT INTO metadata (name, value) VALUES ('bounds', '{min_latitude},{min_longitude},{max_latitude},{max_longitude}');")
-
-        conn.commit()        
-
-    except Exception as e:
-        print(f"Error creating MBTiles: {e}")
-    finally:
-        print(f"Creating MBTiles done!")
-        conn.close()
-
-def create_tile(z, x, y):
-    try:
-        flip_y = (2 ** z - 1) - y
-        tile_geometry = box(0, 0, 4096, 4096)
-        quadkey = mercantile.quadkey(x, y, z)
-        properties = {
-            'tilecode': f'z{z}x{x}y{y}',
-            'tilename': f'{z}/{x}/{y}',
-            'tmscode': f'z{z}x{x}y{flip_y}',
-            'tmsname': f'{z}/{x}/{flip_y}',
-            'quadkey': quadkey
-        }
-
-        feature = {
-            'geometry': mapping(tile_geometry),
-            'properties': properties
-        }
-
-        tile_data = {
-            'name': 'vgrid',
-            'features': [feature]
-        }
-
-        tile_data_encoded = encode(tile_data)
-        tile_data_encoded_gzipped = gzip.compress(tile_data_encoded)
-        return tile_data_encoded_gzipped
-    except Exception as e:
-        print(f"Error creating tile: {e}")
-        raise
-
-def create_tiles(tiles, output_mbtiles, current_zoom):
-    try:
-        conn = sqlite3.connect(output_mbtiles)
-        cursor = conn.cursor()        
-        for tile in tqdm(tiles, desc=f"Creating tiles at zoom level {current_zoom}: "):
-            z, x, y = tile.z, tile.x, tile.y
-            flip_y = (2 ** z - 1) - y
-            tile_data = create_tile(z, x, y)
-            cursor.execute('INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?);', 
-                            (z, x, y, tile_data))
-        conn.commit()
-    except Exception as e:
-        print(f"Error creating tiles: {e}")
-    finally:
-        conn.close()
-
-def chunk_list(input_list, chunk_size):
-    """Yield successive chunks from input_list."""
-    for i in range(0, len(input_list), chunk_size):
-        yield input_list[i:i + chunk_size]
-
-def main():
-    parser = argparse.ArgumentParser(description='Create a debug grid representing the XYZ vector tile scheme as an MBTiles file.')
-    parser.add_argument('-o', '--output', required=True, help='Output MBTiles file')
-    parser.add_argument('-minzoom', '--minzoom', type=int, required=True, help='Minimum zoom level')
-    parser.add_argument('-maxzoom', '--maxzoom', type=int, required=True, help='Maximum zoom level')
-    parser.add_argument('-chunksize', '--chunksize', type=int, default=10000, help='Number of tiles to process in each chunk')
-    parser.add_argument('-bounds', '--bounds', type=float, nargs=4, metavar=('min_lat', 'min_lon', 'max_lat', 'max_lon'),
-                        help='Bounding box coordinates (min_lat, min_lon, max_lat, max_lon)', 
-                        default=[-85.05112878, -180.0, 85.05112878, 180.0])
-    # Vietnam bounds: 8.34,101.85,23.81,109.74
-    args = parser.parse_args()
-
-    if args.minzoom < 0 or args.maxzoom < args.minzoom:
-        raise ValueError("minzoom must be non-negative and maxzoom must be greater than or equal to minzoom")
-
-    min_latitude, min_longitude, max_latitude, max_longitude = args.bounds
-
-    create_mbtiles(args.output, min_latitude, min_longitude, max_latitude, max_longitude, args.minzoom, args.maxzoom)
-
-    for zoom_level in range(args.minzoom, args.maxzoom + 1):
-    # Use an iterator to process tiles without loading them all into memory
-        tile_iterator = mercantile.tiles(min_longitude, min_latitude, max_longitude, max_latitude, zoom_level)
-        
-        tile_chunk = []
-        for tile in tile_iterator:
-            tile_chunk.append(tile)
+def generate_grid(resolution,bbox=None):
+    features = []
+    min_lon, min_lat, max_lon, max_lat = bbox or [-180.0, -85.05112878,180.0,85.05112878]  
+    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+    for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}:", unit=" cells"):
+        z, x, y = tile.z, tile.x, tile.y
+        tilecode = f"z{tile.z}x{tile.x}y{tile.y}"
+        bounds = mercantile.bounds(x, y, z)
+        if bounds:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = bounds.south, bounds.west
+            max_lat, max_lon = bounds.north, bounds.east
             
-            # When the chunk reaches the specified size, process it
-            if len(tile_chunk) == args.chunksize:
-                create_tiles(tile_chunk, args.output, zoom_level)
-                tile_chunk = []  # Reset chunk for the next set of tiles
+            quadkey = mercantile.quadkey(tile)
+
+            center_lat = round((min_lat + max_lat) / 2,7)
+            center_lon = round((min_lon + max_lon) / 2,7)
+            
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
+            # Calculate width (longitude difference at a constant latitude)
+            cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
+            # Calculate height (latitude difference at a constant longitude)
+            cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
+
+            feature = {
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),          
+                "properties": {
+                    "tilecode": tilecode,  # Include the OLC as a property
+                    "quadkey": quadkey,
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                    "cell_area": cell_area,
+                    "cell_width": cell_width,
+                    "cell_height": cell_height,
+                    "resolution": z  # Using the code length as precision
+                }
+            }            
+
+        features.append(feature)
+
+    geojson_features = {
+        'type': 'FeatureCollection',
+        'features': features
+    }
+
+    return geojson_features
         
-        # Process any remaining tiles in the chunk
-        if tile_chunk:
-            create_tiles(tile_chunk, args.output, zoom_level)
-    print(f"Creating tiles done!")
+def main():
+    parser = argparse.ArgumentParser(description='Create a debug grid representing the XYZ vector tile scheme as a GeoJSON file.')
+    parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..26]')
+    parser.add_argument('-b', '--bbox', type=float, nargs=4,  help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)") 
+
+    args = parser.parse_args()
+    resolution = args.resolution
+    bbox = args.bbox if args.bbox else [-180.0, -85.05112878,  180.0, 85.05112878]
+    
+    if resolution < 0 or resolution > 26:
+        print(f"Please select a resolution in [0..26] range and try again ")
+        return
+    
+    if bbox == [-180.0, -85.05112878,  180.0, 85.05112878]:  
+        num_cells =  4**resolution
+        if num_cells > max_cells:
+            print(
+                f"The selected resolution will generate "
+                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
+                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+            )
+            print("Please select a smaller resolution and try again.")
+            return    
+    
+    geojson_features = generate_grid(resolution, bbox)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"tile_grid_{resolution}.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
 
 if __name__ == '__main__':
     main()
