@@ -11,29 +11,74 @@ from pyproj import Transformer
 from vgrid.utils.easedggs.dggs.checks import check_gid_l0_index,check_coords_range
 import geopandas as gpd
 from vgrid.utils.easedggs.constants import levels_specs
+from vgrid.utils.easedggs.dggs.utils import gen_point_grid
+# def get_cells_bbox(resolution, bbox):
+#     min_lon, min_lat, max_lon, max_lat = bbox
+#     bbox_coords = [
+#             (min_lon, min_lat),
+#             (min_lon, max_lat),
+#             (max_lon, max_lat),
+#             (max_lon, min_lat),
+#             (min_lon, min_lat)
+#         ]
+#     bbox_polygon = Polygon(bbox_coords)
+#     cells_bbox = geo_polygon_to_grid_ids(bbox_polygon.wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
+#     return cells_bbox
 
-def get_cells_bbox(resolution, bbox):
-    min_lon, min_lat, max_lon, max_lat = bbox
-    bbox_coords = [
-            (min_lon, min_lat),
-            (min_lon, max_lat),
-            (max_lon, max_lat),
-            (max_lon, min_lat),
-            (min_lon, min_lat)
-        ]
-    bbox_polygon = Polygon(bbox_coords)
-    cells_bbox = geo_polygon_to_grid_ids(bbox_polygon.wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
-    return cells_bbox
+# resolution = 3
+# bbox = [106.6990073571, 10.7628112647, 106.71767427, 10.7786496202]
+# cells = get_cells_bbox(resolution, bbox)
+# print(cells)
+# print(grid_ids_to_geos(['L2.163763.03.21', 'L2.163763.03.11']))
+# print(grid_ids_to_geos(['L3.165767.02.02.22']))
+# print(grid_id_to_corner_coord('L2.163763.03.21',2))
+from pyproj import Proj, transform
+# Define the projection for UTM EPSG:6933
+lon_min, lat_min, lon_max, lat_max = 106.6990073571, 10.7628112647, 106.71767427, 10.7786496202
 
-resolution = 3
-bbox = [106.6990073571, 10.7628112647, 106.71767427, 10.7786496202]
-cells = get_cells_bbox(resolution, bbox)
-print(cells)
-for cell in cells['result']['data']:
-    print(cell)
-    geo = grid_ids_to_geos([cell])
-    print(geo)
-    # center_lon, center_lat = geo['result']['data'][0]
+print(gen_point_grid(lon_min, lat_min, lon_max, lat_max, 1, 1, target_crs = ease_crs))
+    
+
+# Coordinates in UTM (EPSG:6933)
+# utm_x, utm_y = grid_id_to_corner_coord('L2.163763.03.11',2)
+lon_min, lat_min, lon_max, lat_max = 106.6990073571, 10.7628112647, 106.71767427, 10.7786496202
+
+# Create a transformer from WGS84 to UTM 6933
+transformer = Transformer.from_crs("EPSG:4326", "EPSG:6933", always_xy=True)
+
+# Transform the bounding box corners to UTM 6933
+utm_min_x, utm_min_y = transformer.transform(lon_min, lat_min)
+utm_max_x, utm_max_y = transformer.transform(lon_max, lat_max)
+
+bound = easedggs_grid_bounds((utm_min_x, utm_min_y,utm_max_x, utm_max_y),ease_crs, 2)
+# print (bound)
+
+
+utm_min_x, utm_min_y, utm_max_x, utm_max_y = 10293204.420126759, 1363219.0218020855, 10299209.790266857, 1369224.3919421826
+
+# Create a transformer from UTM 6933 to WGS84 (EPSG:4326)
+transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
+
+# Transform the bounding box corners back to WGS84
+lon_min, lat_min = transformer.transform(utm_min_x, utm_min_y)
+lon_max, lat_max = transformer.transform(utm_max_x, utm_max_y)
+
+# print (lon_min, lat_min, lon_max, lat_max)
+
+
+# transformer = Transformer.from_crs("EPSG:6933", "EPSG:4326", always_xy=True)
+
+# # Perform the transformation
+# lon, lat = transformer.transform(utm_x, utm_y)
+
+# print(lon, lat)
+
+# print(cells['result']['data'])
+# for cell in cells['result']['data']:
+#     print(cell)
+#     geo = grid_ids_to_geos([cell])
+#     print(geo)
+#     # center_lon, center_lat = geo['result']['data'][0]
         
 # def get_cells(res):
 #     """
