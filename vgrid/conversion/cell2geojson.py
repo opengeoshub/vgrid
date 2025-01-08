@@ -383,37 +383,17 @@ def ease2geojson(ease_cell_id):
     level = int(ease_cell_id[1])  # Get the level (e.g., 'L0' -> 0)
     # Get level specs
     level_spec = levels_specs[level]
-    x_length = level_spec["x_length"]
-    y_length = level_spec["y_length"]
-
-    geo_bounds = grid_spec['geo']
-    min_lon = geo_bounds['min_x']
-    min_lat = geo_bounds['min_y']
-    max_lon = geo_bounds['max_x']
-    max_lat = geo_bounds['max_y']
+    n_row = level_spec["n_row"]
+    n_col = level_spec["n_col"]
+    
     
     geo = grid_ids_to_geos([ease_cell_id])
     center_lon, center_lat = geo['result']['data'][0] 
 
-   
-    n_row = level_spec["n_row"]
-    n_col = level_spec["n_col"]
-    x_length = level_spec["x_length"]
-    y_length = level_spec["y_length"]
-
-    # Calculate the cell indices
-    row = int((max_lat - center_lat) / (180 / n_row))
-    col = int((center_lon - min_lon) / (360 / n_col))
-
-    # # Validate row and col within bounds
-    row = max(0, min(row, n_row - 1))
-    col = max(0, min(col, n_col - 1))
-
-    # Optional: Create a GeoJSON for the cell (bounding box)
-    cell_min_lat = max_lat - (row + 1) * (180 / n_row)
-    cell_max_lat = max_lat - row * (180 / n_row)
-    cell_min_lon = min_lon + col * (360 / n_col)
-    cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+    cell_min_lat = center_lat - (180 / (2 * n_row))
+    cell_max_lat = center_lat + (180 / (2 * n_row))
+    cell_min_lon = center_lon - (360 / (2 * n_col))
+    cell_max_lon = center_lon + (360 / (2 * n_col))
 
     cell_polygon = Polygon([
         [cell_min_lon, cell_min_lat],

@@ -57,13 +57,17 @@
 
 ### EASE-DGGS
 ``` bash
-> latlon2easedggs 10.775275567242561 106.70679737574993 4 # latlon2easedggs <lat> <lon> <res> [0..6]
+> latlon2ease 10.775275567242561 106.70679737574993 6 # latlon2easedggs <lat> <lon> <res> [0..6]
+> ease2geojson L6.165767.02.02.22.45.63.05
+> easegrid -r 5 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # easegrid -r <res> [0..6] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> easestats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
 ### OLC
 ``` bash
-> latlon2olc 10.775275567242561 106.70679737574993 11 # latlon2olc <lat> <lon> <res> [10..15]
+> latlon2olc 10.775275567242561 106.70679737574993 11 # latlon2olc <lat> <lon> <res> [2,4,6,8,10,11,12,13,14,15]
 > olc2geojson 7P28QPG4+4P7
+> olcgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # olcgrid -r <res> [2,4,6,8,10,11,12,13,14,15] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > olcstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
@@ -102,7 +106,7 @@
 ``` bash
 > latlon2quadkey 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..29]
 > quadkey2geojson 13223011131020212310000
-> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..29]
+> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..29] 
 > tilestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
 ```
 

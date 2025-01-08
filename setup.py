@@ -72,7 +72,6 @@ setup(
             'isea3hchildren2geojson = vgrid.utils.eaggr.conversion.children2geojson:children2geojson_cli',  
             
             'ease2geojson = vgrid.conversion.cell2geojson:ease2geojson_cli',  
-
             
             'olc2geojson = vgrid.conversion.cell2geojson:olc2geojson_cli',
             'geohash2geojson = vgrid.conversion.cell2geojson:geohash2geojson_cli',  
@@ -114,8 +113,9 @@ setup(
             'rhealpixstats = vgrid.stats.rhealpixstats:main',
             'isea4tstats = vgrid.stats.isea4tstats:main',
             'isea3hstats = vgrid.stats.isea3hstats:main',
+            'easestats = vgrid.stats.easestats:main',
 
-            # 'olcstats = vgrid.stats.olcstats:main',
+            'olcstats = vgrid.stats.olcstats:main',
             'geohashstats = vgrid.stats.geohashstats:main',
             'georefstats = vgrid.stats.georefstats:main',
             'mgrsstats = vgrid.stats.mgrsstats:main',

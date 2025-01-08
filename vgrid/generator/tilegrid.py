@@ -68,7 +68,7 @@ def generate_grid(resolution,bbox=None):
     return geojson_features
         
 def main():
-    parser = argparse.ArgumentParser(description='Create a debug grid representing the XYZ vector tile scheme as a GeoJSON file.')
+    parser = argparse.ArgumentParser(description='Create a grid representing the XYZ vector tile scheme as a GeoJSON file.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..26]')
     parser.add_argument('-b', '--bbox', type=float, nargs=4,  help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)") 
 

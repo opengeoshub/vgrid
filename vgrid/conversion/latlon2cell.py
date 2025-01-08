@@ -232,7 +232,7 @@ def latlon2ease_cli():
     
 
 def latlon2olc(lat,lon,res=11):
-    # res: [10..15]        
+    # res: [2,4,6,8,10..15]        
     olc_cell = olc.encode(lat, lon, res)
     return olc_cell
 
@@ -241,16 +241,16 @@ def latlon2olc_cli():
     Command-line interface for latlon2olc.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to OLC/ Google Plus Code at a specific Code length [10..15]. \
-                                     Usage: latlon2olc <lat> <lon> <res> [10..15]. \
+                                     Usage: latlon2olc <lat> <lon> <res> [2,4,6,8,10..15]. \
                                      Ex: latlon2olc 10.775275567242561 106.70679737574993 11")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution/ Code length [10..15]")
+    parser.add_argument("res",type=int, help="Input Resolution/ Code length [2,4,6,8,10..15]")
     args = parser.parse_args()
     
     res = args.res
-    if res < 10 or res > 15:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [10..15].")
+    if res not in [2,4,6,8,10,11,12,13,14,15]:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [2,4,6,8,10..15].")
         return  
     
     olc_cell = latlon2olc(args.lat,args.lon,res)

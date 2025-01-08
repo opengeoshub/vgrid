@@ -1,10 +1,10 @@
 import argparse 
 import json
-from shapely.geometry import mapping, Polygon, box
+from shapely.geometry import mapping, Point, Polygon, box
 from tqdm import tqdm
 from pyproj import Geod
 import locale
-from vgrid.utils.easedggs.constants import grid_spec, levels_specs, ease_crs, geo_crs
+from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geo_polygon_to_grid_ids
 
 # Initialize the geodetic model
@@ -74,20 +74,24 @@ def generate_grid(resolution):
         for cell in chunk:
             geo = grid_ids_to_geos([cell])
             center_lon, center_lat = geo['result']['data'][0]
+            cell_min_lat = center_lat - (180 / (2 * n_row))
+            cell_max_lat = center_lat + (180 / (2 * n_row))
+            cell_min_lon = center_lon - (360 / (2 * n_col))
+            cell_max_lon = center_lon + (360 / (2 * n_col))
 
-           # Calculate the cell indices
-            row = int((max_lat - center_lat) / (180 / n_row))
-            col = int((center_lon - min_lon) / (360 / n_col))
+        #    # Calculate the cell indices
+        #     row = int((max_lat - center_lat) / (180 / n_row))
+        #     col = int((center_lon - min_lon) / (360 / n_col))
 
-            # Validate row and col within bounds
-            row = max(0, min(row, n_row - 1))
-            col = max(0, min(col, n_col - 1))
+        #     # Validate row and col within bounds
+        #     row = max(0, min(row, n_row - 1))
+        #     col = max(0, min(col, n_col - 1))
 
-            # Optional: Create a GeoJSON for the cell (bounding box)
-            cell_min_lat = max_lat - (row + 1) * (180 / n_row)
-            cell_max_lat = max_lat - row * (180 / n_row)
-            cell_min_lon = min_lon + col * (360 / n_col)
-            cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+        #     # Optional: Create a GeoJSON for the cell (bounding box)
+        #     cell_min_lat = max_lat - (row + 1) * (180 / n_row)
+        #     cell_max_lat = max_lat - row * (180 / n_row)
+        #     cell_min_lon = min_lon + col * (360 / n_col)
+        #     cell_max_lon = min_lon + (col + 1) * (360 / n_col)
 
             cell_polygon = Polygon([
                 [cell_min_lon, cell_min_lat],
@@ -126,20 +130,8 @@ def generate_grid(resolution):
 
     return geojson_features
 
-def generate_grid_bbox(resolution, bbox):
-    features = []
-    geo_bounds = grid_spec['geo']
-    min_lon = geo_bounds['min_x']
-    min_lat = geo_bounds['min_y']
-    max_lon = geo_bounds['max_x']
-    max_lat = geo_bounds['max_y']
-    
-    level_spec = levels_specs[resolution]
-    n_row = level_spec["n_row"]
-    n_col = level_spec["n_col"]
-    x_length = level_spec["x_length"]
-    y_length = level_spec["y_length"]
-
+def generate_grid_bbox_point(resolution, bbox):
+    features = []  
     # Get all grid cells within the bounding box
     cells = get_cells_bbox(resolution, bbox)['result']['data']   
    
@@ -149,19 +141,45 @@ def generate_grid_bbox(resolution, bbox):
             geo = grid_ids_to_geos([cell])
             if geo:
                 center_lon, center_lat = geo['result']['data'][0]
-                  # Calculate the cell indices
-                row = int((max_lat - center_lat) / (180 / n_row))
-                col = int((center_lon - min_lon) / (360 / n_col))
+                cell_point = Point(center_lon, center_lat)           
+                features.append({
+                "type": "Feature",
+                "geometry": mapping(cell_point),
+                "properties": {
+                    "ease": cell,
+                    "center_lat": round(center_lat, 7),
+                    "center_lon": round(center_lon, 7),               
+                    "resolution": resolution,
+                    }
+                })
 
-                # # Validate row and col within bounds
-                row = max(0, min(row, n_row - 1))
-                col = max(0, min(col, n_col - 1))
+        # Create GeoJSON FeatureCollection
+        geojson_features = {
+            "type": "FeatureCollection",
+            "features": features
+        }
 
-                # Optional: Create a GeoJSON for the cell (bounding box)
-                cell_min_lat = max_lat - (row + 1) * (180 / n_row)
-                cell_max_lat = max_lat - row * (180 / n_row)
-                cell_min_lon = min_lon + col * (360 / n_col)
-                cell_max_lon = min_lon + (col + 1) * (360 / n_col)
+        return geojson_features
+
+def generate_grid_bbox(resolution, bbox):
+    features = []
+    level_spec = levels_specs[resolution]
+    n_row = level_spec["n_row"]
+    n_col = level_spec["n_col"]
+
+    # Get all grid cells within the bounding box
+    cells = get_cells_bbox(resolution, bbox)['result']['data']   
+   
+    if cells:
+        # Use tqdm for progress bar, processing cells sequentially
+        for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+            geo = grid_ids_to_geos([cell])
+            if geo:
+                center_lon, center_lat = geo['result']['data'][0]            
+                cell_min_lat = center_lat - (180 / (2 * n_row))
+                cell_max_lat = center_lat + (180 / (2 * n_row))
+                cell_min_lon = center_lon - (360 / (2 * n_col))
+                cell_max_lon = center_lon + (360 / (2 * n_col))
 
                 cell_polygon = Polygon([
                     [cell_min_lon, cell_min_lat],
@@ -202,6 +220,7 @@ def generate_grid_bbox(resolution, bbox):
 
         return geojson_features
 
+
 def main():
     parser = argparse.ArgumentParser(description='Create a debug EaseGrid based on XYZ vector tile scheme as a GeoJSON file.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..6]')
@@ -235,7 +254,7 @@ def main():
         
         if geojson_features:
             # Define the GeoJSON file path
-            geojson_path = f"easegrid_{resolution}.geojson"
+            geojson_path = f"ease_grid_{resolution}.geojson"
             with open(geojson_path, 'w') as f:
                 json.dump(geojson_features, f, indent=2)
 
@@ -252,11 +271,11 @@ def main():
             return
 
         # Start generating and saving the grid in chunks
-        geojson_features = generate_grid_bbox(resolution, bbox)
+        geojson_features = generate_grid_bbox_point(resolution, bbox)
         
         if geojson_features:
             # Define the GeoJSON file path
-            geojson_path = f"easegrid_bbox_{resolution}.geojson"
+            geojson_path = f"ease_grid_bbox_{resolution}.geojson"
             with open(geojson_path, 'w') as f:
                 json.dump(geojson_features, f, indent=2)
 

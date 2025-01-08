@@ -3,7 +3,7 @@ from vgrid.conversion.cell2geojson import *
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
 
-olc_resolution = 11 #[10..15]
+olc_resolution = 15 #[10..15]
 olc_code = olc.encode(latitude, longitude, olc_resolution)
 olc_decode = olc.decode(olc_code)
 print(f'OLC at resolution = {olc_resolution}: {olc_code}')
