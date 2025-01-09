@@ -12,7 +12,6 @@ requirements = [
     'pyproj',
     'pyclipper~=1.3.0',
     'h3~=4.1.1',
-    'pandas~=2.0.3',
     'geopandas',
     'scipy',
     'future',
@@ -31,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.1',
+    version='1.2.2',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
