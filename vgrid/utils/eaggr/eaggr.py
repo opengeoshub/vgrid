@@ -436,57 +436,59 @@ class Eaggr(object):
     #        they must be manually loaded beforehand so the EAGGR library DLL can find them.
     #  @throw IOError Thrown if unable to open a handle to one of the DLLs.
     def _open_dlls(self):
-        # DLL directories and filenames depend on the platform
-        if (platform.system() == 'Windows'):
-            proj_library_name = 'libproj-9.dll'
-            gdal_library_name = 'libgdal-20.dll'
-            dggs_library_name = 'eaggr.dll'
-            if platform.architecture()[0] == '64bit':
-                gcc_library_name = 'libgcc_s_seh-1.dll'
-                dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'win32-x86-64')
+        try: # to handle the error in Linux
+            # DLL directories and filenames depend on the platform
+            if (platform.system() == 'Windows'):
+                proj_library_name = 'libproj-9.dll'
+                gdal_library_name = 'libgdal-20.dll'
+                dggs_library_name = 'eaggr.dll'
+                if platform.architecture()[0] == '64bit':
+                    gcc_library_name = 'libgcc_s_seh-1.dll'
+                    dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'win32-x86-64')
+                else:
+                    gcc_library_name = 'libgcc_s_dw2-1.dll'
+                    dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'win32-x86')
             else:
-                gcc_library_name = 'libgcc_s_dw2-1.dll'
-                dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'win32-x86')
-        else:
-            proj_library_name = 'libproj.so'
-            gdal_library_name = 'libgdal.so'
-            dggs_library_name = 'libeaggr.so'
-            dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'linux-x86-64')
-        # Check the chosen DLL directory exists
-        if not os.path.exists(dll_dir):
-            raise IOError('Cannot find DLL directory - ' + dll_dir)
-        # Load MinGW DLLs in the correct order (required on Windows only)
-        if (platform.system() == 'Windows'):
-            thread_path = os.path.join(dll_dir, 'libwinpthread-1.dll')
-            if not os.path.isfile(thread_path):
-                raise IOError('Cannot find the Windows thread library - ' + thread_path)
-            Eaggr._proj_dll_handle = cdll.LoadLibrary(thread_path)
-            gcc_path = os.path.join(dll_dir, gcc_library_name)
-            if not os.path.isfile(gcc_path):
-                raise IOError('Cannot find the GCC library - ' + gcc_path)
-            Eaggr._proj_dll_handle = cdll.LoadLibrary(gcc_path)
-            stdc_path = os.path.join(dll_dir, 'libstdc++-6.dll')
-            if not os.path.isfile(stdc_path):
-                raise IOError('Cannot find the std C++ library - ' + stdc_path)
-            Eaggr._proj_dll_handle = cdll.LoadLibrary(stdc_path)
-        # Load Proj4 and GDAL library DLLs
-        proj_path = os.path.join(dll_dir, proj_library_name)
-        if not os.path.isfile(proj_path):
-            raise IOError('Cannot find the Proj4 library - ' + proj_path)
-        Eaggr._proj_dll_handle = cdll.LoadLibrary(proj_path)
-        gdal_path = os.path.join(dll_dir, gdal_library_name)
-        if not os.path.isfile(gdal_path):
-            raise IOError('Cannot find the GDAL library - ' + gdal_path)
-        Eaggr._gdal_dll_handle = cdll.LoadLibrary(gdal_path)
-        # Now load the EAGGR DLL
-        dggs_path = os.path.join(dll_dir, dggs_library_name)
-        if not os.path.isfile(dggs_path):
-            raise IOError('Cannot find the EAGGR library - ' + dggs_path)
-        Eaggr._eaggr_dll_handle = cdll.LoadLibrary(dggs_path)
-        Eaggr._eaggr_dll = CDLL(dggs_path)
-        if Eaggr._eaggr_dll is None:
-            raise IOError('Unable to open handle to EAGGR DLL')
-
+                proj_library_name = 'libproj.so'
+                gdal_library_name = 'libgdal.so'
+                dggs_library_name = 'libeaggr.so'
+                dll_dir = os.path.join(os.path.dirname(__file__), 'dlls', 'linux-x86-64')
+            # Check the chosen DLL directory exists
+            if not os.path.exists(dll_dir):
+                raise IOError('Cannot find DLL directory - ' + dll_dir)
+            # Load MinGW DLLs in the correct order (required on Windows only)
+            if (platform.system() == 'Windows'):
+                thread_path = os.path.join(dll_dir, 'libwinpthread-1.dll')
+                if not os.path.isfile(thread_path):
+                    raise IOError('Cannot find the Windows thread library - ' + thread_path)
+                Eaggr._proj_dll_handle = cdll.LoadLibrary(thread_path)
+                gcc_path = os.path.join(dll_dir, gcc_library_name)
+                if not os.path.isfile(gcc_path):
+                    raise IOError('Cannot find the GCC library - ' + gcc_path)
+                Eaggr._proj_dll_handle = cdll.LoadLibrary(gcc_path)
+                stdc_path = os.path.join(dll_dir, 'libstdc++-6.dll')
+                if not os.path.isfile(stdc_path):
+                    raise IOError('Cannot find the std C++ library - ' + stdc_path)
+                Eaggr._proj_dll_handle = cdll.LoadLibrary(stdc_path)
+            # Load Proj4 and GDAL library DLLs
+            proj_path = os.path.join(dll_dir, proj_library_name)
+            if not os.path.isfile(proj_path):
+                raise IOError('Cannot find the Proj4 library - ' + proj_path)
+            Eaggr._proj_dll_handle = cdll.LoadLibrary(proj_path)
+            gdal_path = os.path.join(dll_dir, gdal_library_name)
+            if not os.path.isfile(gdal_path):
+                raise IOError('Cannot find the GDAL library - ' + gdal_path)
+            Eaggr._gdal_dll_handle = cdll.LoadLibrary(gdal_path)
+            # Now load the EAGGR DLL
+            dggs_path = os.path.join(dll_dir, dggs_library_name)
+            if not os.path.isfile(dggs_path):
+                raise IOError('Cannot find the EAGGR library - ' + dggs_path)
+            Eaggr._eaggr_dll_handle = cdll.LoadLibrary(dggs_path)
+            Eaggr._eaggr_dll = CDLL(dggs_path)
+            if Eaggr._eaggr_dll is None:
+                raise IOError('Unable to open handle to EAGGR DLL')
+        except:
+            return
     ## Deallocates the memory used by the DGGS shapes that are output from the DLL.
     #  @param output_shapes Array containing the DGGS shapes.
     #  @param no_of_shapes Number of shapes in the array.

@@ -55,6 +55,12 @@
 > isea3hstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
+### DGGRID
+``` bash
+> fixdggridgeojson input.geojson # Fix GeoJSON content errors and antimediridan
+```
+
+
 ### EASE-DGGS
 ``` bash
 > latlon2ease 10.775275567242561 106.70679737574993 6 # latlon2easedggs <lat> <lon> <res> [0..6]

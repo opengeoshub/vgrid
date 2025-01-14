@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.2',
+    version='1.2.3',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -49,6 +49,8 @@ setup(
             'latlon2isea4t = vgrid.conversion.latlon2cell:latlon2isea4t_cli',  
             'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
             'latlon2ease = vgrid.conversion.latlon2cell:latlon2ease_cli',
+            
+            'latlon2dggrid = vgrid.conversion.latlon2cell:latlon2ease_cli',
             
             'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
             'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
@@ -96,6 +98,7 @@ setup(
             'isea4tgrid = vgrid.generator.isea4tgrid:main',
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
             'easegrid = vgrid.generator.easegrid:main',
+            'dggrid = vgrid.generator.dggrid:main',
 
             'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',    
@@ -123,6 +126,11 @@ setup(
             'maidenheadstats = vgrid.stats.maidenheadstats:main',
             'garsstats = vgrid.stats.garsstats:main',
 
+            # DGGRID Corrections
+            'dggridfixcontent = vgrid.correction.dggridfixcontent:main',
+            'dggridfixgeom = vgrid.correction.dggridfixgeom:main',       
+            'dggridfixgeom2 = vgrid.correction.dggridfixgeom2:main',            
+            'dggridfix = vgrid.correction.dggridfix:main',    
         ],
     },    
 

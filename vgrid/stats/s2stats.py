@@ -15,7 +15,7 @@ def s2_metrics(res):
     return num_cells, avg_edge_length, avg_area
 
 
-def s2_stats(min_res=0, max_res=22, output_file=None):
+def s2_stats(min_res=0, max_res=30, output_file=None):
 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
@@ -48,7 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export or display S2 DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=22, help="Maximum resolution.")
+    parser.add_argument('-maxres','--maxres', type=int, default=30, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)

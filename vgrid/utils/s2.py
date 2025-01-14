@@ -1,3 +1,5 @@
+# Reference: https://github.com/sidewalklabs/s2sphere/blob/master/s2sphere/sphere.py
+
 from __future__ import print_function, unicode_literals, division
 
 from future.builtins import int

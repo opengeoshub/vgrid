@@ -222,7 +222,7 @@ def generate_grid_bbox(resolution, bbox):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Create a debug EaseGrid based on XYZ vector tile scheme as a GeoJSON file.')
+    parser = argparse.ArgumentParser(description='Create an EASEGrid as a GeoJSON file.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..6]')
     parser.add_argument('-b', '--bbox', type=float, nargs=4, help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)")
 
