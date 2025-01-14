@@ -1,20 +1,21 @@
 import locale
 import argparse
 import csv
-from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.utils.eaggr.eaggr import Eaggr
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from vgrid.conversion.latlon2cell import latlon2isea3h
 from texttable import Texttable
-
+import platform 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
-
 current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
-isea3h_dggs = Eaggr(Model.ISEA3H)
+
+if (platform.system() == 'Windows'):
+    from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+    from vgrid.utils.eaggr.eaggr import Eaggr
+    from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+    from vgrid.utils.eaggr.enums.model import Model
+    
 
 def fix_eaggr_wkt(eaggr_wkt):
     # Extract the coordinate section
@@ -26,7 +27,7 @@ def fix_eaggr_wkt(eaggr_wkt):
     fixed_coords = ", ".join(coords)
     return f"POLYGON (({fixed_coords}))"
 
-def isea3h_metrics(res):    
+def isea3h_metrics(isea3h_dggs,res):    
     num_cells = 20*(7**res)
     lat,lon = 10.775275567242561, 106.70679737574993
 
@@ -46,7 +47,7 @@ def isea3h_metrics(res):
             
     return num_cells, avg_edge_length, avg_area, accuracy
 
-def isea3h_stats(min_res=0, max_res=40, output_file=None):    
+def isea3h_stats(isea3h_dggs, min_res=0, max_res=40, output_file=None):    
     t = Texttable()    
     # Add header to the table, including the new 'Cell Width' and 'Cell Area' columns
     t.add_row(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)", "Accucracy"])
@@ -59,12 +60,12 @@ def isea3h_stats(min_res=0, max_res=40, output_file=None):
             writer.writerow(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)", "Accucracy"])
             
             for res in range(min_res, max_res + 1):
-                num_cells, avg_edge_length, avg_area, accuracy = isea3h_metrics(res)              
+                num_cells, avg_edge_length, avg_area, accuracy = isea3h_metrics(isea3h_dggs,res)              
                 writer.writerow([res, num_cells, avg_edge_length, avg_area, accuracy])
         print(f'OpenEAGGGR ISEA3H stats saved to {output_file}.')
     else:
         for res in range(min_res, max_res + 1):
-            num_cells, avg_edge_length, avg_area,accuracy = isea3h_metrics(res)
+            num_cells, avg_edge_length, avg_area,accuracy = isea3h_metrics(isea3h_dggs,res)
             formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)            
             formatted_edge_length = locale.format_string("%.3f", avg_edge_length, grouping=True)            
             formatted_area = locale.format_string("%.3f", avg_area, grouping=True)            
@@ -82,9 +83,10 @@ def main():
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
     parser.add_argument('-maxres','--maxres', type=int, default=40, help="Maximum resolution.")
     args = parser.parse_args()
-
-    # Call the function with the provided output file (if any)
-    isea3h_stats(args.minres, args.maxres, args.output)
+    if (platform.system() == 'Windows'):   
+        isea3h_dggs = Eaggr(Model.ISEA3H)   
+        # Call the function with the provided output file (if any)
+        isea3h_stats(isea3h_dggs, args.minres, args.maxres, args.output)
 
 if __name__ == "__main__":
     main()

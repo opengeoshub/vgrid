@@ -5,11 +5,14 @@ from vgrid.utils.gars.garsgrid import GARSGrid
 
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+import platform 
 
-from vgrid.utils.eaggr.eaggr import Eaggr
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.utils.eaggr.enums.model import Model
+if (platform.system() == 'Windows'):
+    from vgrid.utils.eaggr.eaggr import Eaggr
+    from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+    from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
+    from vgrid.utils.eaggr.enums.model import Model
+
 
 from vgrid.utils.easedggs.dggs.grid_addressing import geos_to_grid_ids
 
@@ -97,14 +100,15 @@ def latlon2rhealpix_cli():
     print(rhealpix_cell)
 
 def latlon2isea4t(lat,lon,res=21):
-    # res: [0..39]
-    isea4t_dggs = Eaggr(Model.ISEA4T)
-    max_accuracy =  7.90*10**(-10) # maximum cell_id length with 41 characters, 2.55*10**13 is min cell_id length with 2 chacracters
-    lat_long_point = LatLongPoint(lat, lon, max_accuracy)
-    isea4t_cell_max_accuracy = isea4t_dggs.convert_point_to_dggs_cell(lat_long_point)
-    cell_id_len = res+2
-    isea4t_cell = DggsCell(isea4t_cell_max_accuracy._cell_id[:cell_id_len])
-    return isea4t_cell._cell_id
+    if (platform.system() == 'Windows'):
+        # res: [0..39]
+        isea4t_dggs = Eaggr(Model.ISEA4T)
+        max_accuracy =  7.90*10**(-10) # maximum cell_id length with 41 characters, 2.55*10**13 is min cell_id length with 2 chacracters
+        lat_long_point = LatLongPoint(lat, lon, max_accuracy)
+        isea4t_cell_max_accuracy = isea4t_dggs.convert_point_to_dggs_cell(lat_long_point)
+        cell_id_len = res+2
+        isea4t_cell = DggsCell(isea4t_cell_max_accuracy._cell_id[:cell_id_len])
+        return isea4t_cell._cell_id
 
 def latlon2isea4t_cli():
     """
@@ -128,59 +132,60 @@ def latlon2isea4t_cli():
 
 
 def latlon2isea3h(lat,lon,res=27):
-    # res: [0..40], res=27 is suitable for geocoding
-    isea3h_dggs = Eaggr(Model.ISEA3H)  
-    
-    res_accuracy_dict = {
-        0: 25_503_281_086_204.43,
-        1: 17_002_187_390_802.953,
-        2: 5_667_395_796_934.327,
-        3: 1_889_131_932_311.4424,
-        4: 629_710_644_103.8047,
-        5: 209_903_548_034.5921,
-        6: 69_967_849_344.8546,
-        7: 23_322_616_448.284866,
-        8: 7_774_205_482.77106,
-        9: 2_591_401_827.5809155,
-        10: 863_800_609.1842003,
-        11: 287_933_536.4041716,
-        12: 95_977_845.45861907,
-        13: 31_992_615.152873024,
-        14: 10_664_205.060395785,
-        15: 3_554_735.0295700384,
-        16: 1_184_911.6670852362,
-        17: 394_970.54625696875,
-        18: 131_656.84875232293,
-        19: 43_885.62568888426, 
-        20: 14628.541896294753,
-        21: 4_876.180632098251,
-        22: 1_625.3841059227952,
-        23: 541.7947019742651,
-        24: 180.58879588146658,
-        25: 60.196265293822194,
-        26: 20.074859874562527,
-        27: 6.6821818482323785,
-        28: 2.2368320593659234,
-        29: 0.7361725765001773,
-        30: 0.2548289687885229,
-        31: 0.0849429895961743,
-        32: 0.028314329865391435,
-       
-        33: 0.009438109955130478, # accuracy returns 0.0 from now on 
-        34: 0.0031460366517101594,  
-        35: 0.0010486788839033865,      
-        36: 0.0003495596279677955, 
-        37: 0.0001165198769892652,   
-        38: 0.0000388399589964217,
-        39: 0.0000129466529988072,      
-        40: 0.0000043155509996024
-    }    
-    
-    accuracy = res_accuracy_dict.get(res)            
-    lat_long_point = LatLongPoint(lat, lon, accuracy)
-    isea3h_cell = isea3h_dggs.convert_point_to_dggs_cell(lat_long_point)
+    if (platform.system() == 'Windows'):
+        # res: [0..40], res=27 is suitable for geocoding
+        isea3h_dggs = Eaggr(Model.ISEA3H)  
+        
+        res_accuracy_dict = {
+            0: 25_503_281_086_204.43,
+            1: 17_002_187_390_802.953,
+            2: 5_667_395_796_934.327,
+            3: 1_889_131_932_311.4424,
+            4: 629_710_644_103.8047,
+            5: 209_903_548_034.5921,
+            6: 69_967_849_344.8546,
+            7: 23_322_616_448.284866,
+            8: 7_774_205_482.77106,
+            9: 2_591_401_827.5809155,
+            10: 863_800_609.1842003,
+            11: 287_933_536.4041716,
+            12: 95_977_845.45861907,
+            13: 31_992_615.152873024,
+            14: 10_664_205.060395785,
+            15: 3_554_735.0295700384,
+            16: 1_184_911.6670852362,
+            17: 394_970.54625696875,
+            18: 131_656.84875232293,
+            19: 43_885.62568888426, 
+            20: 14628.541896294753,
+            21: 4_876.180632098251,
+            22: 1_625.3841059227952,
+            23: 541.7947019742651,
+            24: 180.58879588146658,
+            25: 60.196265293822194,
+            26: 20.074859874562527,
+            27: 6.6821818482323785,
+            28: 2.2368320593659234,
+            29: 0.7361725765001773,
+            30: 0.2548289687885229,
+            31: 0.0849429895961743,
+            32: 0.028314329865391435,
+        
+            33: 0.009438109955130478, # accuracy returns 0.0 from now on 
+            34: 0.0031460366517101594,  
+            35: 0.0010486788839033865,      
+            36: 0.0003495596279677955, 
+            37: 0.0001165198769892652,   
+            38: 0.0000388399589964217,
+            39: 0.0000129466529988072,      
+            40: 0.0000043155509996024
+        }    
+        
+        accuracy = res_accuracy_dict.get(res)            
+        lat_long_point = LatLongPoint(lat, lon, accuracy)
+        isea3h_cell = isea3h_dggs.convert_point_to_dggs_cell(lat_long_point)
 
-    return isea3h_cell.get_cell_id()
+        return isea3h_cell.get_cell_id()
 
 def latlon2isea3h_cli():
     """
@@ -229,8 +234,6 @@ def latlon2ease_cli():
     easedggs_cell = latlon2ease(args.lat,args.lon,res)
     print(easedggs_cell)
     
-    
-
 def latlon2olc(lat,lon,res=11):
     # res: [2,4,6,8,10..15]        
     olc_cell = olc.encode(lat, lon, res)

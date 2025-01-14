@@ -1,21 +1,22 @@
 import locale
 import argparse
 import csv
-from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
-from vgrid.utils.eaggr.eaggr import Eaggr
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from vgrid.conversion.latlon2cell import latlon2isea4t
 from texttable import Texttable
+import platform 
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
 current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+if (platform.system() == 'Windows'):
+    from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+    from vgrid.utils.eaggr.eaggr import Eaggr
+    from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+    from vgrid.utils.eaggr.enums.model import Model
 
-isea4t_dggs = Eaggr(Model.ISEA4T)
 
 def fix_eaggr_wkt(eaggr_wkt):
     # Extract the coordinate section
@@ -27,7 +28,7 @@ def fix_eaggr_wkt(eaggr_wkt):
     fixed_coords = ", ".join(coords)
     return f"POLYGON (({fixed_coords}))"
 
-def isea4t_metrics(res):
+def isea4t_metrics(isea4t_dggs,res):
     num_cells = 20*(4**res)   
     lat,lon = 10.775275567242561, 106.70679737574993
     eaggr_cell = DggsCell(latlon2isea4t(lat,lon,res))
@@ -43,7 +44,7 @@ def isea4t_metrics(res):
     avg_edge_length = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3  # Perimeter in meters/ 3      
     return num_cells, avg_edge_length, avg_area, accuracy
 
-def isea4t_stats(min_res=0, max_res=39, output_file=None):
+def isea4t_stats(isea4t_dggs, min_res=0, max_res=39, output_file=None):
     
     t = Texttable()
     
@@ -59,12 +60,12 @@ def isea4t_stats(min_res=0, max_res=39, output_file=None):
             
             # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res):
-                num_cells, avg_edge_length, avg_area, accuracy = isea4t_metrics(res)              
+                num_cells, avg_edge_length, avg_area, accuracy = isea4t_metrics(isea4t_dggs, res)              
                 writer.writerow([res, num_cells, avg_edge_length, avg_area,accuracy])
         print(f'OpenEAGGGR ISEA4T stats saved to {output_file}.')
     else:
         for res in range(min_res, max_res+1):
-            num_cells, avg_edge_length, avg_area,accuracy = isea4t_metrics(res)  
+            num_cells, avg_edge_length, avg_area,accuracy = isea4t_metrics(isea4t_dggs,res)  
             formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)
             formatted_edge_length = locale.format_string("%.5f", avg_edge_length, grouping=True)            
             formatted_area = locale.format_string("%.5f", avg_area, grouping=True)   
@@ -82,9 +83,11 @@ def main():
     parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
     parser.add_argument('-maxres','--maxres', type=int, default=39, help="Maximum resolution.")
     args = parser.parse_args()
-
-    # Call the function with the provided output file (if any)
-    isea4t_stats(args.minres, args.maxres, args.output)
+    
+    if (platform.system() == 'Windows'):
+        isea4t_dggs = Eaggr(Model.ISEA4T)
+        # Call the function with the provided output file (if any)
+        isea4t_stats(isea4t_dggs, args.minres, args.maxres, args.output)
 
 if __name__ == "__main__":
     main()

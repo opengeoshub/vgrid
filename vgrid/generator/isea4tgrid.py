@@ -10,6 +10,7 @@ from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
+import platform
 
 import locale
 current_locale = locale.getlocale()  # Get the current locale setting
@@ -22,11 +23,10 @@ base_cells = [
     '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
 ]
 max_cells = 1_000_000
-eaggr_dggs = Eaggr(Model.ISEA4T)
 
-def fix_isea4t_wkt(eaggr_wkt):
+def fix_isea4t_wkt(isea4t_wkt):
     # Extract the coordinate section
-    coords_section = eaggr_wkt[eaggr_wkt.index("((") + 2 : eaggr_wkt.index("))")]
+    coords_section = isea4t_wkt[isea4t_wkt.index("((") + 2 : isea4t_wkt.index("))")]
     coords = coords_section.split(",")
     # Append the first point to the end if not already closed
     if coords[0] != coords[-1]:
@@ -47,14 +47,14 @@ def fix_isea4t_antimeridian_cells(isea4t_boundary, threshold=-100):
 
     return Polygon(adjusted_coords)
 
-def cell_to_polygon(eaggr_cell):
-    cell_to_shp =  eaggr_dggs.convert_dggs_cell_outline_to_shape_string(eaggr_cell, ShapeStringFormat.WKT)
+def cell_to_polygon(isea4t_dggs,isea4t_cell):
+    cell_to_shp =  isea4t_dggs.convert_dggs_cell_outline_to_shape_string(isea4t_cell, ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_isea4t_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     return cell_polygon
 
 
-def get_children_cells(base_cells, target_resolution):
+def get_children_cells(isea4t_dggs,base_cells, target_resolution):
     """
     Recursively generate DGGS cells for the desired resolution.
     """
@@ -62,12 +62,12 @@ def get_children_cells(base_cells, target_resolution):
     for res in range(target_resolution):
         next_cells = []
         for cell in tqdm(current_cells, desc= f"Generating child cells at resolution {res}", unit=" cells"):
-            children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
+            children = isea4t_dggs.get_dggs_cell_children(DggsCell(cell))
             next_cells.extend([child._cell_id for child in children])
         current_cells = next_cells
     return current_cells
 
-def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
+def get_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resolution):
     """
     Recursively generate child cells for the given bounding cell up to the target resolution,
     considering only cells that intersect with the given bounding box.
@@ -87,10 +87,10 @@ def get_children_cells_within_bbox(bounding_cell, bbox, target_resolution):
         next_cells = []
         for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit=" cells"):
             # Get the child cells for the current cell
-            children = eaggr_dggs.get_dggs_cell_children(DggsCell(cell))
+            children = isea4t_dggs.get_dggs_cell_children(DggsCell(cell))
             for child in children:
                 # Convert child cell to geometry
-                child_shape = cell_to_polygon(child)
+                child_shape = cell_to_polygon(isea4t_dggs, child)
                 if child_shape.intersects(bbox):              
                     # Add the child cell ID to the next_cells list
                     next_cells.append(child._cell_id)  
@@ -187,22 +187,22 @@ res_accuracy_dict = {
     39: 7.90*10**-10 # accuracy returns 0.0, avg_edge_len = 10**(-5)
     }       
 
-def generate_grid(resolution):
+def generate_grid(isea4t_dggs, resolution):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
     accuracy = res_accuracy_dict.get(resolution)
-    children = get_children_cells(base_cells, resolution)
+    children = get_children_cells(isea4t_dggs, base_cells, resolution)
     features = []
     for child in tqdm(children, desc="Processing cells", unit=" cells"):
-        eaggr_cell = DggsCell(child)
-        cell_polygon = cell_to_polygon(eaggr_cell)
-        eaggr_cell_id = eaggr_cell.get_cell_id()
+        isea4t_cell = DggsCell(child)
+        cell_polygon = cell_to_polygon(isea4t_dggs, isea4t_cell)
+        isea4t_cell_id = isea4t_cell.get_cell_id()
 
         if resolution == 0:
             cell_polygon = fix_polygon(cell_polygon)
-        elif eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09')\
-            or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+        elif isea4t_cell_id.startswith('00') or isea4t_cell_id.startswith('09')\
+            or isea4t_cell_id.startswith('14') or isea4t_cell_id.startswith('04') or isea4t_cell_id.startswith('19'):
             cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
         
         cell_centroid = cell_polygon.centroid
@@ -216,7 +216,7 @@ def generate_grid(resolution):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                    "eaggr_isea4t": eaggr_cell_id,
+                    "eaggr_isea4t": isea4t_cell_id,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
                     "cell_area": cell_area,
@@ -233,25 +233,25 @@ def generate_grid(resolution):
         }
 
    
-def generate_grid_within_bbox(resolution,bbox):
+def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
     accuracy = res_accuracy_dict.get(resolution)
 
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
-    shapes = eaggr_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
+    shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
     for shape in shapes:
         bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-        bounding_cell = eaggr_dggs.get_bounding_dggs_cell(bbox_cells)
-        bounding_children_cells = get_children_cells_within_bbox(bounding_cell.get_cell_id(), bounding_box,resolution)
+        bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
+        bounding_children_cells = get_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
         features = []
         for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-            eaggr_cell = DggsCell(child)
-            cell_polygon = cell_to_polygon(eaggr_cell)
-            eaggr_cell_id = eaggr_cell.get_cell_id()
+            isea4t_cell = DggsCell(child)
+            cell_polygon = cell_to_polygon(isea4t_dggs,isea4t_cell)
+            isea4t_cell_id = isea4t_cell.get_cell_id()
             if resolution == 0:
                 cell_polygon = fix_polygon(cell_polygon)
             
-            elif eaggr_cell_id.startswith('00') or eaggr_cell_id.startswith('09') or eaggr_cell_id.startswith('14') or eaggr_cell_id.startswith('04') or eaggr_cell_id.startswith('19'):
+            elif isea4t_cell_id.startswith('00') or isea4t_cell_id.startswith('09') or isea4t_cell_id.startswith('14') or isea4t_cell_id.startswith('04') or isea4t_cell_id.startswith('19'):
                 cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
             
             cell_centroid = cell_polygon.centroid
@@ -266,7 +266,7 @@ def generate_grid_within_bbox(resolution,bbox):
                     "type": "Feature",
                     "geometry": mapping(cell_polygon),
                     "properties": {
-                            "eaggr_isea4t": eaggr_cell_id,
+                            "eaggr_isea4t": isea4t_cell_id,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
                             "cell_area": cell_area,
@@ -292,41 +292,42 @@ def main():
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"
     )
-
-    args = parser.parse_args()
-    resolution = args.resolution
-    bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     
-    if bbox == [-180, -90, 180, 90]:        
-        num_cells = 20*(4**resolution)
-        if num_cells > max_cells:
-            print(
-                f"The selected resolution will generate "
-                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-            )
-            print("Please select a smaller resolution and try again.")
-            return
-        
-        geojson = generate_grid(resolution)
-        geojson_path = f"isea4t_grid_{resolution}.geojson"
+    if (platform.system() == 'Windows'):
+        isea4t_dggs = Eaggr(Model.ISEA4T)
+        args = parser.parse_args()
+        resolution = args.resolution
+        bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
+        if bbox == [-180, -90, 180, 90]:        
+            num_cells = 20*(4**resolution)
+            if num_cells > max_cells:
+                print(
+                    f"The selected resolution will generate "
+                    f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
+                    f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+                )
+                print("Please select a smaller resolution and try again.")
+                return
+            
+            geojson = generate_grid(isea4t_dggs,resolution)
+            geojson_path = f"isea4t_grid_{resolution}.geojson"
 
-        with open(geojson_path, 'w', encoding='utf-8') as f:
-            json.dump(geojson, f, ensure_ascii=False, indent=4)
+            with open(geojson_path, 'w', encoding='utf-8') as f:
+                json.dump(geojson, f, ensure_ascii=False, indent=4)
 
-        print(f"GeoJSON saved as {geojson_path}")
-    else:
-        if resolution < 1 or resolution > 25:
-            print(f"Please select a resolution in [1..25] range and try again ")
-            return
-        # Generate grid within the bounding box
-        geojson_features = generate_grid_within_bbox(resolution, bbox)
-        # Define the GeoJSON file path
-        geojson_path = f"isea4t_grid_{resolution}_bbox.geojson"
-        with open(geojson_path, 'w') as f:
-            json.dump(geojson_features, f, indent=2)
+            print(f"GeoJSON saved as {geojson_path}")
+        else:
+            if resolution < 1 or resolution > 25:
+                print(f"Please select a resolution in [1..25] range and try again ")
+                return
+            # Generate grid within the bounding box
+            geojson_features = generate_grid_within_bbox(isea4t_dggs,resolution, bbox)
+            # Define the GeoJSON file path
+            geojson_path = f"isea4t_grid_{resolution}_bbox.geojson"
+            with open(geojson_path, 'w') as f:
+                json.dump(geojson_features, f, indent=2)
 
-        print (f"GeoJSON saved as {geojson_path}")
-        
+            print (f"GeoJSON saved as {geojson_path}")
+
 if __name__ == "__main__":
     main()

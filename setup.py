@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.3',
+    version='1.2.4',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -127,10 +127,10 @@ setup(
             'garsstats = vgrid.stats.garsstats:main',
 
             # DGGRID Corrections
-            'dggridfixcontent = vgrid.correction.dggridfixcontent:main',
-            'dggridfixgeom = vgrid.correction.dggridfixgeom:main',       
-            'dggridfixgeom2 = vgrid.correction.dggridfixgeom2:main',            
-            'dggridfix = vgrid.correction.dggridfix:main',    
+            # 'dggridfixcontent = vgrid.correction.dggridfixcontent:main',
+            # 'dggridfixgeom = vgrid.correction.dggridfixgeom:main',       
+            # 'dggridfixgeom2 = vgrid.correction.dggridfixgeom2:main',            
+            # 'dggridfix = vgrid.correction.dggridfix:main',    
         ],
     },    
 

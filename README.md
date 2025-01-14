@@ -38,7 +38,7 @@
 > rhealpixstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
-### OpenEAGGR ISEA4T
+### OpenEAGGR ISEA4T (Windows only)
 ``` bash
 > latlon2isea4t 10.775275567242561 106.70679737574993 21 # latlon2isea4t <lat> <lon> <res> [0..39]
 > isea4t2geojson 13102313331320133331133
@@ -47,7 +47,7 @@
 > isea4tstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
-### OpenEAGGR ISEA3H
+### OpenEAGGR ISEA3H (Windows only)
 ``` bash
 > latlon2isea3h 10.775275567242561 106.70679737574993 27 # latlon2isea3h <lat> <lon> <res> [0..40]
 > isea3h2geojson 1327916769,-55086 
@@ -55,11 +55,10 @@
 > isea3hstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
-### DGGRID
+### DGGRID (Linux only)
 ``` bash
-> fixdggridgeojson input.geojson # Fix GeoJSON content errors and antimediridan
+> dggrid -r 0 -t ISEA3H  #dggrid -r <res> -t <DGGS Type> from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
 ```
-
 
 ### EASE-DGGS
 ``` bash
