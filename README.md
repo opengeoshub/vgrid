@@ -57,7 +57,9 @@
 
 ### DGGRID (Linux only)
 ``` bash
-> dggrid -r 0 -t ISEA3H  #dggrid -r <res> -t <DGGS Type> from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
+> latlon2dggrid 10.775275567242561 106.70679737574993 FULLER4D 10 # latlon2dggrid <lat> <lon> <dggs_type> <res> 
+> dggrid2geojson 8478420 FULLER4D 10 # dggrid2geojson <lat> <lon> <dggs_type> <res> 
+> dggrid -t ISEA3H -r 0 #dggrid -t <DGGS Type> -r <res>. DGGS Type chosen from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
 ```
 
 ### EASE-DGGS

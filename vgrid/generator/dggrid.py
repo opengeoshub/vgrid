@@ -22,9 +22,9 @@ def generate_grid(dggrid_instance,dggs_type,resolution,bbox, address_type):
 
 def main():
     if platform.system() == 'Linux':
-        parser = argparse.ArgumentParser(description='Create a debug EaseGrid based on XYZ vector tile scheme as a GeoJSON file.')
-        parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
+        parser = argparse.ArgumentParser(description='Create a DGGRID as a GeoJSON file.')
         parser.add_argument('-t', '--dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
+        parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
         parser.add_argument('-b', '--bbox', type=float, nargs=4, help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)")
         parser.add_argument('-a', '--address_type', choices=output_address_types, help="Select an output address type.")
         args = parser.parse_args()        
@@ -35,7 +35,7 @@ def main():
         bbox = args.bbox
         address_type = args.address_type
         try:
-            generate_grid(dggrid_instance,dggs_type, resolution,bbox,address_type)
+            generate_grid(dggrid_instance,dggs_type,resolution,bbox,address_type)
         except:
             print('Please ensure that -a <address_type> are set appropriately, and there is an excutable DGGRID located at /usr/local/bin/dggrid. Please install DGGRID following instructions from https://github.com/sahrk/DGGRID/blob/master/INSTALL.md'  )
     else: 
