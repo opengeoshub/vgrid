@@ -13,6 +13,11 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
     from vgrid.utils.eaggr.enums.model import Model
 
+if (platform.system() == 'Linux'):
+    from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
+    import geopandas as gpd
+    
+from shapely import Point
 
 from vgrid.utils.easedggs.dggs.grid_addressing import geos_to_grid_ids
 
@@ -206,6 +211,35 @@ def latlon2isea3h_cli():
         
     isea3h_cell = latlon2isea3h(args.lat,args.lon,res)
     print(isea3h_cell)
+
+
+def latlon2dggrid(lat,lon,type,res):
+    if (platform.system() == 'Linux'):
+        dggrid_instance = DGGRIDv7(executable='/usr/local/bin/dggrid', working_dir='.', capture_logs=False, silent=True, tmp_geo_out_legacy=False, debug=False)
+        point = Point(lon, lat)
+        geodf_points_wgs84 = gpd.GeoDataFrame([{'geometry': point}], crs="EPSG:4326")
+        dggrid_cell =  dggrid_instance.cells_for_geo_points(geodf_points_wgs84=geodf_points_wgs84, cell_ids_only = True, dggs_type = type,resolution = res)    
+        return dggrid_cell.loc[0, 'seqnums']
+
+def latlon2dggrid_cli():
+    """
+    Command-line interface for latlon2dggrid.
+    """
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to DGGRID cell at a specific Resolution. \
+                                     Usage: latlon2dggrid <lat> <lon> <dggs_type> <res>. \
+                                     Ex: latlon2dggrid  10.775275567242561 106.70679737574993 ISEA7H 13")
+    parser.add_argument("lat",type=float, help="Input Latitude")
+    parser.add_argument("lon", type=float, help="Input Longitude")
+    parser.add_argument('type', choices=dggs_types, help="Select a DGGS type from the available options.")
+    parser.add_argument("res",type=int, help="Resolution")
+
+    args = parser.parse_args()
+    res = args.res
+    type = args.type
+    
+    dggrid_cell = latlon2dggrid(args.lat,args.lon,type,res)
+    print(dggrid_cell)
+
 
 def latlon2ease(lat,lon,res=6):
     # res = [0..6]  

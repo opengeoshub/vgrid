@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.4',
+    version='1.2.5',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -50,7 +50,7 @@ setup(
             'latlon2isea3h = vgrid.conversion.latlon2cell:latlon2isea3h_cli',  
             'latlon2ease = vgrid.conversion.latlon2cell:latlon2ease_cli',
             
-            'latlon2dggrid = vgrid.conversion.latlon2cell:latlon2ease_cli',
+            'latlon2dggrid = vgrid.conversion.latlon2cell:latlon2dggrid_cli',
             
             'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
             'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
@@ -72,6 +72,8 @@ setup(
             'isea3hsiblings2geojson = vgrid.utils.eaggr.conversion.siblings2geojson:siblings2geojson_cli',  
             'isea3hchildren2geojson = vgrid.utils.eaggr.conversion.children2geojson:children2geojson_cli',  
             
+            'dggrid2geojson = vgrid.conversion.cell2geojson:dggrid2geojson_cli',  
+
             'ease2geojson = vgrid.conversion.cell2geojson:ease2geojson_cli',  
             
             'olc2geojson = vgrid.conversion.cell2geojson:olc2geojson_cli',
@@ -116,6 +118,8 @@ setup(
             'isea4tstats = vgrid.stats.isea4tstats:main',
             'isea3hstats = vgrid.stats.isea3hstats:main',
             'easestats = vgrid.stats.easestats:main',
+
+            'dggridstats = vgrid.stats.dggridstats:main',
 
             'olcstats = vgrid.stats.olcstats:main',
             'geohashstats = vgrid.stats.geohashstats:main',
