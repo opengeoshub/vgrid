@@ -16,6 +16,7 @@ if (platform.system() == 'Windows'):
 if (platform.system() == 'Linux'):
     from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
     import geopandas as gpd
+    from vgrid.utils.dggrid4py.dggrid_runner import output_address_types
     
 from shapely import Point
 
@@ -213,13 +214,18 @@ def latlon2isea3h_cli():
     print(isea3h_cell)
 
 
-def latlon2dggrid(lat,lon,type,res):
+def latlon2dggrid(lat,lon,dggs_type,res,address_type='SEQNUM'):
     if (platform.system() == 'Linux'):
         dggrid_instance = DGGRIDv7(executable='/usr/local/bin/dggrid', working_dir='.', capture_logs=False, silent=True, tmp_geo_out_legacy=False, debug=False)
         point = Point(lon, lat)
         geodf_points_wgs84 = gpd.GeoDataFrame([{'geometry': point}], crs="EPSG:4326")
-        dggrid_cell =  dggrid_instance.cells_for_geo_points(geodf_points_wgs84=geodf_points_wgs84, cell_ids_only = True, dggs_type = type,resolution = res)    
-        return dggrid_cell.loc[0, 'seqnums']
+        dggrid_cell =  dggrid_instance.cells_for_geo_points(geodf_points_wgs84=geodf_points_wgs84, cell_ids_only = True, dggs_type = dggs_type,resolution = res)    
+        seqnum = dggrid_cell.loc[0, 'seqnums']
+        address_type_transform = dggrid_instance.address_transform([seqnum], dggs_type= dggs_type, resolution = res,mixed_aperture_level=None, input_address_type='SEQNUM', output_address_type=address_type)
+        # cell_id_api = {f'{dggs_type}_{res}_{address_type_transform.columns[1]}': address_type_transform.loc[0,address_type]}  
+        dggrid_cell_id = address_type_transform.loc[0,address_type]
+        return dggrid_cell_id
+        # return address_type_transform
 
 def latlon2dggrid_cli():
     """
@@ -230,15 +236,19 @@ def latlon2dggrid_cli():
                                      Ex: latlon2dggrid  10.775275567242561 106.70679737574993 ISEA7H 13")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument('type', choices=dggs_types, help="Select a DGGS type from the available options.")
+    parser.add_argument('dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
     parser.add_argument("res",type=int, help="Resolution")
+    parser.add_argument('address_type', choices=output_address_types, 
+                        default='SEQNUM',
+                        nargs='?',  # This makes the argument optional
+                        help="Select an output address type from the available options.")
 
     args = parser.parse_args()
+    dggs_type = args.dggs_type
     res = args.res
-    type = args.type
-    
-    dggrid_cell = latlon2dggrid(args.lat,args.lon,type,res)
-    print(dggrid_cell)
+    address_type  = args.address_type
+    dggrid_cell_id = latlon2dggrid(args.lat,args.lon,dggs_type,res,address_type)
+    print(dggrid_cell_id)
 
 
 def latlon2ease(lat,lon,res=6):

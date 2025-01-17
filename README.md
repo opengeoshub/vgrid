@@ -59,9 +59,11 @@
 ``` bash
 > latlon2dggrid 10.775275567242561 106.70679737574993 FULLER4D 10 # latlon2dggrid <lat> <lon> <dggs_type> <res> 
 > dggrid2geojson 8478420 FULLER4D 10 # dggrid2geojson <lat> <lon> <dggs_type> <res> 
-> geojson2dggrid -t ISEA4H -r 17 -geojson polyline.geojson # supports Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon
-> dggridgen -t ISEA3H -r 0 # dggrid -t <DGGS Type> -r <res>. 
-> dggridstats -t FULLER3H -r 8 #dggrid -t <DGGS Type> -r <res>. DGGS Type chosen from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
+> geojson2dggrid -t ISEA4H -r 17 -geojson polyline.geojson # geojson2dggrid -t <DGGS Type> -r <resolution> -a <address_type> -geojson <GeoJSON path>, supporting Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon
+> dggridgen -t ISEA3H -r 2 -a ZORDER # dggrid -t <DGGS Type> -r <res> -a<address_type>. 
+> dggridstats -t FULLER3H -r 8 #dggrid -t <DGGS Type> -r <res>. 
+# <DGGS Type> chosen from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
+# <Address Type> chosen from [Q2DI,SEQNUM,INTERLEAVE,PLANE,Q2DD,PROJTRI,VERTEX2DD,AIGEN,Z3,Z3_STRING,Z7,Z7_STRING,ZORDER,ZORDER_STRING]
 ```
 
 ### EASE-DGGS

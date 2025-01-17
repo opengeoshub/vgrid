@@ -42,21 +42,17 @@ def point_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
             dggs_type=dggs_type,
             resolution=res
         )
-        if address_type is None:
-            dggrid_cell_id = dggrid_cell.loc[0, 'seqnums']  # Use 'seqnums' column if address_type is None
-        else:
-            dggrid_cell_id = dggrid_cell.loc[0, address_type.lower()]  # Use specified address_type column
-
-       
+        
+        dggrid_seqnum = dggrid_cell.loc[0, 'seqnums']  # Use 'seqnums' column by default
         # Get the polygon representation of the cell using the cell ID
         dggrid_cell = dggrid_instance.grid_cell_polygons_from_cellids(
-            [dggrid_cell_id],
+            [dggrid_seqnum],
             dggs_type=dggs_type,
             resolution=res,
             split_dateline=True,
             clip_cell_res=1,
-            input_address_type=address_type,
-            output_address_type=address_type
+            input_address_type='SEQNUM'
+            # output_address_type=address_type
         )
         
         # Ensure the geometry column is set
@@ -67,6 +63,17 @@ def point_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
             gdf.set_crs(epsg=4326, inplace=True)
         elif not gdf.crs.equals("EPSG:4326"):
             gdf = gdf.to_crs(epsg=4326)
+        
+        try:
+            if address_type != 'SEQNUM':
+                address_type_transform = dggrid_instance.address_transform([dggrid_seqnum], dggs_type= dggs_type, resolution = res, mixed_aperture_level=None, input_address_type='SEQNUM', output_address_type=address_type)
+                gdf['name'] = gdf['name'].astype(str)  # Convert the column to string type
+                gdf.loc[0, 'name'] = address_type_transform.loc[0,address_type]
+                gdf = gdf.rename(columns={"name": address_type.lower()})
+            else:
+                gdf = gdf.rename(columns={"name": "seqnum"})
+        except:
+            pass
         
         # Append the filtered GeoDataFrame to the list
         merged_grids.append(gdf)
@@ -108,6 +115,22 @@ def polyline_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
         # Keep only grid cells that intersect the polyline
         dggrid_gdf = dggrid_gdf[dggrid_gdf.intersects(polyline)]
         
+        try:
+            if address_type != 'SEQNUM':
+                def address_transform(dggrid_seqnum, dggs_type, resolution, address_type):
+                    address_type_transform = dggrid_instance.address_transform([dggrid_seqnum], dggs_type= dggs_type, resolution = resolution, mixed_aperture_level=None, input_address_type='SEQNUM', output_address_type=address_type)
+                    return address_type_transform.loc[0,address_type]
+                
+                dggrid_gdf['name'] = dggrid_gdf['name'].astype(str)
+                dggrid_gdf['name'] = dggrid_gdf['name'].apply(
+                    lambda val: address_transform(val, dggs_type, res, address_type)
+                )
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": address_type.lower()})
+            else:
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": "seqnum"})
+                
+        except:
+            pass   
         # Append the filtered GeoDataFrame to the list
         merged_grids.append(dggrid_gdf)
     
@@ -157,6 +180,22 @@ def polygon_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
         
         # Keep only grid cells that intersect the polygon
         dggrid_gdf = dggrid_gdf[dggrid_gdf.intersects(polygon)]
+        try:
+            if address_type != 'SEQNUM':
+                def address_transform(dggrid_seqnum, dggs_type, resolution, address_type):
+                    address_type_transform = dggrid_instance.address_transform([dggrid_seqnum], dggs_type= dggs_type, resolution = resolution, mixed_aperture_level=None, input_address_type='SEQNUM', output_address_type=address_type)
+                    return address_type_transform.loc[0,address_type]
+                
+                dggrid_gdf['name'] = dggrid_gdf['name'].astype(str)
+                dggrid_gdf['name'] = dggrid_gdf['name'].apply(
+                    lambda val: address_transform(val, dggs_type, res, address_type)
+                )
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": address_type.lower()})
+            else:
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": "seqnum"})
+                
+        except:
+            pass   
         
         # Append the filtered GeoDataFrame to the list
         merged_grids.append(dggrid_gdf)
@@ -175,7 +214,11 @@ def main():
         parser = argparse.ArgumentParser(description='Generate DGGRID for shapes in GeoJS format.')
         parser.add_argument('-t', '--dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
         parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
-        parser.add_argument('-a', '--address_type', choices=output_address_types, help="Select an output address type.")
+        parser.add_argument('-a', '--address_type', choices=output_address_types, 
+                        default='SEQNUM',
+                        nargs='?',  # This makes the argument optional
+                        help="Select an output address type from the available options.")
+
         parser.add_argument(
             '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
         )
@@ -267,14 +310,13 @@ def main():
 
         
         # Merge all collected GeoDataFrames
-        geojson_path = f"geojson2dggrid_{dggs_type}_{resolution}.geojson"
+        geojson_path = f"geojson2dggrid_{dggs_type}_{resolution}_{address_type}.geojson"
 
         if geojson_features:
             with open(geojson_path, 'w') as f:
                 json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
         elif all_cells:
             final_gdf = gpd.GeoDataFrame(pd.concat(all_cells, ignore_index=True), crs=all_cells[0].crs)
-            geojson_path = f"geojson2dggrid_{dggs_type}_{resolution}.geojson"
             final_gdf.to_file(geojson_path, driver='GeoJSON')
         
         print(f"DGGRID GeoJSON saved as {geojson_path}")

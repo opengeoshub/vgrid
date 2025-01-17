@@ -8,14 +8,42 @@ if platform.system() == 'Linux':
     from vgrid.utils.dggrid4py.dggrid_runner import output_address_types
 
 def generate_grid(dggrid_instance,dggs_type,resolution,bbox, address_type):
+    def address_transform(dggrid_seqnum, dggs_type, resolution, address_type):
+                address_type_transform = dggrid_instance.address_transform([dggrid_seqnum], dggs_type= dggs_type, resolution = resolution, mixed_aperture_level=None, input_address_type='SEQNUM', output_address_type=address_type)
+                return address_type_transform.loc[0,address_type]            
     if bbox:
         bounding_box = box(*bbox)
         dggrid_gdf = dggrid_instance.grid_cell_polygons_for_extent(dggs_type, resolution, clip_geom = bounding_box, split_dateline=True,output_address_type= address_type)
-        geojson_path = f"dggrid_{dggs_type}_{resolution}_bbox.geojson"
+        try:
+            if address_type != 'SEQNUM':              
+                dggrid_gdf['name'] = dggrid_gdf['name'].astype(str)
+                dggrid_gdf['name'] = dggrid_gdf['name'].apply(
+                    lambda val: address_transform(val, dggs_type, resolution, address_type)
+                )
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": address_type.lower()})
+            else:
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": "seqnum"})            
+        except:
+            pass        
+        geojson_path = f"dggrid_{dggs_type}_{resolution}_{address_type}_bbox.geojson"
         dggrid_gdf.to_file(geojson_path,driver='GeoJSON')
+   
     else: 
         dggrid_gdf = dggrid_instance.grid_cell_polygons_for_extent(dggs_type, resolution, split_dateline=True,output_address_type= address_type)
-        geojson_path = f"dggrid_{dggs_type}_{resolution}.geojson"
+        try:
+            if address_type != 'SEQNUM':
+              
+                dggrid_gdf['name'] = dggrid_gdf['name'].astype(str)
+                dggrid_gdf['name'] = dggrid_gdf['name'].apply(
+                    lambda val: address_transform(val, dggs_type, resolution, address_type)
+                )
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": address_type.lower()})
+            else:
+                dggrid_gdf = dggrid_gdf.rename(columns={"name": "seqnum"})            
+        except:
+            pass        
+        
+        geojson_path = f"dggrid_{dggs_type}_{resolution}_{address_type}.geojson"
         dggrid_gdf.to_file(geojson_path,driver='GeoJSON')
     
     print(f"GeoJSON saved as {geojson_path}")
