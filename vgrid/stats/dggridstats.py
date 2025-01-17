@@ -14,15 +14,15 @@ def dggrid_stats(dggrid_instance,dggs_type,resolution, output):
   
 def main():
     if platform.system() == 'Linux':
-        parser = argparse.ArgumentParser(description='Create a debug EaseGrid based on XYZ vector tile scheme as a GeoJSON file.')
-        parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
+        parser = argparse.ArgumentParser(description='Export or display DGGRID stats.')
         parser.add_argument('-t', '--dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
+        parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
         parser.add_argument('-o', '--output', help="Output CSV file name.")
         args = parser.parse_args()        
         
         dggrid_instance = DGGRIDv7(executable='/usr/local/bin/dggrid', working_dir='.', capture_logs=False, silent=True, tmp_geo_out_legacy=False, debug=False)
-        resolution = args.resolution  
         dggs_type = args.dggs_type
+        resolution = args.resolution  
         output = args.output
         try:
             dggrid_stats(dggrid_instance,dggs_type, resolution, output)
