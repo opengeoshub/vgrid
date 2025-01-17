@@ -14,7 +14,7 @@ def generate_grid(dggrid_instance,dggs_type,resolution,bbox, address_type):
         geojson_path = f"dggrid_{dggs_type}_{resolution}_bbox.geojson"
         dggrid_gdf.to_file(geojson_path,driver='GeoJSON')
     else: 
-        dggrid_gdf = dggrid_instance.grid_cell_polygons_for_extent(dggs_type, resolution, split_dateline=True)
+        dggrid_gdf = dggrid_instance.grid_cell_polygons_for_extent(dggs_type, resolution, split_dateline=True,output_address_type= address_type)
         geojson_path = f"dggrid_{dggs_type}_{resolution}.geojson"
         dggrid_gdf.to_file(geojson_path,driver='GeoJSON')
     

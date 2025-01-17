@@ -93,6 +93,8 @@ setup(
             'geojson2isea4t = vgrid.conversion.geojson2isea4t:main',
             'geojson2isea3h = vgrid.conversion.geojson2isea3h:main',
 
+            'geojson2dggrid = vgrid.conversion.geojson2dggrid:main',
+
             # Grid Generator
             'h3grid = vgrid.generator.h3grid:main',
             's2grid = vgrid.generator.s2grid:main',
@@ -100,7 +102,7 @@ setup(
             'isea4tgrid = vgrid.generator.isea4tgrid:main',
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
             'easegrid = vgrid.generator.easegrid:main',
-            'dggrid = vgrid.generator.dggrid:main',
+            'dggridgen = vgrid.generator.dggridgen:main',
 
             'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',    
@@ -131,10 +133,10 @@ setup(
             'garsstats = vgrid.stats.garsstats:main',
 
             # DGGRID Corrections
-            # 'dggridfixcontent = vgrid.correction.dggridfixcontent:main',
-            # 'dggridfixgeom = vgrid.correction.dggridfixgeom:main',       
-            # 'dggridfixgeom2 = vgrid.correction.dggridfixgeom2:main',            
-            # 'dggridfix = vgrid.correction.dggridfix:main',    
+            'dggridfixcontent = vgrid.correction.dggridfixcontent:main',
+            'dggridfixgeom = vgrid.correction.dggridfixgeom:main',       
+            'dggridfixgeom2 = vgrid.correction.dggridfixgeom2:main',            
+            'dggridfix = vgrid.correction.dggridfix:main',    
         ],
     },    
 
