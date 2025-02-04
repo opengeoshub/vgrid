@@ -74,6 +74,14 @@
 > easestats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
+### POLYHEDRA GENERATOR
+``` bash
+> tetrahedron  # Generate Global Tetrahedron
+> cube         # Generate Global Cube
+> octahedron   # Generate Global Octahedron  
+> icosahedron   # Generate Global Icosahedron  
+``` 
+
 ### OLC
 ``` bash
 > latlon2olc 10.775275567242561 106.70679737574993 11 # latlon2olc <lat> <lon> <res> [2,4,6,8,10,11,12,13,14,15]

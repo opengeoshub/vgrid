@@ -1,3 +1,4 @@
+# Reference: https://github.com/brdo/icosahedron
 """
 Example usage:
 python icosahedron.py --json --dual --level 3 > icosahedron.json && ogr2ogr -f PostgreSQL PG:"user=root password=secret" -overwrite -nln icosahedron icosahedron.json

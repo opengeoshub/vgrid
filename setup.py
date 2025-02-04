@@ -103,6 +103,7 @@ setup(
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
             'easegrid = vgrid.generator.easegrid:main',
             'dggridgen = vgrid.generator.dggridgen:main',
+            'qtmgrid = vgrid.generator.qtmgrid:main',
 
             'olcgrid = vgrid.generator.olcgrid:main',
             'geohashgrid = vgrid.generator.geohashgrid:main',    
@@ -112,8 +113,15 @@ setup(
             'tilegrid = vgrid.generator.tilegrid:main', 
             'maidenheadgrid = vgrid.generator.maidenheadgrid:main',        
             'garsgrid = vgrid.generator.garsgrid:main',        
-   
-            # Grid Stats
+            
+            # Polyhedra Generator  
+            'tetrahedron = vgrid.generator.polyhedra.tetrahedron:main',   
+            'cube = vgrid.generator.polyhedra.cube:main',        
+            'octahedron = vgrid.generator.polyhedra.octahedron:main',        
+            'icosahedron = vgrid.generator.polyhedra.icosahedron:main',        
+            'rhombic_icosahedron = vgrid.generator.polyhedra.rhombic_icosahedron:main',        
+
+             # Grid Stats
             'h3stats = vgrid.stats.h3stats:main',
             's2stats = vgrid.stats.s2stats:main',
             'rhealpixstats = vgrid.stats.rhealpixstats:main',
