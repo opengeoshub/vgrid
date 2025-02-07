@@ -5,13 +5,6 @@ from shapely.validation import make_valid
 import math
 from vgrid.utils.antimeridian import fix_polygon
 
-# # Function to fix invalid polygons
-# def fix_polygon(polygon):
-#     if not polygon.is_valid:
-#         return make_valid(polygon)
-#     return polygon
-
-# Function to construct geometry
 def construct_geometry(coords, is_multipolygon=False):
     if is_multipolygon:
         polygon = MultiPolygon([Polygon(poly) for poly in coords])
