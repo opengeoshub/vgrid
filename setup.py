@@ -94,7 +94,14 @@ setup(
             'geojson2isea3h = vgrid.conversion.geojson2isea3h:main',
 
             'geojson2dggrid = vgrid.conversion.geojson2dggrid:main',
-
+            
+            # CSV to DGGS
+            'csv2h3 =  vgrid.conversion.csv2h3:main',
+            'csv2s2 =  vgrid.conversion.csv2s2:main',
+            
+            # Resample
+            'resample =  vgrid.resampling.resample:main',
+            
             # Grid Generator
             'h3grid = vgrid.generator.h3grid:main',
             's2grid = vgrid.generator.s2grid:main',
@@ -118,7 +125,8 @@ setup(
             'tetrahedron = vgrid.generator.polyhedra.tetrahedron:main',   
             'cube = vgrid.generator.polyhedra.cube:main',        
             'octahedron = vgrid.generator.polyhedra.octahedron:main',        
-            'icosahedron = vgrid.generator.polyhedra.icosahedron:main',        
+            'hexagon = vgrid.generator.polyhedra.hexagon:main',  
+            'fuller_icosahedron = vgrid.generator.polyhedra.fuller_icosahedron:main',        
             'rhombic_icosahedron = vgrid.generator.polyhedra.rhombic_icosahedron:main',        
 
              # Grid Stats

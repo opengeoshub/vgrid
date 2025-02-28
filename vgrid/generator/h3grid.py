@@ -13,7 +13,7 @@ geod = Geod(ellps="WGS84")
 
 current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
-max_cells = 1_000_000
+max_cells = 10_000_000
 
 def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
     if any(lon < threshold for _, lon in hex_boundary):
