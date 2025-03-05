@@ -33,11 +33,11 @@ def generate_grid(resolution,bbox=None):
                 [min_lon, max_lat],  # Top-left corner
                 [min_lon, min_lat]   # Closing the polygon (same as the first point)
             ])
-            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
             # Calculate width (longitude difference at a constant latitude)
-            cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
+            cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
             # Calculate height (latitude difference at a constant longitude)
-            cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
+            cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
 
             feature = {
                 "type": "Feature",

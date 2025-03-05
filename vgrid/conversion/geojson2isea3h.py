@@ -12,30 +12,30 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-    from vgrid.generator.isea3hgrid import cell_to_polygon, res_accuracy_dict, get_children_cells_within_bbox
+    from vgrid.generator.isea3hgrid import isea3h_cell_to_polygon, isea3h_res_accuracy_dict, get_isea3h_children_cells_within_bbox
 
 # Function to generate grid for Point
 def point_to_grid(isea3h_dggs,resolution, point):
     features = []
    
-    accuracy = res_accuracy_dict.get(resolution)
+    accuracy = isea3h_res_accuracy_dict.get(resolution)
 
     lat_long_point = LatLongPoint(point.y, point.x, accuracy)
 
     isea3h_cell = isea3h_dggs.convert_point_to_dggs_cell(lat_long_point)
 
     isea3h_cell_id = isea3h_cell.get_cell_id() # Unique identifier for the current cell
-    cell_polygon = cell_to_polygon(isea3h_dggs,isea3h_cell)
+    cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
     
     center_lat = round(cell_polygon.centroid.y,7)
     center_lon = round(cell_polygon.centroid.x,7)
 
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
     cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
     
-    avg_edge_len = round(cell_perimeter/6,3)
+    avg_edge_len = round(cell_perimeter/6,2)
     if resolution == 0:
-        avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+        avg_edge_len = round(cell_perimeter / 3,2) # icosahedron faces
                 
     features.append({
         "type": "Feature",
@@ -68,7 +68,7 @@ def polyline_to_grid(isea3h_dggs,resolution, geometry):
         polylines = list(geometry)
 
     for polyline in polylines:
-        accuracy = res_accuracy_dict.get(resolution)
+        accuracy = isea3h_res_accuracy_dict.get(resolution)
         bounding_box = box(*polyline.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea3h_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
@@ -76,10 +76,10 @@ def polyline_to_grid(isea3h_dggs,resolution, geometry):
         for shape in shapes:
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+            bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
             for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 isea3h_cell = DggsCell(child)
-                cell_polygon = cell_to_polygon(isea3h_dggs,isea3h_cell)
+                cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
                 isea3h_cell_id = isea3h_cell.get_cell_id()
 
                 # if isea3h_cell_id.startswith('00') or isea3h_cell_id.startswith('09') or isea3h_cell_id.startswith('14') or isea3h_cell_id.startswith('04') or isea3h_cell_id.startswith('19'):
@@ -88,11 +88,11 @@ def polyline_to_grid(isea3h_dggs,resolution, geometry):
                 cell_centroid = cell_polygon.centroid
                 center_lat =  round(cell_centroid.y, 7)
                 center_lon = round(cell_centroid.x, 7)
-                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
+                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
                 cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-                avg_edge_len = round(cell_perimeter/6,3)
+                avg_edge_len = round(cell_perimeter/6,2)
                 if resolution == 0:
-                    avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+                    avg_edge_len = round(cell_perimeter / 3,2) # icosahedron faces
                 
                 if cell_polygon.intersects(polyline):
                     features.append({
@@ -125,17 +125,17 @@ def polygon_to_grid(isea3h_dggs,resolution, geometry):
         polygons = list(geometry)
 
     for polygon in polygons:
-        accuracy = res_accuracy_dict.get(resolution)
+        accuracy = isea3h_res_accuracy_dict.get(resolution)
         bounding_box = box(*polygon.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea3h_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
         for shape in shapes:
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+            bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
             for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 isea3h_cell = DggsCell(child)
-                cell_polygon = cell_to_polygon(isea3h_dggs,isea3h_cell)
+                cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
                 isea3h_cell_id = isea3h_cell.get_cell_id()
 
                 # if isea3h_cell_id.startswith('00') or isea3h_cell_id.startswith('09') or isea3h_cell_id.startswith('14') or isea3h_cell_id.startswith('04') or isea3h_cell_id.startswith('19'):

@@ -1,4 +1,4 @@
-from vgrid.utils import s2, olc, geohash, georef, mgrs, tile, maidenhead
+from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, tilecode
 import h3
 
 from vgrid.utils.gars.garsgrid import GARSGrid
@@ -380,7 +380,7 @@ def latlon2mgrs_cli():
 
 def latlon2tilecode(lat,lon,res=23):
     # res: [0..29]        
-    tilecode_cell = tile.latlon2tilecode(lat,lon,res)
+    tilecode_cell = tilecode.latlon2tilecode(lat,lon,res)
     return tilecode_cell
 
 def latlon2tilecode_cli():
@@ -406,7 +406,7 @@ def latlon2tilecode_cli():
 
 def latlon2quadkey(lat,lon,res=23):
     # res: [0..29]        
-    quadkey = tile.latlon2quadkey(lat,lon,res)
+    quadkey = tilecode.latlon2quadkey(lat,lon,res)
     return quadkey
 
 def latlon2quadkey_cli():

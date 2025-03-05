@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.7',
+    version='1.2.8',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -94,6 +94,8 @@ setup(
             'geojson2isea3h = vgrid.conversion.geojson2isea3h:main',
 
             'geojson2dggrid = vgrid.conversion.geojson2dggrid:main',
+            
+            'geojson2tilecode = vgrid.conversion.geojson2tilecode:main',
             
             # CSV to DGGS
             'csv2h3 =  vgrid.conversion.csv2h3:main',

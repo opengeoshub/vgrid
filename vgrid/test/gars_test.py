@@ -16,7 +16,7 @@
 #     json.dump(data, f, indent=2)  
 # print(f'GeoJSON written to {output_file}')
 
-from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars, tile
+from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars, tilecode
 import h3, json
 from vgrid.conversion.cell2geojson import *
 from vgrid.conversion.latlon2cell import *

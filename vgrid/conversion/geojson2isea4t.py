@@ -14,22 +14,22 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-    from vgrid.generator.isea4tgrid import cell_to_polygon, res_accuracy_dict,\
-                                                fix_isea4t_antimeridian_cells, get_children_cells_within_bbox
+    from vgrid.generator.isea4tgrid import isea4t_cell_to_polygon, isea4t_res_accuracy_dict,\
+                                                fix_isea4t_antimeridian_cells, get_isea4t_children_cells_within_bbox
                                                
     
 # Function to generate grid for Point
 def point_to_grid(isea4t_dggs, resolution, point):
     features = []
    
-    accuracy = res_accuracy_dict.get(resolution)
+    accuracy = isea4t_res_accuracy_dict.get(resolution)
 
     lat_long_point = LatLongPoint(point.y, point.x,accuracy)
 
     isea4t_cell = isea4t_dggs.convert_point_to_dggs_cell(lat_long_point)
 
     isea4t_cell_id = isea4t_cell.get_cell_id() # Unique identifier for the current cell
-    cell_polygon = cell_to_polygon(isea4t_dggs,isea4t_cell)
+    cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
     
     if isea4t_cell_id.startswith('00') or isea4t_cell_id.startswith('09') or isea4t_cell_id.startswith('14') or isea4t_cell_id.startswith('04') or isea4t_cell_id.startswith('19'):
             cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
@@ -72,7 +72,7 @@ def polyline_to_grid(isea4t_dggs, resolution, geometry):
         polylines = list(geometry)
 
     for polyline in polylines:
-        accuracy = res_accuracy_dict.get(resolution)
+        accuracy = isea4t_res_accuracy_dict.get(resolution)
         bounding_box = box(*polyline.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
@@ -80,10 +80,10 @@ def polyline_to_grid(isea4t_dggs, resolution, geometry):
         for shape in shapes:
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+            bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
             for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 isea4t_cell = DggsCell(child)
-                cell_polygon = cell_to_polygon(isea4t_dggs,isea4t_cell)
+                cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
                 isea4t_cell_id = isea4t_cell.get_cell_id()
 
                 if isea4t_cell_id.startswith('00') or isea4t_cell_id.startswith('09') or isea4t_cell_id.startswith('14') or isea4t_cell_id.startswith('04') or isea4t_cell_id.startswith('19'):
@@ -127,17 +127,17 @@ def polygon_to_grid(isea4t_dggs,resolution, geometry):
         polygons = list(geometry)
 
     for polygon in polygons:
-        accuracy = res_accuracy_dict.get(resolution)
+        accuracy = isea4t_res_accuracy_dict.get(resolution)
         bounding_box = box(*polygon.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
         for shape in shapes:
             bbox_cells = shape.get_shape().get_outer_ring().get_cells()
             bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+            bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
             for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 isea4t_cell = DggsCell(child)
-                cell_polygon = cell_to_polygon(isea4t_dggs,isea4t_cell)
+                cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
                 isea4t_cell_id = isea4t_cell.get_cell_id()
 
                 if isea4t_cell_id.startswith('00') or isea4t_cell_id.startswith('09') or isea4t_cell_id.startswith('14') or isea4t_cell_id.startswith('04') or isea4t_cell_id.startswith('19'):

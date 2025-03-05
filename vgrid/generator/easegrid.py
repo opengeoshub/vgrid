@@ -251,12 +251,12 @@ def main():
 
             print(f"GeoJSON saved as {geojson_path}")
     else: 
-        total_cells = len(get_cells_bbox(resolution,bbox))        
-        print(f"Resolution {total_cells} will generate {total_cells} cells ")
-        if total_cells > max_cells:
-            print(f"which exceeds the limit of {max_cells}.")
-            print("Please select a smaller resolution and try again.")
-            return                       
+        # total_cells = len(get_cells_bbox(resolution,bbox))        
+        # print(f"Resolution {resolution} will generate {total_cells} cells ")
+        # if total_cells > max_cells:
+        #     print(f"which exceeds the limit of {max_cells}.")
+        #     print("Please select a smaller resolution and try again.")
+        #     return                       
 
         # Start generating and saving the grid in chunks
         geojson_features = generate_grid_bbox_point(resolution, bbox)
