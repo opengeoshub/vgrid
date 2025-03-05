@@ -7,10 +7,7 @@ import argparse
 from vgrid.utils import maidenhead
 from vgrid.stats.maidenheadstats import maidenhead_metrics
 from tqdm import tqdm  
-import locale
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 max_cells = 1_000_000
 
 def generate_grid(resolution, bbox=None):
@@ -160,10 +157,9 @@ def main():
     if bbox == [-180, -90, 180, 90]:
         # Calculate the number of cells at the given resolution
         num_cells,_,_ = maidenhead_metrics(resolution)
-        print(f"Resolution {resolution} will generate "
-              f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+        print(f"Resolution {resolution} will generate {num_cells} cells ")
         if num_cells > max_cells:
-            print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+            print(f"which exceeds the limit of {max_cells}.")
             print("Please select a smaller resolution and try again.")
             return
 

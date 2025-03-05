@@ -7,12 +7,9 @@ from shapely import buffer
 import argparse
 import json
 from tqdm import tqdm
-import locale
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 max_cells = 10_000_000
 
 def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
@@ -72,12 +69,11 @@ def generate_grid_within_bbox(resolution,bbox):
     distance = h3.average_hexagon_edge_length(resolution,unit='m')*2
     bbox_buffer = geodesic_buffer(bbox_polygon, distance)
     bbox_buffer_cells  = h3.geo_to_cells(bbox_buffer,resolution)
-    num_cells = len(bbox_buffer_cells)
-    print(f"Resolution {resolution} within bounding box {bbox} will generate "
-        f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+    total_cells = len(bbox_buffer_cells)
+    print(f"Resolution {resolution} within bounding box {bbox} will generate {total_cells} cells ")
     
-    if num_cells > max_cells:
-        print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+    if total_cells > max_cells:
+        print(f"which exceeds the limit of {max_cells}. ")
         print("Please select a smaller resolution and try again.")
         return
     else:    
@@ -127,10 +123,9 @@ def main():
     if bbox == [-180, -90, 180, 90]:
         # Calculate the number of cells at the given resolution
         num_cells = h3.get_num_cells(resolution)
-        print(f"Resolution {resolution} will generate "
-              f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+        print(f"Resolution {resolution} will generate {num_cells} cells ")
         if num_cells > max_cells:
-            print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+            print(f"which exceeds the limit of {max_cells}.")
             print("Please select a smaller resolution and try again.")
             return
 

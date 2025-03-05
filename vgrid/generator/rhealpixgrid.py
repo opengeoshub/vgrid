@@ -5,8 +5,7 @@ from vgrid.utils.rhealpixdggs.utils import my_round
 from shapely.geometry import Polygon, box, mapping
 from tqdm import tqdm
 from pyproj import Geod
-import locale
-locale.setlocale(locale.LC_ALL, '')  # Use the system's default locale
+
 geod = Geod(ellps="WGS84")
 
 # Function to filter cells crossing the antimeridian
@@ -173,12 +172,11 @@ def main():
         # Calculate the number of cells at the given resolution
         num_cells = rhealpix_dggs.num_cells(resolution)
         max_cells = 1_000_000
-        print(f"The selected resolution will generate "
-              f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+        print(f"The selected resolution will generate {num_cells} cells ")
 
         if num_cells > max_cells:
             print(
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+                f"which exceeds the limit of {max_cells}."
             )
             print("Please select a smaller resolution and try again.")
             return

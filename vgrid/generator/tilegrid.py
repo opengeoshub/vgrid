@@ -6,10 +6,6 @@ from tqdm import tqdm
 from vgrid.utils import mercantile
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
-import locale
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
-
 max_cells = 1_000_000
 
 def generate_grid(resolution,bbox=None):
@@ -84,9 +80,8 @@ def main():
         num_cells =  4**resolution
         if num_cells > max_cells:
             print(
-                f"The selected resolution will generate "
-                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
+                f"The selected resolution will generate {num_cells} cells "
+                f"which exceeds the limit of {max_cells}."
             )
             print("Please select a smaller resolution and try again.")
             return    

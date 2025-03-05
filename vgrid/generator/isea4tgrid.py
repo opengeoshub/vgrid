@@ -12,9 +12,6 @@ from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
 import platform
 
-import locale
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 geod = Geod(ellps="WGS84")
 
 # Initialize the DGGS system
@@ -47,14 +44,14 @@ def fix_isea4t_antimeridian_cells(isea4t_boundary, threshold=-100):
 
     return Polygon(adjusted_coords)
 
-def cell_to_polygon(isea4t_dggs,isea4t_cell):
+def isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell):
     cell_to_shp =  isea4t_dggs.convert_dggs_cell_outline_to_shape_string(isea4t_cell, ShapeStringFormat.WKT)
     cell_to_shp_fixed = fix_isea4t_wkt(cell_to_shp)
     cell_polygon = loads(cell_to_shp_fixed)
     return cell_polygon
 
 
-def get_children_cells(isea4t_dggs,base_cells, target_resolution):
+def get_isea4t_children_cells(isea4t_dggs,base_cells, target_resolution):
     """
     Recursively generate DGGS cells for the desired resolution.
     """
@@ -67,7 +64,7 @@ def get_children_cells(isea4t_dggs,base_cells, target_resolution):
         current_cells = next_cells
     return current_cells
 
-def get_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resolution):
+def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resolution):
     """
     Recursively generate child cells for the given bounding cell up to the target resolution,
     considering only cells that intersect with the given bounding box.
@@ -90,7 +87,7 @@ def get_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resol
             children = isea4t_dggs.get_dggs_cell_children(DggsCell(cell))
             for child in children:
                 # Convert child cell to geometry
-                child_shape = cell_to_polygon(isea4t_dggs, child)
+                child_shape = isea4t_cell_to_polygon(isea4t_dggs, child)
                 if child_shape.intersects(bbox):              
                     # Add the child cell ID to the next_cells list
                     next_cells.append(child._cell_id)  
@@ -143,7 +140,7 @@ def get_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resol
 #      2: 5*10**13
 # }
 
-res_accuracy_dict = {
+isea4t_res_accuracy_dict = {
     0: 25_503_281_086_204.43,
     1: 6_375_820_271_551.114,    
     2: 1_593_955_067_887.7715,
@@ -191,12 +188,12 @@ def generate_grid(isea4t_dggs, resolution):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
-    accuracy = res_accuracy_dict.get(resolution)
-    children = get_children_cells(isea4t_dggs, base_cells, resolution)
+    accuracy = isea4t_res_accuracy_dict.get(resolution)
+    children = get_isea4t_children_cells(isea4t_dggs, base_cells, resolution)
     features = []
     for child in tqdm(children, desc="Processing cells", unit=" cells"):
         isea4t_cell = DggsCell(child)
-        cell_polygon = cell_to_polygon(isea4t_dggs, isea4t_cell)
+        cell_polygon = isea4t_cell_to_polygon(isea4t_dggs, isea4t_cell)
         isea4t_cell_id = isea4t_cell.get_cell_id()
 
         if resolution == 0:
@@ -234,7 +231,7 @@ def generate_grid(isea4t_dggs, resolution):
 
    
 def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
-    accuracy = res_accuracy_dict.get(resolution)
+    accuracy = isea4t_res_accuracy_dict.get(resolution)
 
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
@@ -242,11 +239,11 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
     for shape in shapes:
         bbox_cells = shape.get_shape().get_outer_ring().get_cells()
         bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-        bounding_children_cells = get_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
+        bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
         features = []
         for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
             isea4t_cell = DggsCell(child)
-            cell_polygon = cell_to_polygon(isea4t_dggs,isea4t_cell)
+            cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
             isea4t_cell_id = isea4t_cell.get_cell_id()
             if resolution == 0:
                 cell_polygon = fix_polygon(cell_polygon)
@@ -266,7 +263,7 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
                     "type": "Feature",
                     "geometry": mapping(cell_polygon),
                     "properties": {
-                            "eaggr_isea4t": isea4t_cell_id,
+                            "isea4t": isea4t_cell_id,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
                             "cell_area": cell_area,
@@ -299,13 +296,10 @@ def main():
         resolution = args.resolution
         bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
         if bbox == [-180, -90, 180, 90]:        
-            num_cells = 20*(4**resolution)
-            if num_cells > max_cells:
-                print(
-                    f"The selected resolution will generate "
-                    f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                    f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-                )
+            total_cells = 20*(4**resolution)
+            print(f"The selected resolution will generate {total_cells} cells ")                    
+            if total_cells > max_cells:
+                print(f"which exceeds the limit of {max_cells}.")
                 print("Please select a smaller resolution and try again.")
                 return
             

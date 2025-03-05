@@ -3,8 +3,6 @@ import argparse
 from vgrid.utils import olc
 from tqdm import tqdm
 from shapely.geometry import box, Polygon
-import locale
-locale.setlocale(locale.LC_ALL, '')  # Use the system's default locale
 
 def calculate_total_cells(code_length, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
@@ -239,17 +237,15 @@ def main():
         return
 
     if  bbox == [-180, -90, 180, 90]:
-        print(f"The selected resolution will generate "
-            f"{locale.format_string('%d', num_cells, grouping=True)} cells, ")
+        print(f"The selected resolution will generate {num_cells} cells ")
 
         if num_cells > max_cells:
-            print(
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-            )
+            print(f"which exceeds the limit of {max_cells}. ")
             print("Please select a smaller resolution and try again.")
             return
         geojson_features = generate_grid(resolution)
         geojson_path = f"olc_grid_{resolution}.geojson"
+   
     else:
         geojson_features = generate_grid_within_bbox(resolution, bbox)
         geojson_path = f"olc_grid_bbox_{resolution}.geojson"

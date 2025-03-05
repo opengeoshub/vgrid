@@ -10,11 +10,8 @@ from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
-import locale
 import platform
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
 geod = Geod(ellps="WGS84")
 
 # Initialize the DGGS system
@@ -25,7 +22,7 @@ base_cells = [
 
 max_cells = 1_000_000
 
-res_accuracy_dict = {
+isea3h_res_accuracy_dict = {
         0: 25_503_281_086_204.43,
         1: 17_002_187_390_802.953,
         2: 5_667_395_796_934.327,
@@ -71,7 +68,7 @@ res_accuracy_dict = {
         40: 0.0000043155509996024
     }    
     
-accuracy_res_dict = {
+isea3h_accuracy_res_dict = {
             25_503_281_086_204.43: 0,
             17_002_187_390_802.953: 1,
             5_667_395_796_934.327: 2,
@@ -117,7 +114,7 @@ accuracy_res_dict = {
             0.0: 40
         }
 
-def cell_to_polygon(isea3h_dggs,isea3h_cell):
+def isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell):
     cell_to_shape =  isea3h_dggs.convert_dggs_cell_outline_to_shape_string(isea3h_cell, ShapeStringFormat.WKT)
     if cell_to_shape:
         coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
@@ -135,7 +132,7 @@ def cell_to_polygon(isea3h_dggs,isea3h_cell):
     return fixed_polygon
 
 
-def get_children_cells(isea3h_dggs, base_cells, target_resolution):
+def get_isea3h_children_cells(isea3h_dggs, base_cells, target_resolution):
     """
     Recursively generate DGGS cells for the desired resolution, avoiding duplicates.
     """
@@ -154,7 +151,7 @@ def get_children_cells(isea3h_dggs, base_cells, target_resolution):
     return current_cells
 
 
-def get_children_cells_within_bbox(isea3h_dggs,bounding_cell, bbox, target_resolution):
+def get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell, bbox, target_resolution):
     """
     Recursively generate DGGS cells within a bounding box, avoiding duplicates.
     """
@@ -162,7 +159,7 @@ def get_children_cells_within_bbox(isea3h_dggs,bounding_cell, bbox, target_resol
     seen_cells = set(current_cells)  # Track already processed cells
     bounding_cell2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(bounding_cell))
     accuracy = bounding_cell2point._accuracy
-    bounding_resolution = accuracy_res_dict.get(accuracy)
+    bounding_resolution = isea3h_accuracy_res_dict.get(accuracy)
 
     if bounding_resolution <= target_resolution:
         for res in range(bounding_resolution, target_resolution):
@@ -172,7 +169,7 @@ def get_children_cells_within_bbox(isea3h_dggs,bounding_cell, bbox, target_resol
                 children = isea3h_dggs.get_dggs_cell_children(DggsCell(cell))
                 for child in children:
                     if child._cell_id not in seen_cells:  # Check if the child is already processed
-                        child_shape = cell_to_polygon(cell_to_polygon,child)
+                        child_shape = isea3h_cell_to_polygon(isea3h_dggs,child)
                         if child_shape.intersects(bbox):
                             seen_cells.add(child._cell_id)  # Mark as seen
                             next_cells.append(child._cell_id)
@@ -189,11 +186,11 @@ def generate_grid(isea3h_dggs, resolution):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
-    children = get_children_cells(isea3h_dggs,base_cells, resolution)
+    children = get_isea3h_children_cells(isea3h_dggs,base_cells, resolution)
     features = []
     for child in tqdm(children, desc="Processing cells", unit=" cells"):
         isea3h_cell = DggsCell(child)
-        cell_polygon = cell_to_polygon(isea3h_dggs,isea3h_cell)
+        cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
         isea3h_id = isea3h_cell.get_cell_id()
 
         cell_centroid = cell_polygon.centroid
@@ -225,7 +222,7 @@ def generate_grid(isea3h_dggs, resolution):
         }
 
 def generate_grid_within_bbox(isea3h_dggs, resolution,bbox):
-    accuracy = res_accuracy_dict.get(resolution)
+    accuracy = isea3h_res_accuracy_dict.get(resolution)
     # print(accuracy)
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
@@ -236,13 +233,13 @@ def generate_grid_within_bbox(isea3h_dggs, resolution,bbox):
         bbox_cells = shape.get_shape().get_outer_ring().get_cells()
         bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
         # print("boudingcell: ", bounding_cell.get_cell_id())
-        bounding_children_cells = get_children_cells_within_bbox(isea3h_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
+        bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
         # print (bounding_children_cells)
         if bounding_children_cells:
             features = []
             for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
                 isea3h_cell = DggsCell(child)
-                cell_polygon = cell_to_polygon(isea3h_dggs, isea3h_cell)
+                cell_polygon = isea3h_cell_to_polygon(isea3h_dggs, isea3h_cell)
                 isea3h_id = isea3h_cell.get_cell_id()
 
                 cell_centroid = cell_polygon.centroid
@@ -294,15 +291,13 @@ def main():
             return
         
         if bbox == [-180, -90, 180, 90]:        
-            num_cells =  20*(7**resolution)
-            if num_cells > max_cells:
-                print(
-                    f"The selected resolution will generate "
-                    f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                    f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-                )
+            total_cells =  20*(7**resolution)
+            print(f"Resolution {resolution} within bounding box {bbox} will generate {total_cells} cells ")
+            
+            if total_cells > max_cells:
+                print(f"which exceeds the limit of {max_cells}. ")
                 print("Please select a smaller resolution and try again.")
-                return
+                return   
             
             geojson = generate_grid(isea3h_dggs,resolution)
             geojson_path = f"isea3h_grid_{resolution}.geojson"

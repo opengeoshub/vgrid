@@ -3,16 +3,11 @@ import json
 from shapely.geometry import mapping, Point, Polygon, box
 from tqdm import tqdm
 from pyproj import Geod
-import locale
 from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geo_polygon_to_grid_ids
 
 # Initialize the geodetic model
 geod = Geod(ellps="WGS84")
-
-# Locale settings
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Use the system's default locale
 
 max_cells = 1_000_000
 chunk_size=10_000
@@ -238,17 +233,13 @@ def main():
         level_spec = levels_specs[resolution]        
         n_row = level_spec["n_row"]
         n_col = level_spec["n_col"]
-        num_cells = n_row*n_col
+        total_cells = n_row*n_col
         
-        if num_cells > max_cells:
-            print(
-                f"The selected resolution will generate "
-                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-            )
+        print(f"Resolution {resolution} will generate {total_cells} cells ")
+        if total_cells > max_cells:
+            print(f"which exceeds the limit of {max_cells}.")
             print("Please select a smaller resolution and try again.")
             return
-
         # Start generating and saving the grid in chunks
         geojson_features = generate_grid(resolution)
         
@@ -259,16 +250,13 @@ def main():
                 json.dump(geojson_features, f, indent=2)
 
             print(f"GeoJSON saved as {geojson_path}")
-    else:        
-        num_cells = len(get_cells_bbox(resolution,bbox))        
-        if num_cells > max_cells:
-            print(
-                f"The selected resolution will generate "
-                f"{locale.format_string('%d', num_cells, grouping=True)} cells, "
-                f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}."
-            )
+    else: 
+        total_cells = len(get_cells_bbox(resolution,bbox))        
+        print(f"Resolution {total_cells} will generate {total_cells} cells ")
+        if total_cells > max_cells:
+            print(f"which exceeds the limit of {max_cells}.")
             print("Please select a smaller resolution and try again.")
-            return
+            return                       
 
         # Start generating and saving the grid in chunks
         geojson_features = generate_grid_bbox_point(resolution, bbox)

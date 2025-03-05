@@ -1,10 +1,9 @@
 # Reference: https://geohash.softeng.co/uekkn, https://github.com/vinsci/geohash, https://www.movable-type.co.uk/scripts/geohash.html?geohash=dp3
 import  vgrid.utils.geohash as geohash
-import argparse,locale,json
+import argparse,json
 from shapely.geometry import Polygon, mapping
 from tqdm import tqdm
 
-locale.setlocale(locale.LC_ALL, '')
 max_cells = 1000_000
 
 def geohash_to_polygon(gh):
@@ -142,10 +141,10 @@ def main():
 
     # Validate resolution and calculate metrics
     if not bbox:
-        num_cells = 32 ** resolution
-        print(f"Resolution {resolution} will generate {locale.format_string('%d', num_cells, grouping=True)} cells.")
-        if num_cells > max_cells:
-            print(f"Exceeds limit of {locale.format_string('%d', max_cells, grouping=True)} cells.")
+        total_cells = 32 ** resolution
+        print(f"Resolution {resolution} will generate {total_cells} cells ")
+        if total_cells > max_cells:
+            print(f"which exceeds the limit of {max_cells} cells.")
             print("Please select a smaller resolution and try again.")
             return
 

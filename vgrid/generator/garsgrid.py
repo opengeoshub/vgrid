@@ -23,9 +23,7 @@ from shapely.geometry import Polygon, mapping, box
 import numpy as np
 from pyproj import Geod
 from vgrid.utils.gars.garsgrid import GARSGrid  # Ensure the correct import path
-import locale
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL,current_locale)  # Use the system's default locale
+
 max_cells = 1_000_000
 
 geod = Geod(ellps="WGS84")  # Initialize a Geod object for calculations
@@ -189,10 +187,9 @@ def main():
 
         total_cells = len(longitudes) * len(latitudes)
 
-        print(f"Resolution {resolution_minutes} minutes will generate "
-                f"{locale.format_string('%d', total_cells, grouping=True)} cells")
+        print(f"Resolution {resolution_minutes} minutes will generate{total_cells} cells ")
         if total_cells > max_cells:
-            print(f"which exceeds the limit of {locale.format_string('%d', max_cells, grouping=True)}.")
+            print(f"which exceeds the limit of {max_cells}.")
             print("Please select a smaller resolution and try again.")
             return
    
