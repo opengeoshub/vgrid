@@ -1,6 +1,6 @@
 from vgrid.utils import s2, olc, geohash, georef, mgrs, mercantile, maidenhead
 from vgrid.utils.gars import garsgrid
-
+from vgrid.utils.qtm import constructGeometry, qtm_id_to_facet
 import h3
 
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
@@ -485,6 +485,37 @@ def ease2geojson_cli():
     geojson_data = json.dumps(ease2geojson(args.ease))
     print(geojson_data)
 
+
+def qtm2geojson(qtm_id):
+    facet = qtm_id_to_facet(qtm_id)
+    polygon = constructGeometry(facet)    
+    
+    feature = {
+        "type": "Feature",
+        "geometry": mapping(polygon),
+        "properties": {
+            "qtm": qtm_id       
+        }
+    }
+
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": [feature]
+    }
+
+    return  feature_collection
+
+def qtm2geojson_cli():
+    """
+    Command-line interface for qtm2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert QTM code to GeoJSON")
+    parser.add_argument("qtm", help="Input QTM code, e.g., qtm2geojson 42012323")
+    args = parser.parse_args()
+    geojson_data = json.dumps(qtm2geojson(args.qtm))
+    print(geojson_data)
+
+    
 
 def olc2geojson(olc_code):
     # Decode the Open Location Code into a CodeArea object

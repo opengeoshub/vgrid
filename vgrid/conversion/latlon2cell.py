@@ -1,11 +1,12 @@
-from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, tilecode
+from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, tilecode, qtm
 import h3
+from vgrid.generator import qtmgrid_old
 
 from vgrid.utils.gars.garsgrid import GARSGrid
 
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
-import platform 
+import platform, math 
 
 if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.eaggr import Eaggr
@@ -277,7 +278,32 @@ def latlon2ease_cli():
     
     easedggs_cell = latlon2ease(args.lat,args.lon,res)
     print(easedggs_cell)
+
+
+def latlon2qtm(lat, lon, res=10):
+    return qtm.latlon_to_qtm_id(lat, lon, res)
     
+def latlon2qtm_cli():
+    """
+    Command-line interface for latlon2qtm.
+    """
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to QTM. \
+                                     Usage: latlon2qtm <lat> <lon> <res> [1..24]. \
+                                     Ex: latlon2qtm 10.775275567242561 106.70679737574993 10")
+    parser.add_argument("lat",type=float, help="Input Latitude")
+    parser.add_argument("lon", type=float, help="Input Longitude")
+    parser.add_argument("res",type=int, help="Input Resolution [1..24]")
+    args = parser.parse_args()
+    
+    res = args.res
+    if res < 1 or res > 24:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [1..24].")
+        return  
+    
+    qtm_id = latlon2qtm(args.lat,args.lon,res)
+    print(qtm_id)
+    
+ 
 def latlon2olc(lat,lon,res=11):
     # res: [2,4,6,8,10..15]        
     olc_cell = olc.encode(lat, lon, res)

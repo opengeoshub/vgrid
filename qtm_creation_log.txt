@@ -1,8 +1,0 @@
-INFO:root:Starting at 2025-02-19 09:57:41.371274
-INFO:root:GeoJSON for level 1 saved as D:\Github\vgrid\qtm_level_1.geojson
-INFO:root:Finished at 2025-02-19 09:57:41.381512
-INFO:root:Starting at 2025-02-19 12:09:12.814662
-INFO:root:GeoJSON for level 1 saved as D:\Github\vgrid\qtm_level_1.geojson
-INFO:root:GeoJSON for level 2 saved as D:\Github\vgrid\qtm_level_2.geojson
-INFO:root:GeoJSON for level 3 saved as D:\Github\vgrid\qtm_level_3.geojson
-INFO:root:Finished at 2025-02-19 12:09:12.830701

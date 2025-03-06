@@ -30,7 +30,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.2.8',
+    version='1.2.9',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -52,6 +52,8 @@ setup(
             
             'latlon2dggrid = vgrid.conversion.latlon2cell:latlon2dggrid_cli',
             
+            'latlon2qtm = vgrid.conversion.latlon2cell:latlon2qtm_cli',
+
             'latlon2olc = vgrid.conversion.latlon2cell:latlon2olc_cli',  
             'latlon2geohash = vgrid.conversion.latlon2cell:latlon2geohash_cli',  
             'latlon2georef = vgrid.conversion.latlon2cell:latlon2georef_cli',  
@@ -75,7 +77,8 @@ setup(
             'dggrid2geojson = vgrid.conversion.cell2geojson:dggrid2geojson_cli',  
 
             'ease2geojson = vgrid.conversion.cell2geojson:ease2geojson_cli',  
-            
+            'qtm2geojson = vgrid.conversion.cell2geojson:qtm2geojson_cli',  
+
             'olc2geojson = vgrid.conversion.cell2geojson:olc2geojson_cli',
             'geohash2geojson = vgrid.conversion.cell2geojson:geohash2geojson_cli',  
             'georef2geojson = vgrid.conversion.cell2geojson:georef2geojson_cli',  
@@ -94,6 +97,7 @@ setup(
             'geojson2isea3h = vgrid.conversion.geojson2isea3h:main',
 
             'geojson2dggrid = vgrid.conversion.geojson2dggrid:main',
+            'geojson2qtm = vgrid.conversion.geojson2qtm:main',
             
             'geojson2tilecode = vgrid.conversion.geojson2tilecode:main',
             

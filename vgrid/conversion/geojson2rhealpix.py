@@ -6,6 +6,7 @@ from shapely.geometry import Polygon, box, Point, LineString, mapping
 from pyproj import Geod
 import os
 from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
+geod = Geod(ellps="WGS84")
 
 # Function to convert cell vertices to a Shapely Polygon
 def cell_to_polygon(cell):
@@ -23,7 +24,7 @@ def point_to_grid(rhealpix_dggs, resolution, point):
     seed_cell = rhealpix_dggs.cell_from_point(resolution, (point.x, point.y), plane=False)
     seed_cell_id = str(seed_cell)  # Unique identifier for the current cell
     seed_cell_polygon = cell_to_polygon(seed_cell)
-    geod = Geod(ellps="WGS84")
+    
     
     # Get the bounds and area of the cell
     center_lat = round(seed_cell_polygon.centroid.y,7)
@@ -56,7 +57,6 @@ def point_to_grid(rhealpix_dggs, resolution, point):
 # Function to generate grid for Polyline
 def polyline_to_grid(rhealpix_dggs, resolution, geometry):
     features = []
-    geod = Geod(ellps="WGS84")
     # Extract points from polyline
     if geometry.geom_type == 'LineString':
         # Handle single Polygon as before
@@ -166,8 +166,7 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
 # Function to generate grid for Polygon
 def polygon_to_grid(rhealpix_dggs, resolution, geometry):
     features = []
-    geod = Geod(ellps="WGS84")
-    
+   
     if geometry.geom_type == 'Polygon':
         # Handle single Polygon as before
         polygons = [geometry]
