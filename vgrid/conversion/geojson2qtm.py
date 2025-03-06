@@ -133,7 +133,7 @@ def polyline_to_grid(resolution, geometry):
                                     "geometry": mapping(subfacet_geom),
                                     "properties": {
                                         "qtm": new_id,
-                                        "resolution": resolution
+                                        "resolution": resolution,
                                         "center_lat": center_lat,
                                         "center_lon": center_lon,
                                         "avg_edge_len": avg_edge_len,
@@ -197,7 +197,7 @@ def polygon_to_grid(resolution, geometry):
                             "geometry": mapping(facet_geom),
                             "properties": {
                                 "qtm": QTMID[0][i],
-                                "resolution": resolution
+                                "resolution": resolution,
                                 "center_lat": center_lat,
                                 "center_lon": center_lon,
                                 "avg_edge_len": avg_edge_len,
