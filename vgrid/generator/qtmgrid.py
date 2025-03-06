@@ -49,11 +49,11 @@ def generate_grid(resolution):
                         "geometry": mapping(facet_geom),
                         "properties": {
                             "qtm": QTMID[0][i],
+                            "resolution": resolution,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": resolution
+                            "cell_area": cell_area
                             }
                     })            
                 
@@ -77,11 +77,11 @@ def generate_grid(resolution):
                                 "geometry": mapping(subfacet_geom),
                                 "properties": {
                                     "qtm": new_id,
+                                    "resolution": resolution,
                                     "center_lat": center_lat,
                                     "center_lon": center_lon,
-                                    "cell_area": cell_area,
                                     "avg_edge_len": avg_edge_len,
-                                    "resolution": resolution
+                                    "cell_area": cell_area
                                     }
                             })          
     return {
@@ -137,11 +137,11 @@ def generate_grid_within_bbox(resolution, bbox):
                         "geometry": mapping(facet_geom),
                         "properties": {
                             "qtm": QTMID[0][i],
+                            "resolution": resolution,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": resolution
+                            "cell_area": cell_area
                             }
                     })
                     return {
@@ -170,11 +170,11 @@ def generate_grid_within_bbox(resolution, bbox):
                                 "geometry": mapping(subfacet_geom),
                                  "properties": {
                                     "qtm": new_id,
+                                    "resolution": resolution,
                                     "center_lat": center_lat,
                                     "center_lon": center_lon,
-                                    "cell_area": cell_area,
                                     "avg_edge_len": avg_edge_len,
-                                    "resolution": resolution
+                                    "cell_area": cell_area
                                     }
                             })
     return {

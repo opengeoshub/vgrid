@@ -38,11 +38,11 @@ def point_to_grid(resolution, point):
                     "geometry": mapping(cell_polygon),
                     "properties": {
                         "qtm": qtm_id,
+                        "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_area": cell_area,
                         "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        "cell_area": cell_area
                     }
                 })
     return {
@@ -61,9 +61,9 @@ def polyline_to_grid(resolution, geometry):
         polylines = list(geometry)
 
     for polyline in polylines:
-        minx, miny, maxx, maxy = polyline.bounds
+        # minx, miny, maxx, maxy = polyline.bounds
         # Create a bounding box polygon
-        bbox_poly = box(minx, miny, maxx, maxy)
+        # bbox_poly = box(minx, miny, maxx, maxy)
         levelFacets = {}
         QTMID = {}
         geojson_features = []    
@@ -100,12 +100,12 @@ def polyline_to_grid(resolution, geometry):
                             "geometry": mapping(facet_geom),
                             "properties": {
                                 "qtm": QTMID[0][i],
+                                "resolution": resolution,
                                 "center_lat": center_lat,
                                 "center_lon": center_lon,
-                                "cell_area": cell_area,
                                 "avg_edge_len": avg_edge_len,
-                                "resolution": resolution
-                                }
+                                "cell_area": cell_area
+                            }
                         })
                         return {
                                 "type": "FeatureCollection",
@@ -133,11 +133,11 @@ def polyline_to_grid(resolution, geometry):
                                     "geometry": mapping(subfacet_geom),
                                     "properties": {
                                         "qtm": new_id,
+                                        "resolution": resolution
                                         "center_lat": center_lat,
                                         "center_lon": center_lon,
-                                        "cell_area": cell_area,
                                         "avg_edge_len": avg_edge_len,
-                                        "resolution": resolution
+                                        "cell_area": cell_area
                                         }
                                 })
                             
@@ -158,9 +158,9 @@ def polygon_to_grid(resolution, geometry):
         polygons = list(geometry)
 
     for polygon in polygons:
-        minx, miny, maxx, maxy = polygon.bounds
+        # minx, miny, maxx, maxy = polygon.bounds
         # Create a bounding box polygon
-        bbox_poly = box(minx, miny, maxx, maxy)
+        # bbox_poly = box(minx, miny, maxx, maxy)
         levelFacets = {}
         QTMID = {}
         geojson_features = []    
@@ -197,11 +197,11 @@ def polygon_to_grid(resolution, geometry):
                             "geometry": mapping(facet_geom),
                             "properties": {
                                 "qtm": QTMID[0][i],
+                                "resolution": resolution
                                 "center_lat": center_lat,
                                 "center_lon": center_lon,
-                                "cell_area": cell_area,
                                 "avg_edge_len": avg_edge_len,
-                                "resolution": resolution
+                                "cell_area": cell_area
                                 }
                         })
                         return {
@@ -230,11 +230,11 @@ def polygon_to_grid(resolution, geometry):
                                     "geometry": mapping(subfacet_geom),
                                     "properties": {
                                         "qtm": new_id,
+                                        "resolution": resolution,
                                         "center_lat": center_lat,
                                         "center_lon": center_lon,
-                                        "cell_area": cell_area,
                                         "avg_edge_len": avg_edge_len,
-                                        "resolution": resolution
+                                        "cell_area": cell_area
                                         }
                                 })
                             
