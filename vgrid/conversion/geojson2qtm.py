@@ -51,14 +51,13 @@ def point_to_grid(resolution, point):
     }
 
 # Function to generate grid for Polyline
-def polyline_to_grid(resolution, geometry):
-    features = []
+def polyline_to_grid(resolution, geometry):    
     # Extract points from polyline
     if geometry.geom_type == 'LineString':
         # Handle single Polygon as before
         polylines = [geometry]
     elif geometry.geom_type == 'MultiLineString':
-        # Handle MultiPolygon: process each polygon separately
+        # Handle MultiPolyline: process each polyline separately
         polylines = list(geometry)
 
     for polyline in polylines:
@@ -150,7 +149,99 @@ def polyline_to_grid(resolution, geometry):
 
 # Function to generate grid for Polygon
 def polygon_to_grid(resolution, geometry):
-   pass
+    # Extract points from polyline
+    if geometry.geom_type == 'Polygon':
+        # Handle single Polygon as before
+        polygons = [geometry]
+    elif geometry.geom_type == 'MultiPolygon':
+        # Handle MultiPolyline: process each polyline separately
+        polygons = list(geometry)
+
+    for polygon in polygons:
+        minx, miny, maxx, maxy = polygon.bounds
+        # Create a bounding box polygon
+        bbox_poly = box(minx, miny, maxx, maxy)
+        levelFacets = {}
+        QTMID = {}
+        geojson_features = []    
+        for lvl in range(resolution):
+            levelFacets[lvl] = []
+            QTMID[lvl] = []
+
+            if lvl == 0:
+                initial_facets = [
+                    [p0_n180, p0_n90, p90_n90, p90_n180, p0_n180, True],
+                    [p0_n90, p0_p0, p90_p0, p90_n90, p0_n90, True],
+                    [p0_p0, p0_p90, p90_p90, p90_p0, p0_p0, True],
+                    [p0_p90, p0_p180, p90_p180, p90_p90, p0_p90, True],
+                    [n90_n180, n90_n90, p0_n90, p0_n180, n90_n180, False],
+                    [n90_n90, n90_p0, p0_p0, p0_n90, n90_n90, False],
+                    [n90_p0, n90_p90, p0_p90, p0_p0, n90_p0, False],
+                    [n90_p90, n90_p180, p0_p180, p0_p90, n90_p90, False],
+                ]
+
+                for i, facet in enumerate(initial_facets):
+                    QTMID[0].append(str(i + 1))
+                    facet_geom = qtm.constructGeometry(facet)
+                    cell_centroid = facet_geom.centroid
+                    center_lat =  round(cell_centroid.y, 7)
+                    center_lon = round(cell_centroid.x, 7)
+                    cell_area = round(abs(geod.geometry_area_perimeter(facet_geom)[0]),2)
+                    cell_perimeter = abs(geod.geometry_area_perimeter(facet_geom)[1])
+                    avg_edge_len = round(cell_perimeter / 3,2)
+                    
+                    levelFacets[0].append(facet)
+                    if shape(facet_geom).intersects(polygon) and resolution == 1 :
+                        geojson_features.append({
+                            "type": "Feature",
+                            "geometry": mapping(facet_geom),
+                            "properties": {
+                                "qtm": QTMID[0][i],
+                                "center_lat": center_lat,
+                                "center_lon": center_lon,
+                                "cell_area": cell_area,
+                                "avg_edge_len": avg_edge_len,
+                                "resolution": resolution
+                                }
+                        })
+                        return {
+                                "type": "FeatureCollection",
+                                "features": geojson_features
+                            }              
+            else:
+                for i, pf in enumerate(levelFacets[lvl - 1]):
+                    subdivided_facets = qtm.divideFacet(pf)
+                    for j, subfacet in enumerate(subdivided_facets):
+                        subfacet_geom = qtm.constructGeometry(subfacet)
+                        if shape(subfacet_geom).intersects(polygon):  # Only keep intersecting facets
+                            new_id = QTMID[lvl - 1][i] + str(j)
+                            QTMID[lvl].append(new_id)
+                            levelFacets[lvl].append(subfacet)
+                            if lvl == resolution - 1:  # Only store final resolution in GeoJSON
+                                cell_centroid = subfacet_geom.centroid
+                                center_lat =  round(cell_centroid.y, 7)
+                                center_lon = round(cell_centroid.x, 7)
+                                cell_area = round(abs(geod.geometry_area_perimeter(subfacet_geom)[0]),2)
+                                cell_perimeter = abs(geod.geometry_area_perimeter(subfacet_geom)[1])
+                                avg_edge_len = round(cell_perimeter / 3,2)
+                                
+                                geojson_features.append({
+                                    "type": "Feature",
+                                    "geometry": mapping(subfacet_geom),
+                                    "properties": {
+                                        "qtm": new_id,
+                                        "center_lat": center_lat,
+                                        "center_lon": center_lon,
+                                        "cell_area": cell_area,
+                                        "avg_edge_len": avg_edge_len,
+                                        "resolution": resolution
+                                        }
+                                })
+                            
+    return {
+            "type": "FeatureCollection",
+            "features": geojson_features,
+            }
 
 # Main function to handle different GeoJSON shapes
 def main():
