@@ -13,6 +13,8 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.eaggr import Eaggr
     from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
     from vgrid.utils.eaggr.enums.model import Model
+    from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
+
 
 if (platform.system() == 'Linux'):
     from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
@@ -28,38 +30,38 @@ from shapely.geometry import shape, Point,Polygon,mapping
 import json, re,os,argparse
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
-from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
+
 from vgrid.utils.antimeridian import fix_polygon
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 E = WGS84_ELLIPSOID
 
-def h32geojson(h3_code):
+def h32geojson(h3_cellid):
     # Get the boundary coordinates of the H3 cell
-    cell_boundary = h3.cell_to_boundary(h3_code)    
+    cell_boundary = h3.cell_to_boundary(h3_cellid)    
     if cell_boundary:
         filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
         # Reverse lat/lon to lon/lat for GeoJSON compatibility
         reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
         cell_polygon = Polygon(reversed_boundary)
         
-        center_lat, center_lon = h3.cell_to_latlng(h3_code)
+        center_lat, center_lon = h3.cell_to_latlng(h3_cellid)
         center_lat = round(center_lat,7)
         center_lon = round(center_lon,7)
 
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
         avg_edge_len = round(cell_perimeter/6,3)
-        if (h3.is_pentagon(h3_code)):
+        if (h3.is_pentagon(h3_cellid)):
             avg_edge_len = round(cell_perimeter/5 ,3)   
-        resolution = h3.get_resolution(h3_code)        
+        resolution = h3.get_resolution(h3_cellid)        
         
         feature = {
                     "type": "Feature",
                     "geometry": mapping(cell_polygon),
                     "properties": {
-                        "h3": h3_code,
+                        "h3": h3_cellid,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
                         "cell_area": cell_area,
@@ -82,9 +84,9 @@ def h32geojson_cli():
     geojson_data = json.dumps(h32geojson(args.h3))
     print(geojson_data)
 
-def s22geojson(cell_id_token):
+def s22geojson(s2_token):
     # Create an S2 cell from the given cell ID
-    cell_id = s2.CellId.from_token(cell_id_token)
+    cell_id = s2.CellId.from_token(s2_token)
     cell = s2.Cell(cell_id)
     if cell:
         # Get the vertices of the cell (4 vertices for a rectangular cell)
@@ -114,7 +116,7 @@ def s22geojson(cell_id_token):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties":{
-                "s2_token": cell_id_token,
+                "s2_token": s2_token,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -151,9 +153,8 @@ def rhealpix_cell_to_polygon(cell):
     vertices = fix_rhealpix_antimeridian_cells(vertices)
     return Polygon(vertices)
 
-def rhealpix2geojson(rhealpix_code):
-    rhealpix_code = str(rhealpix_code)
-    rhealpix_uids = (rhealpix_code[0],) + tuple(map(int, rhealpix_code[1:]))
+def rhealpix2geojson(rhealpix_cellid):
+    rhealpix_uids = (rhealpix_cellid[0],) + tuple(map(int, rhealpix_cellid[1:]))
     rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3) 
     rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
     
@@ -200,18 +201,18 @@ def rhealpix2geojson_cli():
     geojson_data = json.dumps(rhealpix2geojson(args.rhealpix))
     print(geojson_data)
 
-def isea4t2geojson(isea4t):
+def isea4t2geojson(isea4t_cellid):
     if (platform.system() == 'Windows'): 
         isea4t_dggs = Eaggr(Model.ISEA4T)
-        cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t),ShapeStringFormat.WKT)
+        cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t_cellid),ShapeStringFormat.WKT)
         cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
     
-        if isea4t.startswith('00') or isea4t.startswith('09') or isea4t.startswith('14')\
-            or isea4t.startswith('04') or isea4t.startswith('19'):
+        if isea4t_cellid.startswith('00') or isea4t_cellid.startswith('09') or isea4t_cellid.startswith('14')\
+            or isea4t_cellid.startswith('04') or isea4t_cellid.startswith('19'):
             cell_to_shape_fixed = fix_isea4t_antimeridian_cells(cell_to_shape_fixed)
         
         if cell_to_shape_fixed:
-            resolution = len(isea4t)-2
+            resolution = len(isea4t_cellid)-2
             # Compute centroid
             cell_centroid = cell_to_shape_fixed.centroid
             center_lat, center_lon = round(cell_centroid.y,7), round(cell_centroid.x,7)
@@ -221,14 +222,14 @@ def isea4t2geojson(isea4t):
             cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),5)  # Area in square meters
             cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
             avg_edge_len = round(cell_perimeter/3,5)  
-            isea4t2point = isea4t_dggs.convert_dggs_cell_to_point(DggsCell(isea4t))
+            isea4t2point = isea4t_dggs.convert_dggs_cell_to_point(DggsCell(isea4t_cellid))
             accuracy = isea4t2point._accuracy
 
             feature = {
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),
                 "properties": {
-                    "isea4t": isea4t,
+                    "isea4t": isea4t_cellid,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
                     "cell_area": cell_area,
@@ -254,10 +255,10 @@ def isea4t2geojson_cli():
     geojson_data = json.dumps(isea4t2geojson(args.isea4t))
     print(geojson_data)
 
-def isea3h_cell_to_polygon(isea3h):
+def isea3h_cell_to_polygon(isea3h_cellid):
     if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h),ShapeStringFormat.WKT)
+        cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h_cellid),ShapeStringFormat.WKT)
         if cell_to_shape:
             coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
             coordinates = []
@@ -273,7 +274,7 @@ def isea3h_cell_to_polygon(isea3h):
         fixed_polygon = fix_polygon(cell_polygon)    
         return fixed_polygon
 
-def isea3h2geojson(isea3h):
+def isea3h2geojson(isea3h_cellid):
     if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
         accuracy_res_dict = {
@@ -321,7 +322,7 @@ def isea3h2geojson(isea3h):
                 0.0: 40
             }
 
-        cell_polygon = isea3h_cell_to_polygon(isea3h)
+        cell_polygon = isea3h_cell_to_polygon(isea3h_cellid)
     
         cell_centroid = cell_polygon.centroid
         center_lat =  round(cell_centroid.y, 7)
@@ -329,7 +330,7 @@ def isea3h2geojson(isea3h):
         
         cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h))      
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h_cellid))      
         
         accuracy = isea3h2point._accuracy
             
@@ -362,7 +363,7 @@ def isea3h2geojson(isea3h):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                    "isea3h": isea3h,
+                    "isea3h": isea3h_cellid,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
                     "cell_area": round(cell_area,3),
@@ -390,10 +391,10 @@ def isea3h2geojson_cli():
     print(geojson_data)
 
 
-def dggrid2geojson(dggrid_id,dggs_type,resolution):
+def dggrid2geojson(dggrid_cellid,dggs_type,resolution):
     if (platform.system() == 'Linux'):
         dggrid_instance = DGGRIDv7(executable='/usr/local/bin/dggrid', working_dir='.', capture_logs=False, silent=True, tmp_geo_out_legacy=False, debug=False)
-        dggrid_cell =  dggrid_instance.grid_cell_polygons_from_cellids([dggrid_id],dggs_type,resolution,split_dateline=True)    
+        dggrid_cell =  dggrid_instance.grid_cell_polygons_from_cellids([dggrid_cellid],dggs_type,resolution,split_dateline=True)    
       
         gdf = dggrid_cell.set_geometry("geometry")  # Ensure the geometry column is set
         # Check and set CRS to EPSG:4326 if needed
@@ -424,15 +425,15 @@ def dggrid2geojson_cli():
     print(geojson_data)
 
 
-def ease2geojson(ease_cell_id):
-    level = int(ease_cell_id[1])  # Get the level (e.g., 'L0' -> 0)
+def ease2geojson(ease_cellid):
+    level = int(ease_cellid[1])  # Get the level (e.g., 'L0' -> 0)
     # Get level specs
     level_spec = levels_specs[level]
     n_row = level_spec["n_row"]
     n_col = level_spec["n_col"]
     
     
-    geo = grid_ids_to_geos([ease_cell_id])
+    geo = grid_ids_to_geos([ease_cellid])
     center_lon, center_lat = geo['result']['data'][0] 
 
     cell_min_lat = center_lat - (180 / (2 * n_row))
@@ -459,7 +460,7 @@ def ease2geojson(ease_cell_id):
         "type": "Feature",
         "geometry": mapping(cell_polygon),
         "properties": {
-            "ease": ease_cell_id,
+            "ease": ease_cellid,
             "center_lat": round(center_lat, 7),
             "center_lon": round(center_lon, 7),
             "cell_area": round(cell_area,3),
@@ -486,15 +487,15 @@ def ease2geojson_cli():
     print(geojson_data)
 
 
-def qtm2geojson(qtm_id):
-    facet = qtm_id_to_facet(qtm_id)
+def qtm2geojson(qtm_cellid):
+    facet = qtm_id_to_facet(qtm_cellid)
     polygon = constructGeometry(facet)    
     
     feature = {
         "type": "Feature",
         "geometry": mapping(polygon),
         "properties": {
-            "qtm": qtm_id       
+            "qtm": qtm_cellid       
         }
     }
 
@@ -516,10 +517,9 @@ def qtm2geojson_cli():
     print(geojson_data)
 
     
-
-def olc2geojson(olc_code):
+def olc2geojson(olc_cellid):
     # Decode the Open Location Code into a CodeArea object
-    coord = olc.decode(olc_code)
+    coord = olc.decode(olc_cellid)
     
     if coord:
         # Create the bounding box coordinates for the polygon
@@ -550,7 +550,7 @@ def olc2geojson(olc_code):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                "olc": olc_code,  # Include the OLC as a property
+                "olc": olc_cellid,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -578,9 +578,9 @@ def olc2geojson_cli():
     print(geojson_data)
 
 
-def geohash2geojson(geohash_code):
+def geohash2geojson(geohash_cellid):
     # Decode the Open Location Code into a CodeArea object
-    bbox =  geohash.bbox(geohash_code)
+    bbox =  geohash.bbox(geohash_cellid)
     if bbox:
         min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
         max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner
@@ -588,7 +588,7 @@ def geohash2geojson(geohash_code):
         center_lat = round((min_lat + max_lat) / 2,7)
         center_lon = round((min_lon + max_lon) / 2,7)
         
-        resolution =  len(geohash_code)
+        resolution =  len(geohash_cellid)
 
         # Define the polygon based on the bounding box
         cell_polygon = Polygon([
@@ -611,7 +611,7 @@ def geohash2geojson(geohash_code):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                "geohash": geohash_code,  # Include the OLC as a property
+                "geohash": geohash_cellid,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -639,8 +639,8 @@ def geohash2geojson_cli():
     print(geojson_data)
 
 
-def mgrs2geojson(mgrs_code,lat=None,lon=None):
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_code)
+def mgrs2geojson(mgrs_cellid,lat=None,lon=None):
+    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_cellid)
     if origin_lat:
         # Define the polygon based on the bounding box
         origin_lat = round(origin_lat,7)
@@ -666,7 +666,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                "mgrs": mgrs_code,
+                "mgrs": mgrs_cellid,
                 "origin_lat": origin_lat,
                 "origin_lon": origin_lon,
                 "cell_area": cell_area,
@@ -713,7 +713,7 @@ def mgrs2geojson(mgrs_code,lat=None,lon=None):
                                 "coordinates": [list(intersection_polygon.exterior.coords)]
                             },
                             "properties": {
-                                "mgrs": mgrs_code,
+                                "mgrs": mgrs_cellid,
                                 "origin_lat": origin_lat,
                                 "origin_lon": origin_lon,
                                 "cell_area": interection_area,
@@ -753,8 +753,8 @@ def mgrs2geojson_cli():
     print(geojson_data)
 
 
-def georef2geojson(georef_code):
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_code)
+def georef2geojson(georef_cellid):
+    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_cellid)
     if center_lat:
         center_lat = round(center_lat,7)
         center_lon = round(center_lon,7)
@@ -776,7 +776,7 @@ def georef2geojson(georef_code):
             "type": "Feature",            
             "geometry": mapping(cell_polygon),          
             "properties": {
-                "georef": georef_code,
+                "georef": georef_cellid,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area" : cell_area,
@@ -804,7 +804,7 @@ def georef2geojson_cli():
     print(geojson_data)
 
 
-def tilecode2geojson(tilecode):
+def tilecode2geojson(tilecode_cellid):
     """
     Converts a tilecode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
     representing the tile's bounds and includes the original tilecode as a property.
@@ -816,7 +816,7 @@ def tilecode2geojson(tilecode):
         dict: A GeoJSON Feature with a Polygon geometry and tilecode as a property.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode)
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_cellid)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -856,7 +856,7 @@ def tilecode2geojson(tilecode):
             "type": "Feature",
             "geometry": mapping(cell_polygon),          
             "properties": {
-                "tilecode": tilecode,  # Include the OLC as a property
+                "tilecode": tilecode_cellid,  # Include the OLC as a property
                 "quadkey": quadkey,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
@@ -887,10 +887,10 @@ def tilecode2geojson_cli():
     print(geojson_data)
 
 
-def quadkey2geojson(quadkey):
-    tile = mercantile.quadkey_to_tile(quadkey)    
+def quadkey2geojson(quadkey_cellid):
+    tile = mercantile.quadkey_to_tile(quadkey_cellid)    
     # Format as tilecode
-    tilecode = f"z{tile.z}x{tile.x}y{tile.y}"
+    tilecode_cellid = f"z{tile.z}x{tile.x}y{tile.y}"
     z = tile.z
     x = tile.x
     y = tile.y
@@ -922,8 +922,8 @@ def quadkey2geojson(quadkey):
             "type": "Feature",
             "geometry": mapping(cell_polygon),          
             "properties": {
-                "tilecode": tilecode,  # Include the OLC as a property
-                "quadkey": quadkey,
+                "tilecode": tilecode_cellid,  # Include the OLC as a property
+                "quadkey": quadkey_cellid,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -953,13 +953,13 @@ def quadkey2geojson_cli():
     print(geojson_data)
 
 
-def maidenhead2geojson(maidenhead_code):
+def maidenhead2geojson(maidenhead_cellid):
     # Decode the Open Location Code into a CodeArea object
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_code)
+    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_cellid)
     if center_lat:
         center_lat = round(center_lat,7)
         center_lon  = round(center_lon,7)
-        resolution = int(len(maidenhead_code)/2)
+        resolution = int(len(maidenhead_cellid)/2)
     
         # Define the polygon based on the bounding box
         cell_polygon = Polygon([
@@ -979,7 +979,7 @@ def maidenhead2geojson(maidenhead_code):
             "type": "Feature",
             "geometry": mapping(cell_polygon),       
             "properties": {
-                "maidenhead": maidenhead_code,  # Include the OLC as a property
+                "maidenhead": maidenhead_cellid,  # Include the OLC as a property
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,
@@ -1006,9 +1006,9 @@ def maidenhead2geojson_cli():
     geojson_data = json.dumps(maidenhead2geojson(args.maidenhead))
     print(geojson_data)
 
-# SOS: Convert gars_code object to str first
-def gars2geojson(gars_code):
-    gars_grid = garsgrid.GARSGrid(gars_code)
+# SOS: Convert gars_cellid object to str first
+def gars2geojson(gars_cellid):
+    gars_grid = garsgrid.GARSGrid(gars_cellid)
     wkt_polygon = gars_grid.polygon
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
@@ -1035,7 +1035,7 @@ def gars2geojson(gars_code):
             "type": "Feature",
             "geometry": mapping(cell_polygon),       
             "properties": {
-                "gars": gars_code,
+                "gars": gars_cellid,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
                 "cell_area": cell_area,

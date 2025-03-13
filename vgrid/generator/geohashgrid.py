@@ -4,7 +4,7 @@ import argparse,json
 from shapely.geometry import Polygon, mapping
 from tqdm import tqdm
 
-max_cells = 1000_000
+max_cells = 2000_000
 
 def geohash_to_polygon(gh):
     """Convert geohash to a Shapely Polygon."""
@@ -125,7 +125,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate world polygons based on geohashes.')
     parser.add_argument(
         '-r', '--resolution', type=int, required=True,
-        help='Resolution level for the geohashes (1-12)'
+        help='Resolution for the geohashes [1-10]'
     )
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4,
@@ -135,8 +135,8 @@ def main():
     resolution = args.resolution
     bbox = args.bbox
 
-    if not (1 <= resolution <= 12):
-        print("Resolution must be between 1 and 12.")
+    if not (1 <= resolution <= 10):
+        print("Resolution must be between 1 and 10.")
         return
 
     # Validate resolution and calculate metrics

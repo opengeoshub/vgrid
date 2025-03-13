@@ -92,9 +92,9 @@
 
 ### Geohash
 ``` bash
-> latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..30]
+> latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..10]
 > geohash2geojson w3gvk1td8
-> geohashgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
+> geohashgrid -r 6 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..10] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
 > geohashstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
@@ -102,6 +102,7 @@
 ``` bash
 > latlon2georef 10.775275567242561 106.70679737574993 4 # latlon2georef <lat> <lon> <res> [0..10]
 > georef2geojson VGBL42404651
+> geohashgrid -r 2 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
 > georeftats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
