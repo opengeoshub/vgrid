@@ -34,10 +34,8 @@ def point_to_grid(resolution, point):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        # Calculate width (longitude difference at a constant latitude)
-        cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
-        # Calculate height (latitude difference at a constant longitude)
-        cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+        avg_edge_len = round(cell_perimeter/6,2)
         resolution = tilecode_cell.z 
               
         features.append({
@@ -46,12 +44,11 @@ def point_to_grid(resolution, point):
                 "properties": {
                     "tilecode": tilecode_id,  
                     "quadkey": quadkey,
+                    "resolution": resolution,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "cell_area": cell_area,
-                    "cell_width": cell_width,
-                    "cell_height": cell_height,
-                    "resolution": resolution  
+                    "avg_edge_len": avg_edge_len,
+                    "cell_area": cell_area                
                 }
             })
 
@@ -100,24 +97,19 @@ def polyline_to_grid(resolution, geometry):
                 ])
                 if cell_polygon.intersects(polyline):
                     cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-                    # Calculate width (longitude difference at a constant latitude)
-                    cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
-                    # Calculate height (latitude difference at a constant longitude)
-                    cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
-
-
+                    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                    avg_edge_len = round(cell_perimeter/6,2)        
                     features.append({
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),          
                         "properties": {
                             "tilecode": tilecode_id,  
                             "quadkey": quadkey,
+                            "resolution": z, 
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
-                            "cell_width": cell_width,
-                            "cell_height": cell_height,
-                            "resolution": z  
+                            "avg_edge_len": avg_edge_len,
+                            "cell_area": cell_area
                         },
                     })     
 

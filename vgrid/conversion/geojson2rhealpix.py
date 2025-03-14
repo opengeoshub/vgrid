@@ -40,11 +40,11 @@ def point_to_grid(rhealpix_dggs, resolution, point):
                 "geometry": mapping(seed_cell_polygon),
                 "properties": {
                         "rhealpix": seed_cell_id,
+                        "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_area": cell_area,
                         "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        "cell_area": cell_area
                         },
             })
     
@@ -92,11 +92,11 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
                 "geometry": mapping(seed_cell_polygon),
                 "properties": {
                         "rhealpix": seed_cell_id,
+                        "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_area": cell_area,
                         "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        "cell_area": cell_area
                         },
             })
         
@@ -150,13 +150,13 @@ def polyline_to_grid(rhealpix_dggs, resolution, geometry):
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),
                         "properties": {
-                                "rhealpix": cell_id,
-                                "center_lat": center_lat,
-                                "center_lon": center_lon,
-                                "cell_area": cell_area,
-                                "avg_edge_len": avg_edge_len,
-                                "resolution": resolution
-                                },
+                            "rhealpix": seed_cell_id,
+                            "resolution": resolution,
+                            "center_lat": center_lat,
+                            "center_lon": center_lon,
+                            "avg_edge_len": avg_edge_len,
+                            "cell_area": cell_area
+                        },
                     })
     return {
         "type": "FeatureCollection",
@@ -198,11 +198,11 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
                 "geometry": mapping(seed_cell_polygon),
                 "properties": {
                         "rhealpix": seed_cell_id,
+                        "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_area": cell_area,
                         "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        "cell_area": cell_area
                         },
             })
         else:
@@ -243,13 +243,14 @@ def polygon_to_grid(rhealpix_dggs, resolution, geometry):
                     features.append({
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),
-                        "properties": {
-                            "rhealpix": cell_id,
+                         "properties": {
+                            "rhealpix": seed_cell_id,
+                            "resolution": resolution,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
-                            "avg_edge_len": avg_edge_len
-                        },
+                            "avg_edge_len": avg_edge_len,
+                            "cell_area": cell_area
+                            },
                     })
 
     return {

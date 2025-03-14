@@ -35,11 +35,11 @@ def h3_to_geojson(h3_id):
             "geometry": mapping(cell_polygon),
             "properties": {
                 "h3": h3_id,
+                "resolution": resolution,
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "cell_area": cell_area,
                 "avg_edge_len": avg_edge_len,
-                "resolution": resolution
+                "cell_area": cell_area
             }
         }
 

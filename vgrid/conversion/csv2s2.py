@@ -44,11 +44,11 @@ def s2_to_geojson(s2_token):
             "geometry": mapping(cell_polygon),
             "properties": {
                 "s2": s2_token,
+                "resolution": cell_id.level(),
                 "center_lat": center_lat,
                 "center_lon": center_lon,
-                "cell_area": cell_area,
                 "avg_edge_len": avg_edge_len,
-                "resolution": cell_id.level()
+                "cell_area": cell_area
             }
         }
 

@@ -46,12 +46,12 @@ def point_to_grid(isea4t_dggs, resolution, point):
         "geometry": mapping(cell_polygon),
         "properties": {
             "isea4t": isea4t_cell_id,
+            "resolution": resolution,
+            "accuracy": accuracy,
             "center_lat": center_lat,
             "center_lon": center_lon,
-            "cell_area": cell_area,
             "avg_edge_len": avg_edge_len,
-            "resolution": resolution,
-            "accuracy": accuracy
+            "cell_area": cell_area
         },
     })
     
@@ -100,15 +100,15 @@ def polyline_to_grid(isea4t_dggs, resolution, geometry):
                     features.append({
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),
-                        "properties": {
-                                "isea4t": isea4t_cell_id,
-                                "center_lat": center_lat,
-                                "center_lon": center_lon,
-                                "cell_area": cell_area,
-                                "avg_edge_len": avg_edge_len,
-                                "resolution": resolution,
-                                "accuracy": accuracy
-                                },
+                         "properties": {
+                            "isea4t": isea4t_cell_id,
+                            "resolution": resolution,
+                            "accuracy": accuracy,
+                            "center_lat": center_lat,
+                            "center_lon": center_lon,
+                            "avg_edge_len": avg_edge_len,
+                            "cell_area": cell_area
+                        },
                     })
                    
     return {
@@ -155,13 +155,13 @@ def polygon_to_grid(isea4t_dggs,resolution, geometry):
                         "geometry": mapping(cell_polygon),
                         "properties": {
                                 "isea4t": isea4t_cell_id,
+                                "resolution": resolution,
+                                "accuracy": accuracy,
                                 "center_lat": center_lat,
                                 "center_lon": center_lon,
-                                "cell_area": cell_area,
                                 "avg_edge_len": avg_edge_len,
-                                "resolution": resolution,
-                                "accuracy": accuracy
-                                },
+                                "cell_area": cell_area
+                            },
                     })
     return {
         "type": "FeatureCollection",

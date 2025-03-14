@@ -44,11 +44,11 @@ def point_to_grid(resolution, point):
                     "geometry": mapping(cell_polygon),
                     "properties": {
                         "h3": h3_cell,
+                        "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
-                        "cell_area": cell_area,
                         "avg_edge_len": avg_edge_len,
-                        "resolution": resolution
+                        "cell_area": cell_area
                     }
                 })
     return {
@@ -109,11 +109,11 @@ def polyline_to_grid(resolution, geometry):
                         "geometry": mapping(cell_polygon),
                         "properties": {
                             "h3": bbox_buffer_cell,
+                            "resolution": resolution,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": resolution
+                            "cell_area": cell_area
                         }
                     })
 
@@ -161,11 +161,11 @@ def polygon_to_grid(resolution, geometry):
                         "geometry": mapping(cell_polygon),
                         "properties": {
                             "h3": bbox_buffer_cell,
+                            "resolution": resolution,
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "cell_area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": resolution
+                            "cell_area": cell_area
                         }
                     })
 

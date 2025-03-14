@@ -36,12 +36,12 @@ def point_to_grid(resolution, point):
                 "geometry": mapping(cell_polygon),
                 "properties": {
                     "s2_token": cell_token,
+                    "resolution": cell_id.level(),
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "area": cell_area,
                     "avg_edge_len": avg_edge_len,
-                    "resolution": cell_id.level()
-                        },
+                    "area": cell_area
+                    },
              })
             
         return {
@@ -105,12 +105,12 @@ def polyline_to_grid(resolution, geometry):
                     "geometry": mapping(cell_polygon),
                     "properties": {
                             "s2_token": cell_token,
+                            "resolution": cell_id.level(),
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": cell_id.level()
-                            },
+                            "area": cell_area
+                        },
                 })
             
         # Create a FeatureCollection
@@ -174,11 +174,11 @@ def polygon_to_grid(resolution, geometry):
                     "geometry": mapping(cell_polygon),
                     "properties": {
                             "s2_token": cell_token,
+                            "resolution": cell_id.level(),
                             "center_lat": center_lat,
                             "center_lon": center_lon,
-                            "area": cell_area,
                             "avg_edge_len": avg_edge_len,
-                            "resolution": cell_id.level()
+                            "area": cell_area
                             },
                 })
             
