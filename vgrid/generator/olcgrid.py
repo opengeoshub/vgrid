@@ -219,7 +219,7 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     return features
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate a grid of Open Location Codes (Plus Codes).")
+    parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode grid.")
     parser.add_argument("-r", "--resolution",type=int,required=True,
                         help="OLC code length/ resolution must be in [2, 4, 6, 8, 10..15]")
     

@@ -14,14 +14,13 @@ def generate_grid(resolution,bbox):
     tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
     for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}:", unit=" cells"):
         z, x, y = tile.z, tile.x, tile.y
-        tilecode = f"z{tile.z}x{tile.x}y{tile.y}"
         bounds = mercantile.bounds(x, y, z)
         if bounds:
             # Create the bounding box coordinates for the polygon
             min_lat, min_lon = bounds.south, bounds.west
             max_lat, max_lon = bounds.north, bounds.east
             
-            quadkey = mercantile.quadkey(tile)
+            quadkey_id = mercantile.quadkey(tile)
 
             center_lat = round((min_lat + max_lat) / 2,7)
             center_lon = round((min_lon + max_lon) / 2,7)
@@ -41,8 +40,7 @@ def generate_grid(resolution,bbox):
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),          
                 "properties": {
-                    "tilecode": tilecode,  
-                    "quadkey": quadkey,
+                    "quadkey": quadkey_id,
                     "resolution": z ,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
@@ -61,7 +59,7 @@ def generate_grid(resolution,bbox):
     return geojson_features
         
 def main():
-    parser = argparse.ArgumentParser(description='Generate Tilecode grid.')
+    parser = argparse.ArgumentParser(description='Generate Quadkey grid.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..26]')
     parser.add_argument('-b', '--bbox', type=float, nargs=4,  help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)") 
 
@@ -86,7 +84,7 @@ def main():
     geojson_features = generate_grid(resolution, bbox)
     if geojson_features:
         # Define the GeoJSON file path
-        geojson_path = f"tilecode_grid_{resolution}.geojson"
+        geojson_path = f"quadkey_grid_{resolution}.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 

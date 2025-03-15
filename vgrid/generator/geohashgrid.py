@@ -122,7 +122,7 @@ def generate_grid_within_bbox(resolution, bbox):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate world polygons based on geohashes.')
+    parser = argparse.ArgumentParser(description='Generate Geohash grid.')
     parser.add_argument(
         '-r', '--resolution', type=int, required=True,
         help='Resolution for the geohashes [1-10]'

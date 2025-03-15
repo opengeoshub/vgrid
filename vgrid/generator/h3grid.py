@@ -106,7 +106,7 @@ def generate_grid_within_bbox(resolution,bbox):
 # Example Usage
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Generate H3 grid within a bounding box and save as a GeoJSON.")
+    parser = argparse.ArgumentParser(description="Generate H3 grid.")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15] of the grid")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 

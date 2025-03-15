@@ -869,7 +869,6 @@ def tilecode2geojson_cli():
 def quadkey2geojson(quadkey_cellid):
     tile = mercantile.quadkey_to_tile(quadkey_cellid)    
     # Format as tilecode
-    tilecode_cellid = f"z{tile.z}x{tile.x}y{tile.y}"
     z = tile.z
     x = tile.x
     y = tile.y
@@ -901,7 +900,6 @@ def quadkey2geojson(quadkey_cellid):
             "geometry": mapping(cell_polygon),          
             "properties": {
                 "quadkey": quadkey_cellid,
-                "tilecode": tilecode_cellid,  
                 "resolution": z,
                 "center_lat": center_lat,
                 "center_lon": center_lon,

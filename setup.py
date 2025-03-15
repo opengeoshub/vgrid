@@ -101,7 +101,8 @@ setup(
             
             'geojson2olc = vgrid.conversion.geojson2olc:main',
             'geojson2tilecode = vgrid.conversion.geojson2tilecode:main',
-            
+            'geojson2quadkey = vgrid.conversion.geojson2quadkey:main',
+
             # CSV to DGGS
             'csv2h3 =  vgrid.conversion.csv2h3:main',
             'csv2s2 =  vgrid.conversion.csv2s2:main',
@@ -125,6 +126,7 @@ setup(
             'gzd = vgrid.generator.gzd:main',  
             'mgrsgrid = vgrid.generator.mgrsgrid:main',
             'tilecodegrid = vgrid.generator.tilecodegrid:main', 
+            'quadkeygrid = vgrid.generator.quadkeygrid:main', 
             'maidenheadgrid = vgrid.generator.maidenheadgrid:main',        
             'garsgrid = vgrid.generator.garsgrid:main',        
             

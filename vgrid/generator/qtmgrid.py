@@ -183,7 +183,7 @@ def generate_grid_within_bbox(resolution, bbox):
     }
     
 def main():
-    parser = argparse.ArgumentParser(description='Builds a Dutton QTM grid at a specific resolution and outputs it as GeoJSON.')
+    parser = argparse.ArgumentParser(description='Generate QTM grid.')
     parser.add_argument('-r', '--resolution', required=True, type=int, help='Resolution [1..24] to generate.')
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 

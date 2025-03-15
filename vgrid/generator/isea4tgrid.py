@@ -282,7 +282,7 @@ def main():
     """
     Main function to parse arguments and generate the DGGS grid.
     """
-    parser = argparse.ArgumentParser(description="Generate full DGGS grid at a specified resolution.")
+    parser = argparse.ArgumentParser(description="Generate Open-Eaggr ISEA4T grid.")
     parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..39] of the grid")
     # Resolution max range: [0..39]
     parser.add_argument(

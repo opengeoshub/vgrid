@@ -114,7 +114,7 @@ def create_mgrs_grid(minx, miny, maxx, maxy, cell_size, crs):
 
 def main():
     # Set up argument parser
-    parser = argparse.ArgumentParser(description="Create a UTM grid with specified cell size and save as a shapefile.")
+    parser = argparse.ArgumentParser(description="Generate MGRS grid.")
     parser.add_argument("-o", "--output", required=True, help="Output shapefile path")
     parser.add_argument("-cellsize", type=int, required=True, help="Cell size in meters")
     parser.add_argument("-epsg", type=int, default=32648, help="EPSG code for the UTM CRS (default: 32648)")

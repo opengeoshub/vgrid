@@ -13,15 +13,15 @@ geod = Geod(ellps="WGS84")
 def point_to_grid(resolution, point):    
     features = []
      # res: [0..29]        
-    tilecode_id = tilecode.latlon2tilecode(point.y, point.x,resolution)
-    tilecode_cell = mercantile.tile(point.x, point.y, resolution)
-    bounds = mercantile.bounds(tilecode_cell)
+    quadkey_id = tilecode.latlon2quadkey(point.y, point.x,resolution)
+    quadkey_cell = mercantile.tile(point.x, point.y, resolution)
+    bounds = mercantile.bounds(quadkey_cell)
     if bounds:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = bounds.south, bounds.west
         max_lat, max_lon = bounds.north, bounds.east
         
-        quadkey = mercantile.quadkey(tilecode_cell)
+        quadkey = mercantile.quadkey(quadkey_cell)
 
         center_lat = round((min_lat + max_lat) / 2,7)
         center_lon = round((min_lon + max_lon) / 2,7)
@@ -36,14 +36,13 @@ def point_to_grid(resolution, point):
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
         avg_edge_len = round(cell_perimeter/6,2)
-        resolution = tilecode_cell.z 
+        resolution = quadkey_cell.z 
               
         features.append({
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),          
                 "properties": {
-                    "tilecode": tilecode_id,  
-                    "quadkey": quadkey,
+                    "quadkey": quadkey_id,
                     "resolution": resolution,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
@@ -75,14 +74,13 @@ def polyline_to_grid(resolution, geometry):
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
-            tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
             bounds = mercantile.bounds(x, y, z)
             if bounds:
                 # Create the bounding box coordinates for the polygon
                 min_lat, min_lon = bounds.south, bounds.west
                 max_lat, max_lon = bounds.north, bounds.east
                 
-                quadkey = mercantile.quadkey(tile)
+                quadkey_id = mercantile.quadkey(tile)
 
                 center_lat = round((min_lat + max_lat) / 2,7)
                 center_lon = round((min_lon + max_lon) / 2,7)
@@ -102,8 +100,7 @@ def polyline_to_grid(resolution, geometry):
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),          
                         "properties": {
-                            "tilecode": tilecode_id,  
-                            "quadkey": quadkey,
+                            "quadkey": quadkey_id,
                             "resolution": z, 
                             "center_lat": center_lat,
                             "center_lon": center_lon,
@@ -134,15 +131,13 @@ def polygon_to_grid(resolution, geometry):
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
-            tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
             bounds = mercantile.bounds(x, y, z)
             if bounds:
                 # Create the bounding box coordinates for the polygon
                 min_lat, min_lon = bounds.south, bounds.west
                 max_lat, max_lon = bounds.north, bounds.east
                 
-                quadkey = mercantile.quadkey(tile)
-
+                quadkey_id = mercantile.quadkey(tile)
                 center_lat = round((min_lat + max_lat) / 2,7)
                 center_lon = round((min_lon + max_lon) / 2,7)
                 
@@ -165,8 +160,7 @@ def polygon_to_grid(resolution, geometry):
                         "type": "Feature",
                         "geometry": mapping(cell_polygon),          
                         "properties": {
-                            "tilecode": tilecode_id,  
-                            "quadkey": quadkey,
+                            "quadkey": quadkey_id,  
                             "center_lat": center_lat,
                             "center_lon": center_lon,
                             "cell_area": cell_area,
@@ -186,7 +180,7 @@ def polygon_to_grid(resolution, geometry):
 
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Tilecode Grid")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Quadkey Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..29]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSON format"
@@ -259,7 +253,7 @@ def main():
                     geojson_features.extend(polygon_features['features'])
 
     # Save the results to GeoJSON
-    geojson_path = f"geojson2tilecode_{resolution}.geojson"
+    geojson_path = f"geojson2quadkey_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

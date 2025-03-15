@@ -143,7 +143,7 @@ def generate_grid_within_bbox(resolution, bbox):
     }
    
 def main():
-    parser = argparse.ArgumentParser(description="Generate Maidenhead grid cells and save as GeoJSON")
+    parser = argparse.ArgumentParser(description="Generate Maidenhead grid")
     parser.add_argument('-r', '--resolution', type=int, choices=[1, 2, 3, 4], default=1,
                         help="resolution for Maidenhead grid (1 to 4)")
     parser.add_argument(

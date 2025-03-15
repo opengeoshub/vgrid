@@ -50,7 +50,7 @@ def generate_grid(dggrid_instance,dggs_type,resolution,bbox, address_type):
 
 def main():
     if platform.system() == 'Linux':
-        parser = argparse.ArgumentParser(description='Create a DGGRID as a GeoJSON file.')
+        parser = argparse.ArgumentParser(description='Generate DGGRID.')
         parser.add_argument('-t', '--dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
         parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
         parser.add_argument('-b', '--bbox', type=float, nargs=4, help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)")
