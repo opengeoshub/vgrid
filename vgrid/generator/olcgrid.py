@@ -2,7 +2,11 @@ import json
 import argparse
 from vgrid.utils import olc
 from tqdm import tqdm
-from shapely.geometry import box, Polygon
+from shapely.geometry import box, Polygon, mapping
+from pyproj import Geod
+geod = Geod(ellps="WGS84")
+
+max_cells = 1_000_000
 
 def calculate_total_cells(code_length, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
@@ -46,25 +50,32 @@ def generate_grid(code_length):
             while lng < ne_lng:
                 # Generate the Plus Code for the center of the cell
                 center_lat = lat + lat_step / 2
-                center_lng = lng + lng_step / 2
-                olc_code = olc.encode(center_lat, center_lng, code_length)
+                center_lon = lng + lng_step / 2
+                olc_code = olc.encode(center_lat, center_lon, code_length)
                 resolution = olc.decode(olc_code).codeLength
-                # Create the feature
-                features.append({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[
+                cell_polygon = Polygon([
                             [lng, lat],  # SW
                             [lng, lat + lat_step],  # NW
                             [lng + lng_step, lat + lat_step],  # NE
                             [lng + lng_step, lat],  # SE
                             [lng, lat]  # Close the polygon
-                        ]]
-                    },
+                    ])
+                
+                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter / 3,2)
+                            
+                # Create the feature
+                features.append({
+                    "type": "Feature",
+                    "geometry": mapping(cell_polygon),
                     "properties": {
                         "olc": olc_code,
-                        "resolution": resolution
+                        "resolution": resolution,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "avg_edge_len": avg_edge_len,
+                        "cell_area": cell_area
                     }
                 })
 
@@ -124,7 +135,6 @@ def generate_grid_within_bbox(code_length, bbox):
             final_features.append(feature)
             seen_olc_codes.add(olc_code)
 
-
     return {
         "type": "FeatureCollection",
         "features": final_features
@@ -145,82 +155,73 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     lng_step = area.longitudeHi - area.longitudeLo
 
     features = []
-    total_lat_steps = int((max_lat - min_lat) / lat_step)
-    total_lng_steps = int((max_lon - min_lon) / lng_step)
-    total_steps = total_lat_steps * total_lng_steps
+    # total_lat_steps = int((max_lat - min_lat) / lat_step)
+    # total_lng_steps = int((max_lon - min_lon) / lng_step)
+    # total_steps = total_lat_steps * total_lng_steps
 
-    with tqdm(total=total_steps, desc="Refining cells", unit=" cells") as pbar:
-        lat = min_lat
-        while lat < max_lat:
-            lng = min_lon
-            while lng < max_lon:
-                # Define the bounds of the finer cell
-                finer_cell_bounds = (lng, lat, lng + lng_step, lat + lat_step)
-                finer_cell_poly = box(*finer_cell_bounds)
+    # with tqdm(total=total_steps, desc="Refining cells", unit=" cells") as pbar:
+    lat = min_lat
+    while lat < max_lat:
+        lng = min_lon
+        while lng < max_lon:
+            # Define the bounds of the finer cell
+            finer_cell_bounds = (lng, lat, lng + lng_step, lat + lat_step)
+            finer_cell_poly = box(*finer_cell_bounds)
 
-                if bbox_poly.intersects(finer_cell_poly):
-                    # Generate the Plus Code for the center of the finer cell
-                    center_lat = lat + lat_step / 2
-                    center_lng = lng + lng_step / 2
-                    olc_code = olc.encode(center_lat, center_lng, valid_resolution)
-                    resolution = olc.decode(olc_code).codeLength
-                    
-                    # Add the finer cell as a feature
-                    features.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [[
-                                [finer_cell_bounds[0], finer_cell_bounds[1]],  # SW
-                                [finer_cell_bounds[0], finer_cell_bounds[3]],  # NW
-                                [finer_cell_bounds[2], finer_cell_bounds[3]],  # NE
-                                [finer_cell_bounds[2], finer_cell_bounds[1]],  # SE
-                                [finer_cell_bounds[0], finer_cell_bounds[1]]  # Close the polygon
-                            ]]
-                        },
-                        "properties": {
-                            "olc": olc_code,
-                            "resolution": resolution
-                        }
-                    })
+            if bbox_poly.intersects(finer_cell_poly):
+                # Generate the Plus Code for the center of the finer cell
+                center_lat = lat + lat_step / 2
+                center_lon = lng + lng_step / 2
+                olc_code = olc.encode(center_lat, center_lon, valid_resolution)
+                resolution = olc.decode(olc_code).codeLength
+                
+                cell_polygon = Polygon([
+                        [lng, lat],  # SW
+                        [lng, lat + lat_step],  # NW
+                        [lng + lng_step, lat + lat_step],  # NE
+                        [lng + lng_step, lat],  # SE
+                        [lng, lat]  # Close the polygon
+                ])
+            
+                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
+                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+                avg_edge_len = round(cell_perimeter / 3,2)
+                
+                # Add the finer cell as a feature
+                features.append({
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                    "olc": olc_code,
+                    "resolution": resolution,
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                    "avg_edge_len": avg_edge_len,
+                    "cell_area": cell_area
+                    }
+                })
 
-                    # Recursively refine the cell if not at target resolution
-                    if valid_resolution < target_resolution:
-                        features.extend(
-                            refine_cell(
-                                finer_cell_bounds,
-                                valid_resolution,
-                                target_resolution,
-                                bbox_poly
-                            )
+                # Recursively refine the cell if not at target resolution
+                if valid_resolution < target_resolution:
+                    features.extend(
+                        refine_cell(
+                            finer_cell_bounds,
+                            valid_resolution,
+                            target_resolution,
+                            bbox_poly
                         )
+                    )
 
-                lng += lng_step
-                pbar.update(1)
-            lat += lat_step
+            lng += lng_step
+            # pbar.update(1)
+        lat += lat_step
 
     return features
 
-def validate_resolution(resolution):
-    if resolution < 2 or resolution > 15:
-        print(f"Please select a resolution in the range [2..15].")
-        return False
-    
-    if resolution < 10 and resolution % 2 != 0:
-        print(f"Please select an even resolution number if it is less than 10.")
-        return False
-    
-    # If resolution is greater than or equal to 10, it can be either even or odd
-    return True
-
 def main():
     parser = argparse.ArgumentParser(description="Generate a grid of Open Location Codes (Plus Codes).")
-    parser.add_argument(
-        "-r", "--resolution",
-        type=int,
-        required=True,
-        help="OLC code length/ resolution must be in [2..15] range, and ensure it is an even number when < 10."
-    )
+    parser.add_argument("-r", "--resolution",type=int,required=True,
+                        help="OLC code length/ resolution must be in [2, 4, 6, 8, 10..15]")
     
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
@@ -230,14 +231,15 @@ def main():
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
-    num_cells = calculate_total_cells(resolution, bbox)
-    max_cells = 1_000_000
-    if not validate_resolution(resolution):
-        print(f"Please select a resolution in [2..15] range, and ensure it is an even number when < 10.")
+  
+    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
+        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
         return
 
+    num_cells = calculate_total_cells(resolution, bbox)
+
     if  bbox == [-180, -90, 180, 90]:
-        print(f"The selected resolution will generate {num_cells} cells ")
+        print(f"Resolution {resolution} will generate {num_cells} cells ")
 
         if num_cells > max_cells:
             print(f"which exceeds the limit of {max_cells}. ")

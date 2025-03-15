@@ -99,6 +99,7 @@ setup(
             'geojson2dggrid = vgrid.conversion.geojson2dggrid:main',
             'geojson2qtm = vgrid.conversion.geojson2qtm:main',
             
+            'geojson2olc = vgrid.conversion.geojson2olc:main',
             'geojson2tilecode = vgrid.conversion.geojson2tilecode:main',
             
             # CSV to DGGS
@@ -123,7 +124,7 @@ setup(
             'georefgrid = vgrid.generator.georefgrid:main',           
             'gzd = vgrid.generator.gzd:main',  
             'mgrsgrid = vgrid.generator.mgrsgrid:main',
-            'tilegrid = vgrid.generator.tilegrid:main', 
+            'tilecodegrid = vgrid.generator.tilecodegrid:main', 
             'maidenheadgrid = vgrid.generator.maidenheadgrid:main',        
             'garsgrid = vgrid.generator.garsgrid:main',        
             
@@ -149,7 +150,7 @@ setup(
             'geohashstats = vgrid.stats.geohashstats:main',
             'georefstats = vgrid.stats.georefstats:main',
             'mgrsstats = vgrid.stats.mgrsstats:main',
-            'tilestats = vgrid.stats.tilestats:main',
+            'tilecodestats = vgrid.stats.tilestats:main',
             
             'maidenheadstats = vgrid.stats.maidenheadstats:main',
             'garsstats = vgrid.stats.garsstats:main',

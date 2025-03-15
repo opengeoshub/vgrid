@@ -8,9 +8,9 @@ from pyproj import Geod
 geod = Geod(ellps="WGS84")
 max_cells = 1_000_000
 
-def generate_grid(resolution,bbox=None):
+def generate_grid(resolution,bbox):
     features = []
-    min_lon, min_lat, max_lon, max_lat = bbox or [-180.0, -85.05112878,180.0,85.05112878]  
+    min_lon, min_lat, max_lon, max_lat = bbox # or [-180.0, -85.05112878,180.0,85.05112878]  
     tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
     for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}:", unit=" cells"):
         z, x, y = tile.z, tile.x, tile.y
@@ -34,23 +34,20 @@ def generate_grid(resolution,bbox=None):
                 [min_lon, min_lat]   # Closing the polygon (same as the first point)
             ])
             cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-            # Calculate width (longitude difference at a constant latitude)
-            cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),2)
-            # Calculate height (latitude difference at a constant longitude)
-            cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),2)
+            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+            avg_edge_len = round(cell_perimeter / 3,2)       
 
             feature = {
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),          
                 "properties": {
-                    "tilecode": tilecode,  # Include the OLC as a property
+                    "tilecode": tilecode,  
                     "quadkey": quadkey,
+                    "resolution": z ,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
-                    "cell_area": cell_area,
-                    "cell_width": cell_width,
-                    "cell_height": cell_height,
-                    "resolution": z  # Using the code length as precision
+                    "avg_edge_len": avg_edge_len,
+                    "cell_area": cell_area
                 }
             }            
 
@@ -89,7 +86,7 @@ def main():
     geojson_features = generate_grid(resolution, bbox)
     if geojson_features:
         # Define the GeoJSON file path
-        geojson_path = f"tile_grid_{resolution}.geojson"
+        geojson_path = f"tilecode_grid_{resolution}.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 

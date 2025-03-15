@@ -191,7 +191,7 @@ def polygon_to_grid(resolution, geometry):
 
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Generate S2 grid for shapes in GeoJSON format")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to S2 Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..30]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"

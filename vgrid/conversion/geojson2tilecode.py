@@ -72,7 +72,6 @@ def polyline_to_grid(resolution, geometry):
 
     for polyline in polylines:    
         min_lon, min_lat, max_lon, max_lat = polyline.bounds
-        features = []
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
@@ -132,7 +131,6 @@ def polygon_to_grid(resolution, geometry):
 
     for polygon in polygons:
         min_lon, min_lat, max_lon, max_lat = polygon.bounds
-        features = []
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
@@ -188,10 +186,10 @@ def polygon_to_grid(resolution, geometry):
 
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Generate Tile grid for shapes in GeoJSON format")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Tilecode Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..29]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
+        '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSOn format"
     )
     args = parser.parse_args()
     geojson = args.geojson

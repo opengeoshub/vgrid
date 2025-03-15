@@ -171,7 +171,7 @@ def polygon_to_grid(isea3h_dggs,resolution, geometry):
     
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Generate OpenEAGGR ISEA3H grid for shapes in GeoJSON format")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Open_Eaggr ISEA3H Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..28]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
