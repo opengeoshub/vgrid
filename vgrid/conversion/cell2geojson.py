@@ -334,7 +334,7 @@ def ease2geojson(ease_id):
     ease_features = []
     if cell_polygon:
         resolution = level
-        num_edges = 3
+        num_edges = 4
         ease_feature = geodesic_dggs_to_feature("ease",ease_id,resolution,cell_polygon,num_edges)   
         ease_features.append(ease_feature)
 
