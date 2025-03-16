@@ -2,15 +2,19 @@ import argparse
 import json
 from shapely.geometry import Polygon
 from shapely.wkt import loads
-from vgrid.utils.eaggr.eaggr import Eaggr
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.enums.model import Model
-from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+import platform
+
+if (platform.system() == 'Windows'):
+    from vgrid.utils.eaggr.eaggr import Eaggr
+    from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+    from vgrid.utils.eaggr.enums.model import Model
+    from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+    from vgrid.generator.settings import isea4t_res_accuracy_dict
+
 from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
-import platform
 from vgrid.generator.settings import max_cells
 
 geod = Geod(ellps="WGS84")
@@ -97,92 +101,7 @@ def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, targe
     
     return current_cells
 
-# length_accuracy_dict = {
-#     41: 10**-10,
-#     40: 5*10**-10,
-#     39: 10**-9,
-#     38: 10**-8,
-#     37: 5*10**-8,
-#     36: 10**-7,
-#     35: 5*10**-7,
-#     34: 10**-6,
-#     33: 5*10**-6,
-#     32: 5*10**-5,
-#     31: 10**-4,
-#     30: 5*10**-4,
-#     29: 9*10**-4,
-#     28: 5*10**-3,
-#     27: 2*10**-2,
-#     26: 5*10**-2,
-#     25: 5*10**-1,
-#     24: 1,
-#     23: 10,
-#     22: 5*10,
-#     21: 10**2,
-#     20: 5*10**2,
-#     19: 10**3,
-#     18: 5*10**3,
-#     17: 5*10**4,
-#     16: 10**5,
-#     15: 5*10**5,
-#     14: 10**6,
-#     13: 5*10**6,
-#     12: 5*10**7,
-#     11: 10**8,
-#     10: 5*10**8,
-#      9: 10**9,
-#      8: 10**10,
-#      7: 5*10**10,
-#      6: 10**11,
-#      5: 5*10**11,
-#      4: 10**12,
-#      3: 5*10**12,
-#      2: 5*10**13
-# }
-
-isea4t_res_accuracy_dict = {
-    0: 25_503_281_086_204.43,
-    1: 6_375_820_271_551.114,    
-    2: 1_593_955_067_887.7715,
-    3: 398_488_766_971.94995,
-    4: 99_622_191_742.98041,
-    5: 24905_547_935.752182,
-    6: 6_226_386_983.930966,
-    7: 1_556_596_745.9898202,
-    8: 389_149_186.4903765,
-    9: 97_287_296.6296727,
-    10: 24_321_824.150339592,
-    11: 6_080_456.0446634805,
-    12: 1_520_114.0040872877,
-    13: 380_028.5081004044,
-    14: 95_007.11994651864,
-    15: 23_751.787065212124,
-    16: 5_937.9396877205645,
-    17: 1_484.492000512607,
-    18: 371.1159215456855,
-    19: 92.78605896888773,    
-    20: 23.189436159755584,
-    21: 5.804437622405244,
-    22: 1.4440308231349632,
-    23: 0.36808628825008866,
-    24: 0.0849429895961743,
-    25: 0.028314329865391435,
-    
-    26: 7.08*10**-3, # accuracy returns 0.0, avg_edge_len =  0.11562
-    27: 1.77*10**-3, # accuracy returns 0.0, avg_edge_len =  0.05781
-    28: 4.42*10**-4, # accuracy returns 0.0, avg_edge_len =  0.0289
-    29: 1.11*10**-4, # accuracy returns 0.0, avg_edge_len =  0.01445
-    30: 2.77*10**-5, # accuracy returns 0.0, avg_edge_len = 0.00723
-    31: 6.91*10**-6, # accuracy returns 0.0, avg_edge_len =  0.00361
-    32: 1.73*10**-6, # accuracy returns 0.0, avg_edge_len =  0.00181
-    33: 5.76*10**-7, # accuracy returns 0.0, avg_edge_len = 0.0009
-    34: 1.92*10**-7, # accuracy returns 0.0, avg_edge_len = 0.00045
-    35: 6.40*10**-8, # accuracy returns 0.0, avg_edge_len = 0.00023
-    36: 2.13*10**-8, # accuracy returns 0, avg_edge_len = 0.00011
-    37: 7.11*10**-9, # accuracy returns 0.0, avg_edge_len = 6*10**(-5)
-    38: 2.37*10**-9, # accuracy returns 0.0, avg_edge_len = 3*10**(-5)
-    39: 7.90*10**-10 # accuracy returns 0.0, avg_edge_len = 10**(-5)
-    }       
+   
 
 def generate_grid(isea4t_dggs, resolution):
     """

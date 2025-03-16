@@ -4,6 +4,104 @@ from shapely.geometry import mapping
 
 max_cells = 1_000_000
 chunk_size = 10_000
+
+def graticule_dggs_metrics(cell_polygon):
+    min_lon, min_lat, max_lon, max_lat = cell_polygon.bounds
+    center_lat = round((min_lat + max_lat) / 2,7)
+    center_lon = round((min_lon + max_lon) / 2,7)
+    cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
+    cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
+    return center_lat, center_lon, cell_width, cell_height, cell_area
+
+def geodesic_dggs_metrics(cell_polygon, num_edges):
+    cell_centroid = cell_polygon.centroid
+    center_lat =  round(cell_centroid.y, 7)
+    center_lon = round(cell_centroid.x, 7)    
+    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3) # Area in square meters     
+    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    avg_edge_len = round(cell_perimeter / num_edges,3)    
+    return center_lat, center_lon, avg_edge_len, cell_area
+
+# Convert Graticule DGGS cell to GeoJSON feature
+def graticule_dggs_to_feature(dggs_name, cell_id, resolution, cell_polygon):
+    center_lat,center_lon,cell_width,cell_height,cell_area =  graticule_dggs_metrics(cell_polygon)
+    feature = {
+                "type": "Feature",
+                "geometry":mapping(cell_polygon),
+                "properties": {
+                    f"{dggs_name}": str(cell_id),
+                    "resolution": resolution,
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                    "cell_width": cell_width,
+                    "cell_height": cell_height,
+                    "cell_area": cell_area
+                }
+            }
+    return feature
+
+# Convert Geodesic DGGS cell to GeoJSON feature
+def geodesic_dggs_to_feature(dggs_name, cell_id, resolution, cell_polygon,num_edges):
+    center_lat,center_lon,avg_edge_len,cell_area =  geodesic_dggs_metrics(cell_polygon,num_edges)
+    feature = {
+                "type": "Feature",
+                "geometry":mapping(cell_polygon),
+                "properties": {
+                    f"{dggs_name}": str(cell_id),
+                    "resolution": resolution,
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                    "avg_edge_len": avg_edge_len,
+                    "cell_area": cell_area
+                }
+            }
+    return feature
+
+isea4t_res_accuracy_dict = {
+    0: 25_503_281_086_204.43,
+    1: 6_375_820_271_551.114,    
+    2: 1_593_955_067_887.7715,
+    3: 398_488_766_971.94995,
+    4: 99_622_191_742.98041,
+    5: 24905_547_935.752182,
+    6: 6_226_386_983.930966,
+    7: 1_556_596_745.9898202,
+    8: 389_149_186.4903765,
+    9: 97_287_296.6296727,
+    10: 24_321_824.150339592,
+    11: 6_080_456.0446634805,
+    12: 1_520_114.0040872877,
+    13: 380_028.5081004044,
+    14: 95_007.11994651864,
+    15: 23_751.787065212124,
+    16: 5_937.9396877205645,
+    17: 1_484.492000512607,
+    18: 371.1159215456855,
+    19: 92.78605896888773,    
+    20: 23.189436159755584,
+    21: 5.804437622405244,
+    22: 1.4440308231349632,
+    23: 0.36808628825008866,
+    24: 0.0849429895961743,
+    25: 0.028314329865391435,
+    
+    26: 7.08*10**-3, # accuracy returns 0.0, avg_edge_len =  0.11562
+    27: 1.77*10**-3, # accuracy returns 0.0, avg_edge_len =  0.05781
+    28: 4.42*10**-4, # accuracy returns 0.0, avg_edge_len =  0.0289
+    29: 1.11*10**-4, # accuracy returns 0.0, avg_edge_len =  0.01445
+    30: 2.77*10**-5, # accuracy returns 0.0, avg_edge_len = 0.00723
+    31: 6.91*10**-6, # accuracy returns 0.0, avg_edge_len =  0.00361
+    32: 1.73*10**-6, # accuracy returns 0.0, avg_edge_len =  0.00181
+    33: 5.76*10**-7, # accuracy returns 0.0, avg_edge_len = 0.0009
+    34: 1.92*10**-7, # accuracy returns 0.0, avg_edge_len = 0.00045
+    35: 6.40*10**-8, # accuracy returns 0.0, avg_edge_len = 0.00023
+    36: 2.13*10**-8, # accuracy returns 0, avg_edge_len = 0.00011
+    37: 7.11*10**-9, # accuracy returns 0.0, avg_edge_len = 6*10**(-5)
+    38: 2.37*10**-9, # accuracy returns 0.0, avg_edge_len = 3*10**(-5)
+    39: 7.90*10**-10 # accuracy returns 0.0, avg_edge_len = 10**(-5)
+    }    
+
 isea3h_res_accuracy_dict = {
         0: 25_503_281_086_204.43,
         1: 17_002_187_390_802.953,
@@ -96,56 +194,3 @@ isea3h_accuracy_res_dict = {
             0.0: 40
         }
 
-def graticule_dggs_metrics(cell_polygon):
-    min_lon, min_lat, max_lon, max_lat = cell_polygon.bounds
-    center_lat = round((min_lat + max_lat) / 2,7)
-    center_lon = round((min_lon + max_lon) / 2,7)
-    cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
-    cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
-    return center_lat, center_lon, cell_width, cell_height, cell_area
-
-def geodesic_dggs_metrics(cell_polygon, num_edges):
-    print (num_edges)
-    min_lon, min_lat, max_lon, max_lat = cell_polygon.bounds
-    center_lat = round((min_lat + max_lat) / 2,7)
-    center_lon = round((min_lon + max_lon) / 2,7)
-    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3) # Area in square meters     
-    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-    avg_edge_len = round(cell_perimeter / num_edges,3)    
-    return center_lat, center_lon, avg_edge_len, cell_area
-
-# Convert Graticule DGGS cell to GeoJSON feature
-def graticule_dggs_to_feature(dggs_name, cell_id, resolution, cell_polygon):
-    center_lat,center_lon,cell_width,cell_height,cell_area =  graticule_dggs_metrics(cell_polygon)
-    feature = {
-                "type": "Feature",
-                "geometry":mapping(cell_polygon),
-                "properties": {
-                    f"{dggs_name}": str(cell_id),
-                    "resolution": resolution,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "cell_width": cell_width,
-                    "cell_height": cell_height,
-                    "cell_area": cell_area
-                }
-            }
-    return feature
-
-# Convert Geodesic DGGS cell to GeoJSON feature
-def geodesic_dggs_to_feature(dggs_name, cell_id, resolution, cell_polygon,num_edges):
-    center_lat,center_lon,avg_edge_len,cell_area =  geodesic_dggs_metrics(cell_polygon,num_edges)
-    feature = {
-                "type": "Feature",
-                "geometry":mapping(cell_polygon),
-                "properties": {
-                    f"{dggs_name}": str(cell_id),
-                    "resolution": resolution,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "avg_edge_len": avg_edge_len,
-                    "cell_area": cell_area
-                }
-            }
-    return feature

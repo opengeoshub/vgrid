@@ -168,10 +168,10 @@ def isea4t2geojson(isea4t_id):
             isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
             isea4t_features.append(isea4t_feature)
 
-    return {
-        "type": "FeatureCollection",
-        "features": isea4t_features
-    }
+        return {
+            "type": "FeatureCollection",
+            "features": isea4t_features
+        }
 
 def isea4t2geojson_cli():
     """
@@ -203,19 +203,20 @@ def isea3h_cell_to_polygon(isea3h_cellid):
         fixed_polygon = fix_polygon(cell_polygon)    
         return fixed_polygon
 
-def isea3h2geojson(isea3h_cellid):
+
+def isea3h2geojson(isea3h_id):
     if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        cell_polygon = isea3h_cell_to_polygon(isea3h_cellid)
+        cell_polygon = isea3h_cell_to_polygon(isea3h_id)
     
         cell_centroid = cell_polygon.centroid
         center_lat =  round(cell_centroid.y, 7)
         center_lon = round(cell_centroid.x, 7)
         
-        cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
+        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
         
-        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h_cellid))      
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h_id))      
         accuracy = isea3h2point._accuracy
             
         avg_edge_len = cell_perimeter / 6
@@ -247,13 +248,12 @@ def isea3h2geojson(isea3h_cellid):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                    "isea3h": isea3h_cellid,
+                    "isea3h": isea3h_id,
                     "resolution": resolution,
-                    # "accuracy": accuracy,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
                     "avg_edge_len": round(avg_edge_len,3),
-                    "cell_area": round(cell_area,3)
+                    "cell_area": cell_area
                     }
         }
 
@@ -297,7 +297,7 @@ def dggrid2geojson_cli():
     """
     parser = argparse.ArgumentParser(description="Convert DGGRID code to GeoJSON. \
                                      Usage: dggrid2geojson <SEQNUM> <dggs_type> <res>. \
-                                     Ex: dggrid2geojson  783229476878 ISEA7H 13")
+                                     Ex: dggrid2geojson 783229476878 ISEA7H 13")
     parser.add_argument("dggrid", help="Input DGGRID code in SEQNUM format")
     parser.add_argument("type", choices=dggs_types, help="Select a DGGS type from the available options.")
     parser.add_argument("res", type=int, help="resolution")
@@ -372,24 +372,20 @@ def qtm2geojson_cli():
     """
     Command-line interface for qtm2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert QTM code to GeoJSON")
-    parser.add_argument("qtm", help="Input QTM code, e.g., qtm2geojson 42012323")
+    parser = argparse.ArgumentParser(description="Convert QTM cell ID to GeoJSON")
+    parser.add_argument("qtm", help="Input QTM cell ID, e.g., qtm2geojson 42012323")
     args = parser.parse_args()
     geojson_data = json.dumps(qtm2geojson(args.qtm))
     print(geojson_data)
 
     
-def olc2geojson(olc_cellid):
+def olc2geojson(olc_id):
     # Decode the Open Location Code into a CodeArea object
-    coord = olc.decode(olc_cellid)
-    
+    coord = olc.decode(olc_id)    
     if coord:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
-        max_lat, max_lon = coord.latitudeHi, coord.longitudeHi
-
-        center_lat = round(coord.latitudeCenter,7)
-        center_lon = round(coord.longitudeCenter,7)
+        max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
         resolution = coord.codeLength 
 
         # Define the polygon based on the bounding box
@@ -400,30 +396,14 @@ def olc2geojson(olc_cellid):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
+        olc_features = []
+        olc_feature = graticule_dggs_to_feature("olc",olc_id,resolution,cell_polygon)   
+        olc_features.append(olc_feature)
 
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),
-            "properties": {
-                "olc": olc_cellid,  # Include the OLC as a property
-                "resolution": resolution,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-            }
-        }
-
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
+    return {
+        "type": "FeatureCollection",
+        "features": olc_features
+    }
 
 def olc2geojson_cli():
     """
@@ -466,14 +446,14 @@ def geohash2geojson_cli():
     """
     Command-line interface for geohash2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert Geohash code to GeoJSON")
-    parser.add_argument("geohash", help="Input Geohash code, e.g., geohash2geojson w3gvk1td8")
+    parser = argparse.ArgumentParser(description="Convert Geohash cell ID to GeoJSON")
+    parser.add_argument("geohash", help="Input Geohash cell ID, e.g., geohash2geojson w3gvk1td8")
     args = parser.parse_args()
     geojson_data = json.dumps(geohash2geojson(args.geohash))
     print(geojson_data)
 
 
-def mgrs2geojson(mgrs_cellid,lat=None,lon=None):
+def mgrs2geojson_old(mgrs_cellid,lat=None,lon=None):
     origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_cellid)
     if origin_lat:
         # Define the polygon based on the bounding box
@@ -570,24 +550,13 @@ def mgrs2geojson(mgrs_cellid,lat=None,lon=None):
         }
         
         return feature_collection
-    
-def mgrs2geojson_cli():
-    """
-    Command-line interface for mgrs2geojson.
-    """
-    parser = argparse.ArgumentParser(description="Convert MGRS code to GeoJSON")
-    parser.add_argument("mgrs", help="Input MGRS code, e.g., mgrs2geojson 34TGK56063228")
-    args = parser.parse_args()
-    geojson_data = json.dumps(mgrs2geojson(args.mgrs))
-    print(geojson_data)
 
-
-def georef2geojson(georef_cellid):
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_cellid)
-    if center_lat:
-        center_lat = round(center_lat,7)
-        center_lon = round(center_lon,7)
-
+def mgrs2geojson(mgrs_id,lat=None,lon=None):
+    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
+    if min_lat:
+        # Define the polygon based on the bounding box
+        # origin_lat = round(origin_lat,7)
+        # origin_lon = round(origin_lon,7)
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
@@ -595,30 +564,105 @@ def georef2geojson(georef_cellid):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
         
-        feature = {
-            "type": "Feature",            
-            "geometry": mapping(cell_polygon),          
-            "properties": {
-                "georef": georef_cellid,
-                "resolution": resolution,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area" : cell_area
+        mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)                      
+      
+        if lat is not None and lon is not None:
+            # Load the GZD JSON file (treated as GeoJSON format) from the same folder
+            gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
+            with open(gzd_json_path) as f:
+                gzd_json = json.load(f)
+
+            # Convert GZD GeoJSON features to Shapely polygons
+            gzd_polygons = [
+                {"geometry": shape(gzd_feature["geometry"]), "properties": gzd_feature["properties"]}
+                for gzd_feature in gzd_json["features"]
+            ]
+
+            # Perform the intersection with the MGRS polygon
+            intersection_features = []
+            for gzd_polygon_data in gzd_polygons:
+                gzd_polygon = gzd_polygon_data["geometry"]
+                if cell_polygon.intersects(gzd_polygon):
+                    # Find the intersection polygon
+                    intersection_polygon = cell_polygon.intersection(gzd_polygon)
+                    min_lon, min_lat, max_lon, max_lat = intersection_polygon.bounds
+                    interection_center_lat = round((min_lat + max_lat) / 2,7)
+                    interection_center_lon = round((min_lon + max_lon) / 2,7)
+                    interection_cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
+                    interection_cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
+                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),3)  # Area in square meters     
+                    point = Point(lon, lat)
+                    # Check if the point is inside the intersection polygon
+                    if intersection_polygon.contains(point):                        
+                        # Manually construct the intersection as a JSON-like structure
+                        intersection_feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [list(intersection_polygon.exterior.coords)]
+                            },
+                            "properties": {
+                                "mgrs": mgrs_id,
+                                "resolution": resolution,
+                                "center_lat": interection_center_lat,
+                                "center_lon": interection_center_lon,
+                                "cell_width": interection_cell_width,
+                                "cell_height": interection_cell_height,
+                                "cell_area": interection_area
+                                # **gzd_polygon_data["properties"],  # Include properties from GZD
+                            }
+                        }
+                        intersection_features.append(intersection_feature)
+
+            # If intersections are found, wrap them in a FeatureCollection
+            if intersection_features:
+                intersection_feature_collection = {
+                    "type": "FeatureCollection",
+                    "features": intersection_features
                 }
-            }
-        
+                return intersection_feature_collection
+
+
+        # If no intersection or point not contained, return the original MGRS GeoJSON
         feature_collection = {
             "type": "FeatureCollection",
-            "features": [feature]
+            "features": [mgrs_feature]
         }
         
         return feature_collection
+    
+def mgrs2geojson_cli():
+    """
+    Command-line interface for mgrs2geojson.
+    """
+    parser = argparse.ArgumentParser(description="Convert MGRS cell ID to GeoJSON")
+    parser.add_argument("mgrs", help="Input MGRS cell ID, e.g., mgrs2geojson 48PXS866916")
+    args = parser.parse_args()
+    geojson_data = json.dumps(mgrs2geojson(args.mgrs))
+    print(geojson_data)
 
+
+def georef2geojson(georef_id):
+    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_id)
+    georef_features = []
+    if center_lat:
+        cell_polygon = Polygon([
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ])
+
+        georef_feature = graticule_dggs_to_feature("georef",georef_id,resolution,cell_polygon)   
+        georef_features.append(georef_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": georef_features
+    }
+    
 def georef2geojson_cli():
     """
     Command-line interface for georef2geojson.
@@ -630,7 +674,7 @@ def georef2geojson_cli():
     print(geojson_data)
 
 
-def tilecode2geojson(tilecode_cellid):
+def tilecode2geojson(tilecode_id):
     """
     Converts a tilecode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
     representing the tile's bounds and includes the original tilecode as a property.
@@ -642,7 +686,7 @@ def tilecode2geojson(tilecode_cellid):
         dict: A GeoJSON Feature with a Polygon geometry and tilecode as a property.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_cellid)
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -653,18 +697,11 @@ def tilecode2geojson(tilecode_cellid):
 
     # Get the bounds of the tile in (west, south, east, north)
     bounds = mercantile.bounds(x, y, z)    
-
+    tilecode_features = []
     if bounds:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = bounds.south, bounds.west
         max_lat, max_lon = bounds.north, bounds.east
-
-        tile = mercantile.Tile(x, y, z)
-        quadkey_cellid = mercantile.quadkey(tile)
-
-        center_lat = round((min_lat + max_lat) / 2,7)
-        center_lon = round((min_lon + max_lon) / 2,7)
-        
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
@@ -672,31 +709,16 @@ def tilecode2geojson(tilecode_cellid):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
         
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),          
-            "properties": {
-                "tilecode": tilecode_cellid,  
-                "quadkey": quadkey_cellid,
-                "resolution": z,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-            }
-        }
+        resolution = z
+        tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon)   
+        tilecode_features.append(tilecode_feature)
 
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
-
+    return {
+        "type": "FeatureCollection",
+        "features": tilecode_features
+    }
+       
 def tilecode2geojson_cli():
     """
     Command-line interface for tilecode2geojson.
@@ -710,23 +732,21 @@ def tilecode2geojson_cli():
     print(geojson_data)
 
 
-def quadkey2geojson(quadkey_cellid):
-    tile = mercantile.quadkey_to_tile(quadkey_cellid)    
+def quadkey2geojson(quadkey_id):
+    tile = mercantile.quadkey_to_tile(quadkey_id)    
     # Format as tilecode
     z = tile.z
     x = tile.x
     y = tile.y
     # Get the bounds of the tile in (west, south, east, north)
     bounds = mercantile.bounds(x, y, z)    
-
+    quadkey_features = []
+    
     if bounds:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = bounds.south, bounds.west
         max_lat, max_lon = bounds.north, bounds.east
 
-        center_lat = round((min_lat + max_lat) / 2,7)
-        center_lon = round((min_lon + max_lon) / 2,7)
-        
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
@@ -735,30 +755,15 @@ def quadkey2geojson(quadkey_cellid):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
         
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
-
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),          
-            "properties": {
-                "quadkey": quadkey_cellid,
-                "resolution": z,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-            }
-        }
-
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
+        resolution = z
+        quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon)   
+        quadkey_features.append(quadkey_feature)
+    
+    return {
+        "type": "FeatureCollection",
+        "features": quadkey_features
+    }
         
-        return feature_collection
-
 def quadkey2geojson_cli():
     """
     Command-line interface for quadkey2geojson.
@@ -772,14 +777,12 @@ def quadkey2geojson_cli():
     print(geojson_data)
 
 
-def maidenhead2geojson(maidenhead_cellid):
+def maidenhead2geojson(maidenhead_id):
     # Decode the Open Location Code into a CodeArea object
-    center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_cellid)
-    if center_lat:
-        center_lat = round(center_lat,7)
-        center_lon  = round(center_lon,7)
-        resolution = int(len(maidenhead_cellid)/2)
-    
+    _, _, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(maidenhead_id)
+    maidenhead_features = []
+    if min_lat:
+        resolution = int(len(maidenhead_id)/2)   
         # Define the polygon based on the bounding box
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
@@ -788,93 +791,49 @@ def maidenhead2geojson(maidenhead_cellid):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
-        
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),       
-            "properties": {
-                "maidenhead": maidenhead_cellid,  
-                "resolution": resolution,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-            }
-        }
+        maidenhead_feature = graticule_dggs_to_feature("gars",maidenhead_id,resolution,cell_polygon)   
+        maidenhead_features.append(maidenhead_feature)
 
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
+    return {
+        "type": "FeatureCollection",
+        "features": maidenhead_features
+    }
 
 def maidenhead2geojson_cli():
     """
     Command-line interface for maidenhead2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert Maidenhead code to GeoJSON")
-    parser.add_argument("maidenhead", help="Input Maidenhead code, e.g., maidenhead2geojson OK30is46")
+    parser = argparse.ArgumentParser(description="Convert Maidenhead cell ID to GeoJSON")
+    parser.add_argument("maidenhead", help="Input Maidenhead cell ID, e.g., maidenhead2geojson OK30is46")
     args = parser.parse_args()
     geojson_data = json.dumps(maidenhead2geojson(args.maidenhead))
     print(geojson_data)
 
-# SOS: Convert gars_cellid object to str first
-def gars2geojson(gars_cellid):
-    gars_grid = garsgrid.GARSGrid(gars_cellid)
+
+def gars2geojson(gars_id):
+    gars_grid = garsgrid.GARSGrid(gars_id)
     wkt_polygon = gars_grid.polygon
+    gars_features = []
+    
     if wkt_polygon:
         # # Create the bounding box coordinates for the polygon
-        x, y = wkt_polygon.exterior.xy
-        resolution_minute = gars_grid.resolution
-        
-        min_lon = min(x)
-        max_lon = max(x)
-        min_lat = min(y)
-        max_lat = max(y)
-
-        # Calculate center latitude and longitude
-        center_lon = round((min_lon + max_lon) / 2,7)
-        center_lat = round((min_lat + max_lat) / 2,7)
-
+        resolution_minute = gars_grid.resolution        
         cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)        
-        #   # Calculate width (longitude difference at a constant latitude)
-        # cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
-        # # Calculate height (latitude difference at a constant longitude)
-        # cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
-        
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),       
-            "properties": {
-                "gars": gars_cellid,
-                "resolution_minute": resolution_minute,
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-                }
-            }
-        
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
-        
-        return feature_collection
+        gars_feature = graticule_dggs_to_feature("gars",gars_id,resolution_minute,cell_polygon)   
+        gars_features.append(gars_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": gars_features
+    }
+    
 
 def gars2geojson_cli():
     """
     Command-line interface for gars2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert GARS code to GeoJSON")
-    parser.add_argument("gars", help="Input GARS code, e.g., gars2geojson 574JK1918")
+    parser = argparse.ArgumentParser(description="Convert GARS cell ID to GeoJSON")
+    parser.add_argument("gars", help="Input GARS cell ID, e.g., gars2geojson 574JK1918")
     args = parser.parse_args()
     geojson_data = json.dumps(gars2geojson(args.gars))
     print(geojson_data)

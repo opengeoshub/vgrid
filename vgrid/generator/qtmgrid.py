@@ -2,9 +2,7 @@ from shapely.geometry import shape, Polygon, mapping
 import argparse
 import json
 from vgrid.utils import qtm
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
-from vgrid.generator.settings import max_cells
+from vgrid.generator.settings import max_cells, geodesic_dggs_to_feature
 
 p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (90.0, -180.0), (90.0, -90.0), (90.0, 0.0), (90.0, 90.0), (90.0, 180.0)
 p0_n180, p0_n90, p0_p0, p0_p90, p0_p180 = (0.0, -180.0), (0.0, -90.0), (0.0, 0.0), (0.0, 90.0), (0.0, 180.0)
@@ -13,14 +11,13 @@ n90_n180, n90_n90, n90_p0, n90_p90, n90_p180 = (-90.0, -180.0), (-90.0, -90.0), 
 
 def generate_grid(resolution):
     """Generates a Dutton QTM grid at a specific resolution and saves it as GeoJSON."""
-    
     levelFacets = {}
     QTMID = {}
 
     for lvl in range(resolution):
         levelFacets[lvl] = []
         QTMID[lvl] = []
-        geojson_features = []  # Store GeoJSON features separately
+        qtm_features = []  # Store GeoJSON features separately
 
         if lvl == 0:
             initial_facets = [
@@ -38,25 +35,29 @@ def generate_grid(resolution):
                 facet_geom = qtm.constructGeometry(facet)
                 QTMID[0].append(str(i + 1))
                 levelFacets[0].append(facet)
+                qtm_id =  QTMID[0][i]
+                num_edges = 3
+                qtm_feature = geodesic_dggs_to_feature('qtm',qtm_id,resolution,facet_geom,num_edges)
+                qtm_features.append(qtm_feature)
                 
-                cell_centroid = facet_geom.centroid
-                center_lat =  round(cell_centroid.y, 7)
-                center_lon = round(cell_centroid.x, 7)
-                cell_area = round(abs(geod.geometry_area_perimeter(facet_geom)[0]),2)
-                cell_perimeter = abs(geod.geometry_area_perimeter(facet_geom)[1])
-                avg_edge_len = round(cell_perimeter / 3,2)                
-                geojson_features.append({
-                        "type": "Feature",
-                        "geometry": mapping(facet_geom),
-                        "properties": {
-                            "qtm": QTMID[0][i],
-                            "resolution": resolution,
-                            "center_lat": center_lat,
-                            "center_lon": center_lon,
-                            "avg_edge_len": avg_edge_len,
-                            "cell_area": cell_area
-                            }
-                    })            
+                # cell_centroid = facet_geom.centroid
+                # center_lat =  round(cell_centroid.y, 7)
+                # center_lon = round(cell_centroid.x, 7)
+                # cell_area = round(abs(geod.geometry_area_perimeter(facet_geom)[0]),2)
+                # cell_perimeter = abs(geod.geometry_area_perimeter(facet_geom)[1])
+                # avg_edge_len = round(cell_perimeter / 3,2)                
+                # geojson_features.append({
+                #         "type": "Feature",
+                #         "geometry": mapping(facet_geom),
+                #         "properties": {
+                #             "qtm": QTMID[0][i],
+                #             "resolution": resolution,
+                #             "center_lat": center_lat,
+                #             "center_lon": center_lon,
+                #             "avg_edge_len": avg_edge_len,
+                #             "cell_area": cell_area
+                #             }
+                #     })            
                 
         else:
             for i, pf in enumerate(levelFacets[lvl - 1]):
@@ -67,34 +68,39 @@ def generate_grid(resolution):
                     levelFacets[lvl].append(subfacet)
                     if lvl == resolution -1:
                         subfacet_geom= qtm.constructGeometry(subfacet)
-                        cell_centroid = subfacet_geom.centroid
-                        center_lat =  round(cell_centroid.y, 7)
-                        center_lon = round(cell_centroid.x, 7)
-                        cell_area = round(abs(geod.geometry_area_perimeter(subfacet_geom)[0]),2)
-                        cell_perimeter = abs(geod.geometry_area_perimeter(subfacet_geom)[1])
-                        avg_edge_len = round(cell_perimeter / 3,2)                
-                        geojson_features.append({
-                                "type": "Feature",
-                                "geometry": mapping(subfacet_geom),
-                                "properties": {
-                                    "qtm": new_id,
-                                    "resolution": resolution,
-                                    "center_lat": center_lat,
-                                    "center_lon": center_lon,
-                                    "avg_edge_len": avg_edge_len,
-                                    "cell_area": cell_area
-                                    }
-                            })          
+                        qtm_id =  new_id
+                        num_edges = 3
+                        qtm_feature = geodesic_dggs_to_feature('qtm',qtm_id,resolution,subfacet_geom,num_edges)
+                        qtm_features.append(qtm_feature)
+                
+                        # cell_centroid = subfacet_geom.centroid
+                        # center_lat =  round(cell_centroid.y, 7)
+                        # center_lon = round(cell_centroid.x, 7)
+                        # cell_area = round(abs(geod.geometry_area_perimeter(subfacet_geom)[0]),2)
+                        # cell_perimeter = abs(geod.geometry_area_perimeter(subfacet_geom)[1])
+                        # avg_edge_len = round(cell_perimeter / 3,2)                
+                        # qtm_features.append({
+                        #         "type": "Feature",
+                        #         "geometry": mapping(subfacet_geom),
+                        #         "properties": {
+                        #             "qtm": new_id,
+                        #             "resolution": resolution,
+                        #             "center_lat": center_lat,
+                        #             "center_lon": center_lon,
+                        #             "avg_edge_len": avg_edge_len,
+                        #             "cell_area": cell_area
+                        #             }
+                        #     })          
     return {
         "type": "FeatureCollection",
-        "features": geojson_features
+        "features": qtm_features
     }
 
 def generate_grid_within_bbox(resolution, bbox):
     """Generates a Dutton QTM grid at a specific resolution within a bounding box and saves it as GeoJSON."""
     levelFacets = {}
     QTMID = {}
-    geojson_features = []
+    qtm_features = []
 
     # Convert bbox to Polygon
     bbox_poly = Polygon([
@@ -124,31 +130,36 @@ def generate_grid_within_bbox(resolution, bbox):
             for i, facet in enumerate(initial_facets):
                 QTMID[0].append(str(i + 1))
                 facet_geom = qtm.constructGeometry(facet)
-                cell_centroid = facet_geom.centroid
-                center_lat =  round(cell_centroid.y, 7)
-                center_lon = round(cell_centroid.x, 7)
-                cell_area = round(abs(geod.geometry_area_perimeter(facet_geom)[0]),2)
-                cell_perimeter = abs(geod.geometry_area_perimeter(facet_geom)[1])
-                avg_edge_len = round(cell_perimeter / 3,2)
+                # cell_centroid = facet_geom.centroid
+                # center_lat =  round(cell_centroid.y, 7)
+                # center_lon = round(cell_centroid.x, 7)
+                # cell_area = round(abs(geod.geometry_area_perimeter(facet_geom)[0]),2)
+                # cell_perimeter = abs(geod.geometry_area_perimeter(facet_geom)[1])
+                # avg_edge_len = round(cell_perimeter / 3,2)
                 
                 levelFacets[0].append(facet)
-                if shape(facet_geom).intersects(bbox_poly) and resolution == 1 :
-                    geojson_features.append({
-                        "type": "Feature",
-                        "geometry": mapping(facet_geom),
-                        "properties": {
-                            "qtm": QTMID[0][i],
-                            "resolution": resolution,
-                            "center_lat": center_lat,
-                            "center_lon": center_lon,
-                            "avg_edge_len": avg_edge_len,
-                            "cell_area": cell_area
-                            }
-                    })
-                    return {
-                            "type": "FeatureCollection",
-                            "features": geojson_features
-                        }              
+                if shape(facet_geom).intersects(bbox_poly) and resolution == 1 :                    
+                    qtm_id =  QTMID[0][i]
+                    num_edges = 3
+                    qtm_feature = geodesic_dggs_to_feature('qtm',qtm_id,resolution,facet_geom,num_edges)
+                    qtm_features.append(qtm_feature)
+                
+                    # geojson_features.append({
+                    #     "type": "Feature",
+                    #     "geometry": mapping(facet_geom),
+                    #     "properties": {
+                    #         "qtm": QTMID[0][i],
+                    #         "resolution": resolution,
+                    #         "center_lat": center_lat,
+                    #         "center_lon": center_lon,
+                    #         "avg_edge_len": avg_edge_len,
+                    #         "cell_area": cell_area
+                    #         }
+                    # })
+                    # return {
+                    #         "type": "FeatureCollection",
+                    #         "features": geojson_features
+                    #     }              
         else:
             for i, pf in enumerate(levelFacets[lvl - 1]):
                 subdivided_facets = qtm.divideFacet(pf)
@@ -159,28 +170,33 @@ def generate_grid_within_bbox(resolution, bbox):
                         QTMID[lvl].append(new_id)
                         levelFacets[lvl].append(subfacet)
                         if lvl == resolution - 1:  # Only store final resolution in GeoJSON
-                            cell_centroid = subfacet_geom.centroid
-                            center_lat =  round(cell_centroid.y, 7)
-                            center_lon = round(cell_centroid.x, 7)
-                            cell_area = round(abs(geod.geometry_area_perimeter(subfacet_geom)[0]),2)
-                            cell_perimeter = abs(geod.geometry_area_perimeter(subfacet_geom)[1])
-                            avg_edge_len = round(cell_perimeter / 3,2)
+                            qtm_id =  new_id
+                            num_edges = 3
+                            qtm_feature = geodesic_dggs_to_feature('qtm',qtm_id,resolution,subfacet_geom,num_edges)
+                            qtm_features.append(qtm_feature)
+                    
+                            # cell_centroid = subfacet_geom.centroid
+                            # center_lat =  round(cell_centroid.y, 7)
+                            # center_lon = round(cell_centroid.x, 7)
+                            # cell_area = round(abs(geod.geometry_area_perimeter(subfacet_geom)[0]),2)
+                            # cell_perimeter = abs(geod.geometry_area_perimeter(subfacet_geom)[1])
+                            # avg_edge_len = round(cell_perimeter / 3,2)
                             
-                            geojson_features.append({
-                                "type": "Feature",
-                                "geometry": mapping(subfacet_geom),
-                                 "properties": {
-                                    "qtm": new_id,
-                                    "resolution": resolution,
-                                    "center_lat": center_lat,
-                                    "center_lon": center_lon,
-                                    "avg_edge_len": avg_edge_len,
-                                    "cell_area": cell_area
-                                    }
-                            })
+                            # geojson_features.append({
+                            #     "type": "Feature",
+                            #     "geometry": mapping(subfacet_geom),
+                            #      "properties": {
+                            #         "qtm": new_id,
+                            #         "resolution": resolution,
+                            #         "center_lat": center_lat,
+                            #         "center_lon": center_lon,
+                            #         "avg_edge_len": avg_edge_len,
+                            #         "cell_area": cell_area
+                            #         }
+                            # })
     return {
         "type": "FeatureCollection",
-        "features": geojson_features
+        "features": qtm_features
     }
     
 def main():
@@ -201,23 +217,16 @@ def main():
 
     if bbox == [-180, -90, 180, 90]:
         geojson_features = generate_grid(resolution)
-        # Define the GeoJSON file path
+      
+    else:
+        geojson_features = generate_grid_within_bbox(resolution, bbox)
+    
+    if geojson_features:
         geojson_path = f"qtm_grid_{resolution}.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
     
-    else:
-        # Generate grid within the bounding box
-        geojson_features = generate_grid_within_bbox(resolution, bbox)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = f"qtm_grid_{resolution}_bbox.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
-
 if __name__ == '__main__':
     main()

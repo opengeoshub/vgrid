@@ -53,7 +53,7 @@ def main():
         num_cells =  4**resolution
         if num_cells > max_cells:
             print(
-                f"The selected resolution will generate {num_cells} cells "
+                f"Resolution {resolution} will generate {num_cells} cells "
                 f"which exceeds the limit of {max_cells}."
             )
             print("Please select a smaller resolution and try again.")

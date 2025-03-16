@@ -2,10 +2,14 @@ import argparse
 import json
 from shapely.geometry import Polygon
 from shapely.wkt import loads
-from vgrid.utils.eaggr.eaggr import Eaggr
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
-from vgrid.utils.eaggr.enums.model import Model
-from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+import platform
+
+if (platform.system() == 'Windows'): 
+    from vgrid.utils.eaggr.eaggr import Eaggr
+    from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+    from vgrid.utils.eaggr.enums.model import Model
+    from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
+    
 from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
