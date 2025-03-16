@@ -5,12 +5,10 @@ from tqdm import tqdm
 from pyproj import Geod
 from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geo_polygon_to_grid_ids
+from vgrid.generator.settings import max_cells, chunk_size
 
 # Initialize the geodetic model
 geod = Geod(ellps="WGS84")
-
-max_cells = 1_000_000
-chunk_size=10_000
 
 geo_bounds = grid_spec['geo']
 min_longitude = geo_bounds['min_x']

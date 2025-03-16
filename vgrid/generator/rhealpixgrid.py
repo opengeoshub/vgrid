@@ -4,8 +4,9 @@ from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
 from shapely.geometry import Polygon, box, mapping
 from tqdm import tqdm
-from pyproj import Geod
+from vgrid.generator.settings import max_cells
 
+from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
 # Function to filter cells crossing the antimeridian

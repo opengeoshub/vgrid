@@ -4,6 +4,7 @@ import json
 from vgrid.utils import qtm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
+from vgrid.generator.settings import max_cells
 
 p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (90.0, -180.0), (90.0, -90.0), (90.0, 0.0), (90.0, 90.0), (90.0, 180.0)
 p0_n180, p0_n90, p0_p0, p0_p90, p0_p180 = (0.0, -180.0), (0.0, -90.0), (0.0, 0.0), (0.0, 90.0), (0.0, 180.0)

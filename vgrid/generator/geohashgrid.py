@@ -1,10 +1,9 @@
 # Reference: https://geohash.softeng.co/uekkn, https://github.com/vinsci/geohash, https://www.movable-type.co.uk/scripts/geohash.html?geohash=dp3
 import  vgrid.utils.geohash as geohash
 import argparse,json
-from shapely.geometry import Polygon, mapping
+from shapely.geometry import Polygon
 from tqdm import tqdm
-
-max_cells = 2000_000
+from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
 def geohash_to_polygon(gh):
     """Convert geohash to a Shapely Polygon."""
@@ -25,7 +24,7 @@ def geohash_to_polygon(gh):
         (bbox['e'], bbox['s']),
         (bbox['w'], bbox['s'])
     ])
-
+    
 def generate_grid(resolution):
     """Generate GeoJSON for the entire world at the given geohash resolution."""
     initial_geohashes = [
@@ -46,20 +45,15 @@ def generate_grid(resolution):
     for gh in initial_geohashes:
         expand_geohash(gh, resolution, geohashes)
 
-    features = []
+    geohash_features = []
     for gh in tqdm(geohashes, desc="Generating grid", unit=" cells"):
-        polygon = geohash_to_polygon(gh)
-        features.append({
-            "type": "Feature",
-            "geometry": mapping(polygon),
-            "properties": {
-                "geohash": gh
-            }
-        })
+        cell_polygon = geohash_to_polygon(gh)
+        geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)   
+        geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": features
+        "features": geohash_features
     }
 
 
@@ -105,27 +99,22 @@ def generate_grid_within_bbox(resolution, bbox):
     expand_geohash(ancestor_geohash, resolution, geohashes)
 
     # Step 4: Generate features for geohashes that intersect the bounding box
+    geohash_features = []
     for gh in tqdm(geohashes, desc="Generating grid", unit=" cells"):
-        polygon = geohash_to_polygon(gh)
-        features.append({
-            "type": "Feature",
-            "geometry": mapping(polygon),
-            "properties": {
-                "geohash": gh
-            }
-        })
+        cell_polygon = geohash_to_polygon(gh)
+        geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)   
+        geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": features
+        "features": geohash_features
     }
-
 
 def main():
     parser = argparse.ArgumentParser(description='Generate Geohash grid.')
     parser.add_argument(
         '-r', '--resolution', type=int, required=True,
-        help='Resolution for the geohashes [1-10]'
+        help='Resolution [1..10]'
     )
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4,

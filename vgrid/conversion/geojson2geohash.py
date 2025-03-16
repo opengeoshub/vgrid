@@ -1,4 +1,4 @@
-from vgrid.utils import tilecode
+from vgrid.utils import geohash
 from shapely.geometry import Point, LineString, Polygon
 import argparse
 import json
@@ -9,11 +9,12 @@ from vgrid.generator.settings import graticule_dggs_to_feature
 
 # Function to generate grid for Point
 def point_to_grid(resolution, point, point_properties):  
-    tilecode_features = []
-     # res: [0..29]        
-    tilecode_id = tilecode.latlon2tilecode(point.y, point.x,resolution)
-    tilecode_cell = mercantile.tile(point.x, point.y, resolution)
-    bounds = mercantile.bounds(tilecode_cell)
+    geohash_features = []
+     # res: [1..10]        
+    geohash_id= geohash.encode(point.y, point.x,resolution)
+    
+    geohash_cell = mercantile.tile(point.x, point.y, resolution)
+    bounds = mercantile.bounds(geohash_cell)
     if bounds:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = bounds.south, bounds.west
@@ -27,19 +28,19 @@ def point_to_grid(resolution, point, point_properties):
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
         
-        tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon)   
-        tilecode_feature["properties"].update(point_properties)
+        geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon)   
+        geohash_feature["properties"].update(point_properties)
 
-        tilecode_features.append(tilecode_feature)
+        geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": tilecode_features
+        "features": geohash_features
     }
 
 # Function to generate grid for Polyline
 def poly_to_grid(resolution, geometry,feature_properties):
-    tilecode_features = []
+    geohash_features = []
     # Extract points from polyline
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
         # Handle single Polygon as before
@@ -53,7 +54,7 @@ def poly_to_grid(resolution, geometry,feature_properties):
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
-            tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
+            geohash_id = f"z{tile.z}x{tile.x}y{tile.y}"
             bounds = mercantile.bounds(x, y, z)
             if bounds:
                 # Create the bounding box coordinates for the polygon
@@ -68,13 +69,13 @@ def poly_to_grid(resolution, geometry,feature_properties):
                     [min_lon, min_lat]   # Closing the polygon (same as the first point)
                 ])
                 if cell_polygon.intersects(poly):
-                    tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon) 
-                    tilecode_feature["properties"].update(feature_properties)
-                    tilecode_features.append(tilecode_feature)
+                    geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon) 
+                    geohash_feature["properties"].update(feature_properties)
+                    geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": tilecode_features
+        "features": geohash_features
     }
 
 def process_chunk(features_chunk, resolution, geojson_features):
@@ -207,7 +208,7 @@ def main():
 
     # Save the results to GeoJSON
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2tilecode_{resolution}.geojson"
+    geojson_path = f"{geojson_name}2geohash_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

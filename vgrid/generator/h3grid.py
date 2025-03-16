@@ -10,7 +10,7 @@ from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-max_cells = 10_000_000
+from vgrid.generator.settings import max_cells
 
 def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
     if any(lon < threshold for _, lon in hex_boundary):

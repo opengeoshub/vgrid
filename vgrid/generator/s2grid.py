@@ -12,6 +12,7 @@ import argparse
 from tqdm import tqdm
 from vgrid.utils.antimeridian import fix_polygon
 from shapely.geometry import Polygon, mapping
+from vgrid.generator.settings import max_cells
 
 def cell_to_polygon(cell_id):
     cell = s2.Cell(cell_id)

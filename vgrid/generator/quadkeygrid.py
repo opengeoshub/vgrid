@@ -6,7 +6,7 @@ from tqdm import tqdm
 from vgrid.utils import mercantile
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells
 
 def generate_grid(resolution,bbox):
     features = []

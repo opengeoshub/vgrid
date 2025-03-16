@@ -1,6 +1,7 @@
 from shapely.geometry import box
 import argparse 
 import platform 
+from vgrid.generator.settings import max_cells
 
 if platform.system() == 'Linux':
     from vgrid.utils.dggrid4py.interrupt import crosses_interruption, interrupt_cell, get_geom_coords

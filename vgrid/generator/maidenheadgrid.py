@@ -7,8 +7,7 @@ import argparse
 from vgrid.utils import maidenhead
 from vgrid.stats.maidenheadstats import maidenhead_metrics
 from tqdm import tqdm  
-
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells, chunk_size
 
 def generate_grid(resolution, bbox=None):
     if resolution == 1:

@@ -11,6 +11,7 @@ from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
 import platform
+from vgrid.generator.settings import max_cells
 
 geod = Geod(ellps="WGS84")
 
@@ -19,7 +20,6 @@ base_cells = [
     '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
     '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
 ]
-max_cells = 1_000_000
 
 def fix_isea4t_wkt(isea4t_wkt):
     # Extract the coordinate section

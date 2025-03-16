@@ -283,33 +283,33 @@ def latlon2olc_cli():
     olc_cell = latlon2olc(args.lat,args.lon,res)
     print(olc_cell)
 
-def latlon2geohash(lat,lon,res=9):
-    # res: [1..30]    
-    geohash_cell = geohash.encode(lat, lon, res)
-    return geohash_cell
+def latlon2geohash(lat,lon,res=6):
+    # res: [1..10]    
+    geohash_id= geohash.encode(lat, lon, res)
+    return geohash_id
 
 def latlon2geohash_cli():
     """
     Command-line interface for latlon2geohash.
     """
-    parser = argparse.ArgumentParser(description="Convert Lat, Long to Geohash code at a specific resolution [1..30]. \
-                                     Usage: latlon2geohash <lat> <lon> <res>[1..30]. \
-                                     Ex: latlon2geohash 10.775275567242561 106.70679737574993 9")
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to Geohash code at a specific resolution [1..10]. \
+                                     Usage: latlon2geohash <lat> <lon> <res>[1..10]. \
+                                     Ex: latlon2geohash 10.775275567242561 106.70679737574993 6")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution [1..30]")
+    parser.add_argument("res",type=int, help="Input Resolution [1..10]")
     args = parser.parse_args()
     
     res = args.res
-    if res < 1 or res > 30:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [1..30].")
+    if res < 1 or res > 10:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [1..10].")
         return  
     
-    geohash_cell = latlon2geohash(args.lat,args.lon,res)
-    print(geohash_cell)
+    geohash_id = latlon2geohash(args.lat,args.lon,res)
+    print(geohash_id)
 
 def latlon2georef(lat,lon,res=4):
-    # res: [0..10]        
+    # res: [0..5]        
     georef_cell = georef.encode(lat,lon,res)
     return georef_cell
 
@@ -317,17 +317,17 @@ def latlon2georef_cli():
     """
     Command-line interface for latlon2georef.
     """
-    parser = argparse.ArgumentParser(description="Convert Lat, Long to GEOREF code at a specific resolution [0..10]. \
-                                     Usage: latlon2georef <lat> <lon> <res> [0..10]. \
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to GEOREF code at a specific resolution [0..5]. \
+                                     Usage: latlon2georef <lat> <lon> <res> [0..5]. \
                                      Ex: latlon2georef 10.775275567242561 106.70679737574993 4")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution [0..10]")
+    parser.add_argument("res",type=int, help="Input Resolution [0..5]")
     args = parser.parse_args()
     
     res = args.res
-    if res < 0 or res > 10:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [0..10].")
+    if res < 0 or res > 5:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [0..5].")
         return  
     
     georef_cell = latlon2georef(args.lat,args.lon,res)

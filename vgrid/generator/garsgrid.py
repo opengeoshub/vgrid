@@ -24,7 +24,8 @@ import numpy as np
 from pyproj import Geod
 from vgrid.utils.gars.garsgrid import GARSGrid  # Ensure the correct import path
 
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells
+
 
 geod = Geod(ellps="WGS84")  # Initialize a Geod object for calculations
 

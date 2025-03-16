@@ -94,15 +94,15 @@
 ``` bash
 > latlon2geohash 10.775275567242561 106.70679737574993 9 # latlon2geohash <lat> <lon> <res>[1..10]
 > geohash2geojson w3gvk1td8
-> geohashgrid -r 6 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..10] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
+> geohashgrid -r 6 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # geohashgrid -r <res> [1..10] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
 > geohashstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
 ### GEOREF
 ``` bash
-> latlon2georef 10.775275567242561 106.70679737574993 4 # latlon2georef <lat> <lon> <res> [0..10]
+> latlon2georef 10.775275567242561 106.70679737574993 4 # latlon2georef <lat> <lon> <res> [0..5]
 > georef2geojson VGBL42404651
-> geohashgrid -r 2 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <res> [1..12] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
+> geohashgrid -r 2 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # geohashgrid -r <res> [0..5] -b <min_lon> <min_lat> <max_lon> <max_lat> 
 > georeftats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
@@ -118,8 +118,8 @@
 ``` bash
 > latlon2tilecode 10.775275567242561 106.70679737574993 23 # latlon2tilecode <lat> <lon> <res> [0..29]
 > tilecode2geojson z23x6680749y3941729
-> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..29] 
-> tilestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
+> tilecodegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <res> [0..26] 
+> tilecodestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
 ```
 
 ### Quadkey

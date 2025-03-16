@@ -4,27 +4,21 @@ import json
 from shapely.geometry import mapping,Polygon
 from tqdm import tqdm
 from vgrid.utils import mercantile
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
 def generate_grid(resolution,bbox):
-    features = []
+    tilecode_features = []
     min_lon, min_lat, max_lon, max_lat = bbox # or [-180.0, -85.05112878,180.0,85.05112878]  
     tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-    for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}:", unit=" cells"):
+    
+    for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}", unit=" cells"):
         z, x, y = tile.z, tile.x, tile.y
-        tilecode = f"z{tile.z}x{tile.x}y{tile.y}"
+        tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
         bounds = mercantile.bounds(x, y, z)
         if bounds:
             # Create the bounding box coordinates for the polygon
             min_lat, min_lon = bounds.south, bounds.west
-            max_lat, max_lon = bounds.north, bounds.east
-            
-            quadkey = mercantile.quadkey(tile)
-
-            center_lat = round((min_lat + max_lat) / 2,7)
-            center_lon = round((min_lon + max_lon) / 2,7)
+            max_lat, max_lon = bounds.north, bounds.east          
             
             cell_polygon = Polygon([
                 [min_lon, min_lat],  # Bottom-left corner
@@ -33,32 +27,14 @@ def generate_grid(resolution,bbox):
                 [min_lon, max_lat],  # Top-left corner
                 [min_lon, min_lat]   # Closing the polygon (same as the first point)
             ])
-            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-            avg_edge_len = round(cell_perimeter / 3,2)       
+            tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon)   
+            tilecode_features.append(tilecode_feature)
 
-            feature = {
-                "type": "Feature",
-                "geometry": mapping(cell_polygon),          
-                "properties": {
-                    "tilecode": tilecode,  
-                    "quadkey": quadkey,
-                    "resolution": z ,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "avg_edge_len": avg_edge_len,
-                    "cell_area": cell_area
-                }
-            }            
-
-        features.append(feature)
-
-    geojson_features = {
-        'type': 'FeatureCollection',
-        'features': features
+    return {
+        "type": "FeatureCollection",
+        "features": tilecode_features
     }
 
-    return geojson_features
         
 def main():
     parser = argparse.ArgumentParser(description='Generate Tilecode grid.')

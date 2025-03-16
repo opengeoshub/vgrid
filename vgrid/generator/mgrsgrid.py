@@ -4,6 +4,7 @@ from shapely.geometry import Polygon
 from pyproj import CRS, Transformer
 from vgrid.utils import mgrs
 from tqdm import tqdm
+from vgrid.generator.settings import max_cells
 
 # Need to be reviewed
 def calculate_bbox(epsg):

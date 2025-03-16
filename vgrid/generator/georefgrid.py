@@ -5,7 +5,7 @@ from shapely.geometry import Polygon, mapping, box
 import numpy as np
 from pyproj import Geod
 
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells, chunk_size
 
 geod = Geod(ellps="WGS84")  # Initialize a Geod object for calculations
 

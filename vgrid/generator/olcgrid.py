@@ -6,7 +6,7 @@ from shapely.geometry import box, Polygon, mapping
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-max_cells = 1_000_000
+from vgrid.generator.settings import max_cells
 
 def calculate_total_cells(code_length, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
