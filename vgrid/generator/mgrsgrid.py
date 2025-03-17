@@ -49,7 +49,7 @@ def calculate_bbox(epsg):
     # Return the calculated bounding box
     return minx, miny, maxx, maxy
 
-def create_mgrs_grid(minx, miny, maxx, maxy, cell_size, crs):
+def generate_grid(minx, miny, maxx, maxy, cell_size, crs):
     """
     Create a grid of square polygons within a specified bounding box using UTM coordinates.
 
@@ -129,14 +129,12 @@ def main():
     # Example for UTM zone 48N (EPSG:32648)
     # bbox = (100000, 0, 900000, 9500000) # for the North 
     # bbox = (100000, 100000, 900000, 10000000) # for the South 
-
-    # bbox = (100000, 100000, 900000, 10000000)
-    
+    # bbox = (100000, 100000, 900000, 10000000)    
     # Set up the CRS using the provided EPSG code
     crs = CRS.from_epsg(args.epsg)
     
     # Create the grid with the specified cell size
-    grid = create_mgrs_grid(*bbox, args.cellsize, crs)
+    grid = generate_grid(*bbox, args.cellsize, crs)
     
     # Save the grid as a shapefile
     grid.to_file(args.output)

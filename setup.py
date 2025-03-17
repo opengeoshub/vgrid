@@ -145,6 +145,7 @@ setup(
             'isea4tstats = vgrid.stats.isea4tstats:main',
             'isea3hstats = vgrid.stats.isea3hstats:main',
             'easestats = vgrid.stats.easestats:main',
+            'qtmstats = vgrid.stats.qtmstats:main',
 
             'dggridstats = vgrid.stats.dggridstats:main',
 
@@ -152,8 +153,9 @@ setup(
             'geohashstats = vgrid.stats.geohashstats:main',
             'georefstats = vgrid.stats.georefstats:main',
             'mgrsstats = vgrid.stats.mgrsstats:main',
-            'tilecodestats = vgrid.stats.tilestats:main',
-            
+            'tilecodestats = vgrid.stats.tilecodestats:main',
+            'quadkeystats = vgrid.stats.quadkeystats:main',
+
             'maidenheadstats = vgrid.stats.maidenheadstats:main',
             'garsstats = vgrid.stats.garsstats:main',
 

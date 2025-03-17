@@ -2,11 +2,8 @@ import json
 import argparse
 from vgrid.utils import olc
 from tqdm import tqdm
-from shapely.geometry import box, Polygon, mapping
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
-
-from vgrid.generator.settings import max_cells
+from shapely.geometry import box, Polygon
+from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
 def calculate_total_cells(code_length, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
@@ -35,7 +32,7 @@ def generate_grid(code_length):
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
-    features = []
+    olc_features = []
 
     # Calculate the total number of steps for progress tracking
     total_lat_steps = int((ne_lat - sw_lat) / lat_step)
@@ -51,8 +48,8 @@ def generate_grid(code_length):
                 # Generate the Plus Code for the center of the cell
                 center_lat = lat + lat_step / 2
                 center_lon = lng + lng_step / 2
-                olc_code = olc.encode(center_lat, center_lon, code_length)
-                resolution = olc.decode(olc_code).codeLength
+                olc_id = olc.encode(center_lat, center_lon, code_length)
+                resolution = olc.decode(olc_id).codeLength
                 cell_polygon = Polygon([
                             [lng, lat],  # SW
                             [lng, lat + lat_step],  # NW
@@ -60,25 +57,8 @@ def generate_grid(code_length):
                             [lng + lng_step, lat],  # SE
                             [lng, lat]  # Close the polygon
                     ])
-                
-                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
-                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-                avg_edge_len = round(cell_perimeter / 3,2)
-                            
-                # Create the feature
-                features.append({
-                    "type": "Feature",
-                    "geometry": mapping(cell_polygon),
-                    "properties": {
-                        "olc": olc_code,
-                        "resolution": resolution,
-                        "center_lat": center_lat,
-                        "center_lon": center_lon,
-                        "avg_edge_len": avg_edge_len,
-                        "cell_area": cell_area
-                    }
-                })
-
+                olc_feature = graticule_dggs_to_feature('olc',olc_id,resolution,cell_polygon)
+                olc_features.append(olc_feature)
                 lng += lng_step
                 pbar.update(1)  # Update progress bar
             lat += lat_step
@@ -86,7 +66,7 @@ def generate_grid(code_length):
     # Return the feature collection
     return {
         "type": "FeatureCollection",
-        "features": features
+        "features": olc_features
     }
 
 def generate_grid_within_bbox(code_length, bbox):
@@ -127,13 +107,13 @@ def generate_grid_within_bbox(code_length, bbox):
     ]
 
     final_features = []
-    seen_olc_codes = set()  # Reset the set for final feature filtering
+    seen_olc_ids = set()  # Reset the set for final feature filtering
 
     for feature in resolution_features:
-        olc_code = feature["properties"]["olc"]
-        if olc_code not in seen_olc_codes:  # Check if OLC code is already in the set
+        olc_id = feature["properties"]["olc"]
+        if olc_id not in seen_olc_ids:  # Check if OLC code is already in the set
             final_features.append(feature)
-            seen_olc_codes.add(olc_code)
+            seen_olc_ids.add(olc_id)
 
     return {
         "type": "FeatureCollection",
@@ -154,12 +134,7 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
-    features = []
-    # total_lat_steps = int((max_lat - min_lat) / lat_step)
-    # total_lng_steps = int((max_lon - min_lon) / lng_step)
-    # total_steps = total_lat_steps * total_lng_steps
-
-    # with tqdm(total=total_steps, desc="Refining cells", unit=" cells") as pbar:
+    olc_features = []
     lat = min_lat
     while lat < max_lat:
         lng = min_lon
@@ -172,8 +147,8 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                 # Generate the Plus Code for the center of the finer cell
                 center_lat = lat + lat_step / 2
                 center_lon = lng + lng_step / 2
-                olc_code = olc.encode(center_lat, center_lon, valid_resolution)
-                resolution = olc.decode(olc_code).codeLength
+                olc_id = olc.encode(center_lat, center_lon, valid_resolution)
+                resolution = olc.decode(olc_id).codeLength
                 
                 cell_polygon = Polygon([
                         [lng, lat],  # SW
@@ -183,27 +158,12 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                         [lng, lat]  # Close the polygon
                 ])
             
-                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)
-                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-                avg_edge_len = round(cell_perimeter / 3,2)
+                olc_feature = graticule_dggs_to_feature('olc',olc_id,resolution,cell_polygon)
+                olc_features.append(olc_feature)
                 
-                # Add the finer cell as a feature
-                features.append({
-                "type": "Feature",
-                "geometry": mapping(cell_polygon),
-                "properties": {
-                    "olc": olc_code,
-                    "resolution": resolution,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "avg_edge_len": avg_edge_len,
-                    "cell_area": cell_area
-                    }
-                })
-
                 # Recursively refine the cell if not at target resolution
                 if valid_resolution < target_resolution:
-                    features.extend(
+                    olc_features.extend(
                         refine_cell(
                             finer_cell_bounds,
                             valid_resolution,
@@ -216,7 +176,7 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
             # pbar.update(1)
         lat += lat_step
 
-    return features
+    return olc_features
 
 def main():
     parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode grid.")
@@ -246,13 +206,11 @@ def main():
             print("Please select a smaller resolution and try again.")
             return
         geojson_features = generate_grid(resolution)
-        geojson_path = f"olc_grid_{resolution}.geojson"
    
     else:
         geojson_features = generate_grid_within_bbox(resolution, bbox)
-        geojson_path = f"olc_grid_bbox_{resolution}.geojson"
-
-    
+        
+    geojson_path = f"olc_grid_{resolution}.geojson"
     with open(geojson_path, "w") as f:
         json.dump(geojson_features, f, indent=2)
     
