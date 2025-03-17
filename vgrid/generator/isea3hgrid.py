@@ -10,13 +10,13 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     
-from pyproj import Geod
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, mapping
 from vgrid.utils.antimeridian import fix_polygon
 import platform
 from vgrid.generator.settings import max_cells, isea3h_accuracy_res_dict, isea3h_res_accuracy_dict
 
+from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
 # Initialize the DGGS system
@@ -211,22 +211,18 @@ def main():
                 print("Please select a smaller resolution and try again.")
                 return   
             
-            geojson = generate_grid(isea3h_dggs,resolution)
-            geojson_path = f"isea3h_grid_{resolution}.geojson"
+            geojson_features = generate_grid(isea3h_dggs,resolution)
 
-            with open(geojson_path, 'w', encoding='utf-8') as f:
-                json.dump(geojson, f, ensure_ascii=False, indent=4)
-
-            print(f"GeoJSON saved as {geojson_path}")
         else:       
             # Generate grid within the bounding box
             geojson_features = generate_grid_within_bbox(isea3h_dggs,resolution, bbox)
-            # Define the GeoJSON file path
-            geojson_path = f"isea3h_grid_{resolution}_bbox.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
+            
+        # Define the GeoJSON file path
+        geojson_path = f"isea3h_grid_{resolution}.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-            print (f"GeoJSON saved as {geojson_path}")
+        print (f"GeoJSON saved as {geojson_path}")
 
 if __name__ == "__main__":
     main()

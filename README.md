@@ -70,7 +70,7 @@
 ``` bash
 > latlon2ease 10.775275567242561 106.70679737574993 6 # latlon2easedggs <lat> <lon> <res> [0..6]
 > ease2geojson L6.165767.02.02.22.45.63.05
-> easegrid -r 5 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # easegrid -r <res> [0..6] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> easegrid -r 4 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # easegrid -r <res> [0..6] -b <min_lon> <min_lat> <max_lon> <max_lat>
 > easestats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 

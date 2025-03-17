@@ -2,15 +2,14 @@
 # https://h3-snow.streamlit.app/
 
 import h3
-from shapely.geometry import Polygon, mapping, box
-from shapely import buffer
+from shapely.geometry import Polygon, box
 import argparse
 import json
 from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-from vgrid.generator.settings import max_cells
+from vgrid.generator.settings import max_cells,geodesic_dggs_to_feature
 
 def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
     if any(lon < threshold for _, lon in hex_boundary):
@@ -21,7 +20,7 @@ def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
 def generate_grid(resolution):
     base_cells = h3.get_res0_cells()
     num_base_cells = len(base_cells)
-    features = []
+    h3_features = []
     # Progress bar for base cells
     with tqdm(total=num_base_cells, desc="Processing base cells", unit=" cells") as pbar:
         for cell in base_cells:
@@ -34,20 +33,19 @@ def generate_grid(resolution):
                 filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
                 # Reverse lat/lon to lon/lat for GeoJSON compatibility
                 reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-                polygon = Polygon(reversed_boundary)
-                if polygon.is_valid:
-                    features.append({
-                        "type": "Feature",
-                        "geometry": mapping(polygon),
-                        "properties": {
-                            "h3": child_cell
-                        }
-                    })
-            pbar.update(1)
+                cell_polygon = Polygon(reversed_boundary)                
+                if cell_polygon.is_valid:
+                    h3_id = str(child_cell)
+                    num_edges = 6
+                    if (h3.is_pentagon(h3_id)):
+                        num_edges = 5
+                    h3_feature = geodesic_dggs_to_feature("h3",h3_id,resolution,cell_polygon,num_edges)   
+                    h3_features.append(h3_feature)
+                    pbar.update(1)
 
     return {
         "type": "FeatureCollection",
-        "features": features,
+        "features": h3_features,
     }
     
 def geodesic_buffer(polygon, distance):
@@ -77,8 +75,7 @@ def generate_grid_within_bbox(resolution,bbox):
         print("Please select a smaller resolution and try again.")
         return
     else:    
-        features = []
-
+        h3_features = []
         # Progress bar for base cells
         for bbox_buffer_cell in tqdm(bbox_buffer_cells, desc="Processing cells"):
                 # Get the boundary of the cell
@@ -89,17 +86,16 @@ def generate_grid_within_bbox(resolution,bbox):
                 reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
                 cell_polygon = Polygon(reversed_boundary)
                 if cell_polygon.intersects(bbox_polygon):
-                    features.append({
-                        "type": "Feature",
-                        "geometry": mapping(cell_polygon),
-                        "properties": {
-                            "h3": bbox_buffer_cell
-                        }
-                    })
+                    h3_id = str(bbox_buffer_cell)
+                    num_edges = 6
+                    if (h3.is_pentagon(h3_id)):
+                        num_edges = 5
+                    h3_feature = geodesic_dggs_to_feature("h3",h3_id,resolution,cell_polygon,num_edges)   
+                    h3_features.append(h3_feature)
 
         return {
             "type": "FeatureCollection",
-            "features": features,
+            "features": h3_features,
         }
 
 
@@ -131,24 +127,18 @@ def main():
 
         # Generate grid within the bounding box
         geojson_features = generate_grid(resolution)
-
+       
+    else:
+        # Generate grid within the bounding box
+        geojson_features = generate_grid_within_bbox(resolution, bbox)
+    
+    if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"h3_grid_{resolution}.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-    
-    else:
-        # Generate grid within the bounding box
-        geojson_features = generate_grid_within_bbox(resolution, bbox)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = f"h3_grid_{resolution}_bbox.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
 
 
 if __name__ == "__main__":

@@ -42,7 +42,7 @@ E = WGS84_ELLIPSOID
 
 def h32geojson(h3_id):
     cell_boundary = h3.cell_to_boundary(h3_id)   
-    geohash_features = [] 
+    h3_features = [] 
     if cell_boundary:
         filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
         # Reverse lat/lon to lon/lat for GeoJSON compatibility
@@ -52,12 +52,12 @@ def h32geojson(h3_id):
         num_edges = 6
         if (h3.is_pentagon(h3_id)):
             num_edges = 5
-        geohash_feature = geodesic_dggs_to_feature("h3",h3_id,resolution,cell_polygon,num_edges)   
-        geohash_features.append(geohash_feature)
+        h3_feature = geodesic_dggs_to_feature("h3",h3_id,resolution,cell_polygon,num_edges)   
+        h3_features.append(h3_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": geohash_features
+        "features": h3_features
     }
        
     
@@ -641,7 +641,6 @@ def mgrs2geojson_cli():
     args = parser.parse_args()
     geojson_data = json.dumps(mgrs2geojson(args.mgrs))
     print(geojson_data)
-
 
 def georef2geojson(georef_id):
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_id)

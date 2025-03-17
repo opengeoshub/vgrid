@@ -45,10 +45,10 @@ def encode(lat, lon, prec):
     if lon >= 180: # make longitude in the range -180, 180
         lon = lon - 360
 
-
     if lat == 90:
         lat = lat - sys.float_info.epsilon
     prec = max(-1, min(int(maxprec_), prec))
+
     if prec == 1:
         prec = prec + 1  # Disallow prec = 1
     m = 60000000000
@@ -143,8 +143,10 @@ def decode(georef, centerp=False):
 def georefcell(georef_code):
     # Decode the GEOREF code to get the center coordinates and precision
     center_lat, center_lon, precision = decode(georef_code, True) #True for center point, not bottom-left
-    grid_size = 1 # degree
-    if precision > 0:
+    grid_size = 15 # degrees
+    if precision == 1:
+        grid_size == 1
+    if precision > 1:
         grid_size = 1 / (10 ** precision)
 
     min_lon = float(int(center_lon // grid_size) * grid_size)

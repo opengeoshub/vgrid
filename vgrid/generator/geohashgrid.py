@@ -137,25 +137,19 @@ def main():
             print("Please select a smaller resolution and try again.")
             return
 
-        geojson_features = generate_grid(resolution)
-
+        geojson_features = generate_grid(resolution)   
+    
+    else:
+        # Generate grid within the bounding box
+        geojson_features = generate_grid_within_bbox(resolution, bbox)
+  
+    if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"geohash_grid_{resolution}.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-    
-    else:
-        # Generate grid within the bounding box
-        geojson_features = generate_grid_within_bbox(resolution, bbox)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = f"geohash_grid_{resolution}_bbox.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
 
 if __name__ == "__main__":
     main()
