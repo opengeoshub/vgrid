@@ -642,6 +642,7 @@ def mgrs2geojson_cli():
     geojson_data = json.dumps(mgrs2geojson(args.mgrs))
     print(geojson_data)
 
+
 def georef2geojson(georef_id):
     center_lat, center_lon, min_lat, min_lon, max_lat, max_lon,resolution = georef.georefcell(georef_id)
     georef_features = []
