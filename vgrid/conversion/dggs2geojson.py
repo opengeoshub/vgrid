@@ -21,7 +21,7 @@ if (platform.system() == 'Linux'):
     from vgrid.utils.dggrid4py.dggrid_runner import input_address_types
 
 
-from vgrid.utils.easedggs.constants import grid_spec, levels_specs
+from vgrid.utils.easedggs.constants import levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
 
 from shapely.wkt import loads
@@ -184,10 +184,10 @@ def isea4t2geojson_cli():
     print(geojson_data)
 
 
-def isea3h_cell_to_polygon(isea3h_cellid):
+def isea3h_cell_to_polygon(isea3h_id):
     if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h_cellid),ShapeStringFormat.WKT)
+        cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h_id),ShapeStringFormat.WKT)
         if cell_to_shape:
             coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
             coordinates = []
@@ -275,10 +275,10 @@ def isea3h2geojson_cli():
     print(geojson_data)
 
 
-def dggrid2geojson(dggrid_cellid,dggs_type,resolution):
+def dggrid2geojson(dggrid_id,dggs_type,resolution):
     if (platform.system() == 'Linux'):
         dggrid_instance = DGGRIDv7(executable='/usr/local/bin/dggrid', working_dir='.', capture_logs=False, silent=True, tmp_geo_out_legacy=False, debug=False)
-        dggrid_cell =  dggrid_instance.grid_cell_polygons_from_cellids([dggrid_cellid],dggs_type,resolution,split_dateline=True)    
+        dggrid_cell =  dggrid_instance.grid_cell_polygons_from_cellids([dggrid_id],dggs_type,resolution,split_dateline=True)    
       
         gdf = dggrid_cell.set_geometry("geometry")  # Ensure the geometry column is set
         # Check and set CRS to EPSG:4326 if needed
@@ -354,13 +354,13 @@ def ease2geojson_cli():
     geojson_data = json.dumps(ease2geojson(args.ease))
     print(geojson_data)
 
-def qtm2geojson(qtm_cellid):
-    facet = qtm_id_to_facet(qtm_cellid)
+def qtm2geojson(qtm_id):
+    facet = qtm_id_to_facet(qtm_id)
     cell_polygon = constructGeometry(facet)    
-    resolution = len(qtm_cellid)
+    resolution = len(qtm_id)
     num_edges = 3
     qtm_features = []
-    qtm_feature = geodesic_dggs_to_feature("qtm",qtm_cellid,resolution,cell_polygon,num_edges)   
+    qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id,resolution,cell_polygon,num_edges)   
     qtm_features.append(qtm_feature)
 
     return {
@@ -453,8 +453,8 @@ def geohash2geojson_cli():
     print(geojson_data)
 
 
-def mgrs2geojson_old(mgrs_cellid,lat=None,lon=None):
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_cellid)
+def mgrs2geojson_old(mgrs_id,lat=None,lon=None):
+    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
     if origin_lat:
         # Define the polygon based on the bounding box
         origin_lat = round(origin_lat,7)
@@ -475,7 +475,7 @@ def mgrs2geojson_old(mgrs_cellid,lat=None,lon=None):
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
-                "mgrs": mgrs_cellid,
+                "mgrs": mgrs_id,
                 "resolution": resolution,
                 "origin_lat": origin_lat,
                 "origin_lon": origin_lon,
@@ -523,7 +523,7 @@ def mgrs2geojson_old(mgrs_cellid,lat=None,lon=None):
                                 "coordinates": [list(intersection_polygon.exterior.coords)]
                             },
                             "properties": {
-                                "mgrs": mgrs_cellid,
+                                "mgrs": mgrs_id,
                                 "resolution": resolution,
                                 "origin_lat": origin_lat,
                                 "origin_lon": origin_lon,
@@ -674,17 +674,7 @@ def georef2geojson_cli():
     print(geojson_data)
 
 
-def tilecode2geojson(tilecode_id):
-    """
-    Converts a tilecode (e.g., 'z8x11y14') to a GeoJSON Feature with a Polygon geometry
-    representing the tile's bounds and includes the original tilecode as a property.
-
-    Args:
-        tilecode (str): The tile code in the format 'zXxYyZ'.
-
-    Returns:
-        dict: A GeoJSON Feature with a Polygon geometry and tilecode as a property.
-    """
+def tilecode2geojson(tilecode_id):  
     # Extract z, x, y from the tilecode using regex
     match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
     if not match:

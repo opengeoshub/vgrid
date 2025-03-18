@@ -109,8 +109,18 @@ setup(
             'csv2rhealpix =  vgrid.conversion.csv2dggs:csv2rhealpix',
             'csv2isea4t =  vgrid.conversion.csv2dggs:csv2isea4t',
             'csv2isea3h =  vgrid.conversion.csv2dggs:csv2isea3h',
+            'csv2ease =  vgrid.conversion.csv2dggs:csv2ease',
+            'csv2qtm =  vgrid.conversion.csv2dggs:csv2qtm',
 
-            
+            'csv2olc =  vgrid.conversion.csv2dggs:csv2olc',
+            'csv2geohash =  vgrid.conversion.csv2dggs:csv2geohash',
+            'csv2georef =  vgrid.conversion.csv2dggs:csv2georef',
+            'csv2mgrs =  vgrid.conversion.csv2dggs:csv2mgrs',
+            'csv2tilecode =  vgrid.conversion.csv2dggs:csv2tilecode',
+            'csv2quadkey =  vgrid.conversion.csv2dggs:csv2quadkey',
+            'csv2maidenhead =  vgrid.conversion.csv2dggs:csv2maidenhead',
+            'csv2gars =  vgrid.conversion.csv2dggs:csv2gars',
+
             # Resampling
             'resample =  vgrid.resampling.resample:main',
             
