@@ -151,8 +151,8 @@
 ``` python
 from vgrid.utils import s2, olc, geohash, georef, mgrs, tile, maidenhead, gars
 import h3, json
-from vgrid.conversion.cell2geojson import *
-from vgrid.conversion.latlon2cell import *
+from vgrid.conversion.dggs2geojson import *
+from vgrid.conversion.latlon2dggs import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 print(f'Latitude, Longitude: ({latitude}, {longitude})')

@@ -4,7 +4,7 @@ import argparse
 import locale
 from texttable import Texttable
 from vgrid.utils import olc
-from vgrid.conversion.latlon2cell import latlon2olc
+from vgrid.conversion.latlon2dggs import latlon2olc
 from vgrid.generator.olcgrid import calculate_total_cells
 from shapely.geometry import Polygon,mapping
 from pyproj import Geod

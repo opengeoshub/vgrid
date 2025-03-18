@@ -1,5 +1,5 @@
 from vgrid.utils import mgrs
-from vgrid.conversion.cell2geojson import *
+from vgrid.conversion.dggs2geojson import *
 import json
 latitude, longitude = 40.00194441, 23.99972080
 latitude, longitude = 10.775275567242561, 106.70679737574993

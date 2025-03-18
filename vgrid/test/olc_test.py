@@ -1,5 +1,5 @@
 from vgrid.utils import olc
-from vgrid.conversion.cell2geojson import *
+from vgrid.conversion.dggs2geojson import *
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
 

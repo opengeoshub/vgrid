@@ -17,8 +17,8 @@ from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from shapely.geometry import Polygon
 from shapely.ops import transform
 from pyproj import Geod
-from vgrid.conversion.latlon2cell import *
-from vgrid.conversion.cell2geojson import *
+from vgrid.conversion.latlon2dggs import *
+from vgrid.conversion.dggs2geojson import *
 from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
 import random
 # eaggr_dggs = Eaggr(Model.ISEA4T)

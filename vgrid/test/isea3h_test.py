@@ -2,8 +2,8 @@ from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.enums.model import Model
 from shapely.wkt import loads
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.conversion.latlon2cell import *
-from vgrid.conversion.cell2geojson import *
+from vgrid.conversion.latlon2dggs import *
+from vgrid.conversion.dggs2geojson import *
 
 isea3h_dggs = Eaggr(Model.ISEA3H)
 

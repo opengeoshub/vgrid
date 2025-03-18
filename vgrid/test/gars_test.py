@@ -18,8 +18,8 @@
 
 from vgrid.utils import s2, olc, geohash, georef, mgrs, maidenhead, gars, tilecode
 import h3, json
-from vgrid.conversion.cell2geojson import *
-from vgrid.conversion.latlon2cell import *
+from vgrid.conversion.dggs2geojson import *
+from vgrid.conversion.latlon2dggs import *
 
 latitude, longitude = 10.775275567242561, 106.70679737574993
 

@@ -2,7 +2,7 @@ import locale
 import argparse
 import csv
 from shapely.wkt import loads
-from vgrid.conversion.latlon2cell import latlon2isea3h
+from vgrid.conversion.latlon2dggs import latlon2isea3h
 from texttable import Texttable
 import platform 
 from pyproj import Geod
