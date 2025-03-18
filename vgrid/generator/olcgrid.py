@@ -5,9 +5,9 @@ from tqdm import tqdm
 from shapely.geometry import box, Polygon
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
-def calculate_total_cells(code_length, bbox):
+def calculate_total_cells(resolution, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
-    area = olc.decode(olc.encode(bbox[1], bbox[0], code_length))  # Use bbox min lat, min lon for the area
+    area = olc.decode(olc.encode(bbox[1], bbox[0], resolution))  # Use bbox min lat, min lon for the area
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
@@ -18,7 +18,7 @@ def calculate_total_cells(code_length, bbox):
     return total_lat_steps * total_lng_steps
 
 
-def generate_grid(code_length):
+def generate_grid(resolution):
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
     as a GeoJSON-like feature collection.
@@ -28,7 +28,7 @@ def generate_grid(code_length):
     ne_lat, ne_lng = 90, 180
 
     # Get the precision step size
-    area = olc.decode(olc.encode(sw_lat, sw_lng, code_length))
+    area = olc.decode(olc.encode(sw_lat, sw_lng, resolution))
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
@@ -48,7 +48,7 @@ def generate_grid(code_length):
                 # Generate the Plus Code for the center of the cell
                 center_lat = lat + lat_step / 2
                 center_lon = lng + lng_step / 2
-                olc_id = olc.encode(center_lat, center_lon, code_length)
+                olc_id = olc.encode(center_lat, center_lon, resolution)
                 resolution = olc.decode(olc_id).codeLength
                 cell_polygon = Polygon([
                             [lng, lat],  # SW
@@ -69,7 +69,7 @@ def generate_grid(code_length):
         "features": olc_features
     }
 
-def generate_grid_within_bbox(code_length, bbox):
+def generate_grid_within_bbox(resolution, bbox):
     """
     Generate a grid of Open Location Codes (Plus Codes) within the specified bounding box.
     """
@@ -93,17 +93,17 @@ def generate_grid_within_bbox(code_length, bbox):
     for seed_cell in seed_cells:
         seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
 
-        if seed_cell_poly.contains(bbox_poly) and code_length == base_resolution:
+        if seed_cell_poly.contains(bbox_poly) and resolution == base_resolution:
             # Append the seed cell directly if fully contained and resolution matches
             refined_features.append(seed_cell)
         else:
             # Refine the seed cell to the output resolution and add it to the output
             refined_features.extend(
-                refine_cell(seed_cell_poly.bounds, base_resolution, code_length, bbox_poly)
+                refine_cell(seed_cell_poly.bounds, base_resolution, resolution, bbox_poly)
             )
 
     resolution_features = [
-        feature for feature in refined_features if feature["properties"]["resolution"] == code_length
+        feature for feature in refined_features if feature["properties"]["resolution"] == resolution
     ]
 
     final_features = []

@@ -1,27 +1,20 @@
-from vgrid.utils import olc
+import os, argparse, json
 from shapely.geometry import Point, LineString, Polygon, mapping, box
-import argparse
-import json
 from tqdm import tqdm
-import os
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
+from vgrid.utils import olc
 from vgrid.generator.olcgrid import generate_grid,refine_cell
+from vgrid.generator.settings import graticule_dggs_to_feature
+
 
 # Function to generate grid for Point
-def point_to_grid(resolution, point):    
-    features = []
-    olc_cellid = olc.encode(point.y, point.x, resolution)
-    coord = olc.decode(olc_cellid)    
+def point_to_grid(resolution, point,feature_properties):    
+    olc_features = []
+    olc_id = olc.encode(point.y, point.x, resolution)
+    coord = olc.decode(olc_id)    
     if coord:
         # Create the bounding box coordinates for the polygon
         min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
-        max_lat, max_lon = coord.latitudeHi, coord.longitudeHi
-
-        center_lat = round(coord.latitudeCenter,7)
-        center_lon = round(coord.longitudeCenter,7)
-        resolution = coord.codeLength 
-
+        max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
         # Define the polygon based on the bounding box
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
@@ -30,32 +23,16 @@ def point_to_grid(resolution, point):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
-        features.append({
-                "type": "Feature",
-                "geometry": mapping(cell_polygon),          
-                "properties": {
-                    "olc": olc_cellid,  
-                    "resolution": resolution,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "avg_edge_len": avg_edge_len,
-                    "cell_area": cell_area                
-                }
-            })
+        olc_feature = graticule_dggs_to_feature("olc",olc_id,resolution,cell_polygon)   
+        olc_feature["properties"].update(feature_properties)
+        olc_features.append(olc_feature)
 
-    geojson_features = {
-        'type': 'FeatureCollection',
-        'features': features
+    return {
+        "type": "FeatureCollection",
+        "features": olc_features,
     }
 
-    return geojson_features
-
-# Function to generate grid for Polyline
-def poly_to_grid(resolution, geometry):
+def poly_to_grid(resolution, geometry,feature_properties):
     # Extract points from polyline
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
         # Handle single Polygon as before
@@ -91,21 +68,22 @@ def poly_to_grid(resolution, geometry):
                 )
 
             resolution_features = [
-                feature for feature in refined_features if feature["properties"]["resolution"] == resolution
+                refined_feature for refined_feature in refined_features if refined_feature["properties"]["resolution"] == resolution
             ]
 
-            final_features = []
+            olc_features = []
             seen_olc_codes = set()  # Reset the set for final feature filtering
 
-            for feature in resolution_features:
-                olc_code = feature["properties"]["olc"]
-                if olc_code not in seen_olc_codes:  # Check if OLC code is already in the set
-                    final_features.append(feature)
-                    seen_olc_codes.add(olc_code)
+            for resolution_feature in resolution_features:
+                olc_id = resolution_feature["properties"]["olc"]
+                if olc_id not in seen_olc_codes:  # Check if OLC code is already in the set
+                    resolution_feature["properties"].update(feature_properties)
+                    olc_features.append(resolution_feature)
+                    seen_olc_codes.add(olc_id)
 
             return {
                 "type": "FeatureCollection",
-                "features": final_features
+                "features": olc_features
             }
     
 
@@ -135,17 +113,18 @@ def main():
     geojson_features = []
 
     for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
+        feature_properties = feature['properties']
         if feature['geometry']['type'] in ['Point', 'MultiPoint']:
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'Point':
                 point = Point(coordinates)
-                point_features = point_to_grid(resolution, point)
+                point_features = point_to_grid(resolution, point,feature_properties)
                 geojson_features.extend(point_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPoint':
                 for point_coords in coordinates:
                     point = Point(point_coords)  # Create Point for each coordinate set
-                    point_features = point_to_grid(resolution, point)
+                    point_features = point_to_grid(resolution, point,feature_properties)
                     geojson_features.extend(point_features['features'])
         
         elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
@@ -153,14 +132,14 @@ def main():
             if feature['geometry']['type'] == 'LineString':
                 # Directly process LineString geometry
                 polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline)
+                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
                 # Iterate through each line in MultiLineString geometry
                 for line_coords in coordinates:
                     polyline = LineString(line_coords)  # Use each part's coordinates
-                    polyline_features = poly_to_grid(resolution, polyline)
+                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                     geojson_features.extend(polyline_features['features'])
             
         elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -171,7 +150,7 @@ def main():
                 exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
                 interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon)
+                polygon_features = poly_to_grid(resolution, polygon,feature_properties)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -180,16 +159,15 @@ def main():
                     exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
                     interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon)
+                    polygon_features = poly_to_grid(resolution, polygon,feature_properties)
                     geojson_features.extend(polygon_features['features'])
 
-    # Save the results to GeoJSON
-    geojson_path = f"geojson2olc_{resolution}.geojson"
+    geojson_name = os.path.splitext(os.path.basename(geojson))[0]
+    geojson_path = f"{geojson_name}2olc_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 
     print(f"GeoJSON saved as {geojson_path}")
-
 
 if __name__ == "__main__":
     main()

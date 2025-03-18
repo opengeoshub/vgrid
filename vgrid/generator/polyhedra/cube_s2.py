@@ -64,7 +64,7 @@ def generate_grid():
         feature = {
             "type": "Feature",
             "geometry": geometry,
-            "properties": {"s2_token": cell_id.to_token()}
+            "properties": {"s2": cell_id.to_token()}
         }
 
         features.append(feature)

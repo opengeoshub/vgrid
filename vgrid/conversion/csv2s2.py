@@ -1,18 +1,13 @@
-from vgrid.utils import s2
-import argparse
-import os
-import json
+import os,argparse,json
 import pandas as pd
 from tqdm import tqdm
-from shapely.geometry import Polygon, mapping
-from pyproj import Geod
+from vgrid.generator.settings import chunk_size
+from vgrid.utils import s2
+from shapely.geometry import Polygon
+from vgrid.generator.settings import geodesic_dggs_to_feature
 from vgrid.utils.antimeridian import fix_polygon
 
-geod = Geod(ellps="WGS84")
-chunk_size = 10_000  # Process by chunks of 10,000 rows
-
-
-def s2_to_geojson(s2_token):
+def s22feature(s2_token):
     # Create an S2 cell from the given cell ID
     cell_id = s2.CellId.from_token(s2_token)
     cell = s2.Cell(cell_id)
@@ -31,61 +26,43 @@ def s2_to_geojson(s2_token):
         shapely_vertices.append(shapely_vertices[0])  # Closing the polygon
         # Create a Shapely Polygon
         cell_polygon = fix_polygon(Polygon(shapely_vertices)) # Fix antimeridian
-        lat_lng = cell_id.to_lat_lng()            
-        # Extract latitude and longitude in degrees
-        center_lat = round(lat_lng.lat().degrees,7)
-        center_lon = round(lat_lng.lng().degrees,7)
-
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])  # Perimeter in meters  
-        avg_edge_len = round(cell_perimeter/4,3)
-
-        return {
-            "geometry": mapping(cell_polygon),
-            "properties": {
-                "s2": s2_token,
-                "resolution": cell_id.level(),
-                "center_lat": center_lat,
-                "center_lon": center_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area
-            }
-        }
-
-
-def csv_to_s2(csv_file):
-    """Convert CSV with S2 column to GeoJSON"""
-    output_file = os.path.join(os.getcwd(), f"{os.path.splitext(os.path.basename(csv_file))[0]}_csv2s2.geojson")
+        resolution = cell_id.level()            
+        num_edges = 4        
+        
+        s2_feature = geodesic_dggs_to_feature("s2",s2_token,resolution,cell_polygon,num_edges)              
+        return s2_feature
     
-    features = []
-    
-    for chunk in pd.read_csv(csv_file, dtype={"s2": str}, chunksize=chunk_size):
-        for _, row in tqdm(chunk.iterrows(), total=len(chunk), desc="Processing rows"):
-            try:
-                s2_id = row["s2"]
-                s2_feature = s2_to_geojson(s2_id)
-                if s2_feature:
-                    s2_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
-                    features.append({"type": "Feature", **s2_feature})
-            except Exception as e:
-                print(f"Skipping row {row.to_dict()}: {e}")
-    
-    geojson = {"type": "FeatureCollection", "features": features}
-    with open(output_file, "w") as f:
-        json.dump(geojson, f, indent=2)
-    
-    print(f"GeoJSON saved to {output_file}")
-
 def main():
-    parser = argparse.ArgumentParser(description="Convert CSV with H3 column to GeoJSON")
+    parser = argparse.ArgumentParser(description="Convert CSV with S2 column to GeoJSON")
     parser.add_argument("csv", help="Input CSV file with 's2' column")
     args = parser.parse_args()
+    csv = args.csv
     
-    if not os.path.exists(args.csv):
+    if not os.path.exists(csv):
         print(f"Error: Input file {args.csv} does not exist.")
         return
     
-    csv_to_s2(args.csv)
+    geojson_features = []    
+    for chunk in pd.read_csv(csv, dtype={"s2": str}, chunksize=chunk_size):
+        for _, row in tqdm(chunk.iterrows(), total=len(chunk), desc=f"Processing {len(chunk)} rows"):
+            try:
+                s2_id = row["s2"]
+                s2_feature = s22feature(s2_id)
+                if s2_feature:
+                    s2_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
+                    geojson_features.append(s2_feature)
+            except Exception as e:
+                print(f"Skipping row {row.to_dict()}: {e}")
+    
+    geojson = {"type": "FeatureCollection", "features": geojson_features}
+    geojson_name = os.path.splitext(os.path.basename(csv))[0]
+    geojson_path = f"{geojson_name}2s2.geojson"
+
+    with open(geojson_path, "w") as f:
+        json.dump(geojson, f, indent=2)
+    
+    print(f"GeoJSON saved to {geojson_path}")
+
 
 if __name__ == "__main__":
     main()

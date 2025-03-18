@@ -62,7 +62,7 @@ def generate_grid(resolution,bbox):
     for cell_id in tqdm(cell_ids, desc="Processing cells"):
         # Generate a Shapely Polygon
         cell_polygon = s2_cell_to_polygon(cell_id)
-        s2_feature = geodesic_dggs_to_feature("s2_token",s2_token,resolution,cell_polygon,num_edges)   
+        s2_feature = geodesic_dggs_to_feature("s2",s2_token,resolution,cell_polygon,num_edges)   
         s2_features.append(s2_feature)
 
     return {

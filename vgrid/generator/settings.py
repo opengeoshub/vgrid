@@ -3,7 +3,7 @@ geod = Geod(ellps="WGS84")
 from shapely.geometry import mapping
 
 max_cells = 1_000_000
-chunk_size = 10_000
+chunk_size = 100_000
 
 def graticule_dggs_metrics(cell_polygon):
     min_lon, min_lat, max_lon, max_lat = cell_polygon.bounds

@@ -22,7 +22,7 @@ def point_to_grid(resolution, point,feature_properties):
         cell_polygon = s2_cell_to_polygon(cell_id) # Fix antimeridian
         resolution = cell_id.level()
         num_edges = 4
-        s2_feature = geodesic_dggs_to_feature("s2_token",cell_token,resolution,cell_polygon,num_edges)   
+        s2_feature = geodesic_dggs_to_feature("s2",cell_token,resolution,cell_polygon,num_edges)   
         s2_feature["properties"].update(feature_properties)
         s2_features.append(s2_feature)
 
@@ -75,7 +75,7 @@ def poly_to_grid(resolution, geometry,feature_properties):
                 cell_token = s2.CellId.to_token(cell_id)  
                 resolution = cell_id.level()
                 num_edges = 4
-                s2_feature = geodesic_dggs_to_feature("s2_token",cell_token,resolution,cell_polygon,num_edges)   
+                s2_feature = geodesic_dggs_to_feature("s2",cell_token,resolution,cell_polygon,num_edges)   
                 s2_feature["properties"].update(feature_properties)             
         return {
                 "type": "FeatureCollection",
