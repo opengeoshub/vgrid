@@ -193,4 +193,3 @@ isea3h_accuracy_res_dict = {
             0.0: 39,
             0.0: 40
         }
-
