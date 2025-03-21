@@ -59,7 +59,7 @@ def get_isea4t_children_cells(isea4t_dggs,base_cells, target_resolution):
     current_cells = base_cells
     for res in range(target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc= f"Generating child cells at resolution {res}", unit=" cells"):
+        for cell in current_cells:
             children = isea4t_dggs.get_dggs_cell_children(DggsCell(cell))
             next_cells.extend([child._cell_id for child in children])
         current_cells = next_cells
@@ -83,7 +83,7 @@ def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, targe
 
     for res in range(bounding_resolution, target_resolution):
         next_cells = []
-        for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit=" cells"):
+        for cell in current_cells:
             # Get the child cells for the current cell
             children = isea4t_dggs.get_dggs_cell_children(DggsCell(cell))
             for child in children:
@@ -132,30 +132,31 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
     shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-    for shape in shapes:
-        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-        bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-        bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
-        isea4t_features = []
-        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-            isea4t_cell = DggsCell(child)
-            cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
-            isea4t_id = isea4t_cell.get_cell_id()
-            if resolution == 0:
-                cell_polygon = fix_polygon(cell_polygon)
+    shape = shapes[0]
+    # for shape in shapes:
+    bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+    bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
+    bounding_children = get_isea4t_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
+    isea4t_features = []
+    for child in tqdm(bounding_children, desc="Processing cells", unit=" cells"):
+        isea4t_cell = DggsCell(child)
+        cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
+        isea4t_id = isea4t_cell.get_cell_id()
+        if resolution == 0:
+            cell_polygon = fix_polygon(cell_polygon)
+        
+        elif isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
+            cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
+        num_edges = 3
+                
+        # if cell_polygon.intersects(bounding_box):
+        isea4t_feature = geodesic_dggs_to_feature('isea4t', isea4t_id, resolution, cell_polygon, num_edges)
+        isea4t_features.append(isea4t_feature)           
             
-            elif isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
-                cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
-            num_edges = 3
-                    
-            if cell_polygon.intersects(bounding_box):
-                isea4t_feature = geodesic_dggs_to_feature('isea4t', isea4t_id, resolution, cell_polygon, num_edges)
-                isea4t_features.append(isea4t_feature)           
-                 
-        return {
-            "type": "FeatureCollection",
-            "features": isea4t_features
-        }
+    return {
+        "type": "FeatureCollection",
+        "features": isea4t_features
+    }
 
 def main():
     """

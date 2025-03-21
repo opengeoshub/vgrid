@@ -49,21 +49,21 @@ def poly_to_grid(isea3h_dggs,resolution, geometry, feature_properties):
         bounding_box = box(*poly.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea3h_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-        
-        for shape in shapes:
-            bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-            bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
-            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-                isea3h_cell = DggsCell(child)
-                cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
-                isea3h_id = isea3h_cell.get_cell_id()
-                num_edges = 6       
-                if (resolution == 0): # icosahedron faces at resolution = 0
-                    num_edges = 3            
-                isea3h_feature = geodesic_dggs_to_feature("isea3h",isea3h_id,resolution,cell_polygon,num_edges)   
-                isea3h_feature["properties"].update(feature_properties)
-                isea3h_features.append(isea3h_feature)
+        shape =  shapes[0]
+        # for shape in shapes:
+        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+        bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
+        bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            isea3h_cell = DggsCell(child)
+            cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
+            isea3h_id = isea3h_cell.get_cell_id()
+            num_edges = 6       
+            if (resolution == 0): # icosahedron faces at resolution = 0
+                num_edges = 3            
+            isea3h_feature = geodesic_dggs_to_feature("isea3h",isea3h_id,resolution,cell_polygon,num_edges)   
+            isea3h_feature["properties"].update(feature_properties)
+            isea3h_features.append(isea3h_feature)
     return {
         "type": "FeatureCollection",
         "features": isea3h_features,

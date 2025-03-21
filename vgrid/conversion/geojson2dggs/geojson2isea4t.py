@@ -52,24 +52,24 @@ def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties):
         bounding_box = box(*poly.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-        
-        for shape in shapes:
-            bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-            bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-            bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
-            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-                isea4t_cell = DggsCell(child)
-                cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
-                isea4t_id = isea4t_cell.get_cell_id()
+        shape =  shapes[0]
+        # for shape in shapes:
+        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+        bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
+        bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            isea4t_cell = DggsCell(child)
+            cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
+            isea4t_id = isea4t_cell.get_cell_id()
 
-                if isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
-                    cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
-                
-                if cell_polygon.intersects(poly):
-                    num_edges = 3
-                    isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
-                    isea4t_feature["properties"].update(feature_properties)
-                    isea4t_features.append(isea4t_feature)          
+            if isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
+                cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
+            
+            if cell_polygon.intersects(poly):
+                num_edges = 3
+                isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
+                isea4t_feature["properties"].update(feature_properties)
+                isea4t_features.append(isea4t_feature)          
                
     return {
         "type": "FeatureCollection",

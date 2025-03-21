@@ -140,47 +140,47 @@ def generate_grid_within_bbox(isea3h_dggs, resolution,bbox):
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
     # print (bounding_box_wkt)
     shapes = isea3h_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-    
-    for shape in shapes:
-        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-        bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
-        # print("boudingcell: ", bounding_cell.get_cell_id())
-        bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
-        # print (bounding_children_cells)
-        if bounding_children_cells:
-            features = []
-            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-                isea3h_cell = DggsCell(child)
-                cell_polygon = isea3h_cell_to_polygon(isea3h_dggs, isea3h_cell)
-                isea3h_id = isea3h_cell.get_cell_id()
+    shape =  shapes[0]
+    # for shape in shapes:
+    bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+    bounding_cell = isea3h_dggs.get_bounding_dggs_cell(bbox_cells)
+    # print("boudingcell: ", bounding_cell.get_cell_id())
+    bounding_children_cells = get_isea3h_children_cells_within_bbox(isea3h_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
+    # print (bounding_children_cells)
+    if bounding_children_cells:
+        features = []
+        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            isea3h_cell = DggsCell(child)
+            cell_polygon = isea3h_cell_to_polygon(isea3h_dggs, isea3h_cell)
+            isea3h_id = isea3h_cell.get_cell_id()
 
-                cell_centroid = cell_polygon.centroid
-                center_lat =  round(cell_centroid.y, 7)
-                center_lon = round(cell_centroid.x, 7)
-                cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
-                cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-                avg_edge_len = round(cell_perimeter / 6,3)
-                if resolution == 0:
-                    avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+            cell_centroid = cell_polygon.centroid
+            center_lat =  round(cell_centroid.y, 7)
+            center_lon = round(cell_centroid.x, 7)
+            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
+            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+            avg_edge_len = round(cell_perimeter / 6,3)
+            if resolution == 0:
+                avg_edge_len = round(cell_perimeter / 3,3) # icosahedron faces
+        
+            # if cell_polygon.intersects(bounding_box):
+            features.append({
+                "type": "Feature",
+                "geometry": mapping(cell_polygon),
+                "properties": {
+                        "isea3h": isea3h_id,
+                        "center_lat": center_lat,
+                        "center_lon": center_lon,
+                        "cell_area": cell_area,
+                        "avg_edge_len": avg_edge_len,
+                        "resolution": resolution
+                        },
+            })
             
-                if cell_polygon.intersects(bounding_box):
-                    features.append({
-                        "type": "Feature",
-                        "geometry": mapping(cell_polygon),
-                        "properties": {
-                                "isea3h": isea3h_id,
-                                "center_lat": center_lat,
-                                "center_lon": center_lon,
-                                "cell_area": cell_area,
-                                "avg_edge_len": avg_edge_len,
-                                "resolution": resolution
-                                },
-                    })
-                    
-            return {
-                "type": "FeatureCollection",
-                "features": features
-            }
+        return {
+            "type": "FeatureCollection",
+            "features": features
+        }
 
 def main():
     """
