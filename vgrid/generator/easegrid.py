@@ -14,7 +14,7 @@ min_lattitude = geo_bounds['min_y']
 max_longitude = geo_bounds['max_x']
 max_latitude = geo_bounds['max_y']
 
-def get_cells(resolution):
+def get_ease_cells(resolution):
     """
     Generate a list of cell IDs based on the resolution, row, and column.
     """
@@ -41,7 +41,7 @@ def get_cells(resolution):
     return cell_ids
 
 
-def get_cells_bbox(resolution, bbox):
+def get_ease_cells_bbox(resolution, bbox):
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt
     cells_bbox = geo_polygon_to_grid_ids(bounding_box_wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
@@ -54,7 +54,7 @@ def generate_grid(resolution):
     n_row = level_spec["n_row"]
     n_col = level_spec["n_col"]
 
-    cells = get_cells(resolution)
+    cells = get_ease_cells(resolution)
 
     # Process cells in chunks with tqdm progress bar
     for i in tqdm(range(0, len(cells), chunk_size), total=(len(cells) // chunk_size) + 1, desc="Processing cells in chunks", unit="chunk"):
@@ -123,7 +123,7 @@ def generate_grid_within_bbox(resolution, bbox):
     n_col = level_spec["n_col"]
 
     # Get all grid cells within the bounding box
-    cells = get_cells_bbox(resolution, bbox)['result']['data']   
+    cells = get_ease_cells_bbox(resolution, bbox)['result']['data']   
    
     if cells:
         # Use tqdm for progress bar, processing cells sequentially

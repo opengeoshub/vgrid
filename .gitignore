@@ -16,3 +16,4 @@ references/
 dist/
 build/
 vgrid.egg-info/
+*.geojson

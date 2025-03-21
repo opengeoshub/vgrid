@@ -70,10 +70,7 @@ setup(
             'isea4t2geojson = vgrid.conversion.dggs2geojson:isea4t2geojson_cli',  
             
             'isea3h2geojson = vgrid.conversion.dggs2geojson:isea3h2geojson_cli',  
-            'isea3hparent2geojson = vgrid.utils.eaggr.conversion.parent2geojson:parent2geojson_cli',  
-            'isea3hsiblings2geojson = vgrid.utils.eaggr.conversion.siblings2geojson:siblings2geojson_cli',  
-            'isea3hchildren2geojson = vgrid.utils.eaggr.conversion.children2geojson:children2geojson_cli',  
-            
+
             'dggrid2geojson = vgrid.conversion.dggs2geojson:dggrid2geojson_cli',  
 
             'ease2geojson = vgrid.conversion.dggs2geojson:ease2geojson_cli',  
@@ -95,6 +92,7 @@ setup(
             'geojson2rhealpix = vgrid.conversion.geojson2dggs.geojson2rhealpix:main',
             'geojson2isea4t = vgrid.conversion.geojson2dggs.geojson2isea4t:main',
             'geojson2isea3h = vgrid.conversion.geojson2dggs.geojson2isea3h:main',
+            'geojson2ease = vgrid.conversion.geojson2dggs.geojson2ease:main',
 
             'geojson2dggrid = vgrid.conversion.geojson2dggs.geojson2dggrid:main',
             'geojson2qtm = vgrid.conversion.geojson2dggs.geojson2qtm:main',
@@ -130,7 +128,7 @@ setup(
             'rhealpixgrid = vgrid.generator.rhealpixgrid:main',
             'isea4tgrid = vgrid.generator.isea4tgrid:main',
             'isea3hgrid = vgrid.generator.isea3hgrid:main',
-            'easegrid = vgrid.generator.easegrid:main',
+            'easegrid = vgrid.generator.easegrid:main', # need to be checked
             'dggridgen = vgrid.generator.dggridgen:main',
             'qtmgrid = vgrid.generator.qtmgrid:main',
 

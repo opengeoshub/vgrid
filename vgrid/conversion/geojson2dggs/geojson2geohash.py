@@ -8,7 +8,7 @@ from vgrid.utils import mercantile
 from vgrid.generator.settings import graticule_dggs_to_feature
 
 # Function to generate grid for Point
-def point_to_grid(resolution, point, point_properties):  
+def point_to_grid(resolution, point, feature_properties):  
     geohash_features = []
      # res: [1..10]        
     geohash_id= geohash.encode(point.y, point.x,resolution)
@@ -29,7 +29,7 @@ def point_to_grid(resolution, point, point_properties):
         ])
         
         geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon)   
-        geohash_feature["properties"].update(point_properties)
+        geohash_feature["properties"].update(feature_properties)
 
         geohash_features.append(geohash_feature)
 
@@ -77,54 +77,6 @@ def poly_to_grid(resolution, geometry,feature_properties):
         "type": "FeatureCollection",
         "features": geohash_features
     }
-
-def process_chunk(features_chunk, resolution, geojson_features):
-    for feature in features_chunk:
-        feature_properties = feature['properties']
-        
-        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'Point':
-                point = Point(coordinates)                
-                point_features = point_to_grid(resolution, point, feature_properties)
-                geojson_features.extend(point_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPoint':
-                for point_coords in coordinates:
-                    point = Point(point_coords)  
-                    point_features = point_to_grid(resolution, point, feature_properties)
-                    geojson_features.extend(point_features['features'])
-        
-        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'LineString':
-                polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline, feature_properties)
-                geojson_features.extend(polyline_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiLineString':
-                for line_coords in coordinates:
-                    polyline = LineString(line_coords)
-                    polyline_features = poly_to_grid(resolution, polyline, feature_properties)
-                    geojson_features.extend(polyline_features['features'])
-            
-        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
-            coordinates = feature['geometry']['coordinates']
-
-            if feature['geometry']['type'] == 'Polygon':
-                exterior_ring = coordinates[0]
-                interior_rings = coordinates[1:]
-                polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon, feature_properties)
-                geojson_features.extend(polygon_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPolygon':
-                for sub_polygon_coords in coordinates:
-                    exterior_ring = sub_polygon_coords[0]
-                    interior_rings = sub_polygon_coords[1:]
-                    polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon, feature_properties)
-                    geojson_features.extend(polygon_features['features'])
 
 def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to Tilecode Grid")

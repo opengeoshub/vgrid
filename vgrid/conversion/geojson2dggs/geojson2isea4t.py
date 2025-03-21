@@ -104,7 +104,7 @@ def main():
         
         geojson_features = []
 
-        for feature in geojson_data['features']: 
+        for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
             feature_properties = feature['properties']    
             if feature['geometry']['type'] in ['Point', 'MultiPoint']:
                 coordinates = feature['geometry']['coordinates']

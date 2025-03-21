@@ -1,5 +1,6 @@
 import argparse
 import json
+from tqdm import tqdm
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
 from shapely.geometry import Polygon, box, Point, LineString, mapping
@@ -14,7 +15,6 @@ def rhealpix_cell_to_polygon(cell):
         vertices.append(vertices[0])
     vertices = fix_rhealpix_antimeridian_cells(vertices)
     return Polygon(vertices)
-
 
 # Function to generate grid for Point
 def point_to_grid(rhealpix_dggs, resolution, point,feature_properties):
@@ -147,7 +147,7 @@ def main():
     
     geojson_features = []
 
-    for feature in geojson_data['features']:   
+    for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):  
         feature_properties = feature['properties']   
         if feature['geometry']['type'] in ['Point', 'MultiPoint']:
             coordinates = feature['geometry']['coordinates']

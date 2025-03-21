@@ -49,7 +49,7 @@ def geodesic_buffer(polygon, distance):
     return Polygon(all_coords).convex_hull
 
 # Function to generate grid for Polyline
-def polyl_to_grid(resolution, geometry,feature_properties):
+def poly_to_grid(resolution, geometry,feature_properties):
     h3_features = []
 
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon' :
@@ -63,7 +63,6 @@ def polyl_to_grid(resolution, geometry,feature_properties):
         bbox_buffer = geodesic_buffer(bbox, distance)
         bbox_buffer_cells = h3.geo_to_cells(bbox_buffer, resolution)
 
-        # Process in chunks
         for bbox_buffer_cell in tqdm(bbox_buffer_cells, desc="Processing cells"):
             cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)
             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
@@ -75,89 +74,13 @@ def polyl_to_grid(resolution, geometry,feature_properties):
                     num_edges = 5           
                 h3_feature = geodesic_dggs_to_feature("h3",bbox_buffer_cell,resolution,cell_polygon,num_edges)   
                 h3_feature["properties"].update(feature_properties)
-                h3_features.append(h3_feature)   
-            
-            # center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-            # center_lat = round(center_lat, 7)
-            # center_lon = round(center_lon, 7)
-            # cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]), 2)
-            # cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-            # avg_edge_len = round(cell_perimeter / 6, 2)
-
-            # if h3.is_pentagon(bbox_buffer_cell):
-            #     avg_edge_len = round(cell_perimeter / 5, 2)
-
-            # if cell_polygon.intersects(poly):
-            #     h3_features.append({
-            #         "type": "Feature",
-            #         "geometry": mapping(cell_polygon),
-            #         "properties": {
-            #             "h3": bbox_buffer_cell,
-            #             "resolution": resolution,
-            #             "center_lat": center_lat,
-            #             "center_lon": center_lon,
-            #             "avg_edge_len": avg_edge_len,
-            #             "cell_area": cell_area
-            #         }
-            #     })
-
+                h3_features.append(h3_feature)               
+          
     return {
         "type": "FeatureCollection",
         "features": h3_features,
     }
        
-# Function to generate grid for Polygon
-# def polygon_to_grid(resolution, geometry,feature_properties):
-#     features = []
-
-#     if geometry.geom_type == 'Polygon':
-#         polygons = [geometry]
-#     elif geometry.geom_type == 'MultiPolygon':
-#         polygons = list(geometry)
-
-#     for polygon in polygons:
-#         bbox = box(*polygon.bounds)  # Create a bounding box polygon
-#         distance = h3.average_hexagon_edge_length(resolution, unit='m') * 2
-#         bbox_buffer = geodesic_buffer(bbox, distance)
-#         bbox_buffer_cells = h3.geo_to_cells(bbox_buffer, resolution)
-
-#         # Process in chunks
-#         for bbox_buffer_cell in bbox_buffer_cells:
-#             cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)
-#             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
-#             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-#             cell_polygon = Polygon(reversed_boundary)
-
-#             center_lat, center_lon = h3.cell_to_latlng(bbox_buffer_cell)
-#             center_lat = round(center_lat, 7)
-#             center_lon = round(center_lon, 7)
-#             cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]), 2)
-#             cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-#             avg_edge_len = round(cell_perimeter / 6, 2)
-
-#             if h3.is_pentagon(bbox_buffer_cell):
-#                 avg_edge_len = round(cell_perimeter / 5, 2)
-
-#             if cell_polygon.intersects(polygon):
-#                 features.append({
-#                     "type": "Feature",
-#                     "geometry": mapping(cell_polygon),
-#                     "properties": {
-#                         "h3": bbox_buffer_cell,
-#                         "resolution": resolution,
-#                         "center_lat": center_lat,
-#                         "center_lon": center_lon,
-#                         "avg_edge_len": avg_edge_len,
-#                         "cell_area": cell_area
-#                     }
-#                 })
-
-#     return {
-#         "type": "FeatureCollection",
-#         "features": features,
-#     }
-    
-
 # Main function to handle different GeoJSON shapes
 def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 Grid")
@@ -183,8 +106,7 @@ def main():
     
     geojson_features = []
 
-    # Process GeoJSON features in chunks
-    for feature in geojson_data['features']: 
+    for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
         feature_properties = feature['properties'] 
         if feature['geometry']['type'] in ['Point', 'MultiPoint']:
             coordinates = feature['geometry']['coordinates']
@@ -203,13 +125,13 @@ def main():
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'LineString':
                 polyline = LineString(coordinates)
-                polyline_features = polyl_to_grid(resolution, polyline,feature_properties)
+                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
                 for line_coords in coordinates:
                     polyline = LineString(line_coords)
-                    polyline_features = polyl_to_grid(resolution, polyline,feature_properties)
+                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                     geojson_features.extend(polyline_features['features'])
 
         elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -219,7 +141,7 @@ def main():
                 exterior_ring = coordinates[0]
                 interior_rings = coordinates[1:]
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = polyl_to_grid(resolution, polygon,feature_properties)
+                polygon_features = poly_to_grid(resolution, polygon,feature_properties)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -227,7 +149,7 @@ def main():
                     exterior_ring = sub_polygon_coords[0]
                     interior_rings = sub_polygon_coords[1:]
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = polyl_to_grid(resolution, polygon,feature_properties)
+                    polygon_features = poly_to_grid(resolution, polygon,feature_properties)
                     geojson_features.extend(polygon_features['features'])
 
    
