@@ -98,6 +98,8 @@ setup(
             'geojson2qtm = vgrid.conversion.geojson2dggs.geojson2qtm:main',
             
             'geojson2olc = vgrid.conversion.geojson2dggs.geojson2olc:main',
+            'geojson2geohash = vgrid.conversion.geojson2dggs.geojson2geohash:main',
+            'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:main',
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
 

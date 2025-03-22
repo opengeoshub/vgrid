@@ -5,6 +5,13 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
+initial_geohashes = [
+    "b", "c", "f", "g", "u", "v", "y", "z",
+    "8", "9", "d", "e", "s", "t", "w", "x",
+    "0", "1", "2", "3", "p", "q", "r", "k",
+    "m", "n", "h", "j", "4", "5", "6", "7"
+]
+
 def geohash_to_polygon(gh):
     """Convert geohash to a Shapely Polygon."""
     lat, lon = geohash.decode(gh)
@@ -24,23 +31,17 @@ def geohash_to_polygon(gh):
         (bbox['e'], bbox['s']),
         (bbox['w'], bbox['s'])
     ])
-    
+
+def expand_geohash(gh, target_length, geohashes):
+    if len(gh) == target_length:
+        geohashes.add(gh)
+        return
+    for char in "0123456789bcdefghjkmnpqrstuvwxyz":
+        expand_geohash(gh + char, target_length, geohashes)
+
 def generate_grid(resolution):
     """Generate GeoJSON for the entire world at the given geohash resolution."""
-    initial_geohashes = [
-        "b", "c", "f", "g", "u", "v", "y", "z",
-        "8", "9", "d", "e", "s", "t", "w", "x",
-        "0", "1", "2", "3", "p", "q", "r", "k",
-        "m", "n", "h", "j", "4", "5", "6", "7"
-    ]
-
-    def expand_geohash(gh, target_length, geohashes):
-        if len(gh) == target_length:
-            geohashes.add(gh)
-            return
-        for char in "0123456789bcdefghjkmnpqrstuvwxyz":
-            expand_geohash(gh + char, target_length, geohashes)
-
+  
     geohashes = set()
     for gh in initial_geohashes:
         expand_geohash(gh, resolution, geohashes)
@@ -57,59 +58,44 @@ def generate_grid(resolution):
     }
 
 
+def expand_geohash_bbox(gh, target_length, geohashes,bbox_polygon):
+    """Expand geohash only if it intersects the bounding box."""
+    polygon = geohash_to_polygon(gh)
+    if not polygon.intersects(bbox_polygon):
+        return  
+
+    if len(gh) == target_length:
+        geohashes.add(gh)  # Add to the set if it reaches the target resolution
+        return
+
+    for char in "0123456789bcdefghjkmnpqrstuvwxyz":
+        expand_geohash_bbox(gh + char, target_length, geohashes,bbox_polygon)
+
 def generate_grid_within_bbox(resolution, bbox):
     """Generate GeoJSON for geohashes within a bounding box at the given resolution."""
-    features = []
-
-    # Step 1: Find the geohash covering the center of the bounding box
-    bbox_center = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
-    center_geohash = geohash.encode(bbox_center[1], bbox_center[0], precision=resolution)
-
-    # Step 2: Find the ancestor geohash that fully contains the bounding box
-    def find_ancestor_geohash(center_geohash, bbox):
-        for r in range(1, len(center_geohash) + 1):
-            ancestor = center_geohash[:r]
-            polygon = geohash_to_polygon(ancestor)
-            if polygon.contains(Polygon.from_bounds(*bbox)):
-                return ancestor
-        return None  # Fallback if no ancestor is found
-
-    ancestor_geohash = find_ancestor_geohash(center_geohash, bbox)
-
-    if not ancestor_geohash:
-        raise ValueError("No ancestor geohash fully contains the bounding box.")
-
-    # Step 3: Expand geohashes recursively from the ancestor
+    geohash_features = []
     bbox_polygon = Polygon.from_bounds(*bbox)
 
-    def expand_geohash(gh, target_length, geohashes):
-        """Expand geohash only if it intersects the bounding box."""
-        polygon = geohash_to_polygon(gh)
-        if not polygon.intersects(bbox_polygon):
-            return  # Skip this branch if it doesn't intersect the bounding box
+    # Compute intersected geohashes using set comprehension
+    intersected_geohashes = {gh for gh in initial_geohashes if geohash_to_polygon(gh).intersects(bbox_polygon)}
 
-        if len(gh) == target_length:
-            geohashes.add(gh)  # Add to the set if it reaches the target resolution
-            return
+    # Expand geohash bounding box
+    geohashes_bbox = set()
+    for gh in intersected_geohashes:
+        expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
 
-        for char in "0123456789bcdefghjkmnpqrstuvwxyz":
-            expand_geohash(gh + char, target_length, geohashes)
-
-    geohashes = set()
-    expand_geohash(ancestor_geohash, resolution, geohashes)
-
-    # Step 4: Generate features for geohashes that intersect the bounding box
-    geohash_features = []
-    for gh in tqdm(geohashes, desc="Generating grid", unit=" cells"):
-        cell_polygon = geohash_to_polygon(gh)
-        geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)   
-        geohash_features.append(geohash_feature)
+    # Generate GeoJSON features
+    geohash_features.extend(
+        graticule_dggs_to_feature("geohash", gh, resolution, geohash_to_polygon(gh))
+        for gh in tqdm(geohashes_bbox, desc="Generating grid", unit=" cells")
+    )
 
     return {
         "type": "FeatureCollection",
         "features": geohash_features
     }
 
+               
 def main():
     parser = argparse.ArgumentParser(description='Generate Geohash grid.')
     parser.add_argument(

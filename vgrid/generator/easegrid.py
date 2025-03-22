@@ -4,7 +4,7 @@ from shapely.geometry import mapping, Point, Polygon, box
 from tqdm import tqdm
 from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geo_polygon_to_grid_ids
-from vgrid.generator.settings import max_cells, chunk_size, geodesic_dggs_to_feature
+from vgrid.generator.settings import max_cells, geodesic_dggs_to_feature
 
 # Initialize the geodetic model
 
@@ -57,28 +57,26 @@ def generate_grid(resolution):
     cells = get_ease_cells(resolution)
 
     # Process cells in chunks with tqdm progress bar
-    for i in tqdm(range(0, len(cells), chunk_size), total=(len(cells) // chunk_size) + 1, desc="Processing cells in chunks", unit="chunk"):
-        chunk = cells[i:i + chunk_size]
-        for cell in chunk:
-            geo = grid_ids_to_geos([cell])
-            center_lon, center_lat = geo['result']['data'][0]
-            cell_min_lat = center_lat - (180 / (2 * n_row))
-            cell_max_lat = center_lat + (180 / (2 * n_row))
-            cell_min_lon = center_lon - (360 / (2 * n_col))
-            cell_max_lon = center_lon + (360 / (2 * n_col))    
-            
-            cell_polygon = Polygon([
-                [cell_min_lon, cell_min_lat],
-                [cell_max_lon, cell_min_lat],
-                [cell_max_lon, cell_max_lat],
-                [cell_min_lon, cell_max_lat],
-                [cell_min_lon, cell_min_lat]
-            ])
-            if cell_polygon:
-                num_edges = 4
-                ease_feature = geodesic_dggs_to_feature('ease',str(cell), resolution, cell_polygon, num_edges)
-                ease_features.append(ease_feature)
-         
+    for cell in tqdm(cells, total=len(cells), desc="Processing cells", unit="cell"):
+        geo = grid_ids_to_geos([cell])
+        center_lon, center_lat = geo['result']['data'][0]
+        cell_min_lat = center_lat - (180 / (2 * n_row))
+        cell_max_lat = center_lat + (180 / (2 * n_row))
+        cell_min_lon = center_lon - (360 / (2 * n_col))
+        cell_max_lon = center_lon + (360 / (2 * n_col))    
+        
+        cell_polygon = Polygon([
+            [cell_min_lon, cell_min_lat],
+            [cell_max_lon, cell_min_lat],
+            [cell_max_lon, cell_max_lat],
+            [cell_min_lon, cell_max_lat],
+            [cell_min_lon, cell_min_lat]
+        ])
+        if cell_polygon:
+            num_edges = 4
+            ease_feature = geodesic_dggs_to_feature('ease', str(cell), resolution, cell_polygon, num_edges)
+            ease_features.append(ease_feature)
+    
     return {
         "type": "FeatureCollection",
         "features": ease_features

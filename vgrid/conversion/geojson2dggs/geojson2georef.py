@@ -1,25 +1,24 @@
-from vgrid.utils import geohash
-from shapely.geometry import Point, LineString, Polygon, box
+from vgrid.utils import georef
+from shapely.geometry import Point, LineString, Polygon
 import argparse
 import json
 from tqdm import tqdm
 import os
 from vgrid.generator.settings import graticule_dggs_to_feature
-from vgrid.generator.geohashgrid import initial_geohashes, geohash_to_polygon, expand_geohash_bbox
 
 # Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):  
-    geohash_features = []
-    longitude = point.x
-    latitude = point.y    
-    geohash_id = geohash.encode(latitude, longitude, resolution) 
-    bbox =  geohash.bbox(geohash_id)
-    if bbox:
-        min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
-        max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
-        resolution =  len(geohash_id)
-
-        # Define the polygon based on the bounding box
+    georef_features = []
+     # res: [1..10]        
+    georef_id= georef.encode(point.y, point.x,resolution)
+    
+    georef_cell = mercantile.tile(point.x, point.y, resolution)
+    bounds = mercantile.bounds(georef_cell)
+    if bounds:
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
+      
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner
@@ -27,53 +26,70 @@ def point_to_grid(resolution, point, feature_properties):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon)   
-        geohash_features.append(geohash_feature)
+        
+        georef_feature = graticule_dggs_to_feature("georef",georef_id,resolution,cell_polygon)   
+        georef_feature["properties"].update(feature_properties)
+
+        georef_features.append(georef_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": geohash_features
+        "features": georef_features
     }
-       
+
 # Function to generate grid for Polyline
 def poly_to_grid(resolution, geometry,feature_properties):
-    geohash_features = []
+    georef_features = []
+    # Extract points from polyline
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
         # Handle single Polygon as before
         polys = [geometry]
-    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'Multipolygon':
+    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'MultiPolygon':
         # Handle MultiPolygon: process each polygon separately
         polys = list(geometry)
 
-    for poly in polys: 
-        intersected_geohashes = {gh for gh in initial_geohashes if geohash_to_polygon(gh).intersects(poly)}
-        # Expand geohash bounding box
-        geohashes_bbox = set()
-        for gh in intersected_geohashes:
-            expand_geohash_bbox(gh, resolution, geohashes_bbox, poly)
-
-        # Process geohashes
-        for gh in tqdm(geohashes_bbox, desc="Processing cells", unit=" cells"):
-            cell_polygon = geohash_to_polygon(gh)
-            geohash_features.append(graticule_dggs_to_feature("geohash", gh, resolution, cell_polygon))
+    for poly in polys:    
+        min_lon, min_lat, max_lon, max_lat = poly.bounds
+        tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+        for tile in tiles:
+            z, x, y = tile.z, tile.x, tile.y
+            georef_id = f"z{tile.z}x{tile.x}y{tile.y}"
+            bounds = mercantile.bounds(x, y, z)
+            if bounds:
+                # Create the bounding box coordinates for the polygon
+                min_lat, min_lon = bounds.south, bounds.west
+                max_lat, max_lon = bounds.north, bounds.east
+                
+                cell_polygon = Polygon([
+                    [min_lon, min_lat],  # Bottom-left corner
+                    [max_lon, min_lat],  # Bottom-right corner
+                    [max_lon, max_lat],  # Top-right corner
+                    [min_lon, max_lat],  # Top-left corner
+                    [min_lon, min_lat]   # Closing the polygon (same as the first point)
+                ])
+                if cell_polygon.intersects(poly):
+                    georef_feature = graticule_dggs_to_feature("georef",georef_id,resolution,cell_polygon) 
+                    georef_feature["properties"].update(feature_properties)
+                    georef_features.append(georef_feature)
 
     return {
         "type": "FeatureCollection",
-        "features": geohash_features
+        "features": georef_features
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Geohash Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [1..10]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Tilecode Grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..29]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSON format"
     )
     args = parser.parse_args()
     geojson = args.geojson
+     # Initialize h3 DGGS
     resolution = args.resolution
     
-    if resolution < 1 or resolution > 10:
-        print(f"Please select a resolution in [1..10] range and try again ")
+    if resolution < 0 or resolution > 29:
+        print(f"Please select a resolution in [0..29] range and try again ")
         return
     
     if not os.path.exists(geojson):
@@ -143,7 +159,7 @@ def main():
 
     # Save the results to GeoJSON
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2geohash_{resolution}.geojson"
+    geojson_path = f"{geojson_name}2georef_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 
