@@ -1,5 +1,5 @@
-from vgrid.utils import geohash
-from shapely.geometry import Point, LineString, Polygon, box
+from vgrid.utils import mgrs
+from shapely.geometry import Point, LineString, Polygon, mapping, shape
 import argparse
 import json
 from tqdm import tqdm
@@ -7,29 +7,94 @@ import os
 from vgrid.generator.settings import graticule_dggs_to_feature
 from vgrid.generator.geohashgrid import initial_geohashes, geohash_to_polygon, expand_geohash_bbox
 
+from vgrid.conversion.dggs2geojson import mgrs_is_fully_within, mgrs_get_intersection
+from vgrid.conversion.latlon2dggs import latlon2mgrs
+
+def mgrs2geojson(mgrs_id):
+    # Assuming mgrs.mgrscell returns cell bounds and origin
+    min_lat, min_lon, max_lat, max_lon, resolution = mgrscell(mgrs_id)
+    
+    # Define the polygon coordinates for the MGRS cell
+    cell_polygon = Polygon([
+        (min_lon, min_lat),  # Bottom-left corner
+        (max_lon, min_lat),  # Bottom-right corner
+        (max_lon, max_lat),  # Top-right corner
+        (min_lon, max_lat),  # Top-left corner
+        (min_lon, min_lat)   # Closing the polygon
+    ])   
+    if cell_polygon.is_valid:
+        mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
+        
+        try:
+            # Load the GZD GeoJSON file
+            gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
+            
+            with open(gzd_json_path, 'r') as f:
+                gzd_data = json.load(f)
+            
+            gzd_features = gzd_data["features"]
+            
+            if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
+                if not mgrs_is_fully_within(mgrs_feature, gzd_features):
+                    mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
+        except:
+            pass    
+        return mgrs_feature
+
+import pyproj
+
+def mgrscell(mgrs_code):
+    """Get bounding box (min_lat, min_lon, max_lat, max_lon, precision) for an MGRS grid cell."""
+    geod = pyproj.Geod(ellps="WGS84")
+
+    min_lat, min_lon = mgrs.toWgs(mgrs_code)
+    precision, grid_size = mgrs.get_precision_and_grid_size(mgrs_code)
+
+    # Move north by grid_size meters
+    max_lat, _, _ = geod.fwd(min_lon, min_lat, 0, grid_size)
+
+    # Move east by grid_size meters
+    _, max_lon, _ = geod.fwd(min_lon, min_lat, 90, grid_size)
+
+    return min_lat, min_lon, max_lat, max_lon, precision
+
+
 # Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):  
     geohash_features = []
     longitude = point.x
     latitude = point.y    
-    geohash_id = geohash.encode(latitude, longitude, resolution) 
-    bbox =  geohash.bbox(geohash_id)
-    if bbox:
-        min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
-        max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
-        resolution =  len(geohash_id)
+    mgrs_id = latlon2mgrs(latitude, longitude, resolution) 
+    _,_,min_lat, min_lon, max_lat, max_lon, resolution = mgrs.mgrscell(mgrs_id)
+    
+    # Define the polygon coordinates for the MGRS cell
+    cell_polygon = Polygon([
+        (min_lon, min_lat),  # Bottom-left corner
+        (max_lon, min_lat),  # Bottom-right corner
+        (max_lon, max_lat),  # Top-right corner
+        (min_lon, max_lat),  # Top-left corner
+        (min_lon, min_lat)   # Closing the polygon
+    ])
 
-        # Define the polygon based on the bounding box
-        cell_polygon = Polygon([
-            [min_lon, min_lat],  # Bottom-left corner
-            [max_lon, min_lat],  # Bottom-right corner
-            [max_lon, max_lat],  # Top-right corner
-            [min_lon, max_lat],  # Top-left corner
-            [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ])
-        geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon)   
-        geohash_feature["properties"].update(feature_properties)
-        geohash_features.append(geohash_feature)
+    mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
+    
+    try:
+        # Load the GZD GeoJSON file
+        gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
+        
+        with open(gzd_json_path, 'r') as f:
+            gzd_data = json.load(f)
+        
+        gzd_features = gzd_data["features"]
+        
+        if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
+            if not mgrs_is_fully_within(mgrs_feature, gzd_features):
+                mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
+    except:
+        pass    
+    
+    mgrs_feature["properties"].update(feature_properties)
+    geohash_features.append(mgrs_feature)
 
     return {
         "type": "FeatureCollection",
@@ -38,37 +103,15 @@ def point_to_grid(resolution, point, feature_properties):
        
 # Function to generate grid for Polyline
 def poly_to_grid(resolution, geometry,feature_properties):
-    geohash_features = []
-    if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
-        # Handle single Polygon as before
-        polys = [geometry]
-    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'Multipolygon':
-        # Handle MultiPolygon: process each polygon separately
-        polys = list(geometry)
-
-    for poly in polys: 
-        intersected_geohashes = {gh for gh in initial_geohashes if geohash_to_polygon(gh).intersects(poly)}
-        # Expand geohash bounding box
-        geohashes_bbox = set()
-        for gh in intersected_geohashes:
-            expand_geohash_bbox(gh, resolution, geohashes_bbox, poly)
-
-        # Process geohashes
-        for gh in tqdm(geohashes_bbox, desc="Processing cells", unit=" cells"):
-            cell_polygon = geohash_to_polygon(gh)
-            geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)         
-            geohash_feature["properties"].update(feature_properties)
-
-            geohash_features.append(geohash_feature)
-
+    mgrs_features = []
     return {
         "type": "FeatureCollection",
-        "features": geohash_features
+        "features": mgrs_features
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Geohash Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [1..10]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to mgrs Grid")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..5]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSON format"
     )
@@ -76,8 +119,8 @@ def main():
     geojson = args.geojson
     resolution = args.resolution
     
-    if resolution < 1 or resolution > 10:
-        print(f"Please select a resolution in [1..10] range and try again ")
+    if resolution < 0 or resolution > 5:
+        print(f"Please select a resolution in [0..5] range and try again ")
         return
     
     if not os.path.exists(geojson):
@@ -147,7 +190,7 @@ def main():
 
     # Save the results to GeoJSON
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2geohash_{resolution}.geojson"
+    geojson_path = f"{geojson_name}2mgrs_{resolution}.geojson"
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

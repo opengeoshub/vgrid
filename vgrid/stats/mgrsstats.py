@@ -42,7 +42,9 @@ def mgrs_metrics(res):
     return num_cells, avg_edge_length, avg_area
 
 
-def mgrs_stats(min_res=0, max_res=5, output_file=None):
+def mgrs_stats(output_file=None):
+    min_res=0
+    max_res=5 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -74,8 +76,6 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display mgrs stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=5, help="Maximum resolution.")
     args = parser.parse_args()
 
     print('Resolution 0: 100 x 100 km')
@@ -83,7 +83,7 @@ def main():
     print('2 <= Resolution <= 5 = Finer subdivisions (1 x 1 km, 0.1 x 0.11 km, etc.)')
 
     # Call the function with the provided output file (if any)
-    mgrs_stats(args.minres, args.maxres, args.output)
+    mgrs_stats(args.output)
 
 if __name__ == "__main__":
     main()

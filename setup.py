@@ -8,7 +8,7 @@ requirements = [
     'tqdm~=4.66.2',
     'shapely~=2.0.1',
     'protobuf~=5.26.1',
-    'fiona~=1.10.0',
+    'fiona',
     'pyproj',
     'pyclipper~=1.3.0',
     'h3~=4.1.1',

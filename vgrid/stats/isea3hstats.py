@@ -47,7 +47,9 @@ def isea3h_metrics(isea3h_dggs,res):
             
     return num_cells, avg_edge_length, avg_area, accuracy
 
-def isea3h_stats(isea3h_dggs, min_res=0, max_res=40, output_file=None):    
+def isea3h_stats(isea3h_dggs, output_file=None):    
+    min_res=0
+    max_res=40 
     t = Texttable()    
     # Add header to the table, including the new 'Cell Width' and 'Cell Area' columns
     t.add_row(["Resolution", "Number of Cells", "Avg Edge Length (m)", "Avg Cell Area (sq m)", "Accucracy"])
@@ -80,13 +82,11 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display OpenEAGGR ISEA3H DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=40, help="Maximum resolution.")
     args = parser.parse_args()
     if (platform.system() == 'Windows'):   
         isea3h_dggs = Eaggr(Model.ISEA3H)   
         # Call the function with the provided output file (if any)
-        isea3h_stats(isea3h_dggs, args.minres, args.maxres, args.output)
+        isea3h_stats(isea3h_dggs, args.output)
 
 if __name__ == "__main__":
     main()

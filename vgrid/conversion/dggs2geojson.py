@@ -25,7 +25,7 @@ from vgrid.utils.easedggs.constants import levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
 
 from shapely.wkt import loads
-from shapely.geometry import shape, Point,Polygon,mapping
+from shapely.geometry import shape, Polygon,mapping
 
 import json, re,os,argparse
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
@@ -452,185 +452,64 @@ def geohash2geojson_cli():
     geojson_data = json.dumps(geohash2geojson(args.geohash))
     print(geojson_data)
 
+def mgrs_is_fully_within(mgrs_feature, gzd_features):
+    mgrs_geom = shape(mgrs_feature["geometry"])
+    
+    for gzd_feature in gzd_features:
+        gzd_geom = shape(gzd_feature["geometry"])
+        
+        if gzd_geom.contains(mgrs_geom):  # Check if gzd_geom fully contains mgrs_geom
+            return True  # At least one GZD feature fully contains the MGRS feature
+    
+    return False  # No GZD feature fully contains the MGRS feature
 
-def mgrs2geojson_old(mgrs_id,lat=None,lon=None):
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
-    if origin_lat:
-        # Define the polygon based on the bounding box
-        origin_lat = round(origin_lat,7)
-        origin_lon = round(origin_lon,7)
-        cell_polygon = Polygon([
-            [min_lon, min_lat],  # Bottom-left corner
-            [max_lon, min_lat],  # Bottom-right corner
-            [max_lon, max_lat],  # Top-right corner
-            [min_lon, max_lat],  # Top-left corner
-            [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ])
-
-        cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),2)  # Area in square meters     
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])       
-        avg_edge_len = round(cell_perimeter / 4,2)
-                      
-        feature = {
-            "type": "Feature",
-            "geometry": mapping(cell_polygon),
-            "properties": {
-                "mgrs": mgrs_id,
-                "resolution": resolution,
-                "origin_lat": origin_lat,
-                "origin_lon": origin_lon,
-                "avg_edge_len" : avg_edge_len,
-                "cell_area": cell_area
+def mgrs_get_intersection(mgrs_feature, gzd_features):
+    mgrs_geom = shape(mgrs_feature["geometry"])
+    
+    for gzd_feature in gzd_features:
+        gzd_geom = shape(gzd_feature["geometry"])
+        
+        if gzd_feature["properties"]["mgrs"] == mgrs_feature["properties"]["mgrs"][:3]:
+            intersection = gzd_geom.intersection(mgrs_geom)  # Get intersection geometry
+            if not intersection.is_empty:
+                return {
+                    "type": "Feature",
+                    "geometry": mapping(intersection),
+                    "properties": mgrs_feature["properties"]
                 }
-            }
+    
+    return mgrs_feature  # No intersection found
+
+def mgrs2geojson(mgrs_id):
+    # Assuming mgrs.mgrscell returns cell bounds and origin
+    min_lat, min_lon, max_lat, max_lon, resolution = mgrs.mgrscell(mgrs_id)
+    
+    # Define the polygon coordinates for the MGRS cell
+    cell_polygon = Polygon([
+        (min_lon, min_lat),  # Bottom-left corner
+        (max_lon, min_lat),  # Bottom-right corner
+        (max_lon, max_lat),  # Top-right corner
+        (min_lon, max_lat),  # Top-left corner
+        (min_lon, min_lat)   # Closing the polygon
+    ])
+
+    mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
+    
+    try:
+        # Load the GZD GeoJSON file
+        gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
         
-        if lat is not None and lon is not None:
-            # Load the GZD JSON file (treated as GeoJSON format) from the same folder
-            gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
-            with open(gzd_json_path) as f:
-                gzd_json = json.load(f)
-
-            # Convert GZD GeoJSON features to Shapely polygons
-            gzd_polygons = [
-                {"geometry": shape(feature["geometry"]), "properties": feature["properties"]}
-                for feature in gzd_json["features"]
-            ]
-
-            # Perform the intersection with the MGRS polygon
-            intersection_features = []
-            for gzd_polygon_data in gzd_polygons:
-                gzd_polygon = gzd_polygon_data["geometry"]
-                if cell_polygon.intersects(gzd_polygon):
-                    # Find the intersection polygon
-                    intersection_polygon = cell_polygon.intersection(gzd_polygon)
-                    # intersection_min_lon, intersection_min_lat, intersection_max_lon, intersection_max_lat = intersection_polygon.bounds  # Bounds of the polygon
-                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),2)  # Area in square meters     
-                    intersection_perimeter = abs(geod.geometry_area_perimeter(intersection_polygon)[1])       
-                    avg_edge_len = round(intersection_perimeter / 4,2)
-                    # intersection_width = round(geod.line_length([intersection_min_lon, intersection_max_lon], [intersection_min_lat, intersection_min_lat]),3)
-                    # intersection_height = round(geod.line_length([intersection_min_lon, intersection_min_lon], [intersection_min_lat, intersection_max_lat]),3)
-
-                    # Convert lat/lon to a Shapely point
-                    point = Point(lon, lat)
-
-                    # Check if the point is inside the intersection polygon
-                    if intersection_polygon.contains(point):
-                        # Manually construct the intersection as a JSON-like structure
-                        intersection_feature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [list(intersection_polygon.exterior.coords)]
-                            },
-                            "properties": {
-                                "mgrs": mgrs_id,
-                                "resolution": resolution,
-                                "origin_lat": origin_lat,
-                                "origin_lon": origin_lon,
-                                "avg_edge_len": avg_edge_len,
-                                "cell_area": interection_area
-                                # **gzd_polygon_data["properties"],  # Include properties from GZD
-                            }
-                        }
-                        intersection_features.append(intersection_feature)
-
-            # If intersections are found, wrap them in a FeatureCollection
-            if intersection_features:
-                intersection_feature_collection = {
-                    "type": "FeatureCollection",
-                    "features": intersection_features
-                }
-                return intersection_feature_collection
-
-
-        # If no intersection or point not contained, return the original MGRS GeoJSON
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [feature]
-        }
+        with open(gzd_json_path, 'r') as f:
+            gzd_data = json.load(f)
         
-        return feature_collection
-
-def mgrs2geojson(mgrs_id,lat=None,lon=None):
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
-    if min_lat:
-        # Define the polygon based on the bounding box
-        # origin_lat = round(origin_lat,7)
-        # origin_lon = round(origin_lon,7)
-        cell_polygon = Polygon([
-            [min_lon, min_lat],  # Bottom-left corner
-            [max_lon, min_lat],  # Bottom-right corner
-            [max_lon, max_lat],  # Top-right corner
-            [min_lon, max_lat],  # Top-left corner
-            [min_lon, min_lat]   # Closing the polygon (same as the first point)
-        ])
+        gzd_features = gzd_data["features"]
         
-        mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)                      
-      
-        if lat is not None and lon is not None:
-            # Load the GZD JSON file (treated as GeoJSON format) from the same folder
-            gzd_json_path = os.path.join(os.path.dirname(__file__), 'gzd.geojson')
-            with open(gzd_json_path) as f:
-                gzd_json = json.load(f)
-
-            # Convert GZD GeoJSON features to Shapely polygons
-            gzd_polygons = [
-                {"geometry": shape(gzd_feature["geometry"]), "properties": gzd_feature["properties"]}
-                for gzd_feature in gzd_json["features"]
-            ]
-
-            # Perform the intersection with the MGRS polygon
-            intersection_features = []
-            for gzd_polygon_data in gzd_polygons:
-                gzd_polygon = gzd_polygon_data["geometry"]
-                if cell_polygon.intersects(gzd_polygon):
-                    # Find the intersection polygon
-                    intersection_polygon = cell_polygon.intersection(gzd_polygon)
-                    min_lon, min_lat, max_lon, max_lat = intersection_polygon.bounds
-                    interection_center_lat = round((min_lat + max_lat) / 2,7)
-                    interection_center_lon = round((min_lon + max_lon) / 2,7)
-                    interection_cell_width = round(geod.line_length([min_lon, max_lon], [min_lat, min_lat]),3)
-                    interection_cell_height = round(geod.line_length([min_lon, min_lon], [min_lat, max_lat]),3)
-                    interection_area = round(abs(geod.geometry_area_perimeter(intersection_polygon)[0]),3)  # Area in square meters     
-                    point = Point(lon, lat)
-                    # Check if the point is inside the intersection polygon
-                    if intersection_polygon.contains(point):                        
-                        # Manually construct the intersection as a JSON-like structure
-                        intersection_feature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [list(intersection_polygon.exterior.coords)]
-                            },
-                            "properties": {
-                                "mgrs": mgrs_id,
-                                "resolution": resolution,
-                                "center_lat": interection_center_lat,
-                                "center_lon": interection_center_lon,
-                                "cell_width": interection_cell_width,
-                                "cell_height": interection_cell_height,
-                                "cell_area": interection_area
-                                # **gzd_polygon_data["properties"],  # Include properties from GZD
-                            }
-                        }
-                        intersection_features.append(intersection_feature)
-
-            # If intersections are found, wrap them in a FeatureCollection
-            if intersection_features:
-                intersection_feature_collection = {
-                    "type": "FeatureCollection",
-                    "features": intersection_features
-                }
-                return intersection_feature_collection
-
-
-        # If no intersection or point not contained, return the original MGRS GeoJSON
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [mgrs_feature]
-        }
-        
-        return feature_collection
+        if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
+            if not mgrs_is_fully_within(mgrs_feature, gzd_features):
+                mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
+    except:
+        pass    
+    return mgrs_feature
     
 def mgrs2geojson_cli():
     """

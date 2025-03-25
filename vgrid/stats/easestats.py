@@ -7,8 +7,10 @@ from texttable import Texttable
 current_locale = locale.getlocale()  # Get the current locale setting
 locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
 
-def ease_stats(min_res=0, max_res=6, output_file=None):
-
+def ease_stats( output_file=None):
+    min_res=0
+    max_res=6
+    
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -52,12 +54,10 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display EASE-DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=6, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)
-    ease_stats(args.minres, args.maxres, args.output)
+    ease_stats(args.output)
 
 if __name__ == "__main__":
     main()

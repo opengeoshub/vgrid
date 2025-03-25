@@ -14,9 +14,10 @@ def tilecode_metrics(res):
     avg_edge_length = math.sqrt(avg_area)
     return num_cells, avg_edge_length, avg_area
 
-
-def tilecode_stats(min_res=0, max_res=29, output_file=None):
-
+def tilecode_stats(output_file=None):
+    min_res=0
+    max_res=29
+    
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -47,12 +48,10 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display Tilecode stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=29, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)
-    tilecode_stats(args.minres, args.maxres, args.output)
+    tilecode_stats(args.output)
 
 if __name__ == "__main__":
     main()

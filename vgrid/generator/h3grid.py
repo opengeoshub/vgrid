@@ -9,7 +9,8 @@ from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-from vgrid.generator.settings import max_cells,geodesic_dggs_to_feature
+from vgrid.generator.settings import geodesic_dggs_to_feature
+max_cells = 100_000_000
 
 def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
     if any(lon < threshold for _, lon in hex_boundary):

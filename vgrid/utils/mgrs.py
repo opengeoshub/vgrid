@@ -942,22 +942,202 @@ def get_precision_and_grid_size(mgrs_code):
 
     return precision, grid_size
 
-def mgrscell(mgrs_code):
+
+from pyproj import Geod
+from math import cos
+
+def meters_to_degrees(lat, dist_meter):   
+    dlat = dist_meter/111320
+    dlon = abs(dist_meter/(111320*cos(lat)))
+    return dlon, dlat
+
+def mgrscell(mgrs_id):
     geod = pyproj.Geod(ellps='WGS84')
 
-    min_lat, min_lon = toWgs(mgrs_code)
-    precision, grid_size = get_precision_and_grid_size(mgrs_code)
+    min_lat, min_lon = toWgs(mgrs_id)
+    precision, grid_size = get_precision_and_grid_size(mgrs_id)
 
     x_var = geod.line_length([min_lon, min_lon], [min_lat, min_lat + 1])
     y_var = geod.line_length([min_lon, min_lon + 1], [min_lat, min_lat])
 
     max_lat = min_lat + grid_size / x_var
-    max_lon = min_lon + grid_size / y_var
+    max_lon = min_lon + grid_size / y_var    
+    return min_lat, min_lon, max_lat, max_lon, precision
+
+import string
+
+# Define valid MGRS letters (A-Z, skipping I and O)
+COL_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+ROW_LETTERS = "ABCDEFGHJKLMNPQRSTUV"
+
+def shift_letter(letter, sequence, shift):
+    """Finds the neighboring letter in the sequence with wrap-around."""
+    if letter in sequence:
+        idx = sequence.index(letter) + shift
+        if 0 <= idx < len(sequence):
+            return sequence[idx]
+    return None  # Out of bounds
+
+def get_mgrs_neighbors(mgrs_id):
+    """Finds MGRS neighbors for any precision level (0-5)."""
+    precision = len(mgrs_id)
+
+    # Precision 0: UTM zone (e.g., "49Q")
+    if precision == 3:
+        zone = int(mgrs_id[:2])
+        band = mgrs_id[2]
+
+        # UTM zone neighbors (east/west)
+        zone_neighbors = [f"{zone-1}{band}", f"{zone+1}{band}"] if 1 <= zone <= 60 else []
+
+        # Latitude band neighbors (north/south)
+        band_neighbors = [f"{zone}{shift_letter(band, ROW_LETTERS, 1)}", 
+                          f"{zone}{shift_letter(band, ROW_LETTERS, -1)}"]
+
+        return list(filter(None, zone_neighbors + band_neighbors))
+
+    # Precision 1: 100 km grid (e.g., "49QCE")
+    elif precision == 5:
+        zone_band = mgrs_id[:3]  # "49Q"
+        col, row = mgrs_id[3], mgrs_id[4]
+
+        neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                new_col = shift_letter(col, COL_LETTERS, dx)
+                new_row = shift_letter(row, ROW_LETTERS, dy)
+                if new_col and new_row:
+                    neighbors.append(f"{zone_band}{new_col}{new_row}")
+
+        return neighbors
+
+    # Precision 2-5: 10 km to 1 m grids (e.g., "49QCE44" to "49QCE46704453")
+    else:
+        zone_band = mgrs_id[:3]  # "49Q"
+        grid = mgrs_id[3:5]  # "CE"
+        numeric_part = mgrs_id[5:]  # "44", "4644", etc.
+
+        # Number of digits in easting/northing
+        num_digits = len(numeric_part) // 2
+        step = 10 ** (5 - num_digits)  # Grid step size
+
+        # Extract numeric easting and northing
+        easting = int(numeric_part[:num_digits])
+        northing = int(numeric_part[num_digits:])
+
+        # Compute neighbors
+        neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                new_east = easting + dx * step
+                new_north = northing + dy * step
+
+                # Handle crossing into adjacent 100 km grid squares
+                if new_east < 0 or new_east >= 100:
+                    new_col = shift_letter(grid[0], COL_LETTERS, dx)
+                    new_east = new_east % 100  # Wrap easting
+                else:
+                    new_col = grid[0]
+
+                if new_north < 0 or new_north >= 100:
+                    new_row = shift_letter(grid[1], ROW_LETTERS, dy)
+                    new_north = new_north % 100  # Wrap northing
+                else:
+                    new_row = grid[1]
+
+                if new_col and new_row:
+                    new_mgrs = f"{zone_band}{new_col}{new_row}{str(new_east).zfill(num_digits)}{str(new_north).zfill(num_digits)}"
+                    neighbors.append(new_mgrs)
+
+        return neighbors
+
+# Example Usage
+mgrs_samples = [
+    "49Q",           # Precision 0 (UTM zone)
+    "49QCE",         # Precision 1 (100 km grid)
+    "49QCE44",       # Precision 2 (10 km grid)
+    "49QCE4644",     # Precision 3 (1 km grid)
+    "49QCE464445",   # Precision 4 (100 m grid)
+    "49QCE46704453"  # Precision 5 (10 m grid)
+]
+
+for mgrs in mgrs_samples:
+    print(f"Neighbors of {mgrs}: {get_mgrs_neighbors(mgrs)}\n")
+# def get_adjacent_cells(mgrs_id):
+#     # Convert MGRS to latitude and longitude
+#     # lat, lon = toWgs(mgrs_id)
+#     min_lat, min_lon, max_lat, max_lon, precision = mgrscell(mgrs_id)
+#     center_lat, center_lon = (min_lat+ max_lat)/2, (min_lon+max_lon)/2
+#     print (center_lat, center_lon)
+
+#     precision, grid_size = get_precision_and_grid_size(mgrs_id)
+#     print (precision, grid_size)
+
+#     # Define step for moving (in degrees, approximate for small distances)
+#     lon_step,lat_step = meters_to_degrees(min_lat, grid_size)
+#     print (lat_step,lon_step)
+#     # Create a dictionary to hold neighbors
+#     neighbors = {
+#         "north": toMgrs(center_lat + lat_step/1.5, center_lon, precision),
+#         "south": toMgrs(center_lat - lat_step/1.5, center_lon, precision),
+#         "west": toMgrs(center_lat, center_lon - lon_step/1.5, precision),
+#         "east": toMgrs(center_lat, center_lon + lon_step/1.5, precision),
+#         "north_easet": toMgrs(center_lat + lat_step/1.5, center_lon + lon_step/1.5, precision),
+#     }
     
-    origin_lat = min_lat
-    origin_lon = min_lon
+#     return neighbors
 
-    # print(f"Origins: ({origin_lat}, {origin_lon}), "
-    #           f"BBox: Min({min_lon}, {min_lat}), Max({max_lon}, {max_lat})")
+# print (get_adjacent_cells('11SKR14'))
 
-    return origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon, precision
+
+
+# import geopandas as gpd
+# from shapely.geometry import Polygon
+
+# def create_utm_grid(utm_zone, min_x, max_x, min_y, max_y, grid_size=10000):
+#     """
+#     Create a 1km x 1km UTM grid within the specified UTM bounding box.
+    
+#     Parameters:
+#     - utm_zone: EPSG code of the UTM zone (e.g., 32633 for UTM zone 33N).
+#     - min_x, max_x, min_y, max_y: Bounding box in UTM coordinates.
+#     - grid_size: Grid cell size in meters (default 1000m x 1000m).
+    
+#     Returns:
+#     - GeoDataFrame containing the grid.
+#     """
+#     polygons = []
+    
+#     # Generate grid
+#     x = min_x
+#     while x < max_x:
+#         y = min_y
+#         while y < max_y:
+#             polygons.append(Polygon([
+#                 (x, y),
+#                 (x + grid_size, y),
+#                 (x + grid_size, y + grid_size),
+#                 (x, y + grid_size),
+#                 (x, y)
+#             ]))
+#             y += grid_size
+#         x += grid_size
+
+#     # Create GeoDataFrame
+#     gdf = gpd.GeoDataFrame(geometry=polygons, crs=f"EPSG:{utm_zone}")
+    
+#     return gdf
+
+# # Example: Generate a 1 km UTM grid for an area in UTM Zone 33N
+# utm_zone = 32633  # UTM Zone 33N (WGS 84)
+# min_x, max_x = 500000, 510000  # 10 km extent in X
+# min_y, max_y = 5500000, 5510000  # 10 km extent in Y
+
+# grid_gdf = create_utm_grid(utm_zone, min_x, max_x, min_y, max_y)
+
+# # Save as a shapefile or GeoJSON
+# grid_gdf.to_file("utm_grid.geojson", driver="GeoJSON")

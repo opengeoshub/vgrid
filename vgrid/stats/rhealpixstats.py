@@ -16,8 +16,9 @@ def rhealpix_metrics(res):
     return num_cells, avg_edge_length, avg_area
 
 
-def rheapix_stats(min_res=0, max_res=15, output_file=None):
-    
+def rheapix_stats(output_file=None):
+    min_res=0
+    max_res=15 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -50,12 +51,10 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display RHEALPix DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=15, help="Maximum resolution.")
     args = parser.parse_args()
 
     # Call the function with the provided output file (if any)
-    rheapix_stats(args.minres, args.maxres, args.output)
+    rheapix_stats(args.output)
 
 if __name__ == "__main__":
     main()

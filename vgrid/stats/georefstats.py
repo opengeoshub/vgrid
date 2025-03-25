@@ -25,7 +25,9 @@ def georef_metrics(res):
     return num_cells, avg_edge_length, avg_area
 
 
-def georef_stats(min_res=0, max_res=5, output_file=None):
+def georef_stats(output_file=None):
+    min_res=0 
+    max_res=5 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -60,8 +62,6 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display GEOREF stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=-1, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=5, help="Maximum resolution.")
     args = parser.parse_args()
 
     print('Resolution -1: 15 x 15 degrees')
@@ -70,7 +70,7 @@ def main():
     print('Resolution 2 - 5 = Finer subdivisions (0.1 x 0.1 minute, 0.01 x 0.01 minute, etc.)')
 
     # Call the function with the provided output file (if any)
-    georef_stats(args.minres, args.maxres, args.output)
+    georef_stats(args.output)
 
 if __name__ == "__main__":
     main()

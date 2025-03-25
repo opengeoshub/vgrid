@@ -736,11 +736,9 @@ def csv2georef():
 #################################################################################
 def mgrs2feature(mgrs_id):
     # Need to check if MGRS cell is intersectd by GZD
-    origin_lat, origin_lon, min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
-    if origin_lat:
-        # Define the polygon based on the bounding box
-        origin_lat = round(origin_lat,7)
-        origin_lon = round(origin_lon,7)
+    min_lat, min_lon, max_lat, max_lon,resolution = mgrs.mgrscell(mgrs_id)
+    if min_lat:
+        # Define the polygon based on the bounding box       
         cell_polygon = Polygon([
             [min_lon, min_lat],  # Bottom-left corner
             [max_lon, min_lat],  # Bottom-right corner

@@ -44,8 +44,9 @@ def isea4t_metrics(isea4t_dggs,res):
     avg_edge_length = abs(geod.geometry_area_perimeter(cell_polygon)[1])/3  # Perimeter in meters/ 3      
     return num_cells, avg_edge_length, avg_area, accuracy
 
-def isea4t_stats(isea4t_dggs, min_res=0, max_res=39, output_file=None):
-    
+def isea4t_stats(isea4t_dggs, output_file=None):
+    min_res=0
+    max_res=39
     t = Texttable()
     
     # Add header to the table, including the new 'Cell Width' and 'Cell Area' columns
@@ -80,14 +81,12 @@ def main():
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Export or display OpenEAGGR ISEA4T DGGS stats.")
     parser.add_argument('-o', '--output', help="Output CSV file name.")
-    parser.add_argument('-minres','--minres', type=int, default=0, help="Minimum resolution.")
-    parser.add_argument('-maxres','--maxres', type=int, default=39, help="Maximum resolution.")
     args = parser.parse_args()
     
     if (platform.system() == 'Windows'):
         isea4t_dggs = Eaggr(Model.ISEA4T)
         # Call the function with the provided output file (if any)
-        isea4t_stats(isea4t_dggs, args.minres, args.maxres, args.output)
+        isea4t_stats(isea4t_dggs, args.output)
 
 if __name__ == "__main__":
     main()
