@@ -16,9 +16,9 @@ def mgrs_is_fully_within(mgrs_feature, gzd_feature):
         return True  # At least one GZD feature fully contains the MGRS feature
     return False  # No GZD feature fully contains the MGRS feature
 
-def mgrs_get_intersection(mgrs_feature, gzd_feature):
-    mgrs_geom = shape(mgrs_feature["geometry"])    
-    gzd_geom = shape(gzd_feature["geometry"])        
+def mgrs_get_intersection(mgrs_geom, gzd_geom):
+    # mgrs_geom = shape(mgrs_feature["geometry"])    
+    # gzd_geom = shape(gzd_feature["geometry"])        
     intersection_geom = mgrs_geom.intersection(gzd_geom)  # Get intersection geometry
     if not intersection_geom.is_empty:
         return intersection_geom 
@@ -77,15 +77,17 @@ def generate_grid(gzd, resolution):    # Define the UTM CRS
             
             gzd_features = gzd_data["features"]
             gzd_feature = [feature for feature in gzd_features if feature["properties"].get("gzd") == gzd][0]
+            gzd_geom = shape(gzd_feature["geometry"])
+            # Check if cell_polygon intersects with gzd_geom
+            if cell_polygon.intersects(gzd_geom):
+            # if mgrs_id[:3] == '48P' or mgrs_id[:3] == '48N' or mgrs_id[:3] == '48Q':
+                intersected_polygon = mgrs_get_intersection(cell_polygon, gzd_geom)   
+                if intersected_polygon:
+                    intersected_centroid_lat, intersected_centroid_lon  =  intersected_polygon.centroid.y, intersected_polygon.centroid.x,
+                    interescted_mgrs_id = mgrs.toMgrs(intersected_centroid_lat, intersected_centroid_lon, resolution)            
+                    mgrs_feature = graticule_dggs_to_feature("mgrs",interescted_mgrs_id,resolution,intersected_polygon)
+                    mgrs_features.append(mgrs_feature)
             
-            intersected_polygon = mgrs_get_intersection(mgrs_feature, gzd_feature)   
-            if intersected_polygon:
-                intersected_centroid_lat, intersected_centroid_lon  =  intersected_polygon.centroid.y, intersected_polygon.centroid.x,
-                interescted_mgrs_id = mgrs.toMgrs(intersected_centroid_lat, intersected_centroid_lon, resolution)            
-                mgrs_feature = graticule_dggs_to_feature("mgrs",interescted_mgrs_id,resolution,intersected_polygon)
-                mgrs_features.append(mgrs_feature)
-           
-
     return {
         "type": "FeatureCollection",
         "features": mgrs_features
