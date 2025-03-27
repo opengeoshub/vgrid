@@ -58,6 +58,22 @@ def geodesic_dggs_to_feature(dggs_name, cell_id, resolution, cell_polygon,num_ed
             }
     return feature
 
+mgrs_gzd_lon_dict = {
+    '01': 1,
+    '02': 2,
+}
+
+mgrs_gzd_lat_dict = {
+    'C': 1,
+    'D': 2,
+    'E': 3,
+    'F': 4,
+    'G': 5,
+    'H': 6
+}
+
+
+
 isea4t_res_accuracy_dict = {
     0: 25_503_281_086_204.43,
     1: 6_375_820_271_551.114,    

@@ -34,7 +34,7 @@ from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
 from vgrid.utils.antimeridian import fix_polygon
 
 from vgrid.generator.settings import graticule_dggs_to_feature, geodesic_dggs_to_feature,isea3h_accuracy_res_dict
-
+from vgrid.generator.mgrsgrid import mgrs_is_fully_within, mgrs_get_intersection
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -452,6 +452,7 @@ def geohash2geojson_cli():
     geojson_data = json.dumps(geohash2geojson(args.geohash))
     print(geojson_data)
 
+
 def mgrs_is_fully_within(mgrs_feature, gzd_features):
     mgrs_geom = shape(mgrs_feature["geometry"])
     
@@ -469,7 +470,7 @@ def mgrs_get_intersection(mgrs_feature, gzd_features):
     for gzd_feature in gzd_features:
         gzd_geom = shape(gzd_feature["geometry"])
         
-        if gzd_feature["properties"]["mgrs"] == mgrs_feature["properties"]["mgrs"][:3]:
+        if gzd_feature["properties"]["gzd"] == mgrs_feature["properties"]["mgrs"][:3]:
             intersection = gzd_geom.intersection(mgrs_geom)  # Get intersection geometry
             if not intersection.is_empty:
                 return {
@@ -496,8 +497,8 @@ def mgrs2geojson(mgrs_id):
     mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
     
     try:
-        # Load the GZD GeoJSON file
-        gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
+            # Load the GZD GeoJSON file
+        gzd_json_path = os.path.join(os.path.dirname(__file__), '../generator/gzd.geojson')
         
         with open(gzd_json_path, 'r') as f:
             gzd_data = json.load(f)
