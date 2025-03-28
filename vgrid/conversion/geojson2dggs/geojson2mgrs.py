@@ -5,102 +5,25 @@ import json
 from tqdm import tqdm
 import os
 from vgrid.generator.settings import graticule_dggs_to_feature
-from vgrid.generator.geohashgrid import initial_geohashes, geohash_to_polygon, expand_geohash_bbox
-
-from vgrid.conversion.dggs2geojson import mgrs_is_fully_within, mgrs_get_intersection
 from vgrid.conversion.latlon2dggs import latlon2mgrs
+from vgrid.utils import mgrs
+from vgrid.conversion.dggs2geojson import mgrs2geojson
 
-def mgrs2geojson(mgrs_id):
-    # Assuming mgrs.mgrscell returns cell bounds and origin
-    min_lat, min_lon, max_lat, max_lon, resolution = mgrscell(mgrs_id)
-    
-    # Define the polygon coordinates for the MGRS cell
-    cell_polygon = Polygon([
-        (min_lon, min_lat),  # Bottom-left corner
-        (max_lon, min_lat),  # Bottom-right corner
-        (max_lon, max_lat),  # Top-right corner
-        (min_lon, max_lat),  # Top-left corner
-        (min_lon, min_lat)   # Closing the polygon
-    ])   
-    if cell_polygon.is_valid:
-        mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
-        
-        try:
-            # Load the GZD GeoJSON file
-            gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
-            
-            with open(gzd_json_path, 'r') as f:
-                gzd_data = json.load(f)
-            
-            gzd_features = gzd_data["features"]
-            
-            if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
-                if not mgrs_is_fully_within(mgrs_feature, gzd_features):
-                    mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
-        except:
-            pass    
-        return mgrs_feature
-
-import pyproj
-
-def mgrscell(mgrs_code):
-    """Get bounding box (min_lat, min_lon, max_lat, max_lon, precision) for an MGRS grid cell."""
-    geod = pyproj.Geod(ellps="WGS84")
-
-    min_lat, min_lon = mgrs.toWgs(mgrs_code)
-    precision, grid_size = mgrs.get_precision_and_grid_size(mgrs_code)
-
-    # Move north by grid_size meters
-    max_lat, _, _ = geod.fwd(min_lon, min_lat, 0, grid_size)
-
-    # Move east by grid_size meters
-    _, max_lon, _ = geod.fwd(min_lon, min_lat, 90, grid_size)
-
-    return min_lat, min_lon, max_lat, max_lon, precision
-
-
-# Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):  
-    geohash_features = []
-    longitude = point.x
-    latitude = point.y    
+    mgrs_features = []
+    latitude, longitude = point.y, point.x    
     mgrs_id = latlon2mgrs(latitude, longitude, resolution) 
-    _,_,min_lat, min_lon, max_lat, max_lon, resolution = mgrs.mgrscell(mgrs_id)
+    mgrs_feature = mgrs2geojson(mgrs_id)
     
-    # Define the polygon coordinates for the MGRS cell
-    cell_polygon = Polygon([
-        (min_lon, min_lat),  # Bottom-left corner
-        (max_lon, min_lat),  # Bottom-right corner
-        (max_lon, max_lat),  # Top-right corner
-        (min_lon, max_lat),  # Top-left corner
-        (min_lon, min_lat)   # Closing the polygon
-    ])
-
-    mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
+    if mgrs_feature:
+        mgrs_feature["properties"].update(feature_properties)
+        mgrs_features.append(mgrs_feature)
     
-    try:
-        # Load the GZD GeoJSON file
-        gzd_json_path = os.path.join(os.path.dirname(__file__), './generator/gzd.geojson')
-        
-        with open(gzd_json_path, 'r') as f:
-            gzd_data = json.load(f)
-        
-        gzd_features = gzd_data["features"]
-        
-        if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
-            if not mgrs_is_fully_within(mgrs_feature, gzd_features):
-                mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
-    except:
-        pass    
-    
-    mgrs_feature["properties"].update(feature_properties)
-    geohash_features.append(mgrs_feature)
-
     return {
         "type": "FeatureCollection",
-        "features": geohash_features
+        "features": mgrs_features,
     }
-       
+    
 # Function to generate grid for Polyline
 def poly_to_grid(resolution, geometry,feature_properties):
     mgrs_features = []
@@ -150,7 +73,7 @@ def main():
             elif feature['geometry']['type'] == 'MultiPoint':
                 for point_coords in coordinates:
                     point = Point(point_coords)  # Create Point for each coordinate set
-                    point_features = point_to_grid(resolution, point)
+                    point_features = point_to_grid(resolution, point,feature_properties)
                     geojson_features.extend(point_features['features'])
         
         elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:

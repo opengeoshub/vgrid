@@ -34,7 +34,6 @@ from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
 from vgrid.utils.antimeridian import fix_polygon
 
 from vgrid.generator.settings import graticule_dggs_to_feature, geodesic_dggs_to_feature,isea3h_accuracy_res_dict
-from vgrid.generator.mgrsgrid import mgrs_is_fully_within, mgrs_get_intersection
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -453,34 +452,6 @@ def geohash2geojson_cli():
     print(geojson_data)
 
 
-def mgrs_is_fully_within(mgrs_feature, gzd_features):
-    mgrs_geom = shape(mgrs_feature["geometry"])
-    
-    for gzd_feature in gzd_features:
-        gzd_geom = shape(gzd_feature["geometry"])
-        
-        if gzd_geom.contains(mgrs_geom):  # Check if gzd_geom fully contains mgrs_geom
-            return True  # At least one GZD feature fully contains the MGRS feature
-    
-    return False  # No GZD feature fully contains the MGRS feature
-
-def mgrs_get_intersection(mgrs_feature, gzd_features):
-    mgrs_geom = shape(mgrs_feature["geometry"])
-    
-    for gzd_feature in gzd_features:
-        gzd_geom = shape(gzd_feature["geometry"])
-        
-        if gzd_feature["properties"]["gzd"] == mgrs_feature["properties"]["mgrs"][:3]:
-            intersection = gzd_geom.intersection(mgrs_geom)  # Get intersection geometry
-            if not intersection.is_empty:
-                return {
-                    "type": "Feature",
-                    "geometry": mapping(intersection),
-                    "properties": mgrs_feature["properties"]
-                }
-    
-    return mgrs_feature  # No intersection found
-
 def mgrs2geojson(mgrs_id):
     # Assuming mgrs.mgrscell returns cell bounds and origin
     min_lat, min_lon, max_lat, max_lon, resolution = mgrs.mgrscell(mgrs_id)
@@ -497,19 +468,22 @@ def mgrs2geojson(mgrs_id):
     mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,cell_polygon)
     
     try:
-            # Load the GZD GeoJSON file
-        gzd_json_path = os.path.join(os.path.dirname(__file__), '../generator/gzd.geojson')
-        
+        gzd_json_path = os.path.join(os.path.dirname(__file__), '../generator/gzd.geojson')          
         with open(gzd_json_path, 'r') as f:
             gzd_data = json.load(f)
-        
+    
         gzd_features = gzd_data["features"]
-        
-        if mgrs_id[2] not in {"A", "B", "Y", "Z"}:
-            if not mgrs_is_fully_within(mgrs_feature, gzd_features):
-                mgrs_feature = mgrs_get_intersection(mgrs_feature, gzd_features)
+        gzd_feature = [feature for feature in gzd_features if feature["properties"].get("gzd") == mgrs_id[:3]][0]
+        gzd_geom = shape(gzd_feature["geometry"])
+    
+        if mgrs_id[2] not in {"A", "B", "Y", "Z"}: # not polar bands
+            if cell_polygon.intersects(gzd_geom) and not gzd_geom.contains(cell_polygon):
+                intersected_polygon = cell_polygon.intersection(gzd_geom)  
+                if intersected_polygon:
+                    mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,intersected_polygon)
     except:
         pass    
+    
     return mgrs_feature
     
 def mgrs2geojson_cli():

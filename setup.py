@@ -100,6 +100,7 @@ setup(
             'geojson2olc = vgrid.conversion.geojson2dggs.geojson2olc:main',
             'geojson2geohash = vgrid.conversion.geojson2dggs.geojson2geohash:main',
             'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:main',
+            'geojson2mgrs = vgrid.conversion.geojson2dggs.geojson2mgrs:main',
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
 
