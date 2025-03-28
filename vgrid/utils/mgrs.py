@@ -32,7 +32,6 @@ import re
 import math
 import itertools
 import logging
-import pyproj
 
 HAVE_OSR = False
 # Force using proj for transformations by setting MGRSPY_USE_PROJ env var
