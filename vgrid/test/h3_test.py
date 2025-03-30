@@ -1,14 +1,71 @@
+import h3
+import json
+from vgrid.conversion.dggs2geojson import h32geojson
+# Generate some H3 hexagons at resolution 6
+hexagons = h3.grid_disk("8928308280fffff", k=2)
 
-from vgrid.conversion.dggs2geojson import *
-latitude, longitude = 10.775275567242561, 106.70679737574993
-print(f'Latitude, Longitude: ({latitude}, {longitude})')
-h3_resolution = 13 #[0..15]
-h3_code = h3.latlng_to_cell(latitude, longitude, h3_resolution)
-h3_decode = h3.cell_to_latlng(h3_code)
-print(f'H3 code at resolution {h3_resolution}: {h3_code}')
-print(f'Decode {h3_code} to WGS84: {h3_decode}')
-print(f'{h3_code} to GeoJSON:\n', h32geojson(h3_code))
+# Compact the hexagons
+compacted_hexagons = h3.compact_cells(hexagons)
+# Print or save the GeoJSON
+print(compacted_hexagons)
 
+# geojson_features = []
+# for h3_id in compacted_hexagons:
+#     geojson = h32geojson(h3_id)  # Call the function
+#     geojson_features.extend(geojson["features"])  # Append the features
+
+# # Create a final GeoJSON object
+# geojson_output = {
+#     "type": "FeatureCollection",
+#     "features": geojson_features
+# }
+
+# Print or save the GeoJSON
+# print(json.dumps(geojson_output))
+
+start_cell = '8b65b566e99dfff'
+end_cell = '8b65b56634c8fff'
+path_cells  = h3.grid_path_cells(start_cell,end_cell)
+print(len(path_cells))
+print(path_cells)
+geojson_features = []
+
+for h3_id in path_cells:
+    geojson = h32geojson(h3_id)  # Call the function
+    geojson_features.extend(geojson["features"])  # Append the features
+
+# Create a final GeoJSON object
+geojson_output = {
+    "type": "FeatureCollection",
+    "features": geojson_features
+}
+
+# Print or save the GeoJSON
+geojson_output = {
+    "type": "FeatureCollection",
+    "features": geojson_features
+}
+
+# Save to a file
+output_filename = "h3_polygons.geojson"
+with open(output_filename, "w") as f:
+    json.dump(geojson_output, f, indent=2)
+
+print(f"GeoJSON saved to {output_filename}")
+
+
+
+# from vgrid.conversion.dggs2geojson import *
+# import h3
+# latitude, longitude = 10.775275567242561, 106.70679737574993
+# print(f'Latitude, Longitude: ({latitude}, {longitude})')
+# h3_resolution = 13 #[0..15]
+# h3_code = h3.latlng_to_cell(latitude, longitude, h3_resolution)
+# h3_decode = h3.cell_to_latlng(h3_code)
+# print(f'H3 code at resolution {h3_resolution}: {h3_code}')
+# print(f'Decode {h3_code} to WGS84: {h3_decode}')
+# print(f'{h3_code} to GeoJSON:\n', h32geojson(h3_code))
+    
 
 # import h3, json
 # from vgrid.conversion.cell2geojson import *

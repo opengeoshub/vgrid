@@ -1,19 +1,58 @@
 import json
 from vgrid.utils import s2
-from vgrid.conversion.dggs2geojson import *
-from vgrid.utils.s2 import LatLng, CellId, Cell
 
-latitude, longitude = 10.775275567242561, 106.70679737574993
+def get_s2_covering(geojson, level, compact=False):
+    """Generate S2 cells covering a GeoJSON geometry at the given level."""
+    geometry = json.loads(geojson)
+        # Extract bounding box of the polygon
+    lats, lngs = zip(*[(lat, lng) for ring in geometry["coordinates"] for lng, lat in ring])
+    min_lat, max_lat = min(lats), max(lats)
+    min_lng, max_lng = min(lngs), max(lngs)
+    
+    region = s2.LatLngRect.from_point_pair(
+        s2.LatLng.from_degrees(min_lat, min_lng),
+        s2.LatLng.from_degrees(max_lat, max_lng),
+    )
 
-s2_resolution = 21 #[0..30]
-lat_lng = s2.LatLng.from_degrees(latitude, longitude)
-cell_id = s2.CellId.from_lat_lng(lat_lng)
-cell_id = cell_id.parent(s2_resolution)
-cell_id_token= s2.CellId.to_token(cell_id)
-print(f'S2 Cell Token at resolution {s2_resolution}: {cell_id_token}')
-lat_lng = cell_id.to_lat_lng() 
-print(f'Decode {cell_id_token} to WGS84: {lat_lng}')
-print(f'{cell_id_token} to GeoJSON:\n', s22geojson(cell_id_token))
+    # Generate covering S2 cells
+    coverer = s2.RegionCoverer()
+    coverer.min_level = level
+    coverer.max_level = level
+    covering = coverer.get_covering(region)
+
+    if compact:
+        # Convert to S2CellUnion and normalize
+        cell_union = s2.CellUnion(covering)
+        # cell_union.normalize()
+        return [cell.id() for cell in cell_union.cell_ids()]  # ✅ Use `.cell_ids()`
+
+    return [cell.id() for cell in covering]
+
+# Example GeoJSON Polygon
+geojson_polygon = '{"type":"Polygon","coordinates":[[[-122.5,37.7],[-122.4,37.7],[-122.4,37.8],[-122.5,37.8],[-122.5,37.7]]]}'
+
+# Generate S2 covering at level 10 with compaction
+s2_cells = get_s2_covering(geojson_polygon, level=10, compact=True)
+
+print("Compact S2 Cells:", s2_cells)
+
+
+# import json
+# from vgrid.utils import s2
+# from vgrid.conversion.dggs2geojson import *
+# from vgrid.utils.s2 import LatLng, CellId, Cell
+
+# latitude, longitude = 10.775275567242561, 106.70679737574993
+
+# s2_resolution = 21 #[0..30]
+# lat_lng = s2.LatLng.from_degrees(latitude, longitude)
+# cell_id = s2.CellId.from_lat_lng(lat_lng)
+# cell_id = cell_id.parent(s2_resolution)
+# cell_id_token= s2.CellId.to_token(cell_id)
+# print(f'S2 Cell Token at resolution {s2_resolution}: {cell_id_token}')
+# lat_lng = cell_id.to_lat_lng() 
+# print(f'Decode {cell_id_token} to WGS84: {lat_lng}')
+# print(f'{cell_id_token} to GeoJSON:\n', s22geojson(cell_id_token))
 
 
 # s2_resolution = 21 #[0 -->30]
