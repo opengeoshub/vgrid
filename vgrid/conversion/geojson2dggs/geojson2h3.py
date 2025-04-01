@@ -102,6 +102,7 @@ def polygon_to_grid(resolution, geometry,feature_properties, compact= False):
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             cell_polygon = Polygon(reversed_boundary)
             if cell_polygon.intersects(polygon):
+                resolution = h3.get_resolution(bbox_buffer_cell)   
                 num_edges = 6       
                 if (h3.is_pentagon(bbox_buffer_cell)):
                     num_edges = 5           
@@ -191,6 +192,9 @@ def main():
    
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
     geojson_path = f"{geojson_name}2h3_{resolution}.geojson"
+    if compact:
+        geojson_path = f"{geojson_name}2h3_{resolution}_compacted.geojson"
+    
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

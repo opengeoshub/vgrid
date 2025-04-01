@@ -122,6 +122,14 @@ setup(
             'csv2maidenhead =  vgrid.conversion.csv2dggs:csv2maidenhead',
             'csv2gars =  vgrid.conversion.csv2dggs:csv2gars',
 
+            # DGGS compact/ uncompact
+            'h3compact =  vgrid.conversion.dggscompact:h3compact_cli',
+            'h3uncompact =  vgrid.conversion.dggscompact:h3uncompact_cli',
+            's2compact =  vgrid.conversion.dggscompact:s2compact_cli',
+            's2uncompact =  vgrid.conversion.dggscompact:s2uncompact_cli',
+            'rhealpixcompact = vgrid.conversion.dggscompact:rhealpixcompact_cli',
+            'rhealpixuncompact = vgrid.conversion.dggscompact:rhealpixuncompact_cli',
+
             # Resampling
             'resample =  vgrid.resampling.resample:main',
             

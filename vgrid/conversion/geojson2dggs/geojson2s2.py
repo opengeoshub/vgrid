@@ -6,7 +6,7 @@ from tqdm import tqdm
 import os
 from vgrid.generator.s2grid import s2_cell_to_polygon
 from vgrid.generator.settings import geodesic_dggs_to_feature
- 
+
 # Function to generate grid for Point
 def point_to_grid(resolution, point,feature_properties):    
     s2_features = []
@@ -63,9 +63,7 @@ def polyline_to_grid(resolution, geometry,feature_properties):
 
         # Get the covering cells
         covering = coverer.get_covering(region)
-        # for cell_id in covering:
-        #     cell_ids.append(cell_id)
-        
+
         for cell_id in tqdm(covering, desc="processing cells"):
             cell_polygon = s2_cell_to_polygon(cell_id)
           
@@ -112,13 +110,12 @@ def polygon_to_grid(resolution, geometry,feature_properties,compact=False):
 
         # Get the covering cells
         covering = coverer.get_covering(region)
+        cell_ids = covering  
         if compact:
             covering = s2.CellUnion(covering)
             covering.normalize()
-            cell_ids = covering.cell_ids()  # Extracts the list of CellIds
-        else:
-            cell_ids = covering  # Directly use covering if not compact
-
+            cell_ids = covering.cell_ids()  
+            
         for cell_id in tqdm(cell_ids, desc="processing cells"):
             cell_polygon = s2_cell_to_polygon(cell_id)
           
@@ -129,11 +126,71 @@ def polygon_to_grid(resolution, geometry,feature_properties,compact=False):
                 s2_feature = geodesic_dggs_to_feature("s2",cell_token,resolution,cell_polygon,num_edges)   
                 s2_feature["properties"].update(feature_properties)    
                 s2_features.append(s2_feature)
-                         
+                            
         return {
                 "type": "FeatureCollection",
                 "features": s2_features,
             }
+
+
+def polygon_to_grid_polyfill(resolution, geometry,feature_properties,compact=False):
+    s2_features = []
+    # Extract points from polyline
+    if geometry.geom_type == 'Polygon':
+        # Handle single Polygon as before
+        polygons = [geometry]
+    elif geometry.geom_type == 'MultiPolygon':
+        # Handle MultiPolygon: process each polygon separately
+        polygons = list(geometry)
+
+    for polygon in polygons:    
+        min_lon, min_lat, max_lon, max_lat = polygon.bounds
+        # Define the cell level (S2 uses a level system for zoom, where level 30 is the highest resolution)
+        level = resolution
+        polygon_bbox = Polygon([
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ])
+        centroid = polygon_bbox.centroid
+
+        # Convert the centroid to an S2 cell at the given resolution
+        lat_lng = s2.LatLng.from_degrees(centroid.y, centroid.x)
+        seed_cell = s2.CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
+        
+        cell_ids = []
+        coverer = s2.RegionCoverer()
+        coverer.min_level = level
+        coverer.max_level = level        
+        region = s2.LatLngRect(
+            s2.LatLng.from_degrees(min_lat, min_lon),
+            s2.LatLng.from_degrees(max_lat, max_lon)
+        )
+        covering = coverer.flood_fill(region, seed_cell.parent(level))
+        cell_ids = covering  
+        if compact:
+            covering = s2.CellUnion(covering)
+            covering.normalize()
+            cell_ids = covering.cell_ids()  
+            
+        for cell_id in tqdm(cell_ids, desc="processing cells"):
+            cell_polygon = s2_cell_to_polygon(cell_id)
+            if cell_polygon.intersects(polygon):
+                cell_token = s2.CellId.to_token(cell_id)  
+                resolution = cell_id.level()
+                num_edges = 4
+                s2_feature = geodesic_dggs_to_feature("s2",cell_token,resolution,cell_polygon,num_edges)   
+                s2_feature["properties"].update(feature_properties)    
+                s2_features.append(s2_feature)
+                        
+    return {
+            "type": "FeatureCollection",
+            "features": s2_features,
+        }
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to S2 Grid")
@@ -145,7 +202,6 @@ def main():
 
     args = parser.parse_args()
     geojson = args.geojson
-     # Initialize h3 DGGS
     resolution = args.resolution
     compact = args.compact  
     
@@ -215,6 +271,9 @@ def main():
     # Save the results to GeoJSON
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
     geojson_path = f"{geojson_name}2s2_{resolution}.geojson"
+    if compact:
+        geojson_path = f"{geojson_name}2s2_{resolution}_compacted.geojson"
+    
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 
