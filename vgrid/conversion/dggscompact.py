@@ -645,72 +645,119 @@ def isea4texpand_cli():
 #################
 # EASE
 #################
+def ease_compact (ease_ids):   
+    ease_ids = set(ease_ids)  # Remove duplicates
 
-# def ease_compact (ease_ids):   
-#     ease_ids = set(ease_ids)  # Remove duplicates
+    while True:
+        grouped_ease_ids = defaultdict(set)
 
-#     while True:
-#         grouped_ease_ids = defaultdict(set)            
-        
-#         # Group cells by their parent
-#         for ease_id in tqdm(ease_ids, desc="Compacting cells", leave=False):
-#             if len(ease_id) > 2:  # Ensure there's a valid parent
-#                 parent = ease_id[:-1]
-#                 grouped_ease_ids[parent].add(ease_id)
-        
-#         new_ease_ids = set(ease_ids)
-#         changed = False
-        
-#         # Check if we can replace children with parent
-#         for parent, children in grouped_ease_ids.items():
-#             resolution = int(ease_id[1])  # Get the level (e.g., 'L0' -> 0)
-#             parent_cell = geos_to_grid_ids([(longitude,latitude)],level = resolution)
-#             ease_id = parent_cell['result']['data'][0]
-
-#             # Generate the subcells for the parent at the next resolution
-#             children_at_next_res = set(child['result']['data'][0] for child in parents_to_children(parent_cell,resolution+1))
+        # Group cells by their parent
+        for ease_id in tqdm(ease_ids, desc="Compacting cells", leave=False):
+            match = re.match(r"L(\d+)\.(.+)", ease_id)  # Extract resolution level & ID
+            if not match:
+                continue  # Skip invalid IDs
             
-#             # Check if the current children match the expected subcells
-#             if children == children_at_next_res:
-#                 new_ease_ids.difference_update(children)  # Remove children
-#                 new_ease_ids.add(parent)  # Add the parent
-#                 changed = True  # A change occurred
-        
-#         if not changed:
-#             break  # Stop if no more compaction is possible
-#         ease_ids = new_ease_ids  # Continue compacting
+            resolution = int(match.group(1))
+            base_id = match.group(2)
+
+            if resolution == 0:
+                continue  # L0 has no parent
+
+            # Determine the parent by removing the last section
+            parent = f"L{resolution-1}." + ".".join(base_id.split(".")[:-1])
+            # print (f"parent: {parent}")
+            grouped_ease_ids[parent].add(ease_id)
+
+        new_ease_ids = set(ease_ids)
+        changed = False
+
+        # Check if we can replace children with their parent
+        for parent, children in grouped_ease_ids.items():
+            # print (f"children: {children}")
+            match = re.match(r"L(\d+)\..+", parent)
+            if not match:
+                continue  # Skip invalid parents
+
+            resolution = int(match.group(1))
+            children_at_next_res = set(_parent_to_children(parent, resolution+1))  # Ensure correct format
+            # If all expected children are present, replace them with the parent
+            if children == children_at_next_res:  
+                new_ease_ids.difference_update(children)
+                new_ease_ids.add(parent)
+                changed = True  # A change occurred
+
+        if not changed:
+            break  # Stop if no more compaction is possible
+        ease_ids = new_ease_ids  # Continue compacting
     
-#     return sorted(ease_ids)  # Sorted for consistency
+    return sorted(ease_ids)  # Sorted for consistency
+
+def easecompact(geojson_data):
+    ease_ids = [feature["properties"]["ease"] for feature in geojson_data.get("features", []) if "ease" in feature.get("properties", {})]
+    ease_cells_compact = ease_compact(ease_ids)
+    ease_features = [] 
+    for ease_cell_compact in tqdm(ease_cells_compact, desc="Processing cells "):    
+        level = int(ease_cell_compact[1])  # Get the level (e.g., 'L0' -> 0)
+        # Get level specs
+        level_spec = levels_specs[level]
+        n_row = level_spec["n_row"]
+        n_col = level_spec["n_col"]
+            
+        geo = grid_ids_to_geos([ease_cell_compact])
+        center_lon, center_lat = geo['result']['data'][0] 
+
+        cell_min_lat = center_lat - (180 / (2 * n_row))
+        cell_max_lat = center_lat + (180 / (2 * n_row))
+        cell_min_lon = center_lon - (360 / (2 * n_col))
+        cell_max_lon = center_lon + (360 / (2 * n_col))
+
+        cell_polygon = Polygon([
+            [cell_min_lon, cell_min_lat],
+            [cell_max_lon, cell_min_lat],
+            [cell_max_lon, cell_max_lat],
+            [cell_min_lon, cell_max_lat],
+            [cell_min_lon, cell_min_lat]
+        ])
+
+        if cell_polygon:
+            resolution = level
+            num_edges = 4
+            ease_feature = geodesic_dggs_to_feature("ease",ease_cell_compact,resolution,cell_polygon,num_edges)   
+            ease_features.append(ease_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": ease_features
+    }
 
 
-# def easecompact_cli():
-#     if (platform.system() == 'Windows'):  
-#         """
-#         Command-line interface for easecompact.
-#         """
-#         parser = argparse.ArgumentParser(description="Compact EASE in a GeoJSON file containing a EASE ID property named 'ease'")
-#         parser.add_argument(
-#             '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON"
-#         )
+def easecompact_cli():
+    """
+    Command-line interface for easecompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact EASE in a GeoJSON file containing a EASE ID property named 'ease'")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON"
+    )
 
-#         args = parser.parse_args()
-#         geojson = args.geojson
+    args = parser.parse_args()
+    geojson = args.geojson
 
-#         if not os.path.exists(geojson):
-#             print(f"Error: The file {geojson} does not exist.")
-#             return
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
 
-#         with open(geojson, 'r', encoding='utf-8') as f:
-#             geojson_data = json.load(f)
-        
-#         geojson_features = isea4tcompact(isea4t_dggs,geojson_data)
-#         if geojson_features:
-#             # Define the GeoJSON file path
-#             geojson_path = "ease_compacted.geojson"
-#             with open(geojson_path, 'w') as f:
-#                 json.dump(geojson_features, f, indent=2)
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = easecompact(geojson_data)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "ease_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-#             print(f"GeoJSON saved as {geojson_path}") 
+        print(f"GeoJSON saved as {geojson_path}") 
 
 def ease_expand(ease_ids, resolution):
     uncopmpacted_cells = []

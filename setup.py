@@ -131,6 +131,7 @@ setup(
             'rhealpixexpand = vgrid.conversion.dggscompact:rhealpixexpand_cli',
             'isea4tcompact = vgrid.conversion.dggscompact:isea4tcompact_cli',
             'isea4texpand = vgrid.conversion.dggscompact:isea4texpand_cli',
+            'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
             'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
 
 

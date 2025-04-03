@@ -4,7 +4,7 @@ from shapely.geometry import Polygon, box, Point, LineString
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geos_to_grid_ids, geo_polygon_to_grid_ids
-from vgrid.utils.easedggs.dggs.hierarchy import parents_to_children
+from vgrid.conversion.dggscompact import ease_compact
 
 # Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):
@@ -57,40 +57,41 @@ def polyline_to_grid(resolution, geometry, feature_properties):
         polylines = list(geometry)
 
     for polyline in polylines:
-        level_spec = levels_specs[resolution]
-        n_row = level_spec["n_row"]
-        n_col = level_spec["n_col"]
         polyline_bbox = box(*polyline.bounds)
         # Get all grid cells within the bounding box
         polyline_bbox_wkt = polyline_bbox.wkt
         cells_bbox = geo_polygon_to_grid_ids(polyline_bbox_wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
         cells = cells_bbox['result']['data']     
-        if cells:
-            # Use tqdm for progress bar, processing cells sequentially
-            for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-                geo = grid_ids_to_geos([cell])
-                center_lon, center_lat = geo['result']['data'][0]            
-                cell_min_lat = center_lat - (180 / (2 * n_row))
-                cell_max_lat = center_lat + (180 / (2 * n_row))
-                cell_min_lon = center_lon - (360 / (2 * n_col))
-                cell_max_lon = center_lon + (360 / (2 * n_col))
+        # Use tqdm for progress bar, processing cells sequentially
+        for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+            resolution =  int(cell[1])  # Get the level (e.g., 'L0' -> 0)
+            level_spec = levels_specs[resolution]
+            n_row = level_spec["n_row"]
+            n_col = level_spec["n_col"]
+        
+            geo = grid_ids_to_geos([cell])
+            center_lon, center_lat = geo['result']['data'][0]            
+            cell_min_lat = center_lat - (180 / (2 * n_row))
+            cell_max_lat = center_lat + (180 / (2 * n_row))
+            cell_min_lon = center_lon - (360 / (2 * n_col))
+            cell_max_lon = center_lon + (360 / (2 * n_col))
 
-                cell_polygon = Polygon([
-                    [cell_min_lon, cell_min_lat],
-                    [cell_max_lon, cell_min_lat],
-                    [cell_max_lon, cell_max_lat],
-                    [cell_min_lon, cell_max_lat],
-                    [cell_min_lon, cell_min_lat]
-                ])
-                if cell_polygon.intersects(polyline):
-                    num_edges = 4
-                    ease_feature = geodesic_dggs_to_feature('ease', str(cell), resolution, cell_polygon, num_edges)
-                    ease_feature["properties"].update(feature_properties)
-                    ease_features.append(ease_feature)            
+            cell_polygon = Polygon([
+                [cell_min_lon, cell_min_lat],
+                [cell_max_lon, cell_min_lat],
+                [cell_max_lon, cell_max_lat],
+                [cell_min_lon, cell_max_lat],
+                [cell_min_lon, cell_min_lat]
+            ])
+            if cell_polygon.intersects(polyline):
+                num_edges = 4
+                ease_feature = geodesic_dggs_to_feature('ease', str(cell), resolution, cell_polygon, num_edges)
+                ease_feature["properties"].update(feature_properties)
+                ease_features.append(ease_feature)            
     return {
-        "type": "FeatureCollection",
-        "features": ease_features
-    }
+            "type": "FeatureCollection",
+            "features": ease_features
+        }
 
 
 def polygon_to_grid(resolution, geometry, feature_properties,compact):    
@@ -101,37 +102,42 @@ def polygon_to_grid(resolution, geometry, feature_properties,compact):
         polygons = list(geometry)
 
     for polygon in polygons:
-        level_spec = levels_specs[resolution]
-        n_row = level_spec["n_row"]
-        n_col = level_spec["n_col"]
-        polyline_bbox = box(*polygon.bounds)
+        polygon_bbox = box(*polygon.bounds)
         # Get all grid cells within the bounding box
-        polyline_bbox_wkt = polyline_bbox.wkt
-        cells_bbox = geo_polygon_to_grid_ids(polyline_bbox_wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
-        cells = cells_bbox['result']['data']  
-           
-        if cells:
-            # Use tqdm for progress bar, processing cells sequentially
-            for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-                geo = grid_ids_to_geos([cell])
-                center_lon, center_lat = geo['result']['data'][0]            
-                cell_min_lat = center_lat - (180 / (2 * n_row))
-                cell_max_lat = center_lat + (180 / (2 * n_row))
-                cell_min_lon = center_lon - (360 / (2 * n_col))
-                cell_max_lon = center_lon + (360 / (2 * n_col))
+        polygon_bbox_wkt = polygon_bbox.wkt
+        cells_bbox = geo_polygon_to_grid_ids(polygon_bbox_wkt, resolution, geo_crs, ease_crs, levels_specs, return_centroids = True, wkt_geom=True)
+        cells = cells_bbox['result']['data']   
+        
+        if compact:
+            cells = ease_compact(cells)
+             
+        for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+            cell_resolution =  int(cell[1])  # Get the level (e.g., 'L0' -> 0)
+            level_spec = levels_specs[cell_resolution]
+            n_row = level_spec["n_row"]
+            n_col = level_spec["n_col"]
 
-                cell_polygon = Polygon([
-                    [cell_min_lon, cell_min_lat],
-                    [cell_max_lon, cell_min_lat],
-                    [cell_max_lon, cell_max_lat],
-                    [cell_min_lon, cell_max_lat],
-                    [cell_min_lon, cell_min_lat]
-                ])
-                if cell_polygon.intersects(polygon):
-                    num_edges = 4
-                    ease_feature = geodesic_dggs_to_feature('ease', str(cell), resolution, cell_polygon, num_edges)
-                    ease_feature["properties"].update(feature_properties)
-                    ease_features.append(ease_feature)            
+            geo = grid_ids_to_geos([cell])
+            center_lon, center_lat = geo['result']['data'][0] 
+
+            cell_min_lat = center_lat - (180 / (2 * n_row))
+            cell_max_lat = center_lat + (180 / (2 * n_row))
+            cell_min_lon = center_lon - (360 / (2 * n_col))
+            cell_max_lon = center_lon + (360 / (2 * n_col))
+
+            cell_polygon = Polygon([
+                [cell_min_lon, cell_min_lat],
+                [cell_max_lon, cell_min_lat],
+                [cell_max_lon, cell_max_lat],
+                [cell_min_lon, cell_max_lat],
+                [cell_min_lon, cell_min_lat]
+            ])
+            if cell_polygon.intersects(polygon):
+                num_edges = 4
+                ease_feature = geodesic_dggs_to_feature('ease', str(cell), cell_resolution, cell_polygon, num_edges)
+                ease_feature["properties"].update(feature_properties)
+                ease_features.append(ease_feature)            
+   
     return {
         "type": "FeatureCollection",
         "features": ease_features
@@ -146,7 +152,7 @@ def main():
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
     )
-    parser.add_argument('-compact', action='store_true', help="Enable ease compact mode")
+    parser.add_argument('-compact', action='store_true', help="Enable EASE compact mode")
 
     args = parser.parse_args()
     geojson = args.geojson
@@ -219,9 +225,9 @@ def main():
                     
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
     geojson_path = f"{geojson_name}2ease_{resolution}.geojson"
-    if compact:
+    if compact:        
         geojson_path = f"{geojson_name}2ease_{resolution}_compacted.geojson"
-
+        
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 
