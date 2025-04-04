@@ -9,3 +9,4 @@ geopandas
 scipy
 future
 texttable
+rasterio

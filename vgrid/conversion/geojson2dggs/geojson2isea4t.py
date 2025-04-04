@@ -122,7 +122,7 @@ def main():
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..25]")
     # actual resolution range: [0..39]
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable ISEA4T compact mode")
 
@@ -201,7 +201,6 @@ def main():
         if compact:
             geojson_path = f"{geojson_name}2isea4t_{resolution}_compacted.geojson"
     
-
         with open(geojson_path, 'w') as f:
             json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
 

@@ -150,7 +150,7 @@ def main():
     # actual resolution range: [0..40]
 
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable EASE compact mode")
 

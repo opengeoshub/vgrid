@@ -5,7 +5,6 @@ from vgrid.utils import olc
 from vgrid.generator.olcgrid import generate_grid,refine_cell
 from vgrid.generator.settings import graticule_dggs_to_feature
 
-
 # Function to generate grid for Point
 def point_to_grid(resolution, point,feature_properties):    
     olc_features = []
@@ -92,7 +91,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to Open_Eaggr OLC grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [2, 4, 6, 8, 10..15]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSOn format"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     args = parser.parse_args()
     geojson = args.geojson

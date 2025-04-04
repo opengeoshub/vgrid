@@ -70,7 +70,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to Geohash Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [1..10]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSON format"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     args = parser.parse_args()
     geojson = args.geojson

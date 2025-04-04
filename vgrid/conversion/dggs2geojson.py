@@ -14,7 +14,7 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
-
+    from vgrid.generator.isea3hgrid import isea3h_cell_to_polygon
 
 if (platform.system() == 'Linux'):
     from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
@@ -183,30 +183,11 @@ def isea4t2geojson_cli():
     print(geojson_data)
 
 
-def isea3h_cell_to_polygon(isea3h_id):
-    if (platform.system() == 'Windows'):
-        isea3h_dggs = Eaggr(Model.ISEA3H)
-        cell_to_shape = isea3h_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea3h_id),ShapeStringFormat.WKT)
-        if cell_to_shape:
-            coordinates_part = cell_to_shape.replace("POLYGON ((", "").replace("))", "")
-            coordinates = []
-            for coord_pair in coordinates_part.split(","):
-                lon, lat = map(float, coord_pair.strip().split())
-                coordinates.append([lon, lat])
-
-            # Ensure the polygon is closed (first and last point must be the same)
-            if coordinates[0] != coordinates[-1]:
-                coordinates.append(coordinates[0])
-
-        cell_polygon = Polygon(coordinates)
-        fixed_polygon = fix_polygon(cell_polygon)    
-        return fixed_polygon
-
-
 def isea3h2geojson(isea3h_id):
     if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        cell_polygon = isea3h_cell_to_polygon(isea3h_id)
+        isea3h_cell = DggsCell(isea3h_id)
+        cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
     
         cell_centroid = cell_polygon.centroid
         center_lat =  round(cell_centroid.y, 7)
@@ -215,40 +196,40 @@ def isea3h2geojson(isea3h_id):
         cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
         cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
         
-        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(DggsCell(isea3h_id))      
-        accuracy = isea3h2point._accuracy
+        isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)      
+        cell_accuracy = isea3h2point._accuracy
             
         avg_edge_len = cell_perimeter / 6
-        resolution  = isea3h_accuracy_res_dict.get(accuracy)
+        cell_resolution  = isea3h_accuracy_res_dict.get(cell_accuracy)
         
-        if (resolution == 0): # icosahedron faces at resolution = 0
+        if (cell_resolution == 0): # icosahedron faces at resolution = 0
             avg_edge_len = cell_perimeter / 3
         
-        if accuracy == 0.0:
+        if cell_accuracy == 0.0:
             if round(avg_edge_len,2) == 0.06:
-                resolution = 33
+                cell_resolution = 33
             elif round(avg_edge_len,2) == 0.03:
-                resolution = 34
+                cell_resolution = 34
             elif round(avg_edge_len,2) == 0.02:
-                resolution = 35
+                cell_resolution = 35
             elif round(avg_edge_len,2) == 0.01:
-                resolution = 36
+                cell_resolution = 36
             
             elif round(avg_edge_len,3) == 0.007:
-                resolution = 37
+                cell_resolution = 37
             elif round(avg_edge_len,3) == 0.004:
-                resolution = 38
+                cell_resolution = 38
             elif round(avg_edge_len,3) == 0.002:
-                resolution = 39
+                cell_resolution = 39
             elif round(avg_edge_len,3) <= 0.001:
-                resolution = 40
+                cell_resolution = 40
                 
         feature = {
             "type": "Feature",
             "geometry": mapping(cell_polygon),
             "properties": {
                     "isea3h": isea3h_id,
-                    "resolution": resolution,
+                    "resolution": cell_resolution,
                     "center_lat": center_lat,
                     "center_lon": center_lon,
                     "avg_edge_len": round(avg_edge_len,3),
@@ -267,7 +248,7 @@ def isea3h2geojson_cli():
     """
     Command-line interface for isea3h2geojson.
     """
-    parser = argparse.ArgumentParser(description="Convert ISEA3H cell ID to GeoJSON")
+    parser = argparse.ArgumentParser(description="Convert ISEA3H ID to GeoJSON")
     parser.add_argument("isea3h", help="Input ISEA3H cell ID, e.g., isea3h2geojson 1327916769,-55086")
     args = parser.parse_args()
     geojson_data = json.dumps(isea3h2geojson(args.isea3h))

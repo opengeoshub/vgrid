@@ -196,7 +196,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to S2 Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..30]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON string with Point, Polyline or Polygon"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable H3 compact mode")
 

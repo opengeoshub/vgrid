@@ -5,6 +5,17 @@ from shapely.geometry import mapping
 max_cells = 1_000_000
 chunk_size = 100_000
 
+isea4t_base_cells = [
+    '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
+    '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
+]
+
+
+isea3h_base_cells = [
+    '00000,0', '01000,0', '02000,0', '03000,0', '04000,0', '05000,0', '06000,0', '07000,0', '08000,0', '09000,0',
+    '10000,0', '11000,0', '12000,0', '13000,0', '14000,0', '15000,0', '16000,0', '17000,0', '18000,0', '19000,0'
+]
+
 def graticule_dggs_metrics(cell_polygon):
     min_lon, min_lat, max_lon, max_lat = cell_polygon.bounds
     center_lat = round((min_lat + max_lat) / 2,7)

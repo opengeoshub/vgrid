@@ -15,7 +15,8 @@ requirements = [
     'geopandas',
     'scipy',
     'future',
-    'texttable'
+    'texttable',
+    'rasterio'
     ],
 
 def clean_build():
@@ -86,7 +87,7 @@ setup(
             'maidenhead2geojson = vgrid.conversion.dggs2geojson:maidenhead2geojson_cli',  
             'gars2geojson = vgrid.conversion.dggs2geojson:gars2geojson_cli',  
             
-            # GeoJSON to DGGS Cell
+            # GeoJSON to DGGS
             'geojson2h3 = vgrid.conversion.geojson2dggs.geojson2h3:main',
             'geojson2s2 = vgrid.conversion.geojson2dggs.geojson2s2:main',
             'geojson2rhealpix = vgrid.conversion.geojson2dggs.geojson2rhealpix:main',
@@ -103,6 +104,9 @@ setup(
             'geojson2mgrs = vgrid.conversion.geojson2dggs.geojson2mgrs:main',
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
+
+            # Raster to DGGS
+            'raster2h3 = vgrid.conversion.raster2dggs.raster2h3:main',
 
             # CSV to DGGS Cell
             'csv2h3 =  vgrid.conversion.csv2dggs:csv2h3',
@@ -131,6 +135,8 @@ setup(
             'rhealpixexpand = vgrid.conversion.dggscompact:rhealpixexpand_cli',
             'isea4tcompact = vgrid.conversion.dggscompact:isea4tcompact_cli',
             'isea4texpand = vgrid.conversion.dggscompact:isea4texpand_cli',
+            'isea3hcompact = vgrid.conversion.dggscompact:isea3hcompact_cli',
+            'isea3hexpand = vgrid.conversion.dggscompact:isea3hexpand_cli',
             'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
             'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
 

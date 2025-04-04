@@ -81,7 +81,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to Quadkey Grid")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..29]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Point, Polyline or Polygon in GeoJSON format"
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     args = parser.parse_args()
     geojson = args.geojson

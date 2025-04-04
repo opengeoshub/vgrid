@@ -14,13 +14,8 @@ if (platform.system() == 'Windows'):
 from tqdm import tqdm
 from shapely.geometry import Polygon, box
 from vgrid.utils.antimeridian import fix_polygon
-from vgrid.generator.settings import max_cells, geodesic_dggs_to_feature
+from vgrid.generator.settings import max_cells, isea4t_base_cells, geodesic_dggs_to_feature
 
-# Initialize the DGGS system
-base_cells = [
-    '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
-    '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'
-]
 
 def fix_isea4t_wkt(isea4t_wkt):
     # Extract the coordinate section
@@ -104,7 +99,7 @@ def generate_grid(isea4t_dggs, resolution):
     Generate DGGS cells and convert them to GeoJSON features.
     """
     # accuracy = isea4t_res_accuracy_dict.get(resolution)
-    children = get_isea4t_children_cells(isea4t_dggs, base_cells, resolution)
+    children = get_isea4t_children_cells(isea4t_dggs, isea4t_base_cells, resolution)
     isea4t_features = []
     for child in tqdm(children, desc="Processing cells", unit=" cells"):
         isea4t_cell = DggsCell(child)

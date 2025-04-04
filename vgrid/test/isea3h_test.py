@@ -4,8 +4,28 @@ from shapely.wkt import loads
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 from vgrid.conversion.latlon2dggs import *
 from vgrid.conversion.dggs2geojson import *
+from vgrid.generator.settings import isea3h_base_cells
+from vgrid.generator.isea3hgrid import get_isea3h_children_cells_within_bbox
+from shapely.geometry import box
 
 isea3h_dggs = Eaggr(Model.ISEA3H)
+isea3h_id = '13151257,-77'
+isea3h_cell = DggsCell(isea3h_id)
+# children = isea3h_dggs.get_dggs_cell_children(isea3h_cell)
+# for child in children:
+#     print (child.get_cell_id())
+# bbox = (106.64731472, 10.75092802, 106.72095966, 10.79591570)
+
+# # Create a Shapely polygon from the bbox
+# bbox_polygon = box(*bbox)
+# children2 =  get_isea3h_children_cells_within_bbox(isea3h_dggs,isea3h_id, bbox_polygon, 18)
+# print("children 2")
+# for child2 in children2:
+#     print (child2)
+parents = isea3h_dggs.get_dggs_cell_parents(isea3h_cell)
+for parent in parents:
+    print  (parent.get_cell_id())
+    children = isea3h_dggs.get_dggs_cell_children(isea3h_cell)
 
 # # max_accuracy = 10**14 # 10**14 is min cell_id length (7), eg. : 03000,0
 # # max_accuracy = 10**13 # 10**14 is min cell_id length (7), eg. : 03000,0
@@ -42,13 +62,13 @@ isea3h_dggs = Eaggr(Model.ISEA3H)
 # print(isea3h_cell.get_cell_id())
 # point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)
 # print("parent accuracy: ", point._accuracy)
-isea3h_cell  = '104034089134,342138064'
-children = isea3h_dggs.get_dggs_cell_children(DggsCell(isea3h_cell))
-# print(children[0].get_cell_id())
-# child = isea3h_dggs.convert_dggs_cell_to_point(children[0])
-# print("child accuracy: ", child._accuracy)
-for child in children:
-    print (child.get_cell_id())
+# isea3h_cell  = '104034089134,342138064'
+# children = isea3h_dggs.get_dggs_cell_children(DggsCell(isea3h_cell))
+# # print(children[0].get_cell_id())
+# # child = isea3h_dggs.convert_dggs_cell_to_point(children[0])
+# # print("child accuracy: ", child._accuracy)
+# for child in children:
+#     print (child.get_cell_id())
 
 # # print(len(isea3h_cell.get_cell_id()))
 # geojson_data = json.dumps(isea3h2geojson(isea3h_cell.get_cell_id()))
