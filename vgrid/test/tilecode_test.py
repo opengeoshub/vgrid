@@ -4,14 +4,15 @@ import json
 latitude, longitude = 10.775275567242561, 106.70679737574993
 
 
-tile_esolution = 23  # [0..29]
-tile_code = tilecode.latlon2tilecode(latitude, longitude, tile_esolution)
-tile_encode = tilecode.tilecode2latlon(tile_code)
-print(f'Tilecode at zoom level = {tile_esolution}: {tile_code}')
-print(f'Convert {tile_code} to WGS84 = {tile_encode}')
-print(f'{tile_code} to GeoJSON:\n', tilecode2geojson(tile_code))
-
-
+# tile_esolution = 23  # [0..29]
+# tile_code = tilecode.latlon2tilecode(latitude, longitude, tile_esolution)
+# tile_encode = tilecode.tilecode2latlon(tile_code)
+# print(f'Tilecode at zoom level = {tile_esolution}: {tile_code}')
+# print(f'Convert {tile_code} to WGS84 = {tile_encode}')
+# print(f'{tile_code} to GeoJSON:\n', tilecode2geojson(tile_code))
+tile_code = 'z10x213y222'
+children = tilecode.tilecode_siblings(tile_code)
+print (children)
 # resolution = 23
 # tile_code = tile.latlon2tilecode(latitude, longitude, resolution)
 # tile_encode = tile.tilecode2latlon(tile_code)

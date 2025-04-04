@@ -198,7 +198,7 @@ def main():
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
-    parser.add_argument('-compact', action='store_true', help="Enable H3 compact mode")
+    parser.add_argument('-compact', action='store_true', help="Enable S2 compact mode")
 
     args = parser.parse_args()
     geojson = args.geojson

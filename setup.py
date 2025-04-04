@@ -140,6 +140,9 @@ setup(
             'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
             'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
 
+            'tilecodecompact = vgrid.conversion.dggscompact:tilecodecompact_cli',
+            'tilecodeexpand = vgrid.conversion.dggscompact:tilecodeexpand_cli',
+
 
             # Resampling
             'resample =  vgrid.resampling.resample:main',

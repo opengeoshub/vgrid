@@ -1,4 +1,4 @@
-from vgrid.utils import s2, olc, geohash, georef, mgrs, mercantile, maidenhead
+from vgrid.utils import s2, olc, geohash, georef, mgrs, mercantile, maidenhead, tilecode
 from vgrid.utils.gars import garsgrid
 from vgrid.utils.qtm import constructGeometry, qtm_id_to_facet
 import h3
@@ -686,39 +686,6 @@ def isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell):
         fixed_polygon = fix_polygon(cell_polygon)    
         return fixed_polygon
 
-# def isea3h_compact(isea3h_dggs, isea3h_ids):
-#     if (platform.system() == 'Windows'):     
-#         isea3h_ids = set(isea3h_ids)  # Remove duplicates
-#         # Main loop for compaction
-#         while True:
-#             grouped_isea3h_ids = defaultdict(set)            
-#             # Group cells by their parent
-#             for isea3h_id in tqdm(isea3h_ids, desc="Compacting cells ", leave=False):
-#                 if len(isea3h_id) > 2:  # Ensure there's a valid parent
-#                     parent = isea3h_id[:-1]
-#                     grouped_isea3h_ids[parent].add(isea3h_id)
-            
-#             new_isea3h_ids = set(isea3h_ids)
-#             changed = False
-            
-#             # Check if we can replace children with parent
-#             for parent, children in grouped_isea3h_ids.items():
-#                 parent_cell = DggsCell(parent)
-#                 # Generate the subcells for the parent at the next resolution
-#                 children_at_next_res = set(child.get_cell_id() for child in isea3h_dggs.get_dggs_cell_children(parent_cell))  # Collect subcells as strings
-                
-#                 # Check if the current children match the subcells at the next resolution
-#                 if children == children_at_next_res:
-#                     new_isea3h_ids.difference_update(children)  # Remove children
-#                     new_isea3h_ids.add(parent)  # Add the parent
-#                     changed = True  # A change occurred
-            
-#             if not changed:
-#                 break  # Stop if no more compaction is possible
-#             isea3h_ids = new_isea3h_ids  # Continue compacting
-        
-#         return sorted(isea3h_ids)  # Sorted for consistency
-
 def isea3h_compact(isea3h_dggs, isea3h_ids):
     from collections import defaultdict
     from tqdm import tqdm
@@ -1184,4 +1151,193 @@ def easeexpand_cli():
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}") 
+
+#################
+# Tilecode
+#################
+def tilecode_compact(tilecode_ids):
+    tilecode_ids = set(tilecode_ids)  # Remove duplicates
+    
+    # Main loop for compaction
+    while True:
+        grouped_tilecode_ids = defaultdict(set)
+        
+        # Group cells by their parent
+        for tilecode_id in tilecode_ids:
+            match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)    
+            if match:  # Ensure there's a valid parent
+                parent = tilecode.tilecode_parent(tilecode_id)
+                grouped_tilecode_ids[parent].add(tilecode_id)
+        
+        new_tilecode_ids = set(tilecode_ids)
+        changed = False
+        
+        # Check if we can replace children with parent
+        for parent, children in grouped_tilecode_ids.items():
+            # Generate the subcells for the parent at the next resolution
+            subcells_at_next_res = set(str(subcell) for subcell in tilecode.tilecode_children(parent))  # Collect subcells as strings
+            
+            # Check if the current children match the subcells at the next resolution
+            if children == subcells_at_next_res:
+                new_tilecode_ids.difference_update(children)  # Remove children
+                new_tilecode_ids.add(parent)  # Add the parent
+                changed = True  # A change occurred
+        
+        if not changed:
+            break  # Stop if no more compaction is possible
+        tilecode_ids = new_tilecode_ids  # Continue compacting
+    
+    return sorted(tilecode_ids)  # Sorted for consistency
+
+def tilecodecompact(geojson_data):
+    tilecode_ids = [feature["properties"]["tilecode"] for feature in geojson_data.get("features", []) if "tilecode" in feature.get("properties", {})]
+    tilecode_ids_compact = tilecode_compact(tilecode_ids)
+    tilecode_features = [] 
+    for tilecode_id_compact in tqdm(tilecode_ids_compact, desc="Processing cells "):  
+        match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id_compact)
+        if not match:
+            raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+
+        # Convert matched groups to integers
+        z = int(match.group(1))
+        x = int(match.group(2))
+        y = int(match.group(3))
+
+        # Get the bounds of the tile in (west, south, east, north)
+        bounds = mercantile.bounds(x, y, z)    
+        if bounds:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = bounds.south, bounds.west
+            max_lat, max_lon = bounds.north, bounds.east
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            
+            resolution = z
+            tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id_compact,resolution,cell_polygon)   
+            tilecode_features.append(tilecode_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": tilecode_features
+    }
+    
+def tilecodecompact_cli():
+    """
+    Command-line interface for tilecodecompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact Tilecode in a GeoJSON file containing a property named 'tilecode'")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = tilecodecompact(geojson_data)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "tilecode_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
+def tilecode_expand(tilecode_ids, resolution):
+    expand_cells = []
+    for tilecode_id in tqdm(tilecode_ids, desc="Expanding child cells "): 
+        match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+        if not match:
+            raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+        cell_resolution= int(match.group(1))
+               
+        if cell_resolution >= resolution:
+            expand_cells.append(tilecode_id)
+        else:
+            expand_cells.extend(tilecode.tilecode_children(tilecode_id,resolution))  # Expand to the target level
+    return expand_cells
+
+def tilecodeexpand(geojson_data,resolution):
+    tilecode_ids = [feature["properties"]["tilecode"] for feature in geojson_data.get("features", []) if "tilecode" in feature.get("properties", {})]
+    tilecode_ids_expand = tilecode_expand(tilecode_ids, resolution)
+    tilecode_features = [] 
+    for tilecode_id_expand in tqdm(tilecode_ids_expand, desc="Processing cells "):
+        match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id_expand)
+        if not match:
+            raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+
+        # Convert matched groups to integers
+        z = int(match.group(1))
+        x = int(match.group(2))
+        y = int(match.group(3))
+
+        # Get the bounds of the tile in (west, south, east, north)
+        bounds = mercantile.bounds(x, y, z)    
+        if bounds:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = bounds.south, bounds.west
+            max_lat, max_lon = bounds.north, bounds.east
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            
+            resolution = z
+            tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id_expand,resolution,cell_polygon)   
+            tilecode_features.append(tilecode_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": tilecode_features
+    }
+    
+    
+def tilecodeexpand_cli():
+    """
+    Command-line interface for tilecodeexpand.
+    """
+    parser = argparse.ArgumentParser(description="expand Tilecode in a GeoJSON file containing a property named 'tilecode'")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of Tilecode to be expanded [0..29]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+
+    if resolution < 0 or resolution > 29:
+        print(f"Please select a resolution in [0..29] range and try again ")
+        return
+    
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = tilecodeexpand(geojson_data,resolution)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"tilecode_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
 

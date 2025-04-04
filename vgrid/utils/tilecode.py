@@ -434,37 +434,28 @@ def tilecode_list(zoom):
     
     return tilecodes
 
-
-def tilecode_children(tilecode):
-    """
-    Lists all child tiles of a given tilecode at the next zoom level.
-
-    Args:
-        tilecode (str): The tile code in the format 'zXxYyZ'.
-
-    Returns:
-        list: A list of tilecodes representing the four child tiles.
-    """
-    # Extract z, x, y from the tilecode
+def tilecode_children(tilecode, resolution):
+   
     match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
-    # Convert matched groups to integers
     z = int(match.group(1))
     x = int(match.group(2))
     y = int(match.group(3))
 
-    # Calculate the next zoom level
-    z_next = z + 1
+    if resolution <= z:
+        raise ValueError("target_zoom must be greater than the tile's current resolution")
 
-    # Calculate the coordinates of the four child tiles
-    children = [
-        f"z{z_next}x{2*x}y{2*y}",       # Top-left child
-        f"z{z_next}x{2*x+1}y{2*y}",     # Top-right child
-        f"z{z_next}x{2*x}y{2*y+1}",     # Bottom-left child
-        f"z{z_next}x{2*x+1}y{2*y+1}"    # Bottom-right child
-    ]
+    zoom_diff = resolution - z
+    factor = 2 ** zoom_diff
+
+    children = []
+    for dx in range(factor):
+        for dy in range(factor):
+            child_x = x * factor + dx
+            child_y = y * factor + dy
+            children.append(f"z{resolution}x{child_x}y{child_y}")
 
     return children
 
@@ -534,7 +525,7 @@ def tilecode_siblings(tilecode):
 
     # Get all children of the parent tile
     parent_tilecode = f"z{z_parent}x{x_parent}y{y_parent}"
-    children = tilecode_children(parent_tilecode)
+    children = tilecode_children(parent_tilecode,z)
 
     # Exclude the input tilecode from the list of siblings
     siblings = [child for child in children if child != tilecode]
