@@ -6,7 +6,8 @@ from tqdm import tqdm
 import os
 from vgrid.utils import mercantile
 from vgrid.generator.settings import graticule_dggs_to_feature
-from vgrid.conversion.dggscompact import tilecode_compact
+from vgrid.conversion.dggscompact import tilecodecompact
+import re
 
 # Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):  
@@ -89,18 +90,23 @@ def polygon_to_grid(resolution, geometry,feature_properties,compact):
 
     for polygon in polygons:    
         min_lon, min_lat, max_lon, max_lat = polygon.bounds
-        tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-        tile_ids = []
-        for tile in tiles:
-            tile_id = f"z{tile.z}x{tile.x}y{tile.y}"
-            tile_ids.append(tile_id)
+        tilecodes = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+        tilecode_ids = []
+        for tilecode in tilecodes:
+            tilecode_id = f"z{tilecode.z}x{tilecode.x}y{tilecode.y}"
+            tilecode_ids.append(tilecode_id)
        
-        if compact:
-            tiles_ids = tilecode_compact(tiles_ids)
-        
-        for tile_id in tqdm(tile_ids, desc="Processing cells",unit=" cells"):
-            z, x, y = tile.z, tile.x, tile.y
-            tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
+        for tilecode_id in tqdm(tilecode_ids, desc="Processing cells",unit=" cells"):
+            match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+            if not match:
+                raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+            cell_resolution= int(match.group(1))
+              # Convert matched groups to integers
+            z = int(match.group(1))
+            x = int(match.group(2))
+            y = int(match.group(3))
+
+            # Get the bounds of the tile in (west, south, east, north)
             bounds = mercantile.bounds(x, y, z)
             if bounds:
                 # Create the bounding box coordinates for the polygon
@@ -115,14 +121,20 @@ def polygon_to_grid(resolution, geometry,feature_properties,compact):
                     [min_lon, min_lat]   # Closing the polygon (same as the first point)
                 ])
                 if cell_polygon.intersects(polygon):
-                    tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon) 
+                    tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,cell_resolution,cell_polygon) 
                     tilecode_feature["properties"].update(feature_properties)
                     tilecode_features.append(tilecode_feature)
 
-    return {
-        "type": "FeatureCollection",
-        "features": tilecode_features
-    }
+        tilecode_geosjon = {
+            "type": "FeatureCollection",
+            "features": tilecode_features
+        }
+
+        if compact:
+            return tilecodecompact(tilecode_geosjon)
+
+
+    return tilecode_geosjon
 
 
 def main():

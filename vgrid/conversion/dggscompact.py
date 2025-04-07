@@ -1168,17 +1168,20 @@ def tilecode_compact(tilecode_ids):
             if match:  # Ensure there's a valid parent
                 parent = tilecode.tilecode_parent(tilecode_id)
                 grouped_tilecode_ids[parent].add(tilecode_id)
-        
+
         new_tilecode_ids = set(tilecode_ids)
         changed = False
         
         # Check if we can replace children with parent
         for parent, children in grouped_tilecode_ids.items():
             # Generate the subcells for the parent at the next resolution
-            subcells_at_next_res = set(str(subcell) for subcell in tilecode.tilecode_children(parent))  # Collect subcells as strings
+            match = re.match(r'z(\d+)x(\d+)y(\d+)', parent)    
+            parent_resolution = int(match.group(1))
+
+            childcells_at_next_res = set(childcell for childcell in tilecode.tilecode_children(parent,parent_resolution+1))  # Collect subcells as strings
             
             # Check if the current children match the subcells at the next resolution
-            if children == subcells_at_next_res:
+            if children == childcells_at_next_res:
                 new_tilecode_ids.difference_update(children)  # Remove children
                 new_tilecode_ids.add(parent)  # Add the parent
                 changed = True  # A change occurred
@@ -1193,7 +1196,7 @@ def tilecodecompact(geojson_data):
     tilecode_ids = [feature["properties"]["tilecode"] for feature in geojson_data.get("features", []) if "tilecode" in feature.get("properties", {})]
     tilecode_ids_compact = tilecode_compact(tilecode_ids)
     tilecode_features = [] 
-    for tilecode_id_compact in tqdm(tilecode_ids_compact, desc="Processing cells "):  
+    for tilecode_id_compact in tqdm(tilecode_ids_compact, desc="Compacting cells "):  
         match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id_compact)
         if not match:
             raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
@@ -1273,11 +1276,8 @@ def tilecodeexpand(geojson_data,resolution):
     tilecode_ids = [feature["properties"]["tilecode"] for feature in geojson_data.get("features", []) if "tilecode" in feature.get("properties", {})]
     tilecode_ids_expand = tilecode_expand(tilecode_ids, resolution)
     tilecode_features = [] 
-    for tilecode_id_expand in tqdm(tilecode_ids_expand, desc="Processing cells "):
+    for tilecode_id_expand in tqdm(tilecode_ids_expand, desc="Expanding cells "):
         match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id_expand)
-        if not match:
-            raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
-
         # Convert matched groups to integers
         z = int(match.group(1))
         x = int(match.group(2))
