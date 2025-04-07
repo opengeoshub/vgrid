@@ -223,7 +223,7 @@ def main():
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
     geojson_path = f"{geojson_name}2tilecode_{resolution}.geojson"
     if compact:
-        geojson_path = f"{geojson_name}2s2_{resolution}_compacted.geojson"
+        geojson_path = f"{geojson_name}2tilecode_{resolution}_compacted.geojson"
     
     with open(geojson_path, 'w') as f:
         json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
