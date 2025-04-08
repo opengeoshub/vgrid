@@ -1,15 +1,15 @@
 import os, argparse, json
 from tqdm import tqdm
 import rasterio
-import h3
+from vgrid.utils import tilecode
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
-from vgrid.generator.h3grid import fix_h3_antimeridian_cells
+from vgrid.generator.tilecodegrid import fix_tilecode_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from math import cos, radians
 
-def get_nearest_h3_resolution(raster_path):
+def get_nearest_tilecode_resolution(raster_path):
     with rasterio.open(raster_path) as src:
         transform = src.transform
         crs = src.crs
@@ -34,7 +34,7 @@ def get_nearest_h3_resolution(raster_path):
         
     # Check resolutions from 0 to 15
     for res in range(16):
-        avg_area = h3.average_hexagon_area(res, unit='m^2')
+        avg_area = tilecode.average_hexagon_area(res, unit='m^2')
         diff = abs(avg_area - cell_size)        
         # If the difference is smaller than the current minimum, update the nearest resolution
         if diff < min_diff:
@@ -54,11 +54,11 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_h3(raster_path, resolution=None):
-    # Step 1: Determine the nearest H3 resolution if none is provided
+def resample_raster_to_tilecode(raster_path, resolution=None):
+    # Step 1: Determine the nearest tilecode resolution if none is provided
     if resolution is None:
-        resolution = get_nearest_h3_resolution(raster_path)
-        print(f"Nearest H3 resolution determined: {resolution}")
+        resolution = get_nearest_tilecode_resolution(raster_path)
+        print(f"Nearest tilecode resolution determined: {resolution}")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -67,20 +67,20 @@ def resample_raster_to_h3(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    h3_cells = set()
+    tilecode_cells = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
-            h3_index = h3.latlng_to_cell(lat, lon,resolution)
-            h3_cells.add(h3_index)
+            tilecode_index = tilecode.latlng_to_cell(lat, lon,resolution)
+            tilecode_cells.add(tilecode_index)
 
-    # Sample the raster values at the centroids of the H3 hexagons
-    h3_data = []
+    # Sample the raster values at the centroids of the tilecode hexagons
+    tilecode_data = []
     
-    for h3_index in h3_cells:
-        # Get the centroid of the H3 cell
-        centroid_lat, centroid_lon = h3.cell_to_latlng(h3_index)
+    for tilecode_index in tilecode_cells:
+        # Get the centroid of the tilecode cell
+        centroid_lat, centroid_lon = tilecode.cell_to_latlng(tilecode_index)
         
         # Sample the raster values at the centroid (lat, lon)
         col, row = ~transform * (centroid_lon, centroid_lat)
@@ -88,55 +88,55 @@ def resample_raster_to_h3(raster_path, resolution=None):
         if 0 <= col < width and 0 <= row < height:
             # Get the values for all bands at this centroid
             values = raster_data[:, int(row), int(col)]
-            h3_data.append({
-                "h3": h3_index,
+            tilecode_data.append({
+                "tilecode": tilecode_index,
                 # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
     # Create the GeoJSON-like structure
-    h3_features = []
-    for data in tqdm(h3_data, desc="Resampling", unit=" cells"):
-        cell_boundary = h3.cell_to_boundary(data["h3"])   
+    tilecode_features = []
+    for data in tqdm(tilecode_data, desc="Resampling", unit=" cells"):
+        cell_boundary = tilecode.cell_to_boundary(data["tilecode"])   
         if cell_boundary:
-            filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
+            filtered_boundary = fix_tilecode_antimeridian_cells(cell_boundary)
             # Reverse lat/lon to lon/lat for GeoJSON compatibility
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             cell_polygon = Polygon(reversed_boundary)
-            resolution = h3.get_resolution(data["h3"]) 
-            h3_feature = {
+            resolution = tilecode.get_resolution(data["tilecode"]) 
+            tilecode_feature = {
                 "type": "Feature",
                 "geometry":mapping(cell_polygon),
                 "properties": {
-                    "h3": data["h3"],
+                    "tilecode": data["tilecode"],
                     "resolution": resolution                    
                 }
             }
             num_edges = 6
-            if (h3.is_pentagon(data["h3"])):
+            if (tilecode.is_pentagon(data["tilecode"])):
                 num_edges = 5
             
-            h3_feature = geodesic_dggs_to_feature("h3",data["h3"],resolution,cell_polygon,num_edges)   
+            tilecode_feature = geodesic_dggs_to_feature("tilecode",data["tilecode"],resolution,cell_polygon,num_edges)   
         
             band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-            h3_feature["properties"].update(convert_numpy_types(band_properties) )
-            h3_features.append(h3_feature)               
+            tilecode_feature["properties"].update(convert_numpy_types(band_properties) )
+            tilecode_features.append(tilecode_feature)               
           
     return {
         "type": "FeatureCollection",
-        "features": h3_features,
+        "features": tilecode_features,
     }
 
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to H3 Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster to tilecode Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of H3 to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of tilecode to be generated"
     )
 
 
@@ -153,12 +153,12 @@ def main():
             return
 
 
-    h3_geojson = resample_raster_to_h3(raster, resolution)
+    tilecode_geojson = resample_raster_to_tilecode(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2h3.geojson"
+    geojson_path = f"{geojson_name}2tilecode.geojson"
    
     with open(geojson_path, 'w') as f:
-        json.dump(h3_geojson, f)
+        json.dump(tilecode_geojson, f)
     
     print(f"GeoJSON saved as {geojson_path}")
 

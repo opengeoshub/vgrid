@@ -107,6 +107,9 @@ setup(
 
             # Raster to DGGS
             'raster2h3 = vgrid.conversion.raster2dggs.raster2h3:main',
+            'raster2s2 = vgrid.conversion.raster2dggs.raster2s2:main',
+            'raster2rhealpix = vgrid.conversion.raster2dggs.raster2rhealpix:main',
+            'raster2tilecode = vgrid.conversion.raster2dggs.raster2tilecode:main',
 
             # CSV to DGGS Cell
             'csv2h3 =  vgrid.conversion.csv2dggs:csv2h3',
