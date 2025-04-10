@@ -1,16 +1,18 @@
 import os, argparse, json
 from tqdm import tqdm
 import rasterio
-from vgrid.utils import tilecode, mercantile
+from vgrid.utils.qtm import constructGeometry, qtm_id_to_facet
+
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
-from vgrid.stats.tilecodestats import tilecode_metrics
-from vgrid.generator.settings import graticule_dggs_to_feature
+from vgrid.stats.qtmstats import qtm_metrics
+from vgrid.generator.settings import geodesic_dggs_to_feature
 from math import cos, radians
 import re
+from vgrid.conversion.latlon2dggs import latlon2qtm
 
-def get_nearest_tilecode_resolution(raster_path):
+def get_nearest_qtm_resolution(raster_path):
     with rasterio.open(raster_path) as src:
         transform = src.transform
         crs = src.crs
@@ -34,8 +36,8 @@ def get_nearest_tilecode_resolution(raster_path):
     min_diff = float('inf')
         
     # Check resolutions from 0 to 29
-    for res in range(30):
-        _, _, avg_area = tilecode_metrics(res)
+    for res in range(1, 25):
+        _, _, avg_area = qtm_metrics(res)
         diff = abs(avg_area - cell_size)        
         # If the difference is smaller than the current minimum, update the nearest resolution
         if diff < min_diff:
@@ -55,11 +57,11 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_tilecode(raster_path, resolution=None):
-    # Step 1: Determine the nearest tilecode resolution if none is provided
+def resample_raster_to_qtm(raster_path, resolution=None):
+    # Step 1: Determine the nearest qtm resolution if none is provided
     if resolution is None:
-        resolution = get_nearest_tilecode_resolution(raster_path)
-        print(f"Nearest tilecode resolution determined: {resolution}")
+        resolution = get_nearest_qtm_resolution(raster_path)
+        print(f"Nearest qtm resolution determined: {resolution}")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -68,79 +70,64 @@ def resample_raster_to_tilecode(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    tilecode_ids = set()
+    qtm_ids = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
-            tilecode_id = tilecode.latlon2tilecode(lat,lon,resolution)            
-            tilecode_ids.add(tilecode_id)
+            qtm_id = latlon2qtm(lat,lon,resolution)            
+            qtm_ids.add(qtm_id)
 
-    # Sample the raster values at the centroids of the tilecode hexagons
-    tilecode_data = []
+    # Sample the raster values at the centroids of the qtm hexagons
+    qtm_data = []
     
-    for tilecode_id in tilecode_ids:
-        # Get the centroid of the tilecode cell
-        centroid_lat, centroid_lon = tilecode.tilecode2latlon(tilecode_id)
-        
+    for qtm_id in qtm_ids:
+        # Get the centroid of the qtm cell
+        facet = qtm_id_to_facet(qtm_id)
+        cell_polygon = constructGeometry(facet)    
+        centroid = cell_polygon.centroid
+        centroid_lon, centroid_lat = centroid.x, centroid.y
+                
         # Sample the raster values at the centroid (lat, lon)
         col, row = ~transform * (centroid_lon, centroid_lat)
         
         if 0 <= col < width and 0 <= row < height:
             # Get the values for all bands at this centroid
             values = raster_data[:, int(row), int(col)]
-            tilecode_data.append({
-                "tilecode": tilecode_id,
+            qtm_data.append({
+                "qtm": qtm_id,
                 # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
     # Create the GeoJSON-like structure
-    tilecode_features = []
-    for data in tqdm(tilecode_data, desc="Resampling", unit=" cells"):
-        tilecode_id = data["tilecode"]
-        match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
-        if match:
-            # Convert matched groups to integers
-            z = int(match.group(1))
-            x = int(match.group(2))
-            y = int(match.group(3))
-
-            # Get the bounds of the tile in (west, south, east, north)
-            bounds = mercantile.bounds(x, y, z)   
-            if bounds:
-                # Create the bounding box coordinates for the polygon
-                min_lat, min_lon = bounds.south, bounds.west
-                max_lat, max_lon = bounds.north, bounds.east
-                cell_polygon = Polygon([
-                    [min_lon, min_lat],  # Bottom-left corner
-                    [max_lon, min_lat],  # Bottom-right corner
-                    [max_lon, max_lat],  # Top-right corner
-                    [min_lon, max_lat],  # Top-left corner
-                    [min_lon, min_lat]   # Closing the polygon (same as the first point)
-                ])
-                
-                cell_resolution = z
-                tilecode_feature = graticule_dggs_to_feature("tilecode_id",tilecode_id,cell_resolution,cell_polygon)   
-                band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-                tilecode_feature["properties"].update(convert_numpy_types(band_properties) )
-                tilecode_features.append(tilecode_feature)               
+    qtm_features = []
+    for data in tqdm(qtm_data, desc="Resampling", unit=" cells"):
+        qtm_id = data["qtm"]
+        facet = qtm_id_to_facet(qtm_id)
+        cell_polygon = constructGeometry(facet)    
+        cell_resolution = len(qtm_id)
+        num_edges = 3
+        qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id,cell_resolution,cell_polygon,num_edges)   
+        band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
+        qtm_feature["properties"].update(convert_numpy_types(band_properties) )
+        qtm_features.append(qtm_feature)               
             
     return {
         "type": "FeatureCollection",
-        "features": tilecode_features,
+        "features": qtm_features,
     }
-
+ 
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to Tilecode Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster to qtm Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Tilecode [0..29] to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of qtm [1..24] to be generated"
     )
 
 
@@ -152,17 +139,17 @@ def main():
         print(f"Error: The file {raster} does not exist.")
         return
     if resolution is not None:
-        if resolution < 0 or resolution > 29:
-            print(f"Please select a resolution in [0..29] range and try again ")
+        if resolution < 1 or resolution > 24:
+            print(f"Please select a resolution in [1..24] range and try again ")
             return
 
 
-    tilecode_geojson = resample_raster_to_tilecode(raster, resolution)
+    qtm_geojson = resample_raster_to_qtm(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2tilecode.geojson"
+    geojson_path = f"{geojson_name}2qtm.geojson"
    
     with open(geojson_path, 'w') as f:
-        json.dump(tilecode_geojson, f)
+        json.dump(qtm_geojson, f)
     
     print(f"GeoJSON saved as {geojson_path}")
 

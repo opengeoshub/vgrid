@@ -360,8 +360,8 @@ def latlon2mgrs_cli():
 
 def latlon2tilecode(lat,lon,res=23):
     # res: [0..29]        
-    tilecode_cell = tilecode.latlon2tilecode(lat,lon,res)
-    return tilecode_cell
+    tilecode_id = tilecode.latlon2tilecode(lat,lon,res)
+    return tilecode_id
 
 def latlon2tilecode_cli():
     """

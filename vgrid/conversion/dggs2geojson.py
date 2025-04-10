@@ -510,10 +510,10 @@ def georef2geojson_cli():
 
 
 def tilecode2geojson(tilecode_id):  
-    # Extract z, x, y from the tilecode using regex
+    # Extract z, x, y from the tilecode_id using regex
     match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
     if not match:
-        raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+        raise ValueError("Invalid tilecode_id format. Expected format: 'zXxYyZ'")
 
     # Convert matched groups to integers
     z = int(match.group(1))
@@ -536,7 +536,7 @@ def tilecode2geojson(tilecode_id):
         ])
         
         resolution = z
-        tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon)   
+        tilecode_feature = graticule_dggs_to_feature("tilecode_id",tilecode_id,resolution,cell_polygon)   
         tilecode_features.append(tilecode_feature)
 
     return {
@@ -549,17 +549,17 @@ def tilecode2geojson_cli():
     Command-line interface for tilecode2geojson.
     """
     parser = argparse.ArgumentParser(description="Convert Tilecode to GeoJSON")
-    parser.add_argument("tilecode", help="Input Tilecode, e.g. z0x0y0")
+    parser.add_argument("tilecode_id", help="Input Tilecode, e.g. z0x0y0")
     args = parser.parse_args()
 
     # Generate the GeoJSON feature
-    geojson_data = json.dumps(tilecode2geojson(args.tilecode))
+    geojson_data = json.dumps(tilecode2geojson(args.tilecode_id))
     print(geojson_data)
 
 
 def quadkey2geojson(quadkey_id):
     tile = mercantile.quadkey_to_tile(quadkey_id)    
-    # Format as tilecode
+    # Format as tilecode_id
     z = tile.z
     x = tile.x
     y = tile.y
