@@ -1,15 +1,16 @@
 import os, argparse, json
 from tqdm import tqdm
 import rasterio
-import h3
+from vgrid.utils import tilecode, mercantile
 import numpy as np
-from shapely.geometry import Polygon, Point, mapping
+from shapely.geometry import Polygon
 import json
-from vgrid.generator.h3grid import fix_h3_antimeridian_cells
-from vgrid.generator.settings import geodesic_dggs_to_feature
+from vgrid.stats.quadkeystats import quadkey_metrics
+from vgrid.generator.settings import graticule_dggs_to_feature
 from math import cos, radians
+import re
 
-def get_nearest_h3_resolution(raster_path):
+def get_nearest_quadkey_resolution(raster_path):
     with rasterio.open(raster_path) as src:
         transform = src.transform
         crs = src.crs
@@ -32,9 +33,9 @@ def get_nearest_h3_resolution(raster_path):
     nearest_resolution = None
     min_diff = float('inf')
         
-    # Check resolutions from 0 to 15
-    for res in range(16):
-        avg_area = h3.average_hexagon_area(res, unit='m^2')
+    # Check resolutions from 0 to 29
+    for res in range(30):
+        _, _, avg_area = quadkey_metrics(res)
         diff = abs(avg_area - cell_size)        
         # If the difference is smaller than the current minimum, update the nearest resolution
         if diff < min_diff:
@@ -54,11 +55,11 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_h3(raster_path, resolution=None):
-    # Step 1: Determine the nearest H3 resolution if none is provided
+def raster_to_quadkey(raster_path, resolution=None):
+    # Step 1: Determine the nearest quadkey resolution if none is provided
     if resolution is None:
-        resolution = get_nearest_h3_resolution(raster_path)
-        print(f"Nearest H3 resolution determined: {resolution}")
+        resolution = get_nearest_quadkey_resolution(raster_path)
+        print(f"Nearest quadkey resolution determined: {resolution}")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -67,20 +68,20 @@ def raster_to_h3(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    h3_cells = set()
+    quadkey_ids = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
-            h3_index = h3.latlng_to_cell(lat, lon,resolution)
-            h3_cells.add(h3_index)
+            quadkey_id = tilecode.latlon2quadkey(lat,lon,resolution)            
+            quadkey_ids.add(quadkey_id)
 
-    # Sample the raster values at the centroids of the H3 hexagons
-    h3_data = []
+    # Sample the raster values at the centroids of the quadkey hexagons
+    quadkey_data = []
     
-    for h3_index in h3_cells:
-        # Get the centroid of the H3 cell
-        centroid_lat, centroid_lon = h3.cell_to_latlng(h3_index)
+    for quadkey_id in quadkey_ids:
+        # Get the centroid of the quadkey cell
+        centroid_lat, centroid_lon = tilecode.quadkey2latlon(quadkey_id)
         
         # Sample the raster values at the centroid (lat, lon)
         col, row = ~transform * (centroid_lon, centroid_lat)
@@ -88,55 +89,55 @@ def raster_to_h3(raster_path, resolution=None):
         if 0 <= col < width and 0 <= row < height:
             # Get the values for all bands at this centroid
             values = raster_data[:, int(row), int(col)]
-            h3_data.append({
-                "h3": h3_index,
+            quadkey_data.append({
+                "quadkey": quadkey_id,
                 # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
     # Create the GeoJSON-like structure
-    h3_features = []
-    for data in tqdm(h3_data, desc="Resampling", unit=" cells"):
-        cell_boundary = h3.cell_to_boundary(data["h3"])   
-        if cell_boundary:
-            filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
-            # Reverse lat/lon to lon/lat for GeoJSON compatibility
-            reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-            cell_polygon = Polygon(reversed_boundary)
-            resolution = h3.get_resolution(data["h3"]) 
-            h3_feature = {
-                "type": "Feature",
-                "geometry":mapping(cell_polygon),
-                "properties": {
-                    "h3": data["h3"],
-                    "resolution": resolution                    
-                }
-            }
-            num_edges = 6
-            if (h3.is_pentagon(data["h3"])):
-                num_edges = 5
-            
-            h3_feature = geodesic_dggs_to_feature("h3",data["h3"],resolution,cell_polygon,num_edges)   
+    quadkey_features = []
+    for data in tqdm(quadkey_data, desc="Resampling", unit=" cells"):
+        quadkey_id = data["quadkey"]
+        tile = mercantile.quadkey_to_tile(quadkey_id)    
+        # Format as tilecode_id
+        z = tile.z
+        x = tile.x
+        y = tile.y
+        # Get the bounds of the tile in (west, south, east, north)
+        bounds = mercantile.bounds(x, y, z)  
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
+        cell_polygon = Polygon([
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ])
         
-            band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-            h3_feature["properties"].update(convert_numpy_types(band_properties) )
-            h3_features.append(h3_feature)               
-          
+        cell_resolution = z
+        quadkey_feature = graticule_dggs_to_feature("quadkey_id",quadkey_id,cell_resolution,cell_polygon)   
+        band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
+        quadkey_feature["properties"].update(convert_numpy_types(band_properties) )
+        quadkey_features.append(quadkey_feature)               
+            
     return {
         "type": "FeatureCollection",
-        "features": h3_features,
+        "features": quadkey_features,
     }
 
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to H3 Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster to Quadkey Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of H3 to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Quadkey [0..29] to be generated"
     )
 
 
@@ -148,17 +149,17 @@ def main():
         print(f"Error: The file {raster} does not exist.")
         return
     if resolution is not None:
-        if resolution < 0 or resolution > 15:
-            print(f"Please select a resolution in [0..15] range and try again ")
+        if resolution < 0 or resolution > 29:
+            print(f"Please select a resolution in [0..29] range and try again ")
             return
 
 
-    h3_geojson = raster_to_h3(raster, resolution)
+    quadkey_geojson = raster_to_quadkey(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2h3.geojson"
+    geojson_path = f"{geojson_name}2quadkey.geojson"
    
     with open(geojson_path, 'w') as f:
-        json.dump(h3_geojson, f)
+        json.dump(quadkey_geojson, f)
     
     print(f"GeoJSON saved as {geojson_path}")
 

@@ -66,7 +66,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
+def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
     if (platform.system() == 'Windows'):  
         # Step 1: Determine the nearest isea4t resolution if none is provided
         if resolution is None:
@@ -166,7 +166,7 @@ def main():
                 print(f"Please select a resolution in [0..23] range and try again ")
                 return
 
-        isea4t_geojson = resample_raster_to_isea4t(isea4t_dggs, raster, resolution)
+        isea4t_geojson = raster_to_isea4t(isea4t_dggs, raster, resolution)
         geojson_name = os.path.splitext(os.path.basename(raster))[0]
         geojson_path = f"{geojson_name}2isea4t.geojson"
     

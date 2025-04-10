@@ -55,7 +55,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_tilecode(raster_path, resolution=None):
+def raster_to_tilecode(raster_path, resolution=None):
     # Step 1: Determine the nearest tilecode resolution if none is provided
     if resolution is None:
         resolution = get_nearest_tilecode_resolution(raster_path)
@@ -157,7 +157,7 @@ def main():
             return
 
 
-    tilecode_geojson = resample_raster_to_tilecode(raster, resolution)
+    tilecode_geojson = raster_to_tilecode(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
     geojson_path = f"{geojson_name}2tilecode.geojson"
    

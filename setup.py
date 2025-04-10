@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.3.0',
+    version='1.3.1',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -111,7 +111,10 @@ setup(
             'raster2rhealpix = vgrid.conversion.raster2dggs.raster2rhealpix:main',
             'raster2isea4t = vgrid.conversion.raster2dggs.raster2isea4t:main',
             'raster2qtm = vgrid.conversion.raster2dggs.raster2qtm:main',
+            'raster2geohash = vgrid.conversion.raster2dggs.raster2geohash:main',
+            'raster2olc = vgrid.conversion.raster2dggs.raster2olc:main',
             'raster2tilecode = vgrid.conversion.raster2dggs.raster2tilecode:main',
+            'raster2quadkey = vgrid.conversion.raster2dggs.raster2quadkey:main',
 
             # CSV to DGGS Cell
             'csv2h3 =  vgrid.conversion.csv2dggs:csv2h3',

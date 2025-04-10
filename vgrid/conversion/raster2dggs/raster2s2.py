@@ -55,7 +55,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_s2(raster_path, resolution=None):
+def raster_to_s2(raster_path, resolution=None):
     # Step 1: Determine the nearest s2 resolution if none is provided
     if resolution is None:
         resolution = get_nearest_s2_resolution(raster_path)
@@ -168,7 +168,7 @@ def main():
             print(f"Please select a resolution in [0..24] range and try again ")
             return
 
-    s2_geojson = resample_raster_to_s2(raster, resolution)
+    s2_geojson = raster_to_s2(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
     geojson_path = f"{geojson_name}2s2.geojson"
    

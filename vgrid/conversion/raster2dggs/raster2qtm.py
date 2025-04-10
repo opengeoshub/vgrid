@@ -57,7 +57,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_qtm(raster_path, resolution=None):
+def raster_to_qtm(raster_path, resolution=None):
     # Step 1: Determine the nearest qtm resolution if none is provided
     if resolution is None:
         resolution = get_nearest_qtm_resolution(raster_path)
@@ -144,7 +144,7 @@ def main():
             return
 
 
-    qtm_geojson = resample_raster_to_qtm(raster, resolution)
+    qtm_geojson = raster_to_qtm(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
     geojson_path = f"{geojson_name}2qtm.geojson"
    

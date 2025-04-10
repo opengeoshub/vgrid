@@ -58,7 +58,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def resample_raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
+def raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
     # Step 1: Determine the nearest rhealpix resolution if none is provided
     if resolution is None:
         resolution = get_nearest_rhealpix_resolution(raster_path)
@@ -150,7 +150,7 @@ def main():
             print(f"Please select a resolution in [0..15] range and try again ")
             return
 
-    rhealpix_geojson = resample_raster_to_rhealpix(rhealpix_dggs, raster, resolution)
+    rhealpix_geojson = raster_to_rhealpix(rhealpix_dggs, raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
     geojson_path = f"{geojson_name}2rhealpix.geojson"
    

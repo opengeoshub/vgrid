@@ -151,6 +151,22 @@ def latlon2quadkey(lat, lon, zoom):
     quadkey = mercantile.quadkey(tile)   
     return quadkey
 
+
+def quadkey2latlon(quadkey_id):   
+    tile = mercantile.quadkey_to_tile(quadkey_id)    
+    # Format as tilecode_id
+    z = tile.z
+    x = tile.x
+    y = tile.y
+    # Get the bounds of the tile in (west, south, east, north)
+    bounds = mercantile.bounds(x, y, z)      
+    center_lat = (bounds.south + bounds.north) / 2
+    center_lon = (bounds.west + bounds.east) / 2
+
+    return center_lat, center_lon
+
+        
+   
 def tilecode2latlon(tilecode_id):
     """
     Calculates the center latitude and longitude of a tile given its tilecode_id.
@@ -175,10 +191,10 @@ def tilecode2latlon(tilecode_id):
     bounds = mercantile.bounds(x, y, z)
 
     # Calculate the center of the tile
-    center_longitude = (bounds.west + bounds.east) / 2
-    center_latitude = (bounds.south + bounds.north) / 2
+    center_lat = (bounds.south + bounds.north) / 2
+    center_lon = (bounds.west + bounds.east) / 2
 
-    return center_latitude, center_longitude
+    return center_lat, center_lon
 
 def tilecode2quadkey(tilecode_id):
     """
