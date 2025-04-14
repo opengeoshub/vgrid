@@ -17,7 +17,6 @@ def get_nearest_tilecode_resolution(raster_path):
         pixel_width = transform.a
         pixel_height = -transform.e
         cell_size = pixel_width*pixel_height
-        
         if crs.is_geographic: 
             # Latitude of the raster center
             center_latitude = (src.bounds.top + src.bounds.bottom) / 2
@@ -28,21 +27,20 @@ def get_nearest_tilecode_resolution(raster_path):
             pixel_width_m = pixel_width * meter_per_degree_lon
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
-       
-    # Find the nearest s2 resolution by comparing the pixel size to the s2 edge lengths
-    nearest_resolution = None
-    min_diff = float('inf')
         
-    # Check resolutions from 0 to 29
-    for res in range(30):
-        _, _, avg_area = tilecode_metrics(res)
-        diff = abs(avg_area - cell_size)        
-        # If the difference is smaller than the current minimum, update the nearest resolution
-        if diff < min_diff:
-            min_diff = diff
-            nearest_resolution = res
-    
-    return nearest_resolution
+        nearest_resolution = None
+        min_diff = float('inf')
+            
+        # Check resolutions from 0 to 29
+        for res in range(30):
+            _, _, avg_area = tilecode_metrics(res)
+            diff = abs(avg_area - cell_size)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+        
+        return nearest_resolution
 
 def convert_numpy_types(obj):
     """ Recursively convert NumPy types to native Python types """
@@ -121,7 +119,7 @@ def raster_to_tilecode(raster_path, resolution=None):
                 ])
                 
                 cell_resolution = z
-                tilecode_feature = graticule_dggs_to_feature("tilecode_id",tilecode_id,cell_resolution,cell_polygon)   
+                tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,cell_resolution,cell_polygon)   
                 band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
                 tilecode_feature["properties"].update(convert_numpy_types(band_properties) )
                 tilecode_features.append(tilecode_feature)               
@@ -134,7 +132,7 @@ def raster_to_tilecode(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to Tilecode Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Tilecode Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )

@@ -1341,3 +1341,183 @@ def tilecodeexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
 
+
+#################
+# Quadkey
+#################
+def quadkey_compact(quadkey_ids):
+    quadkey_ids = set(quadkey_ids)  # Remove duplicates
+    
+    # Main loop for compaction
+    while True:
+        grouped_quadkey_ids = defaultdict(set)
+        
+        # Group cells by their parent
+        for quadkey_id in quadkey_ids:
+            parent = tilecode.quadkey_parent(quadkey_id)
+            grouped_quadkey_ids[parent].add(quadkey_id)
+
+        new_quadkey_ids = set(quadkey_ids)
+        changed = False
+
+
+        # Check if we can replace children with parent
+        for parent, children in grouped_quadkey_ids.items():
+            parent_resolution = mercantile.quadkey_to_tile(parent).z
+
+            # Generate the subcells for the parent at the next resolution
+            childcells_at_next_res = set(childcell for childcell in tilecode.quadkey_children(parent,parent_resolution+1)) 
+            
+            # Check if the current children match the subcells at the next resolution
+            if children == childcells_at_next_res:
+                new_quadkey_ids.difference_update(children)  # Remove children
+                new_quadkey_ids.add(parent)  # Add the parent
+                changed = True  # A change occurred
+        
+        if not changed:
+            break  # Stop if no more compaction is possible
+        quadkey_ids = new_quadkey_ids  # Continue compacting
+    
+    return sorted(quadkey_ids)  # Sorted for consistency
+
+def quadkeycompact(geojson_data):
+    quadkey_ids = [feature["properties"]["quadkey"] for feature in geojson_data.get("features", []) if "quadkey" in feature.get("properties", {})]
+    quadkey_ids_compact = quadkey_compact(quadkey_ids)
+    quadkey_features = [] 
+    for quadkey_id_compact in tqdm(quadkey_ids_compact, desc="Compacting cells "):  
+        quadkey_id_compact_tile = mercantile.quadkey_to_tile(quadkey_id_compact)
+        # Convert matched groups to integers
+        z = quadkey_id_compact_tile.z
+        x = quadkey_id_compact_tile.x
+        y = quadkey_id_compact_tile.y
+
+        # Get the bounds of the tile in (west, south, east, north)
+        bounds = mercantile.bounds(x, y, z)    
+        if bounds:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = bounds.south, bounds.west
+            max_lat, max_lon = bounds.north, bounds.east
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            
+            cell_resolution = z
+            quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id_compact,cell_resolution,cell_polygon)   
+            quadkey_features.append(quadkey_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": quadkey_features
+    }
+    
+def quadkeycompact_cli():
+    """
+    Command-line interface for quadkeycompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact quadkey in a GeoJSON file containing a property named 'quadkey'")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input quadkey in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = quadkeycompact(geojson_data)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "quadkey_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
+def quadkey_expand(quadkey_ids, resolution):
+    expand_cells = []
+    for quadkey_id in tqdm(quadkey_ids, desc="Expanding child cells "): 
+        quadkey_tile = mercantile.quadkey_to_tile(quadkey_id)
+        cell_resolution = quadkey_tile.z
+        if cell_resolution >= resolution:
+            expand_cells.append(quadkey_id)
+        else:
+            expand_cells.extend(tilecode.quadkey_children(quadkey_id,resolution))  # Expand to the target level
+    return expand_cells
+
+def quadkeyexpand(geojson_data,resolution):
+    quadkey_ids = [feature["properties"]["quadkey"] for feature in geojson_data.get("features", []) if "quadkey" in feature.get("properties", {})]
+    quadkey_ids_expand = quadkey_expand(quadkey_ids, resolution)
+    quadkey_features = [] 
+    for quadkey_id_expand in tqdm(quadkey_ids_expand, desc="Expanding cells "):
+        quadkey_id_expand_tile = mercantile.quadkey_to_tile(quadkey_id_expand)
+        z = quadkey_id_expand_tile.z
+        x = quadkey_id_expand_tile.x
+        y = quadkey_id_expand_tile.y
+        
+        # Get the bounds of the tile in (west, south, east, north)
+        bounds = mercantile.bounds(x, y, z)    
+        if bounds:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = bounds.south, bounds.west
+            max_lat, max_lon = bounds.north, bounds.east
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            
+            resolution = z
+            quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id_expand,resolution,cell_polygon)   
+            quadkey_features.append(quadkey_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": quadkey_features
+    }
+    
+    
+def quadkeyexpand_cli():
+    """
+    Command-line interface for quadkeyexpand.
+    """
+    parser = argparse.ArgumentParser(description="expand quadkey in a GeoJSON file containing a property named 'quadkey'")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of quadkey to be expanded [0..29]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input quadkey in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+
+    if resolution < 0 or resolution > 29:
+        print(f"Please select a resolution in [0..29] range and try again ")
+        return
+    
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = quadkeyexpand(geojson_data,resolution)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"quadkey_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")

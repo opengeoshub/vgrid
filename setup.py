@@ -150,6 +150,8 @@ setup(
 
             'tilecodecompact = vgrid.conversion.dggscompact:tilecodecompact_cli',
             'tilecodeexpand = vgrid.conversion.dggscompact:tilecodeexpand_cli',
+            'quadkeycompact = vgrid.conversion.dggscompact:quadkeycompact_cli',
+            'quadkeyexpand = vgrid.conversion.dggscompact:quadkeyexpand_cli',
 
 
             # Resampling

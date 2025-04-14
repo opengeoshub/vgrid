@@ -433,8 +433,8 @@ def tilecode_list(zoom):
     
     return tilecode_ids
 
-def tilecode_children(tilecode, resolution):   
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode)
+def tilecode_children(tilecode_id, resolution):   
+    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -456,6 +456,24 @@ def tilecode_children(tilecode, resolution):
             children.append(f"z{resolution}x{child_x}y{child_y}")
 
     return children
+
+def quadkey_children(quadkey_id,resolution):
+    tile = mercantile.quadkey_to_tile(quadkey_id)
+    current_zoom = tile.z
+
+    if resolution <= current_zoom:
+        raise ValueError("Resolution must be greater than the tile's current zoom level")
+
+    tiles = [tile]
+
+    while tiles and tiles[0].z < resolution:
+        new_tiles = []
+        for t in tiles:
+            new_tiles.extend(mercantile.children(t))
+        tiles = new_tiles
+
+    return [mercantile.quadkey(t) for t in tiles]
+
 
 def tilecode_parent(tilecode):
     """
@@ -491,6 +509,14 @@ def tilecode_parent(tilecode):
     parent_tilecode = f"z{z_parent}x{x_parent}y{y_parent}"
 
     return parent_tilecode
+
+
+def quadkey_parent(quadkey_id):
+    tile = mercantile.quadkey_to_tile(quadkey_id)
+    parent_tile = mercantile.parent(tile)
+    parent_quadkey = mercantile.quadkey(parent_tile)
+    return parent_quadkey
+
 
 def tilecode_siblings(tilecode_id):
     """

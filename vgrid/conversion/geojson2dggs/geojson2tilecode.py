@@ -125,16 +125,16 @@ def polygon_to_grid(resolution, geometry,feature_properties,compact):
                     tilecode_feature["properties"].update(feature_properties)
                     tilecode_features.append(tilecode_feature)
 
-        tilecode_geosjon = {
-            "type": "FeatureCollection",
-            "features": tilecode_features
-        }
+    tilecode_geosjon = {
+        "type": "FeatureCollection",
+        "features": tilecode_features
+    }
 
-        if compact:
-            return tilecodecompact(tilecode_geosjon)
+    if compact:
+        return tilecodecompact(tilecode_geosjon)
 
 
-    return tilecode_geosjon
+    else: return tilecode_geosjon
 
 
 def main():

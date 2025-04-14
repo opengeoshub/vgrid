@@ -40,7 +40,6 @@ def get_nearest_isea4t_resolution(isea4t_dggs,raster_path):
                 pixel_height_m = pixel_height * meter_per_degree_lat
                 cell_size = pixel_width_m*pixel_height_m    
         
-        # Find the nearest isea4t resolution by comparing the pixel size to the isea4t edge lengths
         nearest_resolution = None
         min_diff = float('inf')
             
@@ -144,7 +143,7 @@ def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
     
        
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to ISEA4T Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to ISEA4T Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )

@@ -30,7 +30,6 @@ def get_nearest_geohash_resolution(raster_path):
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
        
-    # Find the nearest s2 resolution by comparing the pixel size to the s2 edge lengths
     nearest_resolution = None
     min_diff = float('inf')
         
@@ -112,7 +111,7 @@ def raster_to_geohash(raster_path, resolution=None):
                 [min_lon, max_lat],  # Top-left corner
                 [min_lon, min_lat]   # Closing the polygon (same as the first point)
             ])
-            geohash_feature = graticule_dggs_to_feature("geohash_id",geohash_id,cell_resolution,cell_polygon)   
+            geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,cell_resolution,cell_polygon)   
             band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
             geohash_feature["properties"].update(convert_numpy_types(band_properties) )
             geohash_features.append(geohash_feature)               
@@ -125,7 +124,7 @@ def raster_to_geohash(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to Geohash Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Geohash Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
@@ -133,7 +132,6 @@ def main():
     parser.add_argument(
         '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Geohash [1..10] to be generated"
     )
-
 
     args = parser.parse_args()
     raster = args.raster

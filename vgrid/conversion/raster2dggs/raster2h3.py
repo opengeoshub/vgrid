@@ -28,7 +28,6 @@ def get_nearest_h3_resolution(raster_path):
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
        
-    # Find the nearest s2 resolution by comparing the pixel size to the s2 edge lengths
     nearest_resolution = None
     min_diff = float('inf')
         
@@ -130,7 +129,7 @@ def raster_to_h3(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to H3 Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to H3 Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )

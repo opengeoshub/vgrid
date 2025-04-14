@@ -32,7 +32,6 @@ def get_nearest_rhealpix_resolution(raster_path):
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
        
-    # Find the nearest rhealpix resolution by comparing the pixel size to the rhealpix edge lengths
     nearest_resolution = None
     min_diff = float('inf')
         
@@ -126,7 +125,7 @@ def raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
  
        
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to Rhealpix Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Rhealpix Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )

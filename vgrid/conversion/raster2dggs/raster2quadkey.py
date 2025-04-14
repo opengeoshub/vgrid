@@ -29,7 +29,6 @@ def get_nearest_quadkey_resolution(raster_path):
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
        
-    # Find the nearest s2 resolution by comparing the pixel size to the s2 edge lengths
     nearest_resolution = None
     min_diff = float('inf')
         
@@ -118,7 +117,7 @@ def raster_to_quadkey(raster_path, resolution=None):
         ])
         
         cell_resolution = z
-        quadkey_feature = graticule_dggs_to_feature("quadkey_id",quadkey_id,cell_resolution,cell_polygon)   
+        quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,cell_resolution,cell_polygon)   
         band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
         quadkey_feature["properties"].update(convert_numpy_types(band_properties) )
         quadkey_features.append(quadkey_feature)               
@@ -131,7 +130,7 @@ def raster_to_quadkey(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster to Quadkey Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Quadkey Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )

@@ -1,18 +1,17 @@
 import os, argparse, json
 from tqdm import tqdm
 import rasterio
-from vgrid.utils.qtm import constructGeometry, qtm_id_to_facet
-
+from vgrid.utils import olc, mercantile
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
-from vgrid.stats.qtmstats import qtm_metrics
-from vgrid.generator.settings import geodesic_dggs_to_feature
+from vgrid.stats.olcstats import olc_metrics
+from vgrid.generator.settings import graticule_dggs_to_feature
 from math import cos, radians
 import re
-from vgrid.conversion.latlon2dggs import latlon2qtm
+from vgrid.conversion.latlon2dggs import latlon2olc
 
-def get_nearest_qtm_resolution(raster_path):
+def get_nearest_olc_resolution(raster_path):
     with rasterio.open(raster_path) as src:
         transform = src.transform
         crs = src.crs
@@ -31,12 +30,13 @@ def get_nearest_qtm_resolution(raster_path):
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
        
+    # Find the nearest s2 resolution by comparing the pixel size to the s2 edge lengths
     nearest_resolution = None
     min_diff = float('inf')
         
     # Check resolutions from 0 to 29
-    for res in range(1, 25):
-        _, _, avg_area = qtm_metrics(res)
+    for res in range(10,13):
+        _, _, avg_area = olc_metrics(res)
         diff = abs(avg_area - cell_size)        
         # If the difference is smaller than the current minimum, update the nearest resolution
         if diff < min_diff:
@@ -56,11 +56,11 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_qtm(raster_path, resolution=None):
-    # Step 1: Determine the nearest qtm resolution if none is provided
+def raster_to_olc(raster_path, resolution=None):
+    # Step 1: Determine the nearest olc resolution if none is provided
     if resolution is None:
-        resolution = get_nearest_qtm_resolution(raster_path)
-        print(f"Nearest qtm resolution determined: {resolution}")
+        resolution = get_nearest_olc_resolution(raster_path)
+        print(f"Nearest olc resolution determined: {resolution}")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -69,64 +69,74 @@ def raster_to_qtm(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    qtm_ids = set()
+    olc_ids = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
-            qtm_id = latlon2qtm(lat,lon,resolution)            
-            qtm_ids.add(qtm_id)
+            olc_id = latlon2olc(lat,lon,resolution)            
+            olc_ids.add(olc_id)
 
-    # Sample the raster values at the centroids of the qtm hexagons
-    qtm_data = []
+    # Sample the raster values at the centroids of the olc hexagons
+    olc_data = []
     
-    for qtm_id in qtm_ids:
-        # Get the centroid of the qtm cell
-        facet = qtm_id_to_facet(qtm_id)
-        cell_polygon = constructGeometry(facet)    
-        centroid = cell_polygon.centroid
-        centroid_lon, centroid_lat = centroid.x, centroid.y
-                
+    for olc_id in olc_ids:
+        # Get the centroid of the olc cell
+        coord = olc.decode(olc_id)
+        centroid_lat, centroid_lon = coord.latitudeCenter, coord.longitudeCenter
+        
         # Sample the raster values at the centroid (lat, lon)
         col, row = ~transform * (centroid_lon, centroid_lat)
         
         if 0 <= col < width and 0 <= row < height:
             # Get the values for all bands at this centroid
             values = raster_data[:, int(row), int(col)]
-            qtm_data.append({
-                "qtm": qtm_id,
+            olc_data.append({
+                "olc": olc_id,
                 # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
     # Create the GeoJSON-like structure
-    qtm_features = []
-    for data in tqdm(qtm_data, desc="Resampling", unit=" cells"):
-        qtm_id = data["qtm"]
-        facet = qtm_id_to_facet(qtm_id)
-        cell_polygon = constructGeometry(facet)    
-        cell_resolution = len(qtm_id)
-        num_edges = 3
-        qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id,cell_resolution,cell_polygon,num_edges)   
-        band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-        qtm_feature["properties"].update(convert_numpy_types(band_properties) )
-        qtm_features.append(qtm_feature)               
+    olc_features = []
+    for data in tqdm(olc_data, desc="Resampling", unit=" cells"):
+        olc_id = data["olc"]
+        coord = olc.decode(olc_id)    
+        if coord:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
+            max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
+            cell_resolution = coord.codeLength 
+
+            # Define the polygon based on the bounding box
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            
+            olc_feature = graticule_dggs_to_feature("olc",olc_id,cell_resolution,cell_polygon)   
+            band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
+            olc_feature["properties"].update(convert_numpy_types(band_properties) )
+            olc_features.append(olc_feature)               
             
     return {
         "type": "FeatureCollection",
-        "features": qtm_features,
+        "features": olc_features,
     }
- 
+
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to QTM Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to OLC/ Google Plus Code Grid")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of qtm [1..24] to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of olc [10..12] to be generated"
     )
 
 
@@ -138,17 +148,17 @@ def main():
         print(f"Error: The file {raster} does not exist.")
         return
     if resolution is not None:
-        if resolution < 1 or resolution > 24:
-            print(f"Please select a resolution in [1..24] range and try again ")
+        if resolution < 10 or resolution > 12:
+            print(f"Please select a resolution in [10..12] range and try again ")
             return
 
 
-    qtm_geojson = raster_to_qtm(raster, resolution)
+    olc_geojson = raster_to_olc(raster, resolution)
     geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2qtm.geojson"
+    geojson_path = f"{geojson_name}2olc.geojson"
    
     with open(geojson_path, 'w') as f:
-        json.dump(qtm_geojson, f)
+        json.dump(olc_geojson, f)
     
     print(f"GeoJSON saved as {geojson_path}")
 
