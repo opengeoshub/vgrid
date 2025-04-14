@@ -147,7 +147,9 @@ setup(
             'isea3hexpand = vgrid.conversion.dggscompact:isea3hexpand_cli',
             'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
             'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
-
+            
+            'geohashcompact = vgrid.conversion.dggscompact:geohashcompact_cli',
+            'geohashexpand = vgrid.conversion.dggscompact:geohashexpand_cli',
             'tilecodecompact = vgrid.conversion.dggscompact:tilecodecompact_cli',
             'tilecodeexpand = vgrid.conversion.dggscompact:tilecodeexpand_cli',
             'quadkeycompact = vgrid.conversion.dggscompact:quadkeycompact_cli',

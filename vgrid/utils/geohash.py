@@ -463,3 +463,21 @@ def expand_uint64(ui64, precision=50):
 		ranges.append((a,b))
 	
 	return ranges
+
+# Added by Vgrid:
+def geohash_parent(geohash_id):
+    """
+    Returns the parent geohash by reducing the precision by 1 character.
+    """
+    if not geohash_id or len(geohash_id) <= 1:
+        raise ValueError("Cannot get parent of an empty or single-character geohash.")
+    return geohash_id[:-1]
+
+def geohash_children(geohash_id, resolution):
+    if len(geohash_id) >= resolution:
+        return [geohash_id] if len(geohash_id) == resolution else []
+
+    children = [geohash_id]
+    while len(children[0]) < resolution:
+        children = [c + ch for c in children for ch in _base32]
+    return children

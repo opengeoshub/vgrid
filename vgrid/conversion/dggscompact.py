@@ -1152,6 +1152,170 @@ def easeexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}") 
 
+
+#################
+# geohash
+#################
+def geohash_compact(geohash_ids):
+    geohash_ids = set(geohash_ids)  # Remove duplicates
+    # Main loop for compaction
+    while True:
+        grouped_geohash_ids = defaultdict(set)        
+        # Group cells by their parent
+        for geohash_id in geohash_ids:
+            parent = geohash.geohash_parent(geohash_id)
+            grouped_geohash_ids[parent].add(geohash_id)
+
+        new_geohash_ids = set(geohash_ids)
+        changed = False
+
+
+        # Check if we can replace children with parent
+        for parent, children in grouped_geohash_ids.items():
+            parent_resolution =  len(parent)
+            # Generate the subcells for the parent at the next resolution
+            childcells_at_next_res = set(childcell for childcell in geohash.geohash_children(parent,parent_resolution+1)) 
+            
+            # Check if the current children match the subcells at the next resolution
+            if children == childcells_at_next_res:
+                new_geohash_ids.difference_update(children)  # Remove children
+                new_geohash_ids.add(parent)  # Add the parent
+                changed = True  # A change occurred
+        
+        if not changed:
+            break  # Stop if no more compaction is possible
+        geohash_ids = new_geohash_ids  # Continue compacting
+    
+    return sorted(geohash_ids)  # Sorted for consistency
+
+def geohashcompact(geojson_data):
+    geohash_ids = [feature["properties"]["geohash"] for feature in geojson_data.get("features", []) if "geohash" in feature.get("properties", {})]
+    geohash_ids_compact = geohash_compact(geohash_ids)
+    geohash_features = [] 
+    for geohash_id_compact in tqdm(geohash_ids_compact, desc="Compacting cells "):  
+        bbox =  geohash.bbox(geohash_id_compact)
+        if bbox:
+            min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
+            max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
+            cell_resolution =  len(geohash_id_compact)
+
+            # Define the polygon based on the bounding box
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_compact,cell_resolution,cell_polygon)   
+            geohash_features.append(geohash_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": geohash_features
+    }
+    
+def geohashcompact_cli():
+    """
+    Command-line interface for geohashcompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact Geohash in a GeoJSON file containing a property named 'geohash'")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = geohashcompact(geojson_data)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "geohash_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
+def geohash_expand(geohash_ids, resolution):
+    expand_cells = []
+    for geohash_id in tqdm(geohash_ids, desc="Expanding child cells "): 
+        cell_resolution = len(geohash_id)
+        if cell_resolution >= resolution:
+            expand_cells.append(geohash_id)
+        else:
+            expand_cells.extend(geohash.geohash_children(geohash_id,resolution))  # Expand to the target level
+    return expand_cells
+
+def geohashexpand(geojson_data,resolution):
+    geohash_ids = [feature["properties"]["geohash"] for feature in geojson_data.get("features", []) if "geohash" in feature.get("properties", {})]
+    geohash_ids_expand = geohash_expand(geohash_ids, resolution)
+    geohash_features = [] 
+    for geohash_id_expand in tqdm(geohash_ids_expand, desc="Expanding cells "):
+        bbox =  geohash.bbox(geohash_id_expand)
+        if bbox:
+            min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
+            max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
+
+            # Define the polygon based on the bounding box
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_expand,resolution,cell_polygon)   
+            geohash_features.append(geohash_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": geohash_features
+    }
+    
+    
+def geohashexpand_cli():
+    """
+    Command-line interface for geohashexpand.
+    """
+    parser = argparse.ArgumentParser(description="expand Geohash in a GeoJSON file containing a property named 'geohash'")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of geohash to be expanded [1..10]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input geohash in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+
+    if resolution < 1 or resolution > 10:
+        print(f"Please select a resolution in [0..29] range and try again ")
+        return
+    
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = geohashexpand(geojson_data,resolution)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"geohash_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
 #################
 # Tilecode
 #################
