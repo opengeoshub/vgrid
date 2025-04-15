@@ -550,3 +550,62 @@ class CodeArea(object):
 
     def latlng(self):
         return [self.latitudeCenter, self.longitudeCenter]
+
+# Added by Vgrid
+def olc_parent(olc_id):
+    if not isFull(olc_id):
+        raise ValueError(f"Passed Open Location Code is not a valid full code - {olc_id}")
+
+    code_area = decode(olc_id)
+    current_len = code_area.codeLength
+
+    if current_len <= 2:
+        raise ValueError("No parent exists for a 2-digit OLC")
+
+    # Determine parent resolution
+    if current_len <= 10:
+        parent_len = current_len - 2
+    else:
+        parent_len = current_len - 1
+
+    # Encode center at parent precision
+    lat_center = (code_area.latitudeLo + code_area.latitudeHi) / 2
+    lon_center = (code_area.longitudeLo + code_area.longitudeHi) / 2
+    parent_code = encode(lat_center, lon_center, parent_len)
+
+    return parent_code
+
+
+def olc_children(olc_id, resolution):
+    if not isFull(olc_id):
+        raise ValueError("Not a valid full OLC")
+
+    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
+        raise ValueError("Resolution must be in [2, 4, 6, 8, 10...15]")
+
+    parent = decode(olc_id)
+    lat_center = (parent.latitudeLo + parent.latitudeHi) / 2
+    lon_center = (parent.longitudeLo + parent.longitudeHi) / 2
+
+    parent_code_len = parent.codeLength
+    if resolution <= parent_code_len:
+        raise ValueError("Resolution must be greater than current OLC precision")
+
+    # Get dimensions of child at target resolution
+    res_box = decode(encode(lat_center, lon_center, resolution))
+    lat_step = res_box.latitudeHi - res_box.latitudeLo
+    lon_step = res_box.longitudeHi - res_box.longitudeLo
+
+    # Determine how many steps in each direction (for simplicity, full coverage)
+    lat_count = round((parent.latitudeHi - parent.latitudeLo) / lat_step)
+    lon_count = round((parent.longitudeHi - parent.longitudeLo) / lon_step)
+
+    children = []
+    for i in range(lat_count):
+        for j in range(lon_count):
+            lat = parent.latitudeLo + i * lat_step + lat_step / 2
+            lon = parent.longitudeLo + j * lon_step + lon_step / 2
+            child = encode(lat, lon, resolution)
+            children.append(child)
+
+    return children

@@ -1317,6 +1317,177 @@ def geohashexpand_cli():
 
 
 #################
+# OLC
+#################
+def olc_compact(olc_ids):
+    olc_ids = set(olc_ids)  # Remove duplicates
+    # Main loop for compaction
+    while True:
+        grouped_olc_ids = defaultdict(set)        
+        # Group cells by their parent
+        for olc_id in olc_ids:
+            parent = olc.olc_parent(olc_id)
+            grouped_olc_ids[parent].add(olc_id)
+
+        new_olc_ids = set(olc_ids)
+        changed = False
+
+        # Check if we can replace children with parent
+        for parent, children in grouped_olc_ids.items():
+            coord = olc.decode(parent) 
+            coord_len = coord.codeLength 
+            if coord_len <= 10:
+                next_resolution = coord_len + 2
+            else:
+                next_resolution = coord_len + 1
+          
+            # Generate the subcells for the parent at the next resolution
+            childcells_at_next_res = set(childcell for childcell in olc.olc_children(parent,next_resolution)) 
+            
+            # Check if the current children match the subcells at the next resolution
+            if children == childcells_at_next_res:
+                new_olc_ids.difference_update(children)  # Remove children
+                new_olc_ids.add(parent)  # Add the parent
+                changed = True  # A change occurred
+        
+        if not changed:
+            break  # Stop if no more compaction is possible
+        olc_ids = new_olc_ids  # Continue compacting
+    
+    return sorted(olc_ids)  # Sorted for consistency
+
+def olccompact(geojson_data):
+    olc_ids = [feature["properties"]["olc"] for feature in geojson_data.get("features", []) if "olc" in feature.get("properties", {})]
+    olc_ids_compact = olc_compact(olc_ids)
+    olc_features = [] 
+    for olc_id_compact in tqdm(olc_ids_compact, desc="Compacting cells "):  
+        coord = olc.decode(olc_id_compact)    
+        if coord:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
+            max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
+            cell_resolution = coord.codeLength 
+
+            # Define the polygon based on the bounding box
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            olc_feature = graticule_dggs_to_feature("olc",olc_id_compact,cell_resolution,cell_polygon)   
+            olc_features.append(olc_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": olc_features
+    }
+    
+def olccompact_cli():
+    """
+    Command-line interface for olccompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact olc in a GeoJSON file containing a property named 'olc'")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input olc in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = olccompact(geojson_data)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "olc_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
+def olc_expand(olc_ids, resolution):
+    expand_cells = []
+    for olc_id in tqdm(olc_ids, desc="Expanding child cells "): 
+        coord = olc.decode(olc_id)  
+        cell_resolution = coord.codeLength
+        if cell_resolution >= resolution:
+            expand_cells.append(olc_id)
+        else:
+            expand_cells.extend(olc.olc_children(olc_id,resolution))  # Expand to the target level
+    return expand_cells
+
+def olcexpand(geojson_data,resolution):
+    olc_ids = [feature["properties"]["olc"] for feature in geojson_data.get("features", []) if "olc" in feature.get("properties", {})]
+    olc_ids_expand = olc_expand(olc_ids, resolution)
+    olc_features = [] 
+    for olc_id_expand in tqdm(olc_ids_expand, desc="Expanding cells "):
+        coord = olc.decode(olc_id_expand)    
+        if coord:
+            # Create the bounding box coordinates for the polygon
+            min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
+            max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
+
+            # Define the polygon based on the bounding box
+            cell_polygon = Polygon([
+                [min_lon, min_lat],  # Bottom-left corner
+                [max_lon, min_lat],  # Bottom-right corner
+                [max_lon, max_lat],  # Top-right corner
+                [min_lon, max_lat],  # Top-left corner
+                [min_lon, min_lat]   # Closing the polygon (same as the first point)
+            ])
+            olc_feature = graticule_dggs_to_feature("olc",olc_id_expand,resolution,cell_polygon)   
+            olc_features.append(olc_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": olc_features
+    }
+    
+    
+def olcexpand_cli():
+    """
+    Command-line interface for olcexpand.
+    """
+    parser = argparse.ArgumentParser(description="expand olc in a GeoJSON file containing a property named 'olc'")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of olc to be expanded [2, 4, 6, 8, 10..15]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input olc in GeoJSON"
+    )
+
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+
+    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
+        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
+        return
+
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    geojson_features = olcexpand(geojson_data,resolution)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"olc_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+
+
+#################
 # Tilecode
 #################
 def tilecode_compact(tilecode_ids):

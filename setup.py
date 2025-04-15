@@ -105,6 +105,30 @@ setup(
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
 
+              # DGGS compact/ expand
+            'h3compact =  vgrid.conversion.dggscompact:h3compact_cli',
+            'h3expand =  vgrid.conversion.dggscompact:h3expand_cli',
+            's2compact =  vgrid.conversion.dggscompact:s2compact_cli',
+            's2expand =  vgrid.conversion.dggscompact:s2expand_cli',
+            'rhealpixcompact = vgrid.conversion.dggscompact:rhealpixcompact_cli',
+            'rhealpixexpand = vgrid.conversion.dggscompact:rhealpixexpand_cli',
+            'isea4tcompact = vgrid.conversion.dggscompact:isea4tcompact_cli',
+            'isea4texpand = vgrid.conversion.dggscompact:isea4texpand_cli',
+            'isea3hcompact = vgrid.conversion.dggscompact:isea3hcompact_cli',
+            'isea3hexpand = vgrid.conversion.dggscompact:isea3hexpand_cli',
+            'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
+            'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
+            
+            'olccompact = vgrid.conversion.dggscompact:olccompact_cli',
+            'olcexpand = vgrid.conversion.dggscompact:olcexpand_cli',
+            'geohashcompact = vgrid.conversion.dggscompact:geohashcompact_cli',
+            'geohashexpand = vgrid.conversion.dggscompact:geohashexpand_cli',
+            'tilecodecompact = vgrid.conversion.dggscompact:tilecodecompact_cli',
+            'tilecodeexpand = vgrid.conversion.dggscompact:tilecodeexpand_cli',
+            'quadkeycompact = vgrid.conversion.dggscompact:quadkeycompact_cli',
+            'quadkeyexpand = vgrid.conversion.dggscompact:quadkeyexpand_cli',
+
+
             # Raster to DGGS
             'raster2h3 = vgrid.conversion.raster2dggs.raster2h3:main',
             'raster2s2 = vgrid.conversion.raster2dggs.raster2s2:main',
@@ -133,28 +157,6 @@ setup(
             'csv2quadkey =  vgrid.conversion.csv2dggs:csv2quadkey',
             'csv2maidenhead =  vgrid.conversion.csv2dggs:csv2maidenhead',
             'csv2gars =  vgrid.conversion.csv2dggs:csv2gars',
-
-            # DGGS compact/ expand
-            'h3compact =  vgrid.conversion.dggscompact:h3compact_cli',
-            'h3expand =  vgrid.conversion.dggscompact:h3expand_cli',
-            's2compact =  vgrid.conversion.dggscompact:s2compact_cli',
-            's2expand =  vgrid.conversion.dggscompact:s2expand_cli',
-            'rhealpixcompact = vgrid.conversion.dggscompact:rhealpixcompact_cli',
-            'rhealpixexpand = vgrid.conversion.dggscompact:rhealpixexpand_cli',
-            'isea4tcompact = vgrid.conversion.dggscompact:isea4tcompact_cli',
-            'isea4texpand = vgrid.conversion.dggscompact:isea4texpand_cli',
-            'isea3hcompact = vgrid.conversion.dggscompact:isea3hcompact_cli',
-            'isea3hexpand = vgrid.conversion.dggscompact:isea3hexpand_cli',
-            'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
-            'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
-            
-            'geohashcompact = vgrid.conversion.dggscompact:geohashcompact_cli',
-            'geohashexpand = vgrid.conversion.dggscompact:geohashexpand_cli',
-            'tilecodecompact = vgrid.conversion.dggscompact:tilecodecompact_cli',
-            'tilecodeexpand = vgrid.conversion.dggscompact:tilecodeexpand_cli',
-            'quadkeycompact = vgrid.conversion.dggscompact:quadkeycompact_cli',
-            'quadkeyexpand = vgrid.conversion.dggscompact:quadkeyexpand_cli',
-
 
             # Resampling
             'resample =  vgrid.resampling.resample:main',
