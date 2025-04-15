@@ -1,10 +1,8 @@
-from vgrid.utils import s2, olc, geohash, georef, mgrs, mercantile, maidenhead, tilecode
-from vgrid.utils.gars import garsgrid
-from vgrid.utils.qtm import constructGeometry, qtm_id_to_facet
+from vgrid.utils import s2, olc, geohash,  mercantile, tilecode
+from vgrid.utils import qtm
 import h3
 
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.utils.rhealpixdggs.utils import my_round
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 import platform
 
@@ -13,9 +11,7 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.eaggr import Eaggr
     from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
     from vgrid.utils.eaggr.enums.model import Model
-    from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
     from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
-    from vgrid.generator.isea3hgrid import isea3h_res_accuracy_dict
 
 
 if (platform.system() == 'Linux'):
@@ -37,7 +33,7 @@ from vgrid.utils.antimeridian import fix_polygon
 from vgrid.generator.settings import graticule_dggs_to_feature, geodesic_dggs_to_feature,isea3h_accuracy_res_dict
 from vgrid.conversion.dggs2geojson import rhealpix_cell_to_polygon
 from vgrid.utils.easedggs.dggs.hierarchy import _parent_to_children
-from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geos_to_grid_ids, geo_polygon_to_grid_ids
+from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -45,7 +41,6 @@ E = WGS84_ELLIPSOID
 from collections import defaultdict
 
 from tqdm import tqdm
-rhealpix_dggs = RHEALPixDGGS()
 
 #################
 # H3
@@ -378,6 +373,7 @@ def rhealpixcompact_cli():
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Input Rhealpix in GeoJSON"
     )
+    rhealpix_dggs = RHEALPixDGGS()
 
     args = parser.parse_args()
     geojson = args.geojson
@@ -433,14 +429,15 @@ def rhealpixexpand(rhealpix_dggs,geojson_data,resolution):
            
 def rhealpixexpand_cli():
     """
-    Command-line interface for rhealpixcompact.
+    Command-line interface for rhealpixexpand.
     """
     parser = argparse.ArgumentParser(description="Uccompact Rhealpix in a GeoJSON file containing a rhealpix ID property named 'rhealpix'")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Input Rhealpix in GeoJSON"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of Rhealpix to be expanded [0..15]")
-
+    
+    rhealpix_dggs = RHEALPixDGGS()
 
     args = parser.parse_args()
     geojson = args.geojson
@@ -1171,13 +1168,7 @@ def qtm_compact(qtm_ids):
 
         # Check if we can replace children with parent
         for parent, children in grouped_qtm_ids.items():
-            coord = qtm.decode(parent) 
-            coord_len = coord.codeLength 
-            if coord_len <= 10:
-                next_resolution = coord_len + 2
-            else:
-                next_resolution = coord_len + 1
-          
+            next_resolution = len(parent)+1          
             # Generate the subcells for the parent at the next resolution
             childcells_at_next_res = set(childcell for childcell in qtm.qtm_children(parent,next_resolution)) 
             
@@ -1198,23 +1189,13 @@ def qtmcompact(geojson_data):
     qtm_ids_compact = qtm_compact(qtm_ids)
     qtm_features = [] 
     for qtm_id_compact in tqdm(qtm_ids_compact, desc="Compacting cells "):  
-        coord = qtm.decode(qtm_id_compact)    
-        if coord:
-            # Create the bounding box coordinates for the polygon
-            min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
-            max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
-            cell_resolution = coord.codeLength 
+        facet = qtm.qtm_id_to_facet(qtm_id_compact)
+        cell_polygon = qtm.constructGeometry(facet)    
+        cell_resolution = len(qtm_id_compact)
+        num_edges = 3
 
-            # Define the polygon based on the bounding box
-            cell_polygon = Polygon([
-                [min_lon, min_lat],  # Bottom-left corner
-                [max_lon, min_lat],  # Bottom-right corner
-                [max_lon, max_lat],  # Top-right corner
-                [min_lon, max_lat],  # Top-left corner
-                [min_lon, min_lat]   # Closing the polygon (same as the first point)
-            ])
-            qtm_feature = graticule_dggs_to_feature("qtm",qtm_id_compact,cell_resolution,cell_polygon)   
-            qtm_features.append(qtm_feature)
+        qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id_compact,cell_resolution,cell_polygon,num_edges)  
+        qtm_features.append(qtm_feature)
 
     return {
         "type": "FeatureCollection",
@@ -1225,9 +1206,9 @@ def qtmcompact_cli():
     """
     Command-line interface for qtmcompact.
     """
-    parser = argparse.ArgumentParser(description="Compact qtm in a GeoJSON file containing a property named 'qtm'")
+    parser = argparse.ArgumentParser(description="Compact QTM in GeoJSON format containing a property named 'qtm'")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input qtm in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON format"
     )
 
     args = parser.parse_args()
@@ -1253,35 +1234,24 @@ def qtmcompact_cli():
 def qtm_expand(qtm_ids, resolution):
     expand_cells = []
     for qtm_id in tqdm(qtm_ids, desc="Expanding child cells "): 
-        coord = qtm.decode(qtm_id)  
-        cell_resolution = coord.codeLength
+        cell_resolution = len(qtm_id)
         if cell_resolution >= resolution:
             expand_cells.append(qtm_id)
         else:
             expand_cells.extend(qtm.qtm_children(qtm_id,resolution))  # Expand to the target level
     return expand_cells
-
+      
 def qtmexpand(geojson_data,resolution):
     qtm_ids = [feature["properties"]["qtm"] for feature in geojson_data.get("features", []) if "qtm" in feature.get("properties", {})]
     qtm_ids_expand = qtm_expand(qtm_ids, resolution)
     qtm_features = [] 
     for qtm_id_expand in tqdm(qtm_ids_expand, desc="Expanding cells "):
-        coord = qtm.decode(qtm_id_expand)    
-        if coord:
-            # Create the bounding box coordinates for the polygon
-            min_lat, min_lon = coord.latitudeLo, coord.longitudeLo
-            max_lat, max_lon = coord.latitudeHi, coord.longitudeHi        
-
-            # Define the polygon based on the bounding box
-            cell_polygon = Polygon([
-                [min_lon, min_lat],  # Bottom-left corner
-                [max_lon, min_lat],  # Bottom-right corner
-                [max_lon, max_lat],  # Top-right corner
-                [min_lon, max_lat],  # Top-left corner
-                [min_lon, min_lat]   # Closing the polygon (same as the first point)
-            ])
-            qtm_feature = graticule_dggs_to_feature("qtm",qtm_id_expand,resolution,cell_polygon)   
-            qtm_features.append(qtm_feature)
+        facet = qtm.qtm_id_to_facet(qtm_id_expand)
+        cell_polygon = qtm.constructGeometry(facet)    
+        cell_resolution = len(qtm_id_expand)
+        num_edges = 3
+        qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id_expand,cell_resolution,cell_polygon,num_edges)  
+        qtm_features.append(qtm_feature)
 
     return {
         "type": "FeatureCollection",
@@ -1293,8 +1263,8 @@ def qtmexpand_cli():
     """
     Command-line interface for qtmexpand.
     """
-    parser = argparse.ArgumentParser(description="expand qtm in a GeoJSON file containing a property named 'qtm'")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of qtm to be expanded [2, 4, 6, 8, 10..15]")
+    parser = argparse.ArgumentParser(description="expand QTM in GeoJSON format containing a property named 'qtm'")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of qtm to be expanded [1..24]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="Input qtm in GeoJSON"
     )
@@ -1303,8 +1273,8 @@ def qtmexpand_cli():
     geojson = args.geojson
     resolution = args.resolution
 
-    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
-        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
+    if resolution < 1 or resolution > 24:
+        print(f"Please select a resolution in [1..24] and try again ")
         return
 
     if not os.path.exists(geojson):

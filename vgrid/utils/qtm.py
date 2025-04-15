@@ -250,6 +250,12 @@ def divideFacet(aFacet):
     # In all cases, return the four facets made in a list
     return [newFacet0, newFacet1, newFacet2, newFacet3]
 
+
+
+################ 
+# Added by Vgrid
+################
+
 def qtm_id_to_facet(qtm_id):    
     # Base octahedral face definitions (these define the initial 8 triangular faces of QTM)
     p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (90.0, -180.0), (90.0, -90.0), (90.0, 0.0), (90.0, 90.0), (90.0, 180.0)
@@ -317,3 +323,24 @@ def latlon_to_qtm_id(lat, lon, resolution):
                 break
 
     return qtm_id
+
+def qtm_parent(qtm_id):
+    if len(qtm_id) <= 1:
+        return None  # Root facets (1-8) have no parent
+    return qtm_id[:-1]
+
+def qtm_children(qtm_id, resolution=None):
+    if resolution is None:
+        resolution = len(qtm_id) + 1  # Default to next level
+
+    children = []
+
+    def recurse(current_id, current_resolution):
+        if current_resolution == resolution:
+            children.append(current_id)
+            return
+        for i in range(4):  # Subdivide into 4 sub-triangles
+            recurse(current_id + str(i), current_resolution + 1)
+
+    recurse(qtm_id, len(qtm_id))
+    return children

@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.3.1',
+    version='1.3.2',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -105,7 +105,7 @@ setup(
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
 
-              # DGGS compact/ expand
+            # DGGS compact/ expand
             'h3compact =  vgrid.conversion.dggscompact:h3compact_cli',
             'h3expand =  vgrid.conversion.dggscompact:h3expand_cli',
             's2compact =  vgrid.conversion.dggscompact:s2compact_cli',
@@ -118,7 +118,10 @@ setup(
             'isea3hexpand = vgrid.conversion.dggscompact:isea3hexpand_cli',
             'easecompact = vgrid.conversion.dggscompact:easecompact_cli',
             'easeexpand = vgrid.conversion.dggscompact:easeexpand_cli',
+            'qtmcompact = vgrid.conversion.dggscompact:qtmcompact_cli',
+            'qtmexpand = vgrid.conversion.dggscompact:qtmexpand_cli',
             
+
             'olccompact = vgrid.conversion.dggscompact:olccompact_cli',
             'olcexpand = vgrid.conversion.dggscompact:olcexpand_cli',
             'geohashcompact = vgrid.conversion.dggscompact:geohashcompact_cli',
