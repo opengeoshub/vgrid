@@ -1,4 +1,8 @@
-from . import mercantile
+################ 
+# Created by Vgrid
+################
+
+from vgrid.utils import mercantile
 import math
 from shapely.geometry import Polygon
 from shapely.ops import transform

@@ -464,7 +464,10 @@ def expand_uint64(ui64, precision=50):
 	
 	return ranges
 
-# Added by Vgrid:
+
+################ 
+# Added by Vgrid
+################
 def geohash_parent(geohash_id):
     """
     Returns the parent geohash by reducing the precision by 1 character.

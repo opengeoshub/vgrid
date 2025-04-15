@@ -22,6 +22,10 @@
 #   - nvector (see https://pypi.python.org/pypi/nvector and http://www.navlab.net/nvector),
 #   - OGR Python bindings (packaged with GDAL).
 
+################ 
+# Modified by Vgrid
+################
+
 import math
 from shapely.geometry import Point, Polygon, LinearRing
 

@@ -25,7 +25,6 @@ __copyright__ = '(C) 2019 Planet Inc, https://planet.com'
 # This will get replaced with a git SHA1 when you do a git archive
 __revision__ = '$Format:%H$'
 
-
 import os
 import sys
 import re
@@ -901,6 +900,10 @@ def _clean_mgrs_str(s):
     log.debug('out: {0}'.format(s))
     return s
 
+
+################ 
+# Added by Vgrid
+################
 def get_precision_and_grid_size(mgrs_code):
     """Get the precision and grid size of the MGRS code based on its length.
 

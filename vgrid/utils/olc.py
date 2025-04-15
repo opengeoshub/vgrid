@@ -551,7 +551,11 @@ class CodeArea(object):
     def latlng(self):
         return [self.latitudeCenter, self.longitudeCenter]
 
+
+################ 
 # Added by Vgrid
+################
+
 def olc_parent(olc_id):
     if not isFull(olc_id):
         raise ValueError(f"Passed Open Location Code is not a valid full code - {olc_id}")

@@ -140,6 +140,10 @@ def decode(georef, centerp=False):
     prec = prec1
     return(lat, lon, prec)
 
+
+################ 
+# Added by Vgrid
+################
 def georefcell(georef_code):
     # Decode the GEOREF code to get the center coordinates and precision
     center_lat, center_lon, precision = decode(georef_code, True) #True for center point, not bottom-left
