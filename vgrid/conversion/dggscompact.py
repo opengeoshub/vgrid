@@ -34,6 +34,7 @@ from vgrid.generator.settings import graticule_dggs_to_feature, geodesic_dggs_to
 from vgrid.conversion.dggs2geojson import rhealpix_cell_to_polygon
 from vgrid.utils.easedggs.dggs.hierarchy import _parent_to_children
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
+from vgrid.generator.geohashgrid import geohash_to_polygon
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -1505,22 +1506,10 @@ def geohashcompact(geojson_data):
     geohash_ids_compact = geohash_compact(geohash_ids)
     geohash_features = [] 
     for geohash_id_compact in tqdm(geohash_ids_compact, desc="Compacting cells "):  
-        bbox =  geohash.bbox(geohash_id_compact)
-        if bbox:
-            min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
-            max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
-            cell_resolution =  len(geohash_id_compact)
-
-            # Define the polygon based on the bounding box
-            cell_polygon = Polygon([
-                [min_lon, min_lat],  # Bottom-left corner
-                [max_lon, min_lat],  # Bottom-right corner
-                [max_lon, max_lat],  # Top-right corner
-                [min_lon, max_lat],  # Top-left corner
-                [min_lon, min_lat]   # Closing the polygon (same as the first point)
-            ])
-            geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_compact,cell_resolution,cell_polygon)   
-            geohash_features.append(geohash_feature)
+        cell_polygon = geohash_to_polygon(geohash_id_compact)
+        cell_resolution =  len(geohash_id_compact)
+        geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_compact,cell_resolution,cell_polygon)   
+        geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",
@@ -1571,21 +1560,10 @@ def geohashexpand(geojson_data,resolution):
     geohash_ids_expand = geohash_expand(geohash_ids, resolution)
     geohash_features = [] 
     for geohash_id_expand in tqdm(geohash_ids_expand, desc="Expanding cells "):
-        bbox =  geohash.bbox(geohash_id_expand)
-        if bbox:
-            min_lat, min_lon = bbox['s'], bbox['w']  # Southwest corner
-            max_lat, max_lon = bbox['n'], bbox['e']  # Northeast corner        
-
-            # Define the polygon based on the bounding box
-            cell_polygon = Polygon([
-                [min_lon, min_lat],  # Bottom-left corner
-                [max_lon, min_lat],  # Bottom-right corner
-                [max_lon, max_lat],  # Top-right corner
-                [min_lon, max_lat],  # Top-left corner
-                [min_lon, min_lat]   # Closing the polygon (same as the first point)
-            ])
-            geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_expand,resolution,cell_polygon)   
-            geohash_features.append(geohash_feature)
+        cell_polygon = geohash_to_polygon(geohash_id_expand)
+        cell_resolution =  len(geohash_id_expand)
+        geohash_feature = graticule_dggs_to_feature("geohash",geohash_id_expand,cell_resolution,cell_polygon)   
+        geohash_features.append(geohash_feature)
 
     return {
         "type": "FeatureCollection",

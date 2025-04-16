@@ -32,15 +32,66 @@ def point_to_grid(resolution, point,feature_properties):
         "features": olc_features,
     }
 
-def polyline_to_grid(resolution, geometry,feature_properties):
-    if geometry.geom_type == 'LineString':
-        # Handle single Polygon as before
-        polylines = [geometry]
-    elif geometry.geom_type == 'MultiLineString':
-        # Handle MultiPolygon: process each polygon separately
-        polylines = list(geometry)
+# def polyline_to_grid(resolution, geometry,feature_properties):
+#     if geometry.geom_type == 'LineString':
+#         # Handle single Polygon as before
+#         polylines = [geometry]
+#     elif geometry.geom_type == 'MultiLineString':
+#         # Handle MultiPolygon: process each polygon separately
+#         polylines = list(geometry)
 
-    for polyline in polylines:  
+#     for polyline in polylines:  
+#         base_resolution = 2
+#         base_cells = generate_grid(base_resolution)
+
+#         # Step 2: Identify seed cells that intersect with the bounding box
+#         seed_cells = []
+#         for base_cell in base_cells["features"]:
+#             base_cell_poly = Polygon(base_cell["geometry"]["coordinates"][0])
+#             if polyline.intersects(base_cell_poly):
+#                 seed_cells.append(base_cell)
+
+#         refined_features = []
+
+#         # Step 3: Iterate over seed cells and refine to the output resolution
+#         for seed_cell in seed_cells:
+#             seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
+
+#             if seed_cell_poly.contains(polyline) and resolution == base_resolution:
+#                 # Append the seed cell directly if fully contained and resolution matches
+#                 refined_features.append(seed_cell)
+#             else:
+#                 # Refine the seed cell to the output resolution and add it to the output
+#                 refined_features.extend(
+#                     refine_cell(seed_cell_poly.bounds, base_resolution, resolution, polyline)
+#                 )
+
+#             resolution_features = [
+#                 refined_feature for refined_feature in refined_features if refined_feature["properties"]["resolution"] == resolution
+#             ]
+
+#             olc_features = []
+#             seen_olc_codes = set()  # Reset the set for final feature filtering
+
+#             for resolution_feature in resolution_features:
+#                 olc_id = resolution_feature["properties"]["olc"]
+#                 if olc_id not in seen_olc_codes:  # Check if OLC code is already in the set
+#                     resolution_feature["properties"].update(feature_properties)
+#                     olc_features.append(resolution_feature)
+#                     seen_olc_codes.add(olc_id)
+
+#             return {
+#                 "type": "FeatureCollection",
+#                 "features": olc_features
+#             }
+
+def poly_to_grid(resolution, geometry,feature_properties,compact):
+    if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
+        polys = [geometry]
+    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'MultiPolygon':
+        polys = list(geometry)
+
+    for poly in polys:  
         base_resolution = 2
         base_cells = generate_grid(base_resolution)
 
@@ -48,7 +99,7 @@ def polyline_to_grid(resolution, geometry,feature_properties):
         seed_cells = []
         for base_cell in base_cells["features"]:
             base_cell_poly = Polygon(base_cell["geometry"]["coordinates"][0])
-            if polyline.intersects(base_cell_poly):
+            if poly.intersects(base_cell_poly):
                 seed_cells.append(base_cell)
 
         refined_features = []
@@ -57,64 +108,13 @@ def polyline_to_grid(resolution, geometry,feature_properties):
         for seed_cell in seed_cells:
             seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
 
-            if seed_cell_poly.contains(polyline) and resolution == base_resolution:
+            if seed_cell_poly.contains(poly) and resolution == base_resolution:
                 # Append the seed cell directly if fully contained and resolution matches
                 refined_features.append(seed_cell)
             else:
                 # Refine the seed cell to the output resolution and add it to the output
                 refined_features.extend(
-                    refine_cell(seed_cell_poly.bounds, base_resolution, resolution, polyline)
-                )
-
-            resolution_features = [
-                refined_feature for refined_feature in refined_features if refined_feature["properties"]["resolution"] == resolution
-            ]
-
-            olc_features = []
-            seen_olc_codes = set()  # Reset the set for final feature filtering
-
-            for resolution_feature in resolution_features:
-                olc_id = resolution_feature["properties"]["olc"]
-                if olc_id not in seen_olc_codes:  # Check if OLC code is already in the set
-                    resolution_feature["properties"].update(feature_properties)
-                    olc_features.append(resolution_feature)
-                    seen_olc_codes.add(olc_id)
-
-            return {
-                "type": "FeatureCollection",
-                "features": olc_features
-            }
-
-def polygon_to_grid(resolution, geometry,feature_properties,compact):
-    if geometry.geom_type == 'Polygon':
-        polygons = [geometry]
-    elif geometry.geom_type == 'Multipolygon':
-        polygons = list(geometry)
-
-    for polgon in polygons:  
-        base_resolution = 2
-        base_cells = generate_grid(base_resolution)
-
-        # Step 2: Identify seed cells that intersect with the bounding box
-        seed_cells = []
-        for base_cell in base_cells["features"]:
-            base_cell_poly = Polygon(base_cell["geometry"]["coordinates"][0])
-            if polgon.intersects(base_cell_poly):
-                seed_cells.append(base_cell)
-
-        refined_features = []
-
-        # Step 3: Iterate over seed cells and refine to the output resolution
-        for seed_cell in seed_cells:
-            seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
-
-            if seed_cell_poly.contains(polgon) and resolution == base_resolution:
-                # Append the seed cell directly if fully contained and resolution matches
-                refined_features.append(seed_cell)
-            else:
-                # Refine the seed cell to the output resolution and add it to the output
-                refined_features.extend(
-                    refine_cell(seed_cell_poly.bounds, base_resolution, resolution, polgon)
+                    refine_cell(seed_cell_poly.bounds, base_resolution, resolution, poly)
                 )
 
             resolution_features = [
@@ -188,14 +188,14 @@ def main():
             if feature['geometry']['type'] == 'LineString':
                 # Directly process LineString geometry
                 polyline = LineString(coordinates)
-                polyline_features = polyline_to_grid(resolution, polyline,feature_properties)
+                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
                 # Iterate through each line in MultiLineString geometry
                 for line_coords in coordinates:
                     polyline = LineString(line_coords)  # Use each part's coordinates
-                    polyline_features = polyline_to_grid(resolution, polyline,feature_properties)
+                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                     geojson_features.extend(polyline_features['features'])
             
         elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -206,7 +206,7 @@ def main():
                 exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
                 interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = polygon_to_grid(resolution, polygon,feature_properties,compact)
+                polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -215,7 +215,7 @@ def main():
                     exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
                     interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = polygon_to_grid(resolution, polygon,feature_properties,compact)
+                    polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
                     geojson_features.extend(polygon_features['features'])
 
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]

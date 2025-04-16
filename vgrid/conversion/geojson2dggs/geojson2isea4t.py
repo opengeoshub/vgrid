@@ -38,66 +38,29 @@ def point_to_grid(isea4t_dggs, resolution, point,feature_properties):
     }
 
 
-# Function to generate grid for Polyline
-def polyline_to_grid(isea4t_dggs, resolution, geometry,feature_properties):    
+def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact=None):    
     isea4t_features = []
-    if geometry.geom_type == 'LineString':
-        polylines = [geometry]
-    elif geometry.geom_type == 'MultiLineString':
-        polylines = list(geometry)
 
-    for polyline in polylines:
+    if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
+        polys = [geometry]
+    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'MultiPolygon':
+        polys = list(geometry)
+
+    for poly in polys:
         accuracy = isea4t_res_accuracy_dict.get(resolution)
-        bounding_box = box(*polyline.bounds)
+        bounding_box = box(*poly.bounds)
         bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
         shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
         shape =  shapes[0]
         # for shape in shapes:
         bbox_cells = shape.get_shape().get_outer_ring().get_cells()
         bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-        bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
-        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
-            isea4t_cell = DggsCell(child)
-            cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
-            isea4t_id = isea4t_cell.get_cell_id()
-
-            if isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
-                cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
-            
-            if cell_polygon.intersects(polyline):
-                num_edges = 3
-                isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
-                isea4t_feature["properties"].update(feature_properties)
-                isea4t_features.append(isea4t_feature)          
-               
-    return {
-        "type": "FeatureCollection",
-        "features": isea4t_features,
-    }
-
-# Function to generate grid for Polygon
-def polygon_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact):    
-    isea4t_features = []
-    if geometry.geom_type == 'Polygon':
-        polygons = [geometry]
-    elif geometry.geom_type == 'MultiPolygon':
-        polygons = list(geometry)
-
-    for polygon in polygons:
-        accuracy = isea4t_res_accuracy_dict.get(resolution)
-        bounding_box = box(*polygon.bounds)
-        bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
-        shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-        shape =  shapes[0]
-        # for shape in shapes:
-        bbox_cells = shape.get_shape().get_outer_ring().get_cells()
-        bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
-        bounding_children_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
+        bounding_child_cells = get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell.get_cell_id(), bounding_box,resolution)
        
         if compact:
-            bounding_children_cells = isea4t_compact(isea4t_dggs,bounding_children_cells)
+            bounding_child_cells = isea4t_compact(isea4t_dggs,bounding_child_cells)
 
-        for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+        for child in tqdm(bounding_child_cells, desc="Processing cells", unit=" cells"):
             isea4t_cell = DggsCell(child)
             cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
             isea4t_id = isea4t_cell.get_cell_id()
@@ -105,7 +68,7 @@ def polygon_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact
             if isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14') or isea4t_id.startswith('04') or isea4t_id.startswith('19'):
                 cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
             
-            if cell_polygon.intersects(polygon):
+            if cell_polygon.intersects(poly):
                 num_edges = 3
                 isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
                 isea4t_feature["properties"].update(feature_properties)
@@ -124,7 +87,7 @@ def main():
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
-    parser.add_argument('-compact', action='store_true', help="Enable ISEA4T compact mode")
+    parser.add_argument('-compact', action='store_true', help="Enable ISEA4T compact mode - for polygon only")
 
     if (platform.system() == 'Windows'):
         isea4t_dggs = Eaggr(Model.ISEA4T)
@@ -166,14 +129,14 @@ def main():
                 if feature['geometry']['type'] == 'LineString':
                     # Directly process LineString geometry
                     polyline = LineString(coordinates)
-                    polyline_features = polyline_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
+                    polyline_features = poly_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
                     geojson_features.extend(polyline_features['features'])
 
                 elif feature['geometry']['type'] == 'MultiLineString':
                     # Iterate through each line in MultiLineString geometry
                     for line_coords in coordinates:
                         polyline = LineString(line_coords)  # Use each part's coordinates
-                        polyline_features = polyline_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
+                        polyline_features = poly_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
                         geojson_features.extend(polyline_features['features'])
                 
             elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -184,7 +147,7 @@ def main():
                     exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
                     interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = polygon_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
+                    polygon_features = poly_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
                     geojson_features.extend(polygon_features['features'])
 
                 elif feature['geometry']['type'] == 'MultiPolygon':
@@ -193,7 +156,7 @@ def main():
                         exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
                         interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
                         polygon = Polygon(exterior_ring, interior_rings)
-                        polygon_features = polygon_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
+                        polygon_features = poly_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
                         geojson_features.extend(polygon_features['features'])
 
         geojson_name = os.path.splitext(os.path.basename(geojson))[0]

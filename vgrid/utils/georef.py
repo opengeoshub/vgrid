@@ -144,14 +144,14 @@ def decode(georef, centerp=False):
 ################ 
 # Added by Vgrid
 ################
-def georefcell(georef_code):
-    # Decode the GEOREF code to get the center coordinates and precision
-    center_lat, center_lon, precision = decode(georef_code, True) #True for center point, not bottom-left
+def georefcell(georef_id):
+    # Decode the GEOREF code to get the center coordinates and resolution
+    center_lat, center_lon, resolution = decode(georef_id, True) #True for center point, not bottom-left
     grid_size = 15 # degrees
-    if precision == 1:
+    if resolution == 1:
         grid_size == 1
-    if precision > 1:
-        grid_size = 1 / (10 ** precision)
+    if resolution > 1:
+        grid_size = 1 / (10 ** resolution)
 
     min_lon = float(int(center_lon // grid_size) * grid_size)
     max_lon = min_lon + grid_size
@@ -161,4 +161,4 @@ def georefcell(georef_code):
     # print(f"Origins: ({center_lat}, {center_lon}), "
     #     f"BBox: Min({min_lon}, {min_lat}), Max({max_lon}, {max_lat})")
 
-    return center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, precision
+    return center_lat, center_lon, min_lat, min_lon, max_lat, max_lon, resolution

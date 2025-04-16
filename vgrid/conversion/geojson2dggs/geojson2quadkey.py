@@ -38,19 +38,15 @@ def point_to_grid(resolution, point, feature_properties):
         "features": quadkey_features
     }
 
-# Function to generate grid for Polyline
-def polyline_to_grid(resolution, geometry,feature_properties):
+def poly_to_grid(resolution, geometry,feature_properties,compact=None):
     quadkey_features = []
-    # Extract points from polyline
-    if geometry.geom_type == 'LineString':
-        # Handle single Polygon as before
-        polygons = [geometry]
-    elif geometry.geom_type == 'MultiLineString':
-        # Handle MultiPolygon: process each polygon separately
-        polygons = list(geometry)
+    if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon' :
+        polys = [geometry]
+    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'MultiPolygon' :
+        polys = list(geometry)
 
-    for polygon in polygons:    
-        min_lon, min_lat, max_lon, max_lat = polygon.bounds
+    for poly in polys:    
+        min_lon, min_lat, max_lon, max_lat = poly.bounds
         tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
         for tile in tiles:
             z, x, y = tile.z, tile.x, tile.y
@@ -68,46 +64,7 @@ def polyline_to_grid(resolution, geometry,feature_properties):
                     [min_lon, max_lat],  # Top-left corner
                     [min_lon, min_lat]   # Closing the polygon (same as the first point)
                 ])
-                if cell_polygon.intersects(polygon):
-                    quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon) 
-                    quadkey_feature["properties"].update(feature_properties)
-                    quadkey_features.append(quadkey_feature)
-
-    return {
-        "type": "FeatureCollection",
-        "features": quadkey_features
-    }
-
-
-def polygon_to_grid(resolution, geometry,feature_properties,compact):
-    quadkey_features = []
-    if geometry.geom_type == 'Polygon':
-        # Handle single Polygon as before
-        polygons = [geometry]
-    elif geometry.geom_type == 'MultiPolygon':
-        # Handle MultiPolygon: process each polygon separately
-        polygons = list(geometry)
-
-    for polygon in polygons:    
-        min_lon, min_lat, max_lon, max_lat = polygon.bounds
-        tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-        for tile in tiles:
-            z, x, y = tile.z, tile.x, tile.y
-            bounds = mercantile.bounds(x, y, z)
-            if bounds:
-                # Create the bounding box coordinates for the polygon
-                min_lat, min_lon = bounds.south, bounds.west
-                max_lat, max_lon = bounds.north, bounds.east
-                quadkey_id = mercantile.quadkey(tile)
-                
-                cell_polygon = Polygon([
-                    [min_lon, min_lat],  # Bottom-left corner
-                    [max_lon, min_lat],  # Bottom-right corner
-                    [max_lon, max_lat],  # Top-right corner
-                    [min_lon, max_lat],  # Top-left corner
-                    [min_lon, min_lat]   # Closing the polygon (same as the first point)
-                ])
-                if cell_polygon.intersects(polygon):
+                if cell_polygon.intersects(poly):
                     quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon) 
                     quadkey_feature["properties"].update(feature_properties)
                     quadkey_features.append(quadkey_feature)
@@ -174,14 +131,14 @@ def main():
             if feature['geometry']['type'] == 'LineString':
                 # Directly process LineString geometry
                 polyline = LineString(coordinates)
-                polyline_features = polyline_to_grid(resolution, polyline,feature_properties)
+                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
                 # Iterate through each line in MultiLineString geometry
                 for line_coords in coordinates:
                     polyline = LineString(line_coords)  # Use each part's coordinates
-                    polyline_features = polyline_to_grid(resolution, polyline,feature_properties)
+                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
                     geojson_features.extend(polyline_features['features'])
             
         elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -192,7 +149,7 @@ def main():
                 exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
                 interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = polygon_to_grid(resolution, polygon,feature_properties,compact)
+                polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -201,7 +158,7 @@ def main():
                     exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
                     interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = polygon_to_grid(resolution, polygon,feature_properties,compact)
+                    polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
                     geojson_features.extend(polygon_features['features'])
 
     # Save the results to GeoJSON
