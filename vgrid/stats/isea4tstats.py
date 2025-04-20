@@ -9,8 +9,8 @@ import platform
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
+
 if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     from vgrid.utils.eaggr.eaggr import Eaggr

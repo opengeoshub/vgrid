@@ -4,8 +4,7 @@ import csv
 import h3
 from texttable import Texttable
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
 
 def h3_stats(output_file=None):
     min_res=0

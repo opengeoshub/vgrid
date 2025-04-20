@@ -4,8 +4,7 @@ import csv
 import math
 from texttable import Texttable
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
 
 def s2_metrics(res):
     earth_surface_area_km2 = 510_065_621.724 # 510.1 million square kilometers

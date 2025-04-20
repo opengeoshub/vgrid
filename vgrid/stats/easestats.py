@@ -4,8 +4,7 @@ import csv
 from vgrid.utils.easedggs.constants import levels_specs
 from texttable import Texttable
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
 
 def ease_stats( output_file=None):
     min_res=0

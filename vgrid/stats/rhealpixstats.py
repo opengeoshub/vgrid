@@ -5,8 +5,8 @@ from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round, wrap_longitude, wrap_latitude
 from texttable import Texttable
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
+
 rdggs = RHEALPixDGGS()
 
 def rhealpix_metrics(res):

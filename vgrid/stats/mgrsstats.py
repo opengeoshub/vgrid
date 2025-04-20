@@ -3,8 +3,7 @@ import argparse
 import csv
 from texttable import Texttable
 
-current_locale = locale.getlocale()  # Get the current locale setting
-locale.setlocale(locale.LC_ALL, current_locale)  # Set locale to current to format numbers
+locale.setlocale(locale.LC_ALL, '')
 
 def mgrs_metrics(res):
     latitude_degrees = 8  # The latitude span of each GZD cell in degrees

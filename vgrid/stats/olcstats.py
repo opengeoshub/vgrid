@@ -10,6 +10,9 @@ from shapely.geometry import Polygon,mapping
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
+locale.setlocale(locale.LC_ALL, '')
+
+
 def olc_metrics(res):
     lat,lon = 10.775275567242561, 106.70679737574993
     olc_code = latlon2olc(lat,lon, res)

@@ -5,7 +5,6 @@ import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
 from vgrid.stats.rhealpixstats import rhealpix_metrics
-from vgrid.utils.antimeridian import fix_polygon
 from vgrid.generator.settings import geodesic_dggs_metrics, geodesic_dggs_to_feature
 from math import cos, radians
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS

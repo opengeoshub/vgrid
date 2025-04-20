@@ -143,7 +143,7 @@ setup(
             'raster2tilecode = vgrid.conversion.raster2dggs.raster2tilecode:main',
             'raster2quadkey = vgrid.conversion.raster2dggs.raster2quadkey:main',
 
-            # CSV to DGGS Cell
+            # CSV to DGGS Cell 
             'csv2h3 =  vgrid.conversion.csv2dggs:csv2h3',
             'csv2s2 =  vgrid.conversion.csv2dggs:csv2s2',
             'csv2rhealpix =  vgrid.conversion.csv2dggs:csv2rhealpix',

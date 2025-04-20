@@ -437,7 +437,7 @@ def tilecode_list(zoom):
     
     return tilecode_ids
 
-def tilecode_children(tilecode_id, resolution):   
+def tilecode_children(tilecode_id, resolution=None):   
     match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
@@ -446,6 +446,9 @@ def tilecode_children(tilecode_id, resolution):
     x = int(match.group(2))
     y = int(match.group(3))
 
+    if not resolution:
+        resolution = z+1
+        
     if resolution <= z:
         raise ValueError("target_zoom must be greater than the tile's current resolution")
 
