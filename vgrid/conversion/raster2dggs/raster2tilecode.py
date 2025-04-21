@@ -31,8 +31,8 @@ def get_nearest_tilecode_resolution(raster_path):
         nearest_resolution = None
         min_diff = float('inf')
             
-        # Check resolutions from 0 to 29
-        for res in range(30):
+        # Check resolutions from 0 to 26
+        for res in range(27):
             _, _, avg_area = tilecode_metrics(res)
             diff = abs(avg_area - cell_size)        
             # If the difference is smaller than the current minimum, update the nearest resolution
@@ -138,7 +138,7 @@ def main():
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Tilecode [0..29] to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Tilecode [0..26] to be generated"
     )
 
 
@@ -150,8 +150,8 @@ def main():
         print(f"Error: The file {raster} does not exist.")
         return
     if resolution is not None:
-        if resolution < 0 or resolution > 29:
-            print(f"Please select a resolution in [0..29] range and try again ")
+        if resolution < 0 or resolution > 26:
+            print(f"Please select a resolution in [0..26] range and try again ")
             return
 
 

@@ -160,6 +160,10 @@ setup(
             'csv2quadkey =  vgrid.conversion.csv2dggs:csv2quadkey',
             'csv2maidenhead =  vgrid.conversion.csv2dggs:csv2maidenhead',
             'csv2gars =  vgrid.conversion.csv2dggs:csv2gars',
+            
+            # Data binning
+            'h3binning =  vgrid.binning.h3binning:main',
+
 
             # Resampling
             'resample =  vgrid.resampling.resample:main',

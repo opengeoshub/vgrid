@@ -283,6 +283,7 @@ def qtm_id_to_facet(qtm_id):
         facet = divideFacet(facet)[int(qtm_id[level])]
 
     return facet
+#   return facet[:-1]  # Drop the True/False flag
 
 def latlon_to_qtm_id(lat, lon, resolution):   
     # Base octahedral face definitions
@@ -323,6 +324,21 @@ def latlon_to_qtm_id(lat, lon, resolution):
                 break
 
     return qtm_id
+
+def qtm_id_to_latlon(qtm_id):
+    # Retrieve the facet corresponding to this QTM ID
+    facet = qtm_id_to_facet(qtm_id)
+
+    # Exclude the last element if it's a string (e.g., 'a', 'b', 'c', 'd')
+    coords = facet[:-1] if isinstance(facet[-1], str) else facet
+
+    # Calculate the average latitude and longitude
+    latitudes = [lat for lat, lon in coords]
+    longitudes = [lon for lat, lon in coords]
+    avg_latitude = sum(latitudes) / len(latitudes)
+    avg_longitude = sum(longitudes) / len(longitudes)
+
+    return avg_latitude, avg_longitude
 
 def qtm_parent(qtm_id):
     if len(qtm_id) <= 1:

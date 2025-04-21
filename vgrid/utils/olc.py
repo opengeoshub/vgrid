@@ -556,6 +556,12 @@ class CodeArea(object):
 # Added by Vgrid
 ################
 
+def olc_to_latlon(olc_id):
+    code_area = decode(olc_id)
+    center_lat = (code_area.latitudeLo + code_area.latitudeHi) / 2
+    center_lng = (code_area.longitudeLo + code_area.longitudeHi) / 2
+    return center_lat, center_lng
+
 def olc_parent(olc_id):
     if not isFull(olc_id):
         raise ValueError(f"Passed Open Location Code is not a valid full code - {olc_id}")
