@@ -162,7 +162,7 @@ setup(
             'csv2gars =  vgrid.conversion.csv2dggs:csv2gars',
             
             # Data binning
-            'h3binning =  vgrid.binning.h3binning:main',
+            'h3bin =  vgrid.binning.h3bin:main',
 
 
             # Resampling
