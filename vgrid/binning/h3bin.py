@@ -3,12 +3,12 @@ from collections import defaultdict,Counter
 import h3
 from shapely.geometry import Point, Polygon
 from tqdm import tqdm
-from vgrid.binning.bin_helper import get_default_stats_tructure, append_stats_value
+from vgrid.binning.bin_helper import get_default_stats_structure, append_stats_value
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.settings import  geodesic_dggs_to_feature
 
 def h3_bin(point_features, resolution, stats, category, field_name):
-    h3_bins = defaultdict(lambda: defaultdict(get_default_stats_tructure))
+    h3_bins = defaultdict(lambda: defaultdict(get_default_stats_structure))
 
     for feature in tqdm(point_features, desc="Binning points"):
         geom = feature['geometry']
@@ -28,12 +28,13 @@ def h3_bin(point_features, resolution, stats, category, field_name):
     h3_features = []
     for h3_id, categories in h3_bins.items():
         cell_boundary = h3.cell_to_boundary(h3_id)
-        polygon = Polygon([(lon, lat) for lat, lon in fix_h3_antimeridian_cells(cell_boundary)])
+        cell_polygon = Polygon([(lon, lat) for lat, lon in fix_h3_antimeridian_cells(cell_boundary)])
 
-        if not polygon.is_valid:
+        if not cell_polygon.is_valid:
             continue
-
-        h3_feature = geodesic_dggs_to_feature("h3", h3_id, resolution, polygon, 5 if h3.is_pentagon(h3_id) else 6)
+        
+        num_edges =  5 if h3.is_pentagon(h3_id) else 6
+        h3_feature = geodesic_dggs_to_feature("h3", h3_id, resolution, cell_polygon,num_edges)
 
         for cat, values in categories.items():
             key_prefix = '' if category is None else f'{cat}_'
@@ -77,7 +78,7 @@ def h3_bin(point_features, resolution, stats, category, field_name):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 Grid")
+    parser = argparse.ArgumentParser(description="Binning point to H3 DGGS")
     parser.add_argument('-point', '--point', type=str, required=True, help="GeoJSON file path (Point or MultiPoint)")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..15]")
     parser.add_argument(

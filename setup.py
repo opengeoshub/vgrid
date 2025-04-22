@@ -163,6 +163,7 @@ setup(
             
             # Data binning
             'h3bin =  vgrid.binning.h3bin:main',
+            's2bin =  vgrid.binning.s2bin:main',
             'polygonbin =  vgrid.binning.polygonbin:main',
 
 
