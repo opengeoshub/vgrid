@@ -3,7 +3,7 @@ from shapely.geometry import shape, Point
 from collections import defaultdict, Counter
 import statistics
 from tqdm import tqdm
-from vgrid.binning.bin_helper import get_default_stat_structure, append_stat_value
+from vgrid.binning.bin_helper import get_default_stats_structure, append_stats_value
 
 def polygon_bin(polygon_features, point_features, stat, category=None, field_name=None):
     """
@@ -25,7 +25,7 @@ def polygon_bin(polygon_features, point_features, stat, category=None, field_nam
         polygons.append((feature, poly))
 
     # Initialize stat structure per polygon ID
-    polygon_bins = defaultdict(lambda: defaultdict(get_default_stat_structure))
+    polygon_bins = defaultdict(lambda: defaultdict(get_default_stats_structure))
 
     for point_feature in tqdm(point_features, desc="Binning points into polygons"):
         point_geom = shape(point_feature['geometry'])
@@ -37,7 +37,7 @@ def polygon_bin(polygon_features, point_features, stat, category=None, field_nam
         for poly_feature, poly_shape in polygons:
             if poly_shape.contains(point_geom):
                 poly_id = id(poly_feature)  # Use object ID as unique key
-                append_stat_value(polygon_bins, poly_id, props, stat, category, field_name)
+                append_stats_value(polygon_bins, poly_id, props, stat, category, field_name)
                 break  # one point belongs to only one polygon
 
     # Attach stats to polygon properties
@@ -130,7 +130,7 @@ def main():
 
     out_name = os.path.splitext(os.path.basename(point_path))[0]
     polygon_name = os.path.splitext(os.path.basename(polygon_path))[0]
-    out_path = f"{out_name}_binning_{polygon_name}_{stats}.geojson"
+    out_path = f"{out_name}_bin_{polygon_name}_{stats}.geojson"
 
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump({"type": "FeatureCollection", "features": result_features}, f, indent=2)
