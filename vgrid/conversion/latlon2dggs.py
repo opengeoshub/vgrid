@@ -272,13 +272,16 @@ def latlon2olc_cli():
                                      Ex: latlon2olc 10.775275567242561 106.70679737574993 11")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution/ Code length [2,4,6,8,10..15]")
+    parser.add_argument(
+            "res",
+            type=int,
+            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+            help="Resolution of the OLC DGGS (choose from 2, 4, 6, 8, 10, 11, 12, 13, 14, 15)"
+        )
+
     args = parser.parse_args()
     
     res = args.res
-    if res not in [2,4,6,8,10,11,12,13,14,15]:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [2,4,6,8,10..15].")
-        return  
     
     olc_cell = latlon2olc(args.lat,args.lon,res)
     print(olc_cell)

@@ -180,8 +180,13 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode grid.")
-    parser.add_argument("-r", "--resolution",type=int,required=True,
-                        help="OLC code length/ resolution must be in [2, 4, 6, 8, 10..15]")
+    parser.add_argument(
+            '-r', '--resolution',
+            type=int,
+            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+            default=8,
+            help="Resolution of the OLC DGGS (choose from 2, 4, 6, 8, 10, 11, 12, 13, 14, 15)"
+        )
     
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
@@ -192,10 +197,6 @@ def main():
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
   
-    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
-        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
-        return
-
     num_cells = calculate_total_cells(resolution, bbox)
 
     if  bbox == [-180, -90, 180, 90]:

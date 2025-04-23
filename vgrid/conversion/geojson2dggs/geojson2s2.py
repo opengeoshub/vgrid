@@ -83,8 +83,8 @@ def poly_to_grid(resolution, geometry,feature_properties,compact = None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to S2 Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..30]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to S2 DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..30]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )

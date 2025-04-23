@@ -71,8 +71,8 @@ def poly_to_grid(resolution, geometry,feature_properties,compact):
     
     
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Geohash Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [1..10]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Geohash DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..10]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )

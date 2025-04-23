@@ -124,13 +124,13 @@ def raster_to_geohash(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Geohash Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Geohash DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Geohash [1..10] to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [1..10]"
     )
 
     args = parser.parse_args()

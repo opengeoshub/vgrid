@@ -101,8 +101,8 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
     
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to QTM Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [1..24]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to QTM DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..24]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )

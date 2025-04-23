@@ -130,13 +130,13 @@ def raster_to_olc(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to OLC/ Google Plus Code Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to OLC/ Google Plus Code DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of olc [10..12] to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [10..12]"
     )
 
 

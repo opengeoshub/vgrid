@@ -145,13 +145,13 @@ def raster_to_s2(raster_path, resolution=None):
  
        
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to S2 Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to S2 DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of S2 to be generated [0..24]"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..24]"
     )
 
 

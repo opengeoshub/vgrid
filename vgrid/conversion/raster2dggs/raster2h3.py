@@ -129,13 +129,13 @@ def raster_to_h3(raster_path, resolution=None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to H3 Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to H3 DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of H3 to be generated"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..15]"
     )
 
 

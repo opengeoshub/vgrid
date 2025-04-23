@@ -167,6 +167,9 @@ setup(
             'rhealpixbin =  vgrid.binning.rhealpixbin:main',
             'isea4tbin =  vgrid.binning.isea4tbin:main',
             'qtmbin =  vgrid.binning.qtmbin:main',
+            
+            'olcbin =  vgrid.binning.olcbin:main',
+
             'polygonbin =  vgrid.binning.polygonbin:main',
 
             # Resampling

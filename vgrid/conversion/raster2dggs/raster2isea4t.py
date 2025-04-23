@@ -143,13 +143,13 @@ def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
     
        
 def main():
-    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to ISEA4T Grid")
+    parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Open-Eaggr ISEA4T DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of isea4t to be generated [0..23]"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..23]"
     )
     if (platform.system() == 'Windows'):
         args = parser.parse_args()

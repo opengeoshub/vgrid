@@ -142,8 +142,13 @@ def poly_to_grid(resolution, geometry,feature_properties,compact):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Open_Eaggr OLC grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [2, 4, 6, 8, 10..15]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to OLC DGGS")
+    parser.add_argument(
+            '-r', '--resolution',
+            type=int,
+            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+            help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]"
+        )
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
@@ -154,10 +159,6 @@ def main():
      # Initialize h3 DGGS
     resolution = args.resolution
     compact = args.compact  
-
-    if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
-        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
-        return
     
     if not os.path.exists(geojson):
         print(f"Error: The file {geojson} does not exist.")

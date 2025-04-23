@@ -211,7 +211,7 @@ def polygon_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
  
 def main():
     if (platform.system() == 'Linux'):
-        parser = argparse.ArgumentParser(description='Convert GeoJSON to DGGRID.')
+        parser = argparse.ArgumentParser(description='Convert GeoJSON to DGGRID')
         parser.add_argument('-t', '--dggs_type', choices=dggs_types, help="Select a DGGS type from the available options.")
         parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution')
         parser.add_argument('-a', '--address_type', choices=output_address_types, 

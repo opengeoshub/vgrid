@@ -81,8 +81,8 @@ def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact=No
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Open-Eaggr ISEA4T Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..25]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Open-Eaggr ISEA4T DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..25]")
     # actual resolution range: [0..39]
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"

@@ -48,52 +48,6 @@ def point_to_grid(resolution, point, feature_properties):
         "features": ease_features
     }
 
-# # Function to generate grid for Polyline
-# def polyline_to_grid(resolution, geometry, feature_properties):    
-#     ease_features = []
-#     if geometry.geom_type == 'LineString':
-#         polylines = [geometry]
-#     elif geometry.geom_type == 'MultiLineString':
-#         polylines = list(geometry)
-
-#     for polyline in polylines:
-#         polyline_bbox = box(*polyline.bounds)
-#         # Get all grid cells within the bounding box
-#         polyline_bbox_wkt = polyline_bbox.wkt
-#         cells_bbox = geo_polygon_to_grid_ids(polyline_bbox_wkt, level=resolution, source_crs = geo_crs, target_crs = ease_crs, levels_specs = levels_specs, return_centroids = True, wkt_geom=True)
-#         cells = cells_bbox['result']['data']     
-#         # Use tqdm for progress bar, processing cells sequentially
-#         for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-#             resolution =  int(cell[1])  # Get the level (e.g., 'L0' -> 0)
-#             level_spec = levels_specs[resolution]
-#             n_row = level_spec["n_row"]
-#             n_col = level_spec["n_col"]
-        
-#             geo = grid_ids_to_geos([cell])
-#             center_lon, center_lat = geo['result']['data'][0]            
-#             cell_min_lat = center_lat - (180 / (2 * n_row))
-#             cell_max_lat = center_lat + (180 / (2 * n_row))
-#             cell_min_lon = center_lon - (360 / (2 * n_col))
-#             cell_max_lon = center_lon + (360 / (2 * n_col))
-
-#             cell_polygon = Polygon([
-#                 [cell_min_lon, cell_min_lat],
-#                 [cell_max_lon, cell_min_lat],
-#                 [cell_max_lon, cell_max_lat],
-#                 [cell_min_lon, cell_max_lat],
-#                 [cell_min_lon, cell_min_lat]
-#             ])
-#             if cell_polygon.intersects(polyline):
-#                 num_edges = 4
-#                 ease_feature = geodesic_dggs_to_feature('ease', str(cell), resolution, cell_polygon, num_edges)
-#                 ease_feature["properties"].update(feature_properties)
-#                 ease_features.append(ease_feature)            
-#     return {
-#             "type": "FeatureCollection",
-#             "features": ease_features
-#         }
-
-
 def poly_to_grid(resolution, geometry, feature_properties,compact=None):    
     ease_features = []
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
@@ -145,8 +99,8 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
 
         
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to Open_Eaggr ease Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..6]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to EASE-DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..6]")
     # actual resolution range: [0..40]
 
     parser.add_argument(

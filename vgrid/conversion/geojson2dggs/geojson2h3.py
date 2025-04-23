@@ -86,8 +86,8 @@ def poly_to_grid(resolution, geometry,feature_properties, compact= None):
        
 # Main function to handle different GeoJSON shapes
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..15]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )

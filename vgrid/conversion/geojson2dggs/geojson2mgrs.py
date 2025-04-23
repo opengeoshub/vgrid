@@ -33,8 +33,8 @@ def poly_to_grid(resolution, geometry,feature_properties):
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to mgrs Grid")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..5]")
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to MGRS DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..5]")
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
