@@ -96,7 +96,7 @@ def s2_bin(point_features, resolution, stats, category, field_name):
 def main():
     parser = argparse.ArgumentParser(description="Binning point to S2 DGGS")
     parser.add_argument('-point', '--point', type=str, required=True, help="GeoJSON file path (Point or MultiPoint)")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of the grid [0..30]")
+    parser.add_argument('-r', '--resolution', type=int, default=13, help="Resolution of the grid [0..30]")
     parser.add_argument(
             '-stats', '--statistics',
             choices=[

@@ -130,7 +130,7 @@ def main():
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of Rhealpix to be generated [0..15]"
+        '-r', '--resolution', type=int, required=False, default= None, help="Resolution of rHEALPix to be generated [0..15]"
     )
 
 

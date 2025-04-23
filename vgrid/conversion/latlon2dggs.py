@@ -82,9 +82,9 @@ def latlon2s2_cli():
 def latlon2rhealpix(lat,lon,res=14):
     # res: [0..15]        
     E = WGS84_ELLIPSOID
-    rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
+    rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
     point = (lon, lat)
-    rhealpix_cell = rdggs.cell_from_point(res, point, plane=False)
+    rhealpix_cell = rhealpix_dggs.cell_from_point(res, point, plane=False)
     return str(rhealpix_cell)
 
 def latlon2rhealpix_cli():

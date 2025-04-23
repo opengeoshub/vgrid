@@ -164,8 +164,10 @@ setup(
             # Data binning
             'h3bin =  vgrid.binning.h3bin:main',
             's2bin =  vgrid.binning.s2bin:main',
+            'rhealpixbin =  vgrid.binning.rhealpixbin:main',
+            'isea4tbin =  vgrid.binning.isea4tbin:main',
+            'qtmbin =  vgrid.binning.qtmbin:main',
             'polygonbin =  vgrid.binning.polygonbin:main',
-
 
             # Resampling
             'resample =  vgrid.resampling.resample:main',
