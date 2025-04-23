@@ -169,6 +169,9 @@ setup(
             'qtmbin =  vgrid.binning.qtmbin:main',
             
             'olcbin =  vgrid.binning.olcbin:main',
+            'geohashbin =  vgrid.binning.geohashbin:main',
+            'tilecodebin =  vgrid.binning.tilecodebin:main',
+            'quadkeybin =  vgrid.binning.quadkeybin:main',
 
             'polygonbin =  vgrid.binning.polygonbin:main',
 
