@@ -167,9 +167,9 @@ def s2compact(geojson_data):
         s2_features = [] 
         for s2_token_compact in tqdm(s2_tokens_compact, desc="Processing cells "):
             s2_id_compact = s2.CellId.from_token(s2_token_compact)
-            s2_compact = s2.Cell(s2_id_compact)    
+            s2_cell = s2.Cell(s2_id_compact)    
             # Get the vertices of the cell (4 vertices for a rectangular cell)
-            vertices = [s2_compact.get_vertex(i) for i in range(4)]
+            vertices = [s2_cell.get_vertex(i) for i in range(4)]
             # Prepare vertices in (longitude, latitude) format for Shapely
             shapely_vertices = []
             for vertex in vertices:
