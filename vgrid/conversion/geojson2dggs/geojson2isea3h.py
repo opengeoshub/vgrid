@@ -106,7 +106,7 @@ def poly_to_grid(isea3h_dggs,resolution, geometry, feature_properties,compact):
             if compact:
                 bounding_child_cells = isea3h_compact(isea3h_dggs,bounding_child_cells)
 
-            for child in tqdm(bounding_child_cells, desc="Processing cells", unit=" cells"):
+            for child in bounding_child_cells:
                 isea3h_cell = DggsCell(child)
                 cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
                 if cell_polygon.intersects(poly):

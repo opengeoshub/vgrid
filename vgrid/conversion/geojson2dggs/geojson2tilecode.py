@@ -55,7 +55,7 @@ def poly_to_grid(resolution, geometry,feature_properties,compact):
             tilecode_id = f"z{tilecode.z}x{tilecode.x}y{tilecode.y}"
             tilecode_ids.append(tilecode_id)
        
-        for tilecode_id in tqdm(tilecode_ids, desc="Processing cells",unit=" cells"):
+        for tilecode_id in tilecode_ids:
             match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
             if not match:
                 raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")

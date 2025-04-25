@@ -64,7 +64,7 @@ def poly_to_grid(resolution, geometry,feature_properties, compact= None):
         if compact:
             bbox_buffer_cells = h3.compact_cells(bbox_buffer_cells)
             
-        for bbox_buffer_cell in tqdm(bbox_buffer_cells, desc="Processing cells"):
+        for bbox_buffer_cell in bbox_buffer_cells:
             cell_boundary = h3.cell_to_boundary(bbox_buffer_cell)
             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]

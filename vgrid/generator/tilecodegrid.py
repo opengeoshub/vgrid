@@ -11,7 +11,7 @@ def generate_grid(resolution,bbox):
     min_lon, min_lat, max_lon, max_lat = bbox # or [-180.0, -85.05112878,180.0,85.05112878]  
     tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
     
-    for tile in tqdm(tiles, desc=f"Processing tiles at zoom level {resolution}", unit=" cells"):
+    for tile in tqdm(tiles, desc="Generating Tilecode DGGS", unit = " cells"):
         z, x, y = tile.z, tile.x, tile.y
         tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
         bounds = mercantile.bounds(x, y, z)
@@ -37,8 +37,8 @@ def generate_grid(resolution,bbox):
 
         
 def main():
-    parser = argparse.ArgumentParser(description='Generate Tilecode grid.')
-    parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..26]')
+    parser = argparse.ArgumentParser(description='Generate Tilecode DGGS.')
+    parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution [0..26]')
     parser.add_argument('-b', '--bbox', type=float, nargs=4,  help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)") 
 
     args = parser.parse_args()

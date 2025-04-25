@@ -39,8 +39,7 @@ def generate_grid(resolution):
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
     total_steps = total_lat_steps * total_lng_steps
 
-    # Iterate over the entire globe with tqdm for progress tracking
-    with tqdm(total=total_steps, desc="Processing cells",unit=" cells") as pbar:
+    with tqdm(total=total_steps, desc="Generating OLC DGGS",unit=" cells") as pbar:
         lat = sw_lat
         while lat < ne_lat:
             lng = sw_lng
@@ -179,13 +178,13 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     return olc_features
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode grid.")
+    parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode DGGS.")
     parser.add_argument(
             '-r', '--resolution',
             type=int,
             choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
             default=8,
-            help="Resolution of the OLC DGGS (choose from 2, 4, 6, 8, 10, 11, 12, 13, 14, 15)"
+            help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]"
         )
     
     parser.add_argument(

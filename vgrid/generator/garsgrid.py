@@ -23,7 +23,7 @@ def generate_grid(resolution_minutes):
         
     gars_features = []
     # Loop over longitudes and latitudes with tqdm progress bar
-    with tqdm(total=total_cells, desc="Generating GARS grid", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating GARS DGGS", unit=" cells") as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 # Create the GARS grid code
@@ -56,7 +56,7 @@ def generate_grid_within_bbox(bbox, resolution_minutes):
     # total_cells = len(longitudes) * len(latitudes)
     gars_features = []
     # Loop over longitudes and latitudes with tqdm progress bar
-    with tqdm(desc="Generating GARS grid", unit=" cells") as pbar:
+    with tqdm(desc="Generating GARS DGGS", unit=" cells") as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 # Create the GARS grid code
@@ -80,7 +80,7 @@ def generate_grid_within_bbox(bbox, resolution_minutes):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate GARS grid")
+    parser = argparse.ArgumentParser(description="Generate GARS DGGS")
     parser.add_argument(
         "-r", "--resolution", type=int, choices=[30, 15, 5, 1], required=True,
         help="Resolution in minutes (30, 15, 5, 1)"

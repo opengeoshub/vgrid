@@ -29,7 +29,7 @@ def generate_grid(resolution):
     total_cells = rhealpix_dggs.num_cells(resolution)
     rhealpix_grid = rhealpix_dggs.grid(resolution)
             
-    with tqdm(total=total_cells, desc="Processing cells", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating rHEALPix DGGS", unit=" cells") as pbar:
         for rhealpix_cell in rhealpix_grid:
             cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
             rhealpix_id = str(rhealpix_cell)
@@ -96,7 +96,7 @@ def generate_grid_within_bbox(resolution, bbox):
                 if neighbor_id not in covered_cells:
                     queue.append(neighbor)
 
-        for cell_id in tqdm(covered_cells, desc="Processing Cells"):
+        for cell_id in tqdm(covered_cells, desc="Generating rHEALPix DGGS", unit=" cells"):
             rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
             cell = rhealpix_dggs.cell(rhealpix_uids)    
             cell_polygon = rhealpix_cell_to_polygon(cell)          
@@ -113,71 +113,10 @@ def generate_grid_within_bbox(resolution, bbox):
         }
 
 
-def generate_grid_within_bbox_new(resolution, bbox):    
-    bbox_polygon = box(*bbox)  # Create a bounding box polygon
-    bbox_center_lon = bbox_polygon.centroid.x
-    bbox_center_lat = bbox_polygon.centroid.y
-    seed_point = (bbox_center_lon, bbox_center_lat)
-
-    rhealpix_features = []
-    seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
-    seed_cell_id = str(seed_cell)  # Unique identifier for the current cell
-    seed_cell_polygon = rhealpix_cell_to_polygon(seed_cell)
-    num_edges = 4
-    
-    if seed_cell_polygon.contains(bbox_polygon):
-        rhealpix_feature = geodesic_dggs_to_feature('rhealpix',seed_cell_id,resolution,seed_cell_polygon,num_edges)
-        rhealpix_features.append(rhealpix_feature)
-        return {
-            "type": "FeatureCollection",
-            "features": rhealpix_features
-        }
-        
-    else:
-        # Initialize sets and queue
-        covered_cells = set()  # Cells that have been processed (by their unique ID)
-        queue = [seed_cell]  # Queue for BFS exploration
-        while queue:
-            current_cell = queue.pop()
-            current_cell_id = str(current_cell)  # Unique identifier for the current cell
-
-            if current_cell_id in covered_cells:
-                continue
-
-            # Add current cell to the covered set
-            covered_cells.add(current_cell_id)
-
-            # Convert current cell to polygon
-            cell_polygon = rhealpix_cell_to_polygon(current_cell)
-
-            # Skip cells that do not intersect the bounding box
-            if not cell_polygon.intersects(bbox_polygon):
-                continue
-
-            # Get neighbors and add to queue
-            neighbors = current_cell.neighbors(plane=False)
-            for _, neighbor in neighbors.items():
-                neighbor_id = str(neighbor)  # Unique identifier for the neighbor
-                if neighbor_id not in covered_cells:
-                    queue.append(neighbor)
-
-        for cell_id in tqdm(covered_cells, desc="Processing Cells"):
-            rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-            cell = rhealpix_dggs.cell(rhealpix_uids)    
-            cell_polygon = rhealpix_cell_to_polygon(cell)           
-            if cell_polygon.intersects(bbox_polygon):
-                rhealpix_feature = geodesic_dggs_to_feature('rhealpix',seed_cell_id,resolution,seed_cell_polygon,num_edges)
-                rhealpix_features.append(rhealpix_feature)
-        
-        return {
-            "type": "FeatureCollection",
-            "features": rhealpix_features
-        }
-
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Generate RHEALPix grid.")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15] of the grid")
+    parser = argparse.ArgumentParser(description="Generate rHEALPix DGGS.")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

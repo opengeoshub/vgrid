@@ -52,7 +52,7 @@ def poly_to_grid(resolution, geometry,feature_properties,compact):
             expand_geohash_bbox(gh, resolution, geohashes_bbox, poly)
 
         # Process geohashes
-        for gh in tqdm(geohashes_bbox, desc="Processing cells", unit=" cells"):
+        for gh in geohashes_bbox:
             cell_polygon = geohash_to_polygon(gh)
             geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)         
             geohash_feature["properties"].update(feature_properties)

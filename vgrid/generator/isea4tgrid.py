@@ -60,19 +60,7 @@ def get_isea4t_children_cells(isea4t_dggs,base_cells, target_resolution):
         current_cells = next_cells
     return current_cells
 
-def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resolution):
-    """
-    Recursively generate child cells for the given bounding cell up to the target resolution,
-    considering only cells that intersect with the given bounding box.
-
-    Parameters:
-        bounding_cell (str): The starting cell ID.
-        bbox (Polygon): The bounding box as a Shapely Polygon.
-        target_resolution (int): The target resolution for cell generation.
-
-    Returns:
-        list: List of cell IDs that intersect with the bounding box.
-    """
+def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, target_resolution):    
     current_cells = [bounding_cell]  # Start with a list containing the single bounding cell
     bounding_resolution = len(bounding_cell) - 2
 
@@ -95,13 +83,10 @@ def get_isea4t_children_cells_within_bbox(isea4t_dggs,bounding_cell, bbox, targe
 
    
 def generate_grid(isea4t_dggs, resolution):
-    """
-    Generate DGGS cells and convert them to GeoJSON features.
-    """
     # accuracy = isea4t_res_accuracy_dict.get(resolution)
     children = get_isea4t_children_cells(isea4t_dggs, isea4t_base_cells, resolution)
     isea4t_features = []
-    for child in tqdm(children, desc="Processing cells", unit=" cells"):
+    for child in tqdm(children, desc="Generating ISEA4T DGGS", unit=" cells"):
         isea4t_cell = DggsCell(child)
         cell_polygon = isea4t_cell_to_polygon(isea4t_dggs, isea4t_cell)
         isea4t_id = isea4t_cell.get_cell_id()
@@ -133,7 +118,7 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
     bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
     bounding_children = get_isea4t_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
     isea4t_features = []
-    for child in tqdm(bounding_children, desc="Processing cells", unit=" cells"):
+    for child in tqdm(bounding_children, desc="Generating ISEA4T DGGS", unit=" cells"):
         isea4t_cell = DggsCell(child)
         cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
         isea4t_id = isea4t_cell.get_cell_id()
@@ -154,11 +139,8 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
     }
 
 def main():
-    """
-    Main function to parse arguments and generate the DGGS grid.
-    """
-    parser = argparse.ArgumentParser(description="Generate Open-Eaggr ISEA4T grid.")
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..25] of the grid")
+    parser = argparse.ArgumentParser(description="Generate Open-Eaggr ISEA4T DGGS.")
+    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..25]")
     # Resolution max range: [0..39]
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 

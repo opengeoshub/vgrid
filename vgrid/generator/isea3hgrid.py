@@ -20,7 +20,6 @@ from pyproj import Geod
 geod = Geod(ellps="WGS84")
 
 
-
 def isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell):
     if (platform.system() == 'Windows'):
         cell_to_shape =  isea3h_dggs.convert_dggs_cell_outline_to_shape_string(isea3h_cell, ShapeStringFormat.WKT)
@@ -50,7 +49,7 @@ def get_isea3h_children_cells(isea3h_dggs, base_cells, target_resolution):
 
         for res in range(target_resolution):
             next_cells = []
-            for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit=" cells", leave=False):
+            for cell in current_cells:
                 children = isea3h_dggs.get_dggs_cell_children(DggsCell(cell))
                 for child in children:
                     if child._cell_id not in seen_cells:
@@ -74,7 +73,7 @@ def get_isea3h_children_cells_within_bbox(isea3h_dggs,bounding_cell, bbox, targe
         if bounding_resolution <= target_resolution:
             for res in range(bounding_resolution, target_resolution):
                 next_cells = []
-                for cell in tqdm(current_cells, desc=f"Generating child cells at resolution {res}", unit=" cells",leave=False):
+                for cell in current_cells:
                     # Get the child cells for the current cell
                     children = isea3h_dggs.get_dggs_cell_children(DggsCell(cell))
                     for child in children:
@@ -99,7 +98,7 @@ def generate_grid(isea3h_dggs, resolution):
     if (platform.system() == 'Windows'):
         children = get_isea3h_children_cells(isea3h_dggs,isea3h_base_cells, resolution)
         features = []
-        for child in tqdm(children, desc="Processing cells", unit=" cells"):
+        for child in tqdm(children, desc="Generating ISEA3H DGGS", unit=" cells"):
             isea3h_cell = DggsCell(child)
             cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
             isea3h_id = isea3h_cell.get_cell_id()
@@ -149,7 +148,7 @@ def generate_grid_within_bbox(isea3h_dggs, resolution,bbox):
         # print (bounding_children_cells)
         if bounding_children_cells:
             features = []
-            for child in tqdm(bounding_children_cells, desc="Processing cells", unit=" cells"):
+            for child in bounding_children_cells:
                 isea3h_cell = DggsCell(child)
                 cell_polygon = isea3h_cell_to_polygon(isea3h_dggs, isea3h_cell)
                 isea3h_id = isea3h_cell.get_cell_id()
@@ -183,11 +182,8 @@ def generate_grid_within_bbox(isea3h_dggs, resolution,bbox):
             }
 
 def main():
-    """
-    Main function to parse arguments and generate the DGGS grid.
-    """
-    parser = argparse.ArgumentParser(description="Generate Open-Eaggr ISEA3H grid.")
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..32] of the grid")
+    parser = argparse.ArgumentParser(description="Generate Open-Eaggr ISEA3H DGGS.")
+    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution [0..32]")
     # Resolution max range: [0..40]
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 

@@ -60,7 +60,7 @@ def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact=No
         if compact:
             bounding_child_cells = isea4t_compact(isea4t_dggs,bounding_child_cells)
 
-        for child in tqdm(bounding_child_cells, desc="Processing cells", unit=" cells"):
+        for child in bounding_child_cells:
             isea4t_cell = DggsCell(child)
             cell_polygon = isea4t_cell_to_polygon(isea4t_dggs,isea4t_cell)
             isea4t_id = isea4t_cell.get_cell_id()

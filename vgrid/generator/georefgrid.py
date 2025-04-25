@@ -41,19 +41,13 @@ def generate_grid(bbox, resolution):
         return
     georef_features = []
     
-    with tqdm(total=num_cells, desc="Generating GEOREF grid", unit=" cells") as pbar:
+    with tqdm(total=num_cells, desc="Generating GEOREF DGGS", unit=" cells") as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 cell_polygon = Polygon(box(lon, lat, lon + resolution_degrees, lat + resolution_degrees))
                 georef_id = georef.encode(lat, lon, resolution)
                 georef_feature = graticule_dggs_to_feature('georef', georef_id, resolution,cell_polygon)
                 georef_features.append(georef_feature)
-                # features.append({
-                #     "type": "Feature",
-                #     "geometry": mapping(cell_polygon),
-                #     "properties": {"georef": georef_code},
-                # })
-                
                 pbar.update(1)
     
     return {
@@ -63,10 +57,10 @@ def generate_grid(bbox, resolution):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate GEOREF grid")
+    parser = argparse.ArgumentParser(description="Generate GEOREF DGGS")
     parser.add_argument(
         "-r", "--resolution", type=int, required=True,
-        help="Resolution in range[-1..5]"
+        help="Resolution [-1..5]"
     )
     parser.add_argument(
         "-b", "--bbox", type=float, nargs=4,

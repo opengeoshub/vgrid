@@ -10,7 +10,6 @@ n90_n180, n90_n90, n90_p0, n90_p90, n90_p180 = (-90.0, -180.0), (-90.0, -90.0), 
 
 
 def generate_grid(resolution):
-    """Generates a Dutton QTM grid at a specific resolution and saves it as GeoJSON."""
     levelFacets = {}
     QTMID = {}
 
@@ -118,8 +117,8 @@ def generate_grid_within_bbox(resolution, bbox):
     }
     
 def main():
-    parser = argparse.ArgumentParser(description='Generate QTM grid.')
-    parser.add_argument('-r', '--resolution', required=True, type=int, help='Resolution [1..24] to generate.')
+    parser = argparse.ArgumentParser(description='Generate QTM DGGS.')
+    parser.add_argument('-r', '--resolution', required=True, type=int, help='Resolution [1..24].')
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

@@ -56,8 +56,7 @@ def generate_grid(resolution):
 
     cells = get_ease_cells(resolution)
 
-    # Process cells in chunks with tqdm progress bar
-    for cell in tqdm(cells, total=len(cells), desc="Processing cells", unit="cell"):
+    for cell in tqdm(cells, total=len(cells), desc="Generating EASE DGGS", unit=" cells"):
         geo = grid_ids_to_geos([cell])
         center_lon, center_lat = geo['result']['data'][0]
         cell_min_lat = center_lat - (180 / (2 * n_row))
@@ -83,37 +82,6 @@ def generate_grid(resolution):
     }
 
 
-# def generate_grid_bbox_point(resolution, bbox):
-#     ease_features = []  
-#     # Get all grid cells within the bounding box
-#     cells = get_cells_bbox(resolution, bbox)['result']['data']   
-   
-#     if cells:
-#         # Use tqdm for progress bar, processing cells sequentially
-#         for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
-#             geo = grid_ids_to_geos([cell])
-#             if geo:
-#                 center_lon, center_lat = geo['result']['data'][0]
-#                 cell_point = Point(center_lon, center_lat)           
-#                 ease_features.append({
-#                 "type": "Feature",
-#                 "geometry": mapping(cell_point),
-#                 "properties": {
-#                     "ease": cell,
-#                     "center_lat": round(center_lat, 7),
-#                     "center_lon": round(center_lon, 7),               
-#                     "resolution": resolution,
-#                     }
-#                 })
-
-#         # Create GeoJSON FeatureCollection
-#         geojson_features = {
-#             "type": "FeatureCollection",
-#             "features": ease_features
-#         }
-
-#         return geojson_features
-
 def generate_grid_within_bbox(resolution, bbox):
     ease_features = []
     level_spec = levels_specs[resolution]
@@ -124,8 +92,7 @@ def generate_grid_within_bbox(resolution, bbox):
     cells = get_ease_cells_bbox(resolution, bbox)['result']['data']   
    
     if cells:
-        # Use tqdm for progress bar, processing cells sequentially
-        for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+        for cell in tqdm(cells, desc="Generating EASE DGGS", unit=" cells"):
             geo = grid_ids_to_geos([cell])
             if geo:
                 center_lon, center_lat = geo['result']['data'][0]            
@@ -153,8 +120,8 @@ def generate_grid_within_bbox(resolution, bbox):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate EASE-DGGS grid.')
-    parser.add_argument('-r', '--resolution', type=int, required=True, help='zoom level/ resolution= [0..6]')
+    parser = argparse.ArgumentParser(description='Generate EASE-DGGS DGGS.')
+    parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution [0..6]')
     parser.add_argument('-b', '--bbox', type=float, nargs=4, help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)")
 
     args = parser.parse_args()

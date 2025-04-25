@@ -29,7 +29,7 @@ def generate_grid(resolution):
     total_cells = x_cells * y_cells
 
     maidenhead_features = []
-    with tqdm(total=total_cells, desc="Generating grid", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating Maidenhead DGGS", unit=" cells") as pbar:
         for i in range(x_cells):
             for j in range(y_cells):
                 cell_min_lon = min_lon + i * lon_width
@@ -83,7 +83,7 @@ def generate_grid_within_bbox(resolution, bbox):
     total_cells = (end_x - start_x + 1) * (end_y - start_y + 1)
 
     # Loop through all intersecting grid cells with tqdm progress bar
-    with tqdm(total=total_cells, desc="Processing cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating Maidenhead DGGS") as pbar:
         for x in range(start_x, end_x + 1):
             for y in range(start_y, end_y + 1):
                 # Calculate the cell bounds
@@ -108,31 +108,10 @@ def generate_grid_within_bbox(resolution, bbox):
                         [cell_min_lon, cell_max_lat],  # Top-left
                         [cell_min_lon, cell_min_lat]   # Closing the polygon
                     ])
-                    maidenhead_feature = graticule_dggs_to_feature('maidenhead',maidenhead_id,resolution,cell_polygon)
-            
-                    # # Create GeoJSON feature for the cell
-                    # polygon_coords = [
-                    #     [cell_min_lon, cell_min_lat],  # Bottom-left
-                    #     [cell_max_lon, cell_min_lat],  # Bottom-right
-                    #     [cell_max_lon, cell_max_lat],  # Top-right
-                    #     [cell_min_lon, cell_max_lat],  # Top-left
-                    #     [cell_min_lon, cell_min_lat]   # Closing the polygon
-                    # ]
-
-                    # feature = {
-                    #     "type": "Feature",
-                    #     "geometry": {
-                    #         "type": "Polygon",
-                    #         "coordinates": [polygon_coords]
-                    #     },
-                    #     "properties": {
-                    #         "maidenhead": maidenhead_id
-                    #     }
-                    # }
-
-                    # features.append(feature)
+                    maidenhead_feature = graticule_dggs_to_feature('maidenhead',maidenhead_id,resolution,cell_polygon)            
+                 
                     maidenhead_features.append(maidenhead_feature)
-                # Update the progress bar
+
                 pbar.update(1)
 
     return {
@@ -141,9 +120,9 @@ def generate_grid_within_bbox(resolution, bbox):
     }
    
 def main():
-    parser = argparse.ArgumentParser(description="Generate Maidenhead grid")
+    parser = argparse.ArgumentParser(description="Generate Maidenhead DGGS")
     parser.add_argument('-r', '--resolution', type=int, choices=[1, 2, 3, 4], default=1,
-                        help="resolution for Maidenhead grid (1 to 4)")
+                        help="resolution [1..4]")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

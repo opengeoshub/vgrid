@@ -47,7 +47,7 @@ def generate_grid(resolution):
         expand_geohash(gh, resolution, geohashes)
 
     geohash_features = []
-    for gh in tqdm(geohashes, desc="Generating grid", unit=" cells"):
+    for gh in tqdm(geohashes, desc="Generating Geohash DGGS", unit=" cells"):
         cell_polygon = geohash_to_polygon(gh)
         geohash_feature = graticule_dggs_to_feature("geohash",gh,resolution,cell_polygon)   
         geohash_features.append(geohash_feature)
@@ -87,7 +87,7 @@ def generate_grid_within_bbox(resolution, bbox):
     # Generate GeoJSON features
     geohash_features.extend(
         graticule_dggs_to_feature("geohash", gh, resolution, geohash_to_polygon(gh))
-        for gh in tqdm(geohashes_bbox, desc="Generating grid", unit=" cells")
+        for gh in tqdm(geohashes_bbox, desc="Generating Geohash DGGS", unit=" cells")
     )
 
     return {
@@ -97,7 +97,7 @@ def generate_grid_within_bbox(resolution, bbox):
 
                
 def main():
-    parser = argparse.ArgumentParser(description='Generate Geohash grid.')
+    parser = argparse.ArgumentParser(description='Generate Geohash DGGS.')
     parser.add_argument(
         '-r', '--resolution', type=int, required=True,
         help='Resolution [1..10]'

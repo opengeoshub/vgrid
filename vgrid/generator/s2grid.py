@@ -11,8 +11,8 @@ import json
 import argparse
 from tqdm import tqdm
 from vgrid.utils.antimeridian import fix_polygon
-from shapely.geometry import Polygon, mapping
-from vgrid.generator.settings import max_cells, geodesic_dggs_to_feature
+from shapely.geometry import Polygon
+from vgrid.generator.settings import geodesic_dggs_to_feature
 
 def s2_cell_to_polygon(cell_id):
     cell = s2.Cell(cell_id)
@@ -59,7 +59,7 @@ def generate_grid(resolution,bbox):
     s2_token = cell_id.to_token()
     num_edges = 4
     
-    for cell_id in tqdm(cell_ids, desc="Processing cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating S2 DGGS", unit = " cells"):
         # Generate a Shapely Polygon
         cell_polygon = s2_cell_to_polygon(cell_id)
         s2_feature = geodesic_dggs_to_feature("s2",s2_token,resolution,cell_polygon,num_edges)   
@@ -73,8 +73,8 @@ def generate_grid(resolution,bbox):
 
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Generate S2 grid.")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..30] of the grid")
+    parser = argparse.ArgumentParser(description="Generate S2 DGGS.")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..30]")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"

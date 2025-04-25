@@ -65,7 +65,7 @@ def poly_to_grid(resolution, geometry,feature_properties,compact = None):
             covering.normalize()
             cell_ids = covering.cell_ids()  
             
-        for cell_id in tqdm(cell_ids, desc="processing cells"):
+        for cell_id in cell_ids:
             cell_polygon = s2_cell_to_polygon(cell_id)
           
             if cell_polygon.intersects(poly):

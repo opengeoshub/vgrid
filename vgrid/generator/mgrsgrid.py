@@ -54,7 +54,7 @@ def generate_grid(gzd, resolution):    # Define the UTM CRS
     x_coords = np.arange(min_x, max_x, cell_size)
     y_coords = np.arange(min_y, max_y, cell_size)
     num_cells = len(x_coords) * len(y_coords)
-    with tqdm(total=num_cells, desc="Processing cells", unit="cells") as pbar:
+    with tqdm(total=num_cells, desc="Generating MGRS DGGS", unit=" cells") as pbar:
         for x in x_coords:
             for y in y_coords:
                 cell_polygon_utm = Polygon([
@@ -64,7 +64,6 @@ def generate_grid(gzd, resolution):    # Define the UTM CRS
                     (x, y + cell_size),
                     (x, y)  # Close the polygon
                 ])            
-                # cell_polygon = utm_to_wgs84(cell_polygon_utm, transformer)  
                 cell_polygon = transform(transformer, cell_polygon_utm)
                                 
                 if cell_polygon.intersects(gzd_geom):
@@ -88,7 +87,7 @@ def generate_grid(gzd, resolution):    # Define the UTM CRS
 
 def main():
     # Set up argument parser
-    parser = argparse.ArgumentParser(description="Generate MGRS grid.")
+    parser = argparse.ArgumentParser(description="Generate MGRS DGGS.")
     parser.add_argument("-r", "--resolution", type=int, default=0, required=True, help="Resolution [0..5]")
     parser.add_argument("-gzd", type = str, default='48P', required=True, help="GZD - Grid Zone Designator, e.g. 48P")
     # Parse the arguments

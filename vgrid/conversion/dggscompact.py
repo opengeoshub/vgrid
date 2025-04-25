@@ -51,7 +51,7 @@ def h3compact(geojson_data):
     h3_ids = [feature["properties"]["h3"] for feature in geojson_data.get("features", []) if "h3" in feature.get("properties", {})]
     h3_ids_compact = h3.compact_cells(h3_ids)
     h3_features = [] 
-    for h3_id_compact in tqdm(h3_ids_compact, desc="Processing cells "):  
+    for h3_id_compact in tqdm(h3_ids_compact, desc="Compacting cells "):  
         cell_boundary = h3.cell_to_boundary(h3_id_compact)   
         if cell_boundary:
             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
@@ -102,7 +102,7 @@ def h3expand(geojson_data,resolution):
     h3_ids = [feature["properties"]["h3"] for feature in geojson_data.get("features", []) if "h3" in feature.get("properties", {})]
     h3_ids_expand = h3.uncompact_cells(h3_ids, resolution)
     h3_features = [] 
-    for h3_id_expand in tqdm(h3_ids_expand, desc="Processing cells "):
+    for h3_id_expand in tqdm(h3_ids_expand, desc="Expanding cells "):
         cell_boundary = h3.cell_to_boundary(h3_id_expand)   
         if cell_boundary:
             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
@@ -165,7 +165,7 @@ def s2compact(geojson_data):
         covering.normalize()
         s2_tokens_compact = [cell_id.to_token() for cell_id in covering.cell_ids()]
         s2_features = [] 
-        for s2_token_compact in tqdm(s2_tokens_compact, desc="Processing cells "):
+        for s2_token_compact in tqdm(s2_tokens_compact, desc="Compacting cells "):
             s2_id_compact = s2.CellId.from_token(s2_token_compact)
             s2_cell = s2.Cell(s2_id_compact)    
             # Get the vertices of the cell (4 vertices for a rectangular cell)
@@ -238,7 +238,7 @@ def s2expand(geojson_data,resolution):
         s2_ids_expand = s2_expand(s2_ids, resolution)
         s2_tokens_expand = [s2_id_expand.to_token() for s2_id_expand in s2_ids_expand]
         s2_features = [] 
-        for s2_token_expand in tqdm(s2_tokens_expand, desc="Processing cells "):
+        for s2_token_expand in tqdm(s2_tokens_expand, desc="Expanding cells "):
             s2_id_expand = s2.CellId.from_token(s2_token_expand)
             s2_cell_expand = s2.Cell(s2_id_expand)    
             # Get the vertices of the cell (4 vertices for a rectangular cell)
@@ -302,11 +302,11 @@ def s2expand_cli():
 
 
 #################
-# Rhealpix
+# rHEALPix
 #################
 def rhealpix_compact(rhealpix_dggs, rhealpix_ids):
     """
-    Fully compacts RHEALPix cell IDs by replacing fully populated parent cells with their parent.
+    Fully compacts rHEALPix cell IDs by replacing fully populated parent cells with their parent.
     Iterates until no further compaction is possible.
     """
     rhealpix_ids = set(rhealpix_ids)  # Remove duplicates
@@ -349,7 +349,7 @@ def rhealpixcompact(rhealpix_dggs,geojson_data):
     rhealpix_ids = [feature["properties"]["rhealpix"] for feature in geojson_data.get("features", []) if "rhealpix" in feature.get("properties", {})]
     rhealpix_ids_compact = rhealpix_compact(rhealpix_dggs,rhealpix_ids)
     rhealpix_features = [] 
-    for rhealpix_id_compact in tqdm(rhealpix_ids_compact, desc="Processing cells "):  
+    for rhealpix_id_compact in tqdm(rhealpix_ids_compact, desc="Compacting cells "):  
         rhealpix_uids = (rhealpix_id_compact[0],) + tuple(map(int, rhealpix_id_compact[1:]))       
         rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
         # if rhealpix_cell:
@@ -398,7 +398,7 @@ def rhealpixcompact_cli():
 
 def rhealpix_expand(rhealpix_dggs, rhealpix_ids, resolution):
     expand_cells = []
-    for rhealpix_id in tqdm(rhealpix_ids, desc="Expanding child cells "): 
+    for rhealpix_id in rhealpix_ids: 
         rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))       
         rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
         cell_resolution = rhealpix_cell.resolution  
@@ -414,7 +414,7 @@ def rhealpixexpand(rhealpix_dggs,geojson_data,resolution):
     rhealpix_ids = [feature["properties"]["rhealpix"] for feature in geojson_data.get("features", []) if "rhealpix" in feature.get("properties", {})]
     rhealpix_cells_expand = rhealpix_expand(rhealpix_dggs,rhealpix_ids,resolution)
     rhealpix_features = [] 
-    for rhealpix_cell_expand in tqdm(rhealpix_cells_expand, desc="Processing cells "):    
+    for rhealpix_cell_expand in rhealpix_cells_expand:    
         cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell_expand)
         rhealpix_id_expand = str(rhealpix_cell_expand)
         num_edges = 4
@@ -493,7 +493,7 @@ def isea4t_compact(isea4t_dggs, isea4t_ids):
         while True:
             grouped_isea4t_ids = defaultdict(set)            
             # Group cells by their parent
-            for isea4t_id in tqdm(isea4t_ids, desc="Compacting cells ", leave=False):
+            for isea4t_id in isea4t_ids:
                 if len(isea4t_id) > 2:  # Ensure there's a valid parent
                     parent = isea4t_id[:-1]
                     grouped_isea4t_ids[parent].add(isea4t_id)
@@ -524,7 +524,7 @@ def isea4tcompact(isea4t_dggs,geojson_data):
         isea4t_ids = [feature["properties"]["isea4t"] for feature in geojson_data.get("features", []) if "isea4t" in feature.get("properties", {})]
         isea4t_ids_compact = isea4t_compact(isea4t_dggs,isea4t_ids)
         isea4t_features = [] 
-        for isea4t_id_compact in tqdm(isea4t_ids_compact, desc="Processing cells "):    
+        for isea4t_id_compact in tqdm(isea4t_ids_compact, desc="Compacting cells "):    
             isea4t_cell_compact = DggsCell(isea4t_id_compact)
             cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(isea4t_cell_compact,ShapeStringFormat.WKT)
             cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
@@ -578,7 +578,7 @@ def isea4t_expand(isea4t_dggs, isea4t_ids, resolution):
     """Expands a list of DGGS cells to the target resolution."""
     if platform.system() == 'Windows':       
         expand_cells = []
-        for isea4t_id in tqdm(isea4t_ids, desc="Expanding child cells "): 
+        for isea4t_id in isea4t_ids: 
             isea4t_cell = DggsCell(isea4t_id)
             expand_cells.extend(get_isea4t_cell_children(isea4t_dggs, isea4t_cell, resolution))
         return expand_cells
@@ -588,7 +588,7 @@ def isea4texpand(isea4t_dggs,geojson_data,resolution):
         isea4t_ids = [feature["properties"]["isea4t"] for feature in geojson_data.get("features", []) if "isea4t" in feature.get("properties", {})]
         isea4t_cells_expand = isea4t_expand(isea4t_dggs,isea4t_ids,resolution)
         isea4t_features = [] 
-        for isea4t_cell_expand in tqdm(isea4t_cells_expand, desc="Processing cells "):    
+        for isea4t_cell_expand in tqdm(isea4t_cells_expand, desc="Expanding cells "):    
             cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(isea4t_cell_expand,ShapeStringFormat.WKT)
             cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
             isea4t_id_expand = isea4t_cell_expand.get_cell_id()
@@ -685,9 +685,6 @@ def isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell):
         return fixed_polygon
 
 def isea3h_compact(isea3h_dggs, isea3h_ids):
-    from collections import defaultdict
-    from tqdm import tqdm
-
     isea3h_ids = set(isea3h_ids)  # Remove duplicates
     cell_cache = {cell_id: DggsCell(cell_id) for cell_id in isea3h_ids}
 
@@ -695,7 +692,7 @@ def isea3h_compact(isea3h_dggs, isea3h_ids):
         grouped_by_parent = defaultdict(set)
 
         # Group cells by *all* their parents
-        for cell_id in tqdm(isea3h_ids, desc="Compacting cells", leave=False):
+        for cell_id in isea3h_ids:
             cell = cell_cache[cell_id]
             try:
                 parents = isea3h_dggs.get_dggs_cell_parents(cell)
@@ -745,7 +742,7 @@ def isea3hcompact(isea3h_dggs,geojson_data):
         isea3h_ids = [feature["properties"]["isea3h"] for feature in geojson_data.get("features", []) if "isea3h" in feature.get("properties", {})]
         isea3h_ids_compact = isea3h_compact(isea3h_dggs,isea3h_ids)
         isea3h_features = [] 
-        for isea3h_id_compact in tqdm(isea3h_ids_compact, desc="Processing cells "):    
+        for isea3h_id_compact in tqdm(isea3h_ids_compact, desc="Compacting cells "):    
             isea3h_cell = DggsCell(isea3h_id_compact)
             
             cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
@@ -838,7 +835,7 @@ def isea3h_expand(isea3h_dggs, isea3h_ids, resolution):
     """Expands a list of DGGS cells to the target resolution."""
     if platform.system() == 'Windows':       
         expand_cells = []
-        for isea3h_id in tqdm(isea3h_ids, desc="Expanding child cells "): 
+        for isea3h_id in isea3h_ids: 
             isea3h_cell = DggsCell(isea3h_id)
             expand_cells.extend(get_isea3h_cell_children(isea3h_dggs, isea3h_cell, resolution))
         return expand_cells
@@ -848,7 +845,7 @@ def isea3hexpand(isea3h_dggs,geojson_data,resolution):
         isea3h_ids = [feature["properties"]["isea3h"] for feature in geojson_data.get("features", []) if "isea3h" in feature.get("properties", {})]
         isea3h_cells_expand = isea3h_expand(isea3h_dggs,isea3h_ids,resolution)
         isea3h_features = [] 
-        for isea3h_cell_expand in tqdm(isea3h_cells_expand, desc="Processing cells "):    
+        for isea3h_cell_expand in tqdm(isea3h_cells_expand, desc="Expanding cells "):    
             cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell_expand)
            
             isea3h_id = isea3h_cell_expand.get_cell_id()
@@ -956,7 +953,7 @@ def ease_compact (ease_ids):
         grouped_ease_ids = defaultdict(set)
 
         # Group cells by their parent
-        for ease_id in tqdm(ease_ids, desc="Compacting cells", leave=False):
+        for ease_id in ease_ids:
             match = re.match(r"L(\d+)\.(.+)", ease_id)  # Extract resolution level & ID
             if not match:
                 continue  # Skip invalid IDs
@@ -1000,7 +997,7 @@ def easecompact(geojson_data):
     ease_ids = [feature["properties"]["ease"] for feature in geojson_data.get("features", []) if "ease" in feature.get("properties", {})]
     ease_cells_compact = ease_compact(ease_ids)
     ease_features = [] 
-    for ease_cell_compact in tqdm(ease_cells_compact, desc="Processing cells "):    
+    for ease_cell_compact in tqdm(ease_cells_compact, desc="Compacting cells "):    
         level = int(ease_cell_compact[1])  # Get the level (e.g., 'L0' -> 0)
         # Get level specs
         level_spec = levels_specs[level]
@@ -1079,7 +1076,7 @@ def easeexpand(geojson_data,resolution):
     ease_ids = [feature["properties"]["ease"] for feature in geojson_data.get("features", []) if "ease" in feature.get("properties", {})]
     ease_cells_expand = ease_expand(ease_ids,resolution)
     ease_features = [] 
-    for ease_cell_expand in tqdm(ease_cells_expand, desc="Processing cells "):    
+    for ease_cell_expand in tqdm(ease_cells_expand, desc="Expanding cells "):    
         level = int(ease_cell_expand[1])  # Get the level (e.g., 'L0' -> 0)
         # Get level specs
         level_spec = levels_specs[level]
@@ -1234,7 +1231,7 @@ def qtmcompact_cli():
 
 def qtm_expand(qtm_ids, resolution):
     expand_cells = []
-    for qtm_id in tqdm(qtm_ids, desc="Expanding child cells "): 
+    for qtm_id in qtm_ids: 
         cell_resolution = len(qtm_id)
         if cell_resolution >= resolution:
             expand_cells.append(qtm_id)
@@ -1394,7 +1391,7 @@ def olccompact_cli():
 
 def olc_expand(olc_ids, resolution):
     expand_cells = []
-    for olc_id in tqdm(olc_ids, desc="Expanding child cells "): 
+    for olc_id in olc_ids: 
         coord = olc.decode(olc_id)  
         cell_resolution = coord.codeLength
         if cell_resolution >= resolution:
@@ -1547,7 +1544,7 @@ def geohashcompact_cli():
 
 def geohash_expand(geohash_ids, resolution):
     expand_cells = []
-    for geohash_id in tqdm(geohash_ids, desc="Expanding child cells "): 
+    for geohash_id in geohash_ids: 
         cell_resolution = len(geohash_id)
         if cell_resolution >= resolution:
             expand_cells.append(geohash_id)
@@ -1714,7 +1711,7 @@ def tilecodecompact_cli():
 
 def tilecode_expand(tilecode_ids, resolution):
     expand_cells = []
-    for tilecode_id in tqdm(tilecode_ids, desc="Expanding child cells "): 
+    for tilecode_id in tilecode_ids: 
         match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
         if not match:
             raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
@@ -1899,7 +1896,7 @@ def quadkeycompact_cli():
 
 def quadkey_expand(quadkey_ids, resolution):
     expand_cells = []
-    for quadkey_id in tqdm(quadkey_ids, desc="Expanding child cells "): 
+    for quadkey_id in quadkey_ids: 
         quadkey_tile = mercantile.quadkey_to_tile(quadkey_id)
         cell_resolution = quadkey_tile.z
         if cell_resolution >= resolution:

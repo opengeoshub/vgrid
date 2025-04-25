@@ -65,7 +65,7 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
         if compact:
             cells = ease_compact(cells)
              
-        for cell in tqdm(cells, desc="Processing cells", unit=" cells"):
+        for cell in cells:
             cell_resolution =  int(cell[1])  # Get the level (e.g., 'L0' -> 0)
             level_spec = levels_specs[cell_resolution]
             n_row = level_spec["n_row"]
