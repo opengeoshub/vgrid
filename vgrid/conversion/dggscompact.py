@@ -746,7 +746,6 @@ def isea3hcompact(isea3h_dggs,geojson_data):
             isea3h_cell = DggsCell(isea3h_id_compact)
             
             cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
-            isea3h_id = isea3h_cell.get_cell_id()
             cell_centroid = cell_polygon.centroid
             center_lat =  round(cell_centroid.y, 7)
             center_lon = round(cell_centroid.x, 7)
@@ -785,7 +784,7 @@ def isea3hcompact(isea3h_dggs,geojson_data):
                 "type": "Feature",
                 "geometry": mapping(cell_polygon),
                 "properties": {
-                        "isea3h": isea3h_id,
+                        "isea3h": isea3h_id_compact,
                         "resolution": resolution,
                         "center_lat": center_lat,
                         "center_lon": center_lon,
@@ -909,9 +908,9 @@ def isea3hexpand_cli():
         Command-line interface for isea3hexpand.
         """
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        parser = argparse.ArgumentParser(description="Uccompact OpenEaggr ISEA3H in a GeoJSON file containing an ISEA3H ID property named 'isea3h'")
+        parser = argparse.ArgumentParser(description="Uccompact Open-Eaggr ISEA3H in a GeoJSON file containing an ISEA3H ID property named 'isea3h'")
         parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input OpenEaggr ISEA3H in GeoJSON"
+            '-geojson', '--geojson', type=str, required=True, help="Input Open-Eaggr ISEA3H in GeoJSON"
         )
         parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of OpenEaggr ISEA3H to be expanded [0..32]")
 
