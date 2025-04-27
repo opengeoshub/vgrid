@@ -64,7 +64,8 @@ def poly_to_grid(rhealpix_dggs, resolution, geometry,feature_properties, compact
             num_edges = 4
             if seed_cell.ellipsoidal_shape() == 'dart':
                 num_edges = 3
-            rhealpix_feature = geodesic_dggs_to_feature("rhealpix",seed_cell_id,resolution,seed_cell_polygon,num_edges)   
+            cell_resolution = resolution
+            rhealpix_feature = geodesic_dggs_to_feature("rhealpix",seed_cell_id,cell_resolution,seed_cell_polygon,num_edges)   
             rhealpix_feature["properties"].update(feature_properties)
             rhealpix_features.append(rhealpix_feature)
 
@@ -107,14 +108,14 @@ def poly_to_grid(rhealpix_dggs, resolution, geometry,feature_properties, compact
 
             for cell_id in covered_cells:
                 rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-                cell = rhealpix_dggs.cell(rhealpix_uids)   
-                resolution = cell.resolution
-                cell_polygon = rhealpix_cell_to_polygon(cell)
+                rhelpix_cell = rhealpix_dggs.cell(rhealpix_uids)   
+                cell_resolution = rhelpix_cell.resolution
+                cell_polygon = rhealpix_cell_to_polygon(rhelpix_cell)
                 if cell_polygon.intersects(poly):
                     num_edges = 4
                     if seed_cell.ellipsoidal_shape() == 'dart':
                         num_edges = 3
-                    rhealpix_feature = geodesic_dggs_to_feature("rhealpix",str(cell_id),resolution, cell_polygon,num_edges)   
+                    rhealpix_feature = geodesic_dggs_to_feature("rhealpix",str(cell_id),cell_resolution, cell_polygon,num_edges)   
                     rhealpix_feature["properties"].update(feature_properties)
                     rhealpix_features.append(rhealpix_feature)                
     return {

@@ -70,7 +70,8 @@ def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact=No
             
             if cell_polygon.intersects(poly):
                 num_edges = 3
-                isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
+                cell_resolution = len(isea4t_id)-2
+                isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,cell_resolution,cell_polygon,num_edges)   
                 isea4t_feature["properties"].update(feature_properties)
                 isea4t_features.append(isea4t_feature)          
                

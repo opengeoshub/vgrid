@@ -70,9 +70,9 @@ def poly_to_grid(resolution, geometry,feature_properties,compact = None):
           
             if cell_polygon.intersects(poly):
                 cell_token = s2.CellId.to_token(cell_id)  
-                resolution = cell_id.level()
+                cell_resolution = cell_id.level()
                 num_edges = 4
-                s2_feature = geodesic_dggs_to_feature("s2",cell_token,resolution,cell_polygon,num_edges)   
+                s2_feature = geodesic_dggs_to_feature("s2",cell_token,cell_resolution,cell_polygon,num_edges)   
                 s2_feature["properties"].update(feature_properties)    
                 s2_features.append(s2_feature)
                             

@@ -60,18 +60,18 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
         # Get all grid cells within the bounding box
         polygon_bbox_wkt = poly_bbox.wkt
         cells_bbox = geo_polygon_to_grid_ids(polygon_bbox_wkt, resolution, geo_crs, ease_crs, levels_specs, return_centroids = True, wkt_geom=True)
-        cells = cells_bbox['result']['data']   
+        ease_cells = cells_bbox['result']['data']   
         
         if compact:
-            cells = ease_compact(cells)
+            ease_cells = ease_compact(ease_cells)
              
-        for cell in cells:
-            cell_resolution =  int(cell[1])  # Get the level (e.g., 'L0' -> 0)
+        for ease_cell in ease_cells:
+            cell_resolution =  int(ease_cell[1])  # Get the level (e.g., 'L0' -> 0)
             level_spec = levels_specs[cell_resolution]
             n_row = level_spec["n_row"]
             n_col = level_spec["n_col"]
 
-            geo = grid_ids_to_geos([cell])
+            geo = grid_ids_to_geos([ease_cell])
             center_lon, center_lat = geo['result']['data'][0] 
 
             cell_min_lat = center_lat - (180 / (2 * n_row))
@@ -88,7 +88,7 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
             ])
             if cell_polygon.intersects(poly):
                 num_edges = 4
-                ease_feature = geodesic_dggs_to_feature('ease', str(cell), cell_resolution, cell_polygon, num_edges)
+                ease_feature = geodesic_dggs_to_feature('ease', str(ease_cell), cell_resolution, cell_polygon, num_edges)
                 ease_feature["properties"].update(feature_properties)
                 ease_features.append(ease_feature)            
    

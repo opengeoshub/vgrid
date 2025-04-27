@@ -70,11 +70,11 @@ def poly_to_grid(resolution, geometry,feature_properties, compact= None):
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
             cell_polygon = Polygon(reversed_boundary)
             if cell_polygon.intersects(poly):
-                resolution = h3.get_resolution(bbox_buffer_cell)   
+                cell_resolution = h3.get_resolution(bbox_buffer_cell)   
                 num_edges = 6       
                 if (h3.is_pentagon(bbox_buffer_cell)):
                     num_edges = 5           
-                h3_feature = geodesic_dggs_to_feature("h3",bbox_buffer_cell,resolution,cell_polygon,num_edges)   
+                h3_feature = geodesic_dggs_to_feature("h3",bbox_buffer_cell,cell_resolution,cell_polygon,num_edges)   
                 h3_feature["properties"].update(feature_properties)
                 h3_features.append(h3_feature)               
           

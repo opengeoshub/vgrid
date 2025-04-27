@@ -25,61 +25,16 @@ def point_to_grid(isea3h_dggs,resolution, point,feature_properties):
         accuracy = isea3h_res_accuracy_dict.get(resolution)
         lat_long_point = LatLongPoint(point.y, point.x, accuracy)
         isea3h_cell = isea3h_dggs.convert_point_to_dggs_cell(lat_long_point)
-        isea3h_id = isea3h_cell.get_cell_id() # Unique identifier for the current cell
         cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
         
         if cell_polygon:
-            cell_centroid = cell_polygon.centroid
-            center_lat =  round(cell_centroid.y, 7)
-            center_lon = round(cell_centroid.x, 7)
-            
-            cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
-            cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-            
-            isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)      
-            cell_accuracy = isea3h2point._accuracy
-                
-            avg_edge_len = cell_perimeter / 6
-            cell_resolution  = isea3h_accuracy_res_dict.get(cell_accuracy)
-            
-            if (cell_resolution == 0): # icosahedron faces at resolution = 0
-                avg_edge_len = cell_perimeter / 3
-            
-            if cell_accuracy == 0.0:
-                if round(avg_edge_len,2) == 0.06:
-                    cell_resolution = 33
-                elif round(avg_edge_len,2) == 0.03:
-                    cell_resolution = 34
-                elif round(avg_edge_len,2) == 0.02:
-                    cell_resolution = 35
-                elif round(avg_edge_len,2) == 0.01:
-                    cell_resolution = 36
-                
-                elif round(avg_edge_len,3) == 0.007:
-                    cell_resolution = 37
-                elif round(avg_edge_len,3) == 0.004:
-                    cell_resolution = 38
-                elif round(avg_edge_len,3) == 0.002:
-                    cell_resolution = 39
-                elif round(avg_edge_len,3) <= 0.001:
-                    cell_resolution = 40
-                    
-            isea3h_feature = {
-                "type": "Feature",
-                "geometry": mapping(cell_polygon),
-                "properties": {
-                        "isea3h": isea3h_id,
-                        "resolution": cell_resolution,
-                        "center_lat": center_lat,
-                        "center_lon": center_lon,
-                        "avg_edge_len": round(avg_edge_len,3),
-                        "cell_area": cell_area
-                        }
-            }
-
-            isea3h_feature["properties"].update(feature_properties)
-            isea3h_features.append(isea3h_feature)    
-        
+            isea3h_id = isea3h_cell.get_cell_id() 
+            cell_resolution = resolution
+            num_edges = 3 if cell_resolution == 0 else 6       
+            isea4t_feature = geodesic_dggs_to_feature("isea3h",isea3h_id,cell_resolution,cell_polygon,num_edges)   
+            isea4t_feature["properties"].update(feature_properties)
+            isea3h_features.append(isea4t_feature)
+       
         return {
             "type": "FeatureCollection",
             "features": isea3h_features,
@@ -111,55 +66,15 @@ def poly_to_grid(isea3h_dggs,resolution, geometry, feature_properties,compact):
                 cell_polygon = isea3h_cell_to_polygon(isea3h_dggs,isea3h_cell)
                 if cell_polygon.intersects(poly):
                     isea3h_id = isea3h_cell.get_cell_id()
-                    cell_centroid = cell_polygon.centroid
-                    center_lat =  round(cell_centroid.y, 7)
-                    center_lon = round(cell_centroid.x, 7)
-                    
-                    cell_area = round(abs(geod.geometry_area_perimeter(cell_polygon)[0]),3)
-                    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
-                    
                     isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)      
-                    cell_accuracy = isea3h2point._accuracy
-                        
-                    avg_edge_len = cell_perimeter / 6
-                    cell_resolution  = isea3h_accuracy_res_dict.get(cell_accuracy)
-                    
-                    if (cell_resolution == 0): # icosahedron faces at resolution = 0
-                        avg_edge_len = cell_perimeter / 3
-                    
-                    if cell_accuracy == 0.0:
-                        if round(avg_edge_len,2) == 0.06:
-                            cell_resolution = 33
-                        elif round(avg_edge_len,2) == 0.03:
-                            cell_resolution = 34
-                        elif round(avg_edge_len,2) == 0.02:
-                            cell_resolution = 35
-                        elif round(avg_edge_len,2) == 0.01:
-                            cell_resolution = 36
-                        
-                        elif round(avg_edge_len,3) == 0.007:
-                            cell_resolution = 37
-                        elif round(avg_edge_len,3) == 0.004:
-                            cell_resolution = 38
-                        elif round(avg_edge_len,3) == 0.002:
-                            cell_resolution = 39
-                        elif round(avg_edge_len,3) <= 0.001:
-                            cell_resolution = 40
-                            
-                    isea3h_feature = {
-                        "type": "Feature",
-                        "geometry": mapping(cell_polygon),
-                        "properties": {
-                                "isea3h": isea3h_id,
-                                "resolution": cell_resolution,
-                                "center_lat": center_lat,
-                                "center_lon": center_lon,
-                                "avg_edge_len": round(avg_edge_len,3),
-                                "cell_area": cell_area
-                                }
-                    }
-                    isea3h_feature["properties"].update(feature_properties)
-                    isea3h_features.append(isea3h_feature)
+                    cell_accuracy = isea3h2point._accuracy        
+                    cell_resolution  = isea3h_accuracy_res_dict.get(cell_accuracy)                    
+                    num_edges = 3 if cell_resolution == 0 else 6  
+                         
+                    isea4t_feature = geodesic_dggs_to_feature("isea3h",isea3h_id,cell_resolution,cell_polygon,num_edges)   
+                    isea4t_feature["properties"].update(feature_properties)
+                    isea3h_features.append(isea4t_feature)
+       
         return {
             "type": "FeatureCollection",
             "features": isea3h_features,
