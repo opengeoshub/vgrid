@@ -17,11 +17,9 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.generator.isea4tgrid import fix_isea4t_wkt, fix_isea4t_antimeridian_cells
 
-
 if (platform.system() == 'Linux'):
     from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
     from vgrid.utils.dggrid4py.dggrid_runner import input_address_types
-
 
 from vgrid.utils.easedggs.constants import levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos
@@ -54,7 +52,7 @@ def h3compact(geojson_data,h3_id=None):
         h3_ids = [feature["properties"][h3_id] for feature in geojson_data.get("features", []) if h3_id in feature.get("properties", {})]
         h3_ids = list(set(h3_ids))
         if not h3_ids:
-            print(f"No H3 IDs found in {h3_id} field.")
+            print(f"No H3 IDs found in <{h3_id}> field.")
             return
         
         h3_ids_compact = h3.compact_cells(h3_ids)
@@ -124,7 +122,7 @@ def h3expand(geojson_data,resolution,h3_id=None):
         h3_ids = [feature["properties"][h3_id] for feature in geojson_data.get("features", []) if h3_id in feature.get("properties", {})]
         h3_ids = list(set(h3_ids))
         if not h3_ids:
-            print(f"No H3 IDs found in {h3_id} field.")
+            print(f"No H3 IDs found in <{h3_id}> field.")
             return
 
         max_res = max(h3.get_resolution(h3_id) for h3_id in h3_ids)
@@ -209,7 +207,7 @@ def s2compact(geojson_data,s2_token=None):
         s2_ids = [s2.CellId.from_token(token) for token in s2_tokens]
         s2_ids = list(set(s2_ids))
         if not s2_ids:
-            print(f"No S2 tokens found in {s2_token} field.")
+            print(f"No S2 tokens found in <{s2_token}> field.")
             return
         covering = s2.CellUnion(s2_ids)
         covering.normalize()
@@ -298,7 +296,7 @@ def s2expand(geojson_data,resolution, s2_token=None):
         s2_ids = [s2.CellId.from_token(token) for token in s2_tokens]
         s2_ids = list(set(s2_ids))
         if not s2_ids:
-            print(f"No S2 tokens found in {s2_token} field.")
+            print(f"No S2 tokens found in <{s2_token}> field.")
             return
         
         max_res = max(s2_id.level() for s2_id in s2_ids)
@@ -384,10 +382,6 @@ def s2expand_cli():
 # rHEALPix
 #################
 def rhealpix_compact(rhealpix_dggs, rhealpix_ids):
-    """
-    Fully compacts rHEALPix cell IDs by replacing fully populated parent cells with their parent.
-    Iterates until no further compaction is possible.
-    """
     rhealpix_ids = set(rhealpix_ids)  # Remove duplicates
     
     # Main loop for compaction
@@ -431,7 +425,7 @@ def rhealpixcompact(rhealpix_dggs,geojson_data,rhealpix_id=None):
     try:
         rhealpix_ids = [feature["properties"][rhealpix_id] for feature in geojson_data.get("features", []) if rhealpix_id in feature.get("properties", {})]
         if not rhealpix_ids:
-            print(f"No rHEALPix IDs found in {rhealpix_id} field.")
+            print(f"No rHEALPix IDs found in <{rhealpix_id}> field.")
             return 
         
         rhealpix_ids_compact = rhealpix_compact(rhealpix_dggs,rhealpix_ids)
@@ -491,7 +485,7 @@ def rhealpixcompact_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('rHEALPIX compact failed')
+        print('rHEALPix compact failed.')
 
 def rhealpix_expand(rhealpix_dggs, rhealpix_ids, resolution):
     expand_cells = []
@@ -512,7 +506,7 @@ def get_rhealpix_resolution(rhealpix_dggs, rhealpix_id):
         rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
         return rhealpix_cell.resolution
     except Exception as e:
-        raise ValueError(f"Invalid cell ID '{rhealpix_id}': {e}")
+        raise ValueError(f"Invalid cell ID <{rhealpix_id}>: {e}")
 
 def rhealpixexpand(rhealpix_dggs,geojson_data,resolution, rhealpix_id=None):
     if not rhealpix_id:
@@ -524,7 +518,7 @@ def rhealpixexpand(rhealpix_dggs,geojson_data,resolution, rhealpix_id=None):
         rhealpix_ids =list(set(rhealpix_ids))
         
         if not rhealpix_ids:
-            print(f"No rHEALPix IDs found in {rhealpix_id} field.")
+            print(f"No rHEALPix IDs found in <{rhealpix_id}> field.")
             return
         
         max_res = max(get_rhealpix_resolution(rhealpix_dggs,rhealpix_id) for rhealpix_id in rhealpix_ids)
@@ -592,7 +586,7 @@ def rhealpixexpand_cli():
         print(f"GeoJSON saved as {geojson_path}")
    
     else:
-        print('rHEALPIX expand failed')
+        print('rHEALPix expand failed.')
         
 
 #################
@@ -656,7 +650,7 @@ def isea4tcompact(isea4t_dggs,geojson_data, isea4t_id= None):
         try:
             isea4t_ids = [feature["properties"][isea4t_id] for feature in geojson_data.get("features", []) if isea4t_id in feature.get("properties", {})]
             if not isea4t_ids:
-                print (f"No ISEA4T IDs found in {isea4t_id} field.")
+                print (f"No ISEA4T IDs found in <{isea4t_id}> field.")
                 return 
             rhealpix_ids_compact = isea4t_compact(isea4t_dggs,isea4t_ids)
         except:
@@ -690,7 +684,7 @@ def isea4tcompact_cli():
         Command-line interface for isea4tcompact.
         """
         isea4t_dggs = Eaggr(Model.ISEA4T)
-        parser = argparse.ArgumentParser(description="Compact ISEA4T")
+        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA4T")
         parser.add_argument(
             '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON"
         )
@@ -738,7 +732,7 @@ def isea4texpand(isea4t_dggs,geojson_data,resolution, isea4t_id=None):
             isea4t_ids = [feature["properties"][isea4t_id] for feature in geojson_data.get("features", []) if isea4t_id in feature.get("properties", {})]
             isea4t_ids =list(set(isea4t_ids))
             if not isea4t_ids:
-                print(f"No ISEA4T IDs found in {isea4t_id} field.")
+                print(f"No ISEA4T IDs found in <{isea4t_id}> field.")
                 return
             
             max_res = max(len(isea4t_id)-2 for isea4t_id in isea4t_ids)           
@@ -778,7 +772,7 @@ def isea4texpand_cli():
         isea4t_dggs = Eaggr(Model.ISEA4T)
         parser = argparse.ArgumentParser(description="Expand OpenEaggr ISEA4T")
         parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input OpenEaggr ISEA4T in GeoJSON"
+            '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON"
         )
         parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..25]")
         parser.add_argument('-cellid', '--cellid', type=str, help="ISEA4T ID field")
@@ -809,7 +803,7 @@ def isea4texpand_cli():
 
             print(f"GeoJSON saved as {geojson_path}")
         else:
-            print('ISEA4T expand failed')
+            print('ISEA4T expand failed.')
 
 #################
 # ISEA3H
@@ -939,7 +933,7 @@ def get_isea3h_resolution(isea3h_dggs, isea3h_id):
                 
         return cell_resolution
     except Exception as e:
-        raise ValueError(f"Invalid cell ID '{isea3h_id}': {e}")
+        raise ValueError(f"Invalid cell ID <{isea3h_id}> : {e}")
 
 def isea3hcompact(isea3h_dggs,geojson_data,isea3h_id= None):
     if (platform.system() == 'Windows'):
@@ -949,7 +943,7 @@ def isea3hcompact(isea3h_dggs,geojson_data,isea3h_id= None):
         try:
             isea3h_ids = [feature["properties"][isea3h_id] for feature in geojson_data.get("features", []) if isea3h_id in feature.get("properties", {})]
             if not isea3h_ids:
-                print (f"No ISEA3H IDs found in {isea3h_id} field.")
+                print (f"No ISEA3H IDs found in <{isea3h_id}> field.")
                 return 
             isea3h_ids_compact = isea3h_compact(isea3h_dggs,isea3h_ids)
         except:
@@ -1020,7 +1014,7 @@ def isea3hcompact_cli():
         """
         Command-line interface for isea3hcompact.
         """
-        parser = argparse.ArgumentParser(description="Compact ISEA3H")
+        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA3H")
         parser.add_argument(
             '-geojson', '--geojson', type=str, required=True, help="Input ISEA3H in GeoJSON"
         )
@@ -1048,7 +1042,7 @@ def isea3hcompact_cli():
 
             print(f"GeoJSON saved as {geojson_path}")
         else:
-            print('ISEA3H compact failed')
+            print('ISEA3H compact failed.')
         
 def isea3h_expand(isea3h_dggs, isea3h_ids, resolution):
     """Expands a list of DGGS cells to the target resolution."""
@@ -1069,7 +1063,7 @@ def isea3hexpand(isea3h_dggs,geojson_data,resolution,isea3h_id=None):
             isea3h_ids = [feature["properties"][isea3h_id] for feature in geojson_data.get("features", []) if isea3h_id in feature.get("properties", {})]
             isea3h_ids =list(set(isea3h_ids))
             if not isea3h_ids:
-                print(f"No ISEA3H IDs found in {isea3h_id} field.")
+                print(f"No ISEA3H IDs found in <{isea3h_id}> field.")
                 return
             max_res = max(get_isea3h_resolution(isea3h_dggs,isea3h_id) for isea3h_id in isea3h_ids)         
             if resolution <= max_res:
@@ -1179,7 +1173,7 @@ def isea3hexpand_cli():
 
             print(f"GeoJSON saved as {geojson_path}")
         else:
-            print('ISEA3H expand failed')
+            print('ISEA3H expand failed.')
 
 #################
 # EASE
@@ -1239,7 +1233,7 @@ def easecompact(geojson_data, ease_id= None):
     try:            
         ease_ids = [feature["properties"][ease_id] for feature in geojson_data.get("features", []) if ease_id in feature.get("properties", {})]
         if not ease_ids:
-            print (f"No EASE IDs found in {ease_id} field.")
+            print (f"No EASE IDs found in <{ease_id}> field.")
             return 
         ease_cells_compact = ease_compact(ease_ids)
     except:
@@ -1313,7 +1307,7 @@ def easecompact_cli():
 
         print(f"GeoJSON saved as {geojson_path}") 
     else:
-        print('EASE compact failed')
+        print('EASE compact failed.')
         
 def ease_expand(ease_ids, resolution):
     uncopmpacted_cells = []
@@ -1334,7 +1328,7 @@ def easeexpand(geojson_data,resolution,ease_id=None):
         ease_ids = [feature["properties"][ease_id] for feature in geojson_data.get("features", []) if ease_id in feature.get("properties", {})]
         ease_ids =list(set(ease_ids))
         if not ease_ids:
-            print(f"No EASE IDs found in {ease_id} field.")
+            print(f"No EASE IDs found in <{ease_id}> field.")
             return
         max_res = max(int(ease_id[1])  for ease_id in ease_ids)         
         if resolution <= max_res:
@@ -1417,7 +1411,7 @@ def easeexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}") 
     else:
-        print('EASE expand failed')
+        print('EASE expand failed.')
         
 #################
 # QTM
@@ -1459,7 +1453,7 @@ def qtmcompact(geojson_data, qtm_id=None):
     try:
         qtm_ids = [feature["properties"][qtm_id] for feature in geojson_data.get("features", []) if qtm_id in feature.get("properties", {})]
         if not qtm_ids:
-            print (f"No QTM IDs found in {qtm_id} field.")
+            print (f"No QTM IDs found in <{qtm_id}> field.")
             return 
         qtm_ids_compact = qtm_compact(qtm_ids)
     except:
@@ -1487,7 +1481,7 @@ def qtmcompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact QTM")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON format"
+        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="QTM ID field"
@@ -1513,7 +1507,7 @@ def qtmcompact_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('QTM compact failed')
+        print('QTM compact failed.')
         
 def qtm_expand(qtm_ids, resolution):
     expand_cells = []
@@ -1533,7 +1527,7 @@ def qtmexpand(geojson_data,resolution, qtm_id=None):
         qtm_ids = [feature["properties"][qtm_id] for feature in geojson_data.get("features", []) if qtm_id in feature.get("properties", {})]
         qtm_ids =list(set(qtm_ids))
         if not qtm_ids:
-            print(f"No QTM IDs found in {qtm_id} field.")
+            print(f"No QTM IDs found in <{qtm_id}> field.")
             return
         max_res = max(len(qtm_id) for qtm_id in qtm_ids)         
         if resolution <= max_res:
@@ -1566,7 +1560,7 @@ def qtmexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand QTM")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input qtm in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..24]")
     parser.add_argument('-cellid', '--cellid', type=str,  help="QTM ID field")
@@ -1596,7 +1590,7 @@ def qtmexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('QTM expand failed')
+        print('QTM expand failed.')
 
 #################
 # OLC
@@ -1645,7 +1639,7 @@ def olccompact(geojson_data, olc_token=None):
     try:
         olc_tokens = [feature["properties"][olc_token] for feature in geojson_data.get("features", []) if olc_token in feature.get("properties", {})]
         if not olc_tokens:
-            print (f"No OLC Tokens found in {olc_token} field.")
+            print (f"No OLC Tokens found in <{olc_token}> field.")
             return 
         olc_tokens_compact = olc_compact(olc_tokens)
     except:
@@ -1708,7 +1702,7 @@ def olccompact_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('OLC compact failed')
+        print('OLC compact failed.')
         
         
 def olc_expand(olc_ids, resolution):
@@ -1769,11 +1763,11 @@ def olcexpand_cli():
     """
     Command-line interface for olcexpand.
     """
-    parser = argparse.ArgumentParser(description="Expand OLC ")
+    parser = argparse.ArgumentParser(description="Expand OLC")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input olc in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input OLC in GeoJSON"
     )
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution of olc to be expanded [2, 4, 6, 8, 10..15]")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [2, 4, 6, 8, 10..15]")
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="OLC Token field"
     )
@@ -1803,7 +1797,7 @@ def olcexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('OLC expand failed')
+        print('OLC expand failed.')
 
 
 #################
@@ -1876,7 +1870,7 @@ def geohashcompact_cli():
         '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON"
     )
     parser.add_argument(
-        '-cellid', '--geojson', type=str, help="Geohash cell ID"
+        '-cellid', '--cellid', type=str, help="Geohash cell ID"
     )
 
     args = parser.parse_args()
@@ -1900,7 +1894,7 @@ def geohashcompact_cli():
         print(f"GeoJSON saved as {geojson_path}")
     
     else:
-        print('Geohash compact failed')
+        print('Geohash compact failed.')
             
 def geohash_expand(geohash_ids, resolution):
     expand_cells = []
@@ -1930,7 +1924,7 @@ def geohashexpand(geojson_data,resolution,geohash_id=None):
             
         geohash_ids_expand = geohash_expand(geohash_ids, resolution)
     except Exception:
-        raise Exception("Expand cells failed. Please check your QTM ID field.") 
+        raise Exception("Expand cells failed. Please check your Geohash ID field.") 
     
     if geohash_ids_expand:
         geohash_features = [] 
@@ -1983,7 +1977,7 @@ def geohashexpand_cli():
         print(f"GeoJSON saved as {geojson_path}")
     
     else:
-        print('Geohash expand failed')
+        print('Geohash expand failed.')
 
 #################
 # Tilecode
@@ -2104,7 +2098,7 @@ def tilecodecompact_cli():
         print(f"GeoJSON saved as {geojson_path}")
     
     else:
-        print('Tilecode compact failed')
+        print('Tilecode compact failed.')
 
 def tilecode_expand(tilecode_ids, resolution):
     expand_cells = []
@@ -2130,7 +2124,7 @@ def tilecodeexpand(geojson_data,resolution,tilecode_id=None):
         if not tilecode_ids:
             print(f"No Tilecode IDs found in <{tilecode_id}> field.")
             return
-        max_res = max(len(tilecode_id) for tilecode_id in tilecode_ids)         
+        max_res = max(int(re.match(r'z(\d+)x(\d+)y(\d+)', tid).group(1)) for tid in tilecode_ids)
         if resolution <= max_res:
             print(f"Target expand resolution ({resolution}) must > {max_res}.")
             return 
@@ -2180,7 +2174,7 @@ def tilecodeexpand_cli():
         '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON"
     )
     parser.add_argument(
-        '-cellid', '--cellid', type=str, required=True, help="Tilecode ID field"
+        '-cellid', '--cellid', type=str, help="Tilecode ID field"
     )
     args = parser.parse_args()
     geojson = args.geojson
@@ -2208,7 +2202,7 @@ def tilecodeexpand_cli():
         print(f"GeoJSON saved as {geojson_path}")
     
     else:
-        print('Tilecode expand failed')
+        print('Tilecode expand failed.')
 
 #################
 # Quadkey
@@ -2301,7 +2295,7 @@ def quadkeycompact_cli():
         '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON"
     )
     parser.add_argument(
-        '-cellid', '--cellid', type=str, required=True, help="Quadkey ID field"
+        '-cellid', '--cellid', type=str, help="Quadkey ID field"
     )
 
     args = parser.parse_args()
@@ -2324,13 +2318,13 @@ def quadkeycompact_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-        print('Quadkey compact failed')
+        print('Quadkey compact failed.')
+        
 
 def quadkey_expand(quadkey_ids, resolution):
     expand_cells = []
     for quadkey_id in quadkey_ids: 
-        quadkey_tile = mercantile.quadkey_to_tile(quadkey_id)
-        cell_resolution = quadkey_tile.z
+        cell_resolution = len(quadkey_id)
         if cell_resolution >= resolution:
             expand_cells.append(quadkey_id)
         else:
@@ -2348,13 +2342,13 @@ def quadkeyexpand(geojson_data,resolution,quadkey_id=None):
         if not quadkey_ids:
             print(f"No Quadkey IDs found in <{quadkey_id}> field.")
             return
-        max_res = max(len(quadkey_id) for quadkey_id in quadkey_ids)         
+        max_res = max(len(quadkey_id)  for quadkey_id in quadkey_ids)        
         if resolution <= max_res:
             print(f"Target expand resolution ({resolution}) must > {max_res}.")
             return 
         quadkey_ids_expand = quadkey_expand(quadkey_ids, resolution)
     except Exception:
-        raise Exception("Expand cells failed. Please check your Tilecode ID field.") 
+        raise Exception("Expand cells failed. Please check your Quadkey ID field.") 
     
     if quadkey_ids_expand:
         quadkey_features = [] 
@@ -2391,10 +2385,10 @@ def quadkeyexpand_cli():
     """
     Command-line interface for quadkeyexpand.
     """
-    parser = argparse.ArgumentParser(description="Expand quadkey ")
+    parser = argparse.ArgumentParser(description="Expand Quadkey ")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..29]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input quadkey in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON"
     )
     parser.add_argument('-cellid', '--cellid', type=str, help="Quadkey ID field")
 
@@ -2423,4 +2417,4 @@ def quadkeyexpand_cli():
 
         print(f"GeoJSON saved as {geojson_path}")
     else:
-            print('Quadkey expand failed')
+        print('Quadkey expand failed.')
