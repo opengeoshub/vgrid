@@ -2,9 +2,10 @@ import argparse
 import json
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
-from shapely.geometry import Polygon, box, mapping
+from shapely.geometry import Polygon, box, shape
 from tqdm import tqdm
 from vgrid.generator.settings import max_cells, geodesic_dggs_to_feature
+from shapely.ops import unary_union
 
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -111,6 +112,73 @@ def generate_grid_within_bbox(resolution, bbox):
             "type": "FeatureCollection",
             "features": rhealpix_features,
         }
+
+
+def generate_grid_sample(resolution, geojson_features):
+    # Step 1: Extract and unify all geometries from input features
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    # Step 2: Use centroid of unified geometry as seed point
+    seed_point = (unified_geom.centroid.x, unified_geom.centroid.y)
+
+    rhealpix_features = []
+    seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
+    seed_cell_id = str(seed_cell)
+    seed_cell_polygon = rhealpix_cell_to_polygon(seed_cell)
+
+    # Step 3: If seed cell fully contains geometry
+    if seed_cell_polygon.contains(unified_geom):             
+        num_edges = 4
+        if seed_cell.ellipsoidal_shape() == 'dart':
+            num_edges = 3
+
+        rhealpix_feature = geodesic_dggs_to_feature('rhealpix', seed_cell_id, resolution, seed_cell_polygon, num_edges)
+        rhealpix_features.append(rhealpix_feature)
+        return {
+            "type": "FeatureCollection",
+            "features": rhealpix_features,
+        }
+    
+    # Step 4: Explore neighbors if more cells needed
+    covered_cells = set()
+    queue = [seed_cell]
+
+    while queue:
+        current_cell = queue.pop()
+        current_cell_id = str(current_cell)
+
+        if current_cell_id in covered_cells:
+            continue
+
+        covered_cells.add(current_cell_id)
+        cell_polygon = rhealpix_cell_to_polygon(current_cell)
+
+        if not cell_polygon.intersects(unified_geom):
+            continue
+
+        neighbors = current_cell.neighbors(plane=False)
+        for _, neighbor in neighbors.items():
+            neighbor_id = str(neighbor)
+            if neighbor_id not in covered_cells:
+                queue.append(neighbor)
+
+    for cell_id in tqdm(covered_cells, desc="Generating rHEALPix DGGS", unit=" cells"):
+        rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
+        cell = rhealpix_dggs.cell(rhealpix_uids)
+        cell_polygon = rhealpix_cell_to_polygon(cell)
+
+        if cell_polygon.intersects(unified_geom):
+            num_edges = 4
+            if seed_cell.ellipsoidal_shape() == 'dart':
+                num_edges = 3
+            rhealpix_feature = geodesic_dggs_to_feature('rhealpix', cell_id, resolution, cell_polygon, num_edges)
+            rhealpix_features.append(rhealpix_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": rhealpix_features,
+    }
 
 
 def main():

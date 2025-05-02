@@ -11,6 +11,7 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     from vgrid.generator.settings import isea4t_res_accuracy_dict
 
+from shapely.ops import unary_union
 from tqdm import tqdm
 from shapely.geometry import Polygon, box
 from vgrid.utils.antimeridian import fix_polygon
@@ -133,6 +134,49 @@ def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
         isea4t_feature = geodesic_dggs_to_feature('isea4t', isea4t_id, resolution, cell_polygon, num_edges)
         isea4t_features.append(isea4t_feature)           
             
+    return {
+        "type": "FeatureCollection",
+        "features": isea4t_features
+    }
+
+def generate_grid_resample(isea4t_dggs, resolution, geojson_features):
+    accuracy = isea4t_res_accuracy_dict.get(resolution)
+    # Step 1: Unify all geometries into a single shape
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+    unified_geom_wkt = unified_geom.wkt
+
+    # Step 2: Generate DGGS shapes from WKT geometry
+    shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(unified_geom_wkt, ShapeStringFormat.WKT, accuracy)
+    shape = shapes[0]
+    bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+    bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
+
+    # Step 3: Generate children cells within geometry bounds
+    bounding_children = get_isea4t_children_cells_within_bbox(
+        isea4t_dggs, bounding_cell.get_cell_id(), unified_geom, resolution
+    )
+
+    isea4t_features = []
+    for child in tqdm(bounding_children, desc="Generating ISEA4T DGGS", unit=" cells"):
+        isea4t_cell = DggsCell(child)
+        cell_polygon = isea4t_cell_to_polygon(isea4t_dggs, isea4t_cell)
+        isea4t_id = isea4t_cell.get_cell_id()
+
+        if resolution == 0:
+            cell_polygon = fix_polygon(cell_polygon)
+        elif isea4t_id.startswith(('00', '09', '14', '04', '19')):
+            cell_polygon = fix_isea4t_antimeridian_cells(cell_polygon)
+
+        num_edges = 3
+
+        # Optional: only include cells intersecting original geometry
+        if not cell_polygon.intersects(unified_geom):
+            continue
+
+        isea4t_feature = geodesic_dggs_to_feature('isea4t', isea4t_id, resolution, cell_polygon, num_edges)
+        isea4t_features.append(isea4t_feature)
+
     return {
         "type": "FeatureCollection",
         "features": isea4t_features

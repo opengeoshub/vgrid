@@ -8,6 +8,8 @@ import json
 from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
+from shapely.geometry import shape, Polygon
+from shapely.ops import unary_union
 
 from vgrid.generator.settings import geodesic_dggs_to_feature
 max_cells = 100_000_000
@@ -99,6 +101,37 @@ def generate_grid_within_bbox(resolution,bbox):
             "features": h3_features,
         }
 
+def generate_grid_resample(resolution, geojson_features):
+    # Create a unified geometry from all features
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+
+    unified_geom = unary_union(geometries)
+
+    # Estimate buffer distance based on resolution
+    distance = h3.average_hexagon_edge_length(resolution, unit='m') * 2
+    buffered_geom = geodesic_buffer(unified_geom, distance)
+
+    # Generate H3 cells that cover the buffered geometry
+    h3_cells = h3.geo_to_cells(buffered_geom, resolution)
+
+    h3_features = []
+    for h3_cell in tqdm(h3_cells, desc="Generating H3 DGGS", unit= " cells"):
+        hex_boundary = h3.cell_to_boundary(h3_cell)
+        filtered_boundary = fix_h3_antimeridian_cells(hex_boundary)
+        reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
+        cell_polygon = Polygon(reversed_boundary)
+
+        # Only keep cells that intersect the unified input geometry
+        if cell_polygon.intersects(unified_geom):
+            h3_id = str(h3_cell)
+            num_edges = 6 if not h3.is_pentagon(h3_id) else 5
+            h3_feature = geodesic_dggs_to_feature("h3", h3_id, resolution, cell_polygon, num_edges)
+            h3_features.append(h3_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": h3_features,
+    }
 
 # Example Usage
 def main():

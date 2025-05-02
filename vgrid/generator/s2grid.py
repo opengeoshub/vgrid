@@ -13,6 +13,8 @@ from tqdm import tqdm
 from vgrid.utils.antimeridian import fix_polygon
 from shapely.geometry import Polygon
 from vgrid.generator.settings import geodesic_dggs_to_feature
+from shapely.geometry import shape
+from shapely.ops import unary_union
 
 def s2_cell_to_polygon(cell_id):
     cell = s2.Cell(cell_id)
@@ -64,6 +66,45 @@ def generate_grid(resolution,bbox):
         cell_polygon = s2_cell_to_polygon(cell_id)
         s2_feature = geodesic_dggs_to_feature("s2",s2_token,resolution,cell_polygon,num_edges)   
         s2_features.append(s2_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": s2_features
+    }
+
+def generate_grid_sample(resolution,geojson_features):
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    # Step 2: Get bounding box from unified geometry
+    min_lng, min_lat, max_lng, max_lat = unified_geom.bounds
+
+    # Step 3: Configure the S2 coverer
+    level = resolution
+    coverer = s2.RegionCoverer()
+    coverer.min_level = level
+    coverer.max_level = level
+
+    # Step 4: Create a LatLngRect from the bounding box
+    region = s2.LatLngRect(
+        s2.LatLng.from_degrees(min_lat, min_lng),
+        s2.LatLng.from_degrees(max_lat, max_lng)
+    )
+
+    # Step 5: Get the covering cells
+    covering = coverer.get_covering(region)
+
+    s2_features = []
+    for cell_id in tqdm(covering, desc="Generating S2 DGGS", unit=" cells"):
+        # Convert S2 cell to polygon (must define `s2_cell_to_polygon`)
+        cell_polygon = s2_cell_to_polygon(cell_id)
+        
+        # Check intersection with actual geometry
+        if cell_polygon.intersects(unified_geom):
+            s2_token = cell_id.to_token()
+            num_edges = 4
+            s2_feature = geodesic_dggs_to_feature("s2", s2_token, resolution, cell_polygon, num_edges)
+            s2_features.append(s2_feature)
 
     return {
         "type": "FeatureCollection",
