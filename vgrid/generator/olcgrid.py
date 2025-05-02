@@ -2,8 +2,9 @@ import json
 import argparse
 from vgrid.utils import olc
 from tqdm import tqdm
-from shapely.geometry import box, Polygon
+from shapely.geometry import shape, box, Polygon
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
+from shapely.ops import unary_union
 
 def calculate_total_cells(resolution, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
@@ -176,6 +177,58 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
         lat += lat_step
 
     return olc_features
+
+def generate_grid_resample(resolution, geojson_features):
+    """
+    Generate a grid of Open Location Codes (Plus Codes) within the specified GeoJSON features.
+    """
+    # Step 1: Union all input geometries
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    # Step 2: Generate base cells at the lowest resolution (e.g., resolution 2)
+    base_resolution = 2
+    base_cells = generate_grid(base_resolution)
+
+    # Step 3: Identify seed cells that intersect with the unified geometry
+    seed_cells = []
+    for base_cell in base_cells["features"]:
+        base_cell_poly = Polygon(base_cell["geometry"]["coordinates"][0])
+        if unified_geom.intersects(base_cell_poly):
+            seed_cells.append(base_cell)
+
+    refined_features = []
+
+    # Step 4: Refine seed cells to the desired resolution
+    for seed_cell in seed_cells:
+        seed_cell_poly = Polygon(seed_cell["geometry"]["coordinates"][0])
+
+        if seed_cell_poly.contains(unified_geom) and resolution == base_resolution:
+            refined_features.append(seed_cell)
+        else:
+            refined_features.extend(
+                refine_cell(seed_cell_poly.bounds, base_resolution, resolution, unified_geom)
+            )
+
+    # Step 5: Filter features to keep only those at the desired resolution and remove duplicates
+    resolution_features = [
+        feature for feature in refined_features if feature["properties"]["resolution"] == resolution
+    ]
+
+    final_features = []
+    seen_olc_ids = set()
+
+    for feature in resolution_features:
+        olc_id = feature["properties"]["olc"]
+        if olc_id not in seen_olc_ids:
+            final_features.append(feature)
+            seen_olc_ids.add(olc_id)
+
+    return {
+        "type": "FeatureCollection",
+        "features": final_features
+    }
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode DGGS.")

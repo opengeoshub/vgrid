@@ -1,8 +1,8 @@
 import argparse
-import re
 import json
-from shapely.geometry import mapping,Polygon
+from shapely.geometry import shape,Polygon
 from tqdm import tqdm
+from shapely.ops import unary_union
 from vgrid.utils import mercantile
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
@@ -35,7 +35,42 @@ def generate_grid(resolution,bbox):
         "features": tilecode_features
     }
 
-        
+
+def generate_grid_resample(resolution, geojson_features):
+    tilecode_features = []
+
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    min_lon, min_lat, max_lon, max_lat = unified_geom.bounds
+
+    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+
+    # Step 4: Filter by actual geometry intersection
+    for tile in tqdm(tiles, desc="Generating Tilecode DGGS", unit=" cells"):
+        z, x, y = tile.z, tile.x, tile.y
+        tilecode_id = f"z{z}x{x}y{y}"
+        bounds = mercantile.bounds(x, y, z)
+
+        # Build tile polygon
+        tile_polygon = Polygon([
+            [bounds.west, bounds.south],
+            [bounds.east, bounds.south],
+            [bounds.east, bounds.north],
+            [bounds.west, bounds.north],
+            [bounds.west, bounds.south]
+        ])
+
+        # Check if tile polygon intersects the input geometry
+        if tile_polygon.intersects(unified_geom):
+            tilecode_feature = graticule_dggs_to_feature("tilecode", tilecode_id, resolution, tile_polygon)
+            tilecode_features.append(tilecode_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": tilecode_features
+    }
+
 def main():
     parser = argparse.ArgumentParser(description='Generate Tilecode DGGS.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution [0..26]')

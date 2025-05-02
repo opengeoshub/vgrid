@@ -1,14 +1,20 @@
-from vgrid.utils import s2
+from vgrid.utils import s2, olc, geohash, mercantile
 import h3
 import argparse
 import json
 from tqdm import tqdm
-import os
+import os, re
 from vgrid.stats.s2stats import s2_metrics
 from vgrid.stats.rhealpixstats import rhealpix_metrics
 from vgrid.stats.isea4tstats import isea4t_metrics
+from vgrid.stats.qtmstats import qtm_metrics
+from vgrid.stats.olcstats import olc_metrics
+from vgrid.stats.geohashstats import geohash_metrics
+from vgrid.stats.tilecodestats import tilecode_metrics
+from vgrid.stats.quadkeystats import quadkey_metrics
+
 from shapely.geometry import shape
-from vgrid.generator import h3grid, s2grid, rhealpixgrid, isea4tgrid
+from vgrid.generator import h3grid, s2grid, rhealpixgrid, isea4tgrid, qtmgrid, olcgrid, geohashgrid, tilecodegrid, quadkeygrid
 from numbers import Number
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
@@ -50,10 +56,34 @@ def get_nearest_resolution(geojson_features, from_dggs, to_dggs, from_field=None
             from_resolution = rhealpix_cell.resolution   
             _, _, from_area = rhealpix_metrics(from_resolution)        
        
-        elif (from_dggs == 'rhealpix'):
+        elif (from_dggs == 'isea4t'):
             if (platform.system() == 'Windows'): 
                 from_resolution = len(from_field)-2
                 _, _, from_area,_ = isea4t_metrics(isea4t_dggs,from_resolution)        
+        
+        elif (from_dggs == 'qtm'):
+            from_resolution = len(from_field)
+            _, _, from_area = qtm_metrics(from_resolution)        
+        
+        elif (from_dggs == 'olc'):
+            coord = olc.decode(from_field)  
+            from_resolution = coord.codeLength 
+            _, _, from_area = olc_metrics(from_resolution)        
+        
+        elif (from_dggs == 'geohash'):
+            from_resolution = len(from_field)
+            _, _, from_area = geohash_metrics(from_resolution)        
+        
+        elif (from_dggs == 'tilecode'):
+            match = re.match(r'z(\d+)x(\d+)y(\d+)', from_field)
+            from_resolution = int(match.group(1))
+            _, _, from_area = tilecode_metrics(from_resolution)        
+
+        elif (from_dggs == 'quadkey'):
+            tile = mercantile.quadkey_to_tile(from_resolution)    
+            from_resolution = tile.z
+            _, _, from_area = quadkey_metrics(from_resolution)        
+
     except:
         return         
     
@@ -98,6 +128,51 @@ def get_nearest_resolution(geojson_features, from_dggs, to_dggs, from_field=None
                     min_diff = diff
                     nearest_resolution = res
     
+    elif to_dggs == 'qtm':                
+        for res in range(1, 25):
+            _, _, avg_area = qtm_metrics(res)
+            diff = abs(avg_area - from_area)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+
+    elif to_dggs == 'olc':                
+        for res in [2,4,6,8,10,11,12,13,14,15]:
+            _, _, avg_area = olc_metrics(res)
+            diff = abs(avg_area - from_area)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+    
+    elif to_dggs == 'geohash':                
+        for res in range(1, 11):
+            _, _, avg_area = geohash_metrics(res)
+            diff = abs(avg_area - from_area)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+    
+    elif to_dggs == 'tilecode':                
+        for res in range(30):
+            _, _, avg_area = tilecode_metrics(res)
+            diff = abs(avg_area - from_area)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+
+    elif to_dggs == 'quadkey':                
+        for res in range(30):
+            _, _, avg_area = quadkey_metrics(res)
+            diff = abs(avg_area - from_area)        
+            # If the difference is smaller than the current minimum, update the nearest resolution
+            if diff < min_diff:
+                min_diff = diff
+                nearest_resolution = res
+
     return nearest_resolution
 
 def generate_grid(geojson_features, to_dggs, resolution):
@@ -114,6 +189,16 @@ def generate_grid(geojson_features, to_dggs, resolution):
         if (platform.system() == 'Windows'): 
             isea4t_dggs = Eaggr(Model.ISEA4T)
             dggs_grid = isea4tgrid.generate_grid_resample(isea4t_dggs,resolution, geojson_features)
+    elif to_dggs == 'qtm':
+        dggs_grid = qtmgrid.generate_grid_resample(resolution, geojson_features)
+    elif to_dggs == 'olc':
+        dggs_grid = olcgrid.generate_grid_resample(resolution, geojson_features)
+    elif to_dggs == 'geohash':
+        dggs_grid = geohashgrid.generate_grid_resample(resolution, geojson_features)
+    elif to_dggs == 'tilecode':
+        dggs_grid = tilecodegrid.generate_grid_resample(resolution, geojson_features)
+    elif to_dggs == 'quadkey':
+        dggs_grid = quadkeygrid.generate_grid_resample(resolution, geojson_features)
 
     return dggs_grid
 

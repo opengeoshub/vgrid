@@ -1,7 +1,8 @@
 # Reference: https://geohash.softeng.co/uekkn, https://github.com/vinsci/geohash, https://www.movable-type.co.uk/scripts/geohash.html?geohash=dp3
 import  vgrid.utils.geohash as geohash
 import argparse,json
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, shape
+from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 
@@ -95,7 +96,38 @@ def generate_grid_within_bbox(resolution, bbox):
         "features": geohash_features
     }
 
-               
+
+def generate_grid_resample(resolution, geojson_features):
+    """Generate GeoJSON for geohashes within a GeoJSON feature collection at the given resolution."""
+    geohash_features = []
+
+    # Union of all input geometries
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    # Compute intersected geohashes from the initial set
+    intersected_geohashes = {
+        gh for gh in initial_geohashes
+        if geohash_to_polygon(gh).intersects(unified_geom)
+    }
+
+    # Expand geohash coverage within the unified geometry
+    geohashes_geom = set()
+    for gh in intersected_geohashes:
+        expand_geohash_bbox(gh, resolution, geohashes_geom, unified_geom)
+
+    # Generate GeoJSON features
+    geohash_features.extend(
+        graticule_dggs_to_feature("geohash", gh, resolution, geohash_to_polygon(gh))
+        for gh in tqdm(geohashes_geom, desc="Generating Geohash DGGS", unit="cells")
+    )
+
+    return {
+        "type": "FeatureCollection",
+        "features": geohash_features
+    }
+    
+
 def main():
     parser = argparse.ArgumentParser(description='Generate Geohash DGGS.')
     parser.add_argument(

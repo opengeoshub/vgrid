@@ -1,7 +1,8 @@
 import argparse
 import re
 import json
-from shapely.geometry import mapping,Polygon
+from shapely.geometry import shape,Polygon
+from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.utils import mercantile
 from pyproj import Geod
@@ -36,7 +37,41 @@ def generate_grid(resolution,bbox):
         "type": "FeatureCollection",
         "features": quadkey_features
     }
-        
+
+
+def generate_grid_resample(resolution, geojson_features):
+    quadkey_features = []
+
+    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    unified_geom = unary_union(geometries)
+
+    min_lon, min_lat, max_lon, max_lat = unified_geom.bounds
+
+    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+
+    for tile in tqdm(tiles, desc="Generating Quadkey DGGS", unit=" cells"):
+        z, x, y = tile.z, tile.x, tile.y
+        bounds = mercantile.bounds(x, y, z)
+
+        # Construct tile polygon
+        tile_polygon = Polygon([
+            [bounds.west, bounds.south],
+            [bounds.east, bounds.south],
+            [bounds.east, bounds.north],
+            [bounds.west, bounds.north],
+            [bounds.west, bounds.south]
+        ])
+
+        if tile_polygon.intersects(unified_geom):
+            quadkey_id = mercantile.quadkey(tile)
+            quadkey_feature = graticule_dggs_to_feature("quadkey", quadkey_id, resolution, tile_polygon)
+            quadkey_features.append(quadkey_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": quadkey_features
+    }
+
 def main():
     parser = argparse.ArgumentParser(description='Generate Quadkey DGGS.')
     parser.add_argument('-r', '--resolution', type=int, required=True, help='resolution [0..26]')
