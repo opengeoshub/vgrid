@@ -20,7 +20,7 @@ if (platform.system() == 'Windows'):
     from vgrid.utils.eaggr.enums.model import Model
     from vgrid.utils.eaggr.enums.shape_string_format import ShapeStringFormat
     from vgrid.generator.settings import isea4t_res_accuracy_dict
-    isea4t_dggs = Eaggr(Model.ISEA4T) 
+    
 
 geod = Geod(ellps="WGS84")
 E = WGS84_ELLIPSOID
@@ -89,7 +89,7 @@ def get_nearest_resolution(geojson_features, from_dggs, to_dggs, from_field=None
    
     elif to_dggs == 'isea4t':  
         if (platform.system() == 'Windows'):   
-                         
+            isea4t_dggs = Eaggr(Model.ISEA4T)   
             for res in range(26):
                 _, _, avg_area,_ = isea4t_metrics(isea4t_dggs, res)
                 diff = abs(avg_area - from_area)        
@@ -112,6 +112,7 @@ def generate_grid(geojson_features, to_dggs, resolution):
         dggs_grid = rhealpixgrid.generate_grid_sample(resolution, geojson_features)
     elif to_dggs == 'isea4t':
         if (platform.system() == 'Windows'): 
+            isea4t_dggs = Eaggr(Model.ISEA4T)
             dggs_grid = isea4tgrid.generate_grid_resample(isea4t_dggs,resolution, geojson_features)
 
     return dggs_grid

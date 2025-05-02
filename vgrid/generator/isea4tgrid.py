@@ -1,6 +1,5 @@
 import argparse
 import json
-from shapely.geometry import Polygon
 from shapely.wkt import loads
 import platform
 
@@ -13,7 +12,7 @@ if (platform.system() == 'Windows'):
 
 from shapely.ops import unary_union
 from tqdm import tqdm
-from shapely.geometry import Polygon, box
+from shapely.geometry import Polygon, box, shape
 from vgrid.utils.antimeridian import fix_polygon
 from vgrid.generator.settings import max_cells, isea4t_base_cells, geodesic_dggs_to_feature
 
@@ -108,14 +107,12 @@ def generate_grid(isea4t_dggs, resolution):
 
    
 def generate_grid_within_bbox(isea4t_dggs, resolution,bbox):
-    accuracy = isea4t_res_accuracy_dict.get(resolution)
-
+    # accuracy = isea4t_res_accuracy_dict.get(resolution)
     bounding_box = box(*bbox)
     bounding_box_wkt = bounding_box.wkt  # Create a bounding box polygon
-    shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
-    shape = shapes[0]
-    # for shape in shapes:
-    bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+    isea4t_shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(bounding_box_wkt, ShapeStringFormat.WKT, accuracy)
+    isea4t_shape = isea4t_shapes[0]
+    bbox_cells = isea4t_shape.get_shape().get_outer_ring().get_cells()
     bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
     bounding_children = get_isea4t_children_cells_within_bbox(isea4t_dggs, bounding_cell.get_cell_id(), bounding_box,resolution)
     isea4t_features = []
@@ -147,9 +144,9 @@ def generate_grid_resample(isea4t_dggs, resolution, geojson_features):
     unified_geom_wkt = unified_geom.wkt
 
     # Step 2: Generate DGGS shapes from WKT geometry
-    shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(unified_geom_wkt, ShapeStringFormat.WKT, accuracy)
-    shape = shapes[0]
-    bbox_cells = shape.get_shape().get_outer_ring().get_cells()
+    isea4t_shapes = isea4t_dggs.convert_shape_string_to_dggs_shapes(unified_geom_wkt, ShapeStringFormat.WKT, accuracy)
+    isea4t_shape = isea4t_shapes[0]
+    bbox_cells = isea4t_shape.get_shape().get_outer_ring().get_cells()
     bounding_cell = isea4t_dggs.get_bounding_dggs_cell(bbox_cells)
 
     # Step 3: Generate children cells within geometry bounds
