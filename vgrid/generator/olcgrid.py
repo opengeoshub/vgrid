@@ -18,7 +18,6 @@ def calculate_total_cells(resolution, bbox):
     
     return total_lat_steps * total_lng_steps
 
-
 def generate_grid(resolution):
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
