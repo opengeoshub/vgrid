@@ -27,10 +27,13 @@
         <li><a href="#raster-to-dggs">Raster to DGGS</a></li>
         <li><a href="#dggs-compact">DGGS Compact</a></li>
         <li><a href="#dggs-expand">DGGS Expand</a></li>
+        <li><a href="#csv-to-dggs">CSV to DGGS</a></li>
       </ul>
         <li><a href="#dggs-binning">DGGS Binning</a></li>
         <li><a href="#dggs-resampling">DGGS Resampling</a></li>
         <li><a href="#dggs-generator">DGGS Generator</a></li>
+        <li><a href="#dggs-stats">DGGS Stats</a></li>
+        <li><a href="#polyhedra-generator">Polyhedra Generator</a></li>
     </li>   
   </ol>
 </details>
@@ -81,24 +84,7 @@ Convert DGGS cell ID to GeoJSON.
 > isea3h2geojson 1327916769,-55086 # Windows only
 > ease2geojson L6.165767.02.02.22.45.63.05
 > dggrid2geojson 8478420 FULLER4D 10 # Linux only:  dggrid2geojson <DGGRID code in SEQNUM format> <DGGS Type> <resolution>
-dggs_types = (
-    'CUSTOM',  # parameters will be specified manually
-    'SUPERFUND', # Superfund_500m grid
-    'PLANETRISK',
-    'ISEA3H', # ISEA projection with hexagon cells and an aperture of 3
-    'ISEA4H', # ISEA projection with hexagon cells and an aperture of 4
-    'ISEA4T',  # ISEA projection with triangle cells and an aperture of 4
-    'ISEA4D', # ISEA projection with diamond cells and an aperture of 4
-    'ISEA43H', # ISEA projection with hexagon cells and a mixed sequence of aperture 4 resolutions followed by aperture 3 resolutions
-    'ISEA7H', # ISEA projection with hexagon cells and an aperture of 7
-    'IGEO7', # ISEA projection with hexagon cells and an aperture of 7 and Z7 address type
-    'FULLER3H', # FULLER projection with hexagon cells and an aperture of 3
-    'FULLER4H', # FULLER projection with hexagon cells and an aperture of 4
-    'FULLER4T', # FULLER projection with triangle cells and an aperture of 4
-    'FULLER4D', # FULLER projection with diamond cells and an aperture of 4
-    'FULLER43H', # FULLER projection with hexagon cells and a mixed sequence of aperture 4 resolutions followed by aperture 3 resolutions
-    'FULLER7H', # FULLER projection with hexagon cells and an aperture of 7
-)
+# <DGGS Type> chosen from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
 > qtm2geojson 42012323131
 > olc2geojson 7P28QPG4+4P7
 > geohash2geojson w3gvk1td8
@@ -132,6 +118,7 @@ Convert Vector layers (Point/ Multipoint, Linestring/ Multilinestring, polygon/ 
 > geojson2isea3h -r 18 -geojson polygon.geojson  # geojson2isea3h -r <resolution>[1..32] -geojson <GeoJSON file> -compact [optional]
 > geojson2ease -r 4 -geojson polygon.geojson  # geojson2ease -r <resolution>[0..6] -geojson <GeoJSON file> -compact [optional]
 > geojson2dggrid -t ISEA4H -r 17 -geojson polyline.geojson # Linux only: geojson2dggrid -t <DGGS Type> -r <resolution> -a <address_type, default is SEQNUM> -geojson <GeoJSON path>
+# <Address Type> chosen from [Q2DI,SEQNUM,INTERLEAVE,PLANE,Q2DD,PROJTRI,VERTEX2DD,AIGEN,Z3,Z3_STRING,Z7,Z7_STRING,ZORDER,ZORDER_STRING]
 > geojson2qtm -r 18 -geojson polygon.geojson  # geojson2qtm -r <resolution>[1..24] -geojson <GeoJSON file> -compact [optional]
 > geojson2olc -r 10 -geojson polygon.geojson # geojson2olc -r <resolution>[2,4,6,8,10,11..15] -geojson <GeoJSON file> -compact [optional]
 > geojson2geohash -r 7 -geojson polygon.geojson # geojson2geohash -r <resolution>[1..10] -geojson <GeoJSON file> -compact [optional]
@@ -140,8 +127,8 @@ Convert Vector layers (Point/ Multipoint, Linestring/ Multilinestring, polygon/ 
 > geojson2quadkey -r 18 -geojson polygon.geojson # geojson2quadkey -r <resolution>[0..29] -geojson <GeoJSON file> -compact [optional]
 ```
 ### Raster to DGGS
+Convert raster layers in geographic CRS to the output DGGS with the closest matching resolution.
 
-Convert raster layers in geographic CRS to DGGS.
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/raster2dggs_h3.png">
 </div>
@@ -164,98 +151,132 @@ Convert raster layers in geographic CRS to DGGS.
 </div>
 
 ``` bash
-> h3compact -geojson h3.geojson -cellid h3  # h3expand -geojson <H3 in GeoJSON> -cellid [optional, 'h3' by default]
-> s2compact -geojson s2.geojson -cellid s2  # h3expand -geojson <S2 in GeoJSON> -cellid [optional, 's2' by default]
-> rhealpixcompact -geojson rhealpix.geojson -cellid rhealpix  # h3expand -geojson <rHEALPix in GeoJSON> -cellid [optional, 'rhealpix' by default]
+> h3compact -geojson h3.geojson -cellid h3  # h3compact -geojson <H3 in GeoJSON> -cellid [optional, 'h3' by default]
+> s2compact -geojson s2.geojson -cellid s2  # s2compact -geojson <S2 in GeoJSON> -cellid [optional, 's2' by default]
+> rhealpixcompact -geojson rhealpix.geojson -cellid rhealpix  # rhealpixcompact -geojson <rHEALPix in GeoJSON> -cellid [optional, 'rhealpix' by default]
+> isea4tcompact -geojson isea4t.geojson -cellid isea4t  # Windows only: isea4tcompact -geojson <ISEA4T in GeoJSON> -cellid [optional, 'isea4t' by default]
+> isea3hcompact -geojson isea3h.geojson -cellid isea3h  # Windows only: isea3hcompact -geojson <ISEA3H in GeoJSON> -cellid [optional, 'isea3h' by default]
+> easecompact -geojson ease.geojson -cellid ease  # easecompact -geojson <EASE in GeoJSON> -cellid [optional, 'ease' by default]
+> qtmcompact -geojson qtm.geojson -cellid qtm  # qtmcompact -geojson <QTM in GeoJSON> -cellid [optional, 'qtm' by default]
+> olccompact -geojson olc.geojson -cellid olc  # olccompact -geojson <OLC in GeoJSON> -cellid [optional, 'olc' by default]
+> geohashcompact -geojson geohash.geojson -cellid geohash  # geohashcompact -geojson <Geohash in GeoJSON> -cellid [optional, 'geohash' by default]
+> tilecodecompact -geojson tilecode.geojson -cellid tilecode  # tilecodecompact -geojson <Tilecode in GeoJSON> -cellid [optional, 'tilecode' by default]
+> quadkeycompact -geojson quadkey.geojson -cellid quadkey  # quadkeycompact -geojson <quadkey in GeoJSON> -cellid [optional, 'quadkey' by default]
 ```
+
 ### DGGS Expand
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsexpand_isea4t.png">
 </div>
 
 ``` bash
-> h3expand -geojson h3_11.geojson -r 12 -cellid h3 # h3expand -geojson <H3 in smaller resolition> -r <higher resolution>[0..15] -cellid [optional, 'h3' by default]
+> h3expand -geojson h3_11.geojson -r 12 -cellid h3 # h3expand -geojson <H3 in GeoJSON> -r <higher resolution>[0..15] -cellid [optional, 'h3' by default]
+> s2expand -geojson s2_18.geojson -r 19 -cellid s2 # s2expand -geojson <S2 in GeoJSON> -r <higher resolution>[0..30] -cellid [optional, 's2' by default]
+> rhealpixexpand -geojson rhealpix_10.geojson -r 11 -cellid rhealpix # rhealpixexpand -geojson <rHEALPix in GeoJSON> -r <higher resolution>[0..15] -cellid [optional, 'rhealpix' by default]
+> isea4texpand -geojson isea4t_18.geojson -r 19 -cellid isea4t # Windows only: isea4texpand -geojson <ISEA4T in GeoJSON> -r <higher resolution>[0..25] -cellid [optional, 'isea4t' by default]
+> isea3hexpand -geojson isea3h_18.geojson -r 19 -cellid isea3h # Windows only: isea3hexpand -geojson <ISEA3H in GeoJSON> -r <higher resolution>[0..25] -cellid [optional, 'isea3h' by default]
+> easeexpand -geojson ease_4.geojson -r 5 -cellid ease # easeexpand -geojson <EASE in GeoJSON> -r <higher resolution>[0..6] -cellid [optional, 'ease' by default]
+> qtmexpand -geojson qtm_18.geojson -r 19 -cellid qtm # qtmexpand -geojson <QTM in GeoJSON> -r <higher resolution>[1..24] -cellid [optional, 'qtm' by default]
+> olcexpand -geojson olc_8.geojson -r 10 -cellid olc # olcexpand -geojson <OLC in GeoJSON> -r <higher resolution>[2,4,6,8,10..15] -cellid [optional, 'olc' by default]
+> geohashexpand -geojson geohash_7.geojson -r 8 -cellid geohash # geohashexpand -geojson <Geohash in GeoJSON> -r <higher resolution>[1..10] -cellid [optional, 'geohash' by default]
+> tilecodeexpand -geojson tilecode_18.geojson -r 19 -cellid tilecode # tilecodeexpand -geojson <Tilecode in GeoJSON> -r <higher resolution>[0..29] -cellid [optional, 'tilecode' by default]
+> quadkeyexpand -geojson quadkey_18.geojson -r 19 -cellid quadkey # quadkeyexpand -geojson <Quadkey in GeoJSON> -r <higher resolution>[0..29] -cellid [optional, 'quadkey' by default]
 ```
 
+### CSV to DGGS
+``` bash
+> csv2h3 h3.csv  # Convert CSV with 'h3' column to H3 cells.
+> csv2s2 s2.csv  # Convert CSV with 's2' column to S2 cells.
+> csv2rhealpix rhealpix.csv  # Convert CSV with 'rhealpix' column to rHEALPix cells.
+> csv2isea4t isea4t.csv  # Windows only: Convert CSV with 'rhealpisea4t' column to ISEA4T cells.
+> csv2isea3h isea3h.csv  # Windows only: Convert CSV with 'isea3h' column to ISEA3H cells.
+> csv2sease ease.csv  # Convert CSV with 'ease' column to EASE cells.
+> csv2qtm qtm.csv  # Convert CSV with 'qtm' column to QTM cells.
+> csv2olc olc.csv  # Convert CSV with 'olc' column to OLC cells.
+> csv2geohash geohash.csv  # Convert CSV with 'geohash' column to Geohash cells.
+> csv2georef georef.csv  # Convert CSV with 'georef' column to GEOREF cells.
+> csv2mgrs mgrs.csv  # Convert CSV with 'mgrs' column to MGRS cells.
+> csv2tilecode tilecode.csv  # Convert CSV with 'tilecode' column to Tilecode cells.
+> csv2quadkey quadkey.csv  # Convert CSV with 'quadkey' column to Tilecode cells.
+> csv2maidenhead maidenhead.csv  # Convert CSV with 'maidenhead' column to Maidenhead cells.
+> csv2gars gars.csv  # Convert CSV with 'gars' column to GARS cells.
+``` 
+
 ## DGGS Binning
-### Binning point layer to DGGS.
-<div align="center">
-  <img src="images/readme/dggsbinning.png">
-</div>
+Binning point layer to DGGS
 
 <div align="center">
-  <img src="images/readme/dggsbinning_h3.png">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsbinning_h3.png">
 </div>
+
+``` bash
+> h3bin -point point.geojson -r 8 -stats count -field numeric_field -category group # h3bin -point <point GeoJSON file> -r <resolution[0..15]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> s2bin -point point.geojson -r 13 -stats count -field numeric_field -category group # s2bin -point <point GeoJSON file> -r <resolution[0..30]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> rhealpixbin -point point.geojson -r 8 -stats count -field numeric_field -category group # rhealpixbin -point <point GeoJSON file> -r <resolution[0..15]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> isea4tbin -point point.geojson -r 13 -stats count -field numeric_field -category group # Windows only: isea4tbin -point <point GeoJSON file> -r <resolution[0..25]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> qtmbin -point point.geojson -r 13 -stats count -field numeric_field -category group # qtmbin -point <point GeoJSON file> -r <resolution[1..24]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> olcbin -point point.geojson -r 9 -stats count -field numeric_field -category group # olcbin -point <point GeoJSON file> -r <resolution[2,4,6,8,10..15]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> geohashbin -point point.geojson -r 6 -stats count -field numeric_field -category group # geohashbin -point <point GeoJSON file> -r <resolution[1..10]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> tilecodebin -point point.geojson -r 15 -stats count -field numeric_field -category group # tilecodebin -point <point GeoJSON file> -r <resolutin[0..25]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+> quadkeybin -point point.geojson -r 13 -stats count -field numeric_field -category group # Windows only: quadkeybin -point <point GeoJSON file> -r <resolutin[0..25]> -stats [count, min, max, sum, mean, median, std, var, range, minority, majority, variety] -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
+``` 
 
 ## DGGS Resampling
-<div align="center">
-  <img src="images/readme/dggsresampling.png">
-</div>
+Resample the input DGGS to the output DGGS with the closest matching resolution.
 
 <div align="center">
-  <img src="images/readme/dggsresampling_h32s2.png">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsresampling_h32s2.png">
 </div>
 
-## DGGS Generator
-<div align="center">
-  <img src="images/readme/dggsgenerator.png">
-</div>
-
-<div align="center">
-  <img src="images/readme/dggsgenerator_h3.png">
-</div>
-
-
-### DGGS Resampling
 ``` bash
 > resample -geojson vn_pop_h3_6.geojson -fromdggs h3 -todggs s2 -resamplefield population # resample -geojson <Input DGGS> -fromdggs <Input DGGS type> -todggs <Output DGGS Type> -resamplefield [Optional, Numeric field for resampling]
 ```
 
-### H3
-``` bash
-> csv2h3 h3.csv  # Convert CSV with 'h3' column to H3 cells.
-> h3bin -point point.geojson -r 8 -stats count -field numeric_field -category group # h3bin -point <point GeoJSON file> -r <resolutin[0..15]> -stats <count, min, max, sum, mean, median, std, var, range, minority, majority, variety> -field [Optional, numeric field to compute statistics] -category [optional, category field for grouping] 
-> h3grid -r 11 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # h3grid -r <resolution> [0..15] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> h3stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
+## DGGS Generator
+Generate DGGS within a bounding box
 
-### S2
-``` bash
-> s2grid -r 18 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # s2grid -r <resolution> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> s2stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsgenerator_h3.png">
+</div>
 
-### Rhealpix
 ``` bash
-> rhealpixgrid -r 11 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # rhealpix2grid -r <resolution> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> rhealpixstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### OpenEAGGR ISEA4T (Windows only)
-``` bash
-> isea4tgrid -r 17 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea4tgrid -r <resolution> [0..25] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> isea4tstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### OpenEAGGR ISEA3H (Windows only)
-``` bash
-> isea3hgrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # isea3hgrid -r <resolution> [0..32] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> isea3hstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### DGGRID (Linux only)
-``` bash
-
-> dggridgen -t ISEA3H -r 2 -a ZORDER # dggrid -t <DGGS Type> -r <resolution> -a<address_type>. 
-> dggridstats -t FULLER3H -r 8 #dggrid -t <DGGS Type> -r <resolution>. 
-# <DGGS Type> chosen from [SUPERFUND,PLANETRISK,ISEA3H,ISEA4H,ISEA4T,ISEA4D,ISEA43H,ISEA7H,IGEO7,FULLER3H,FULLER4H,FULLER4T,FULLER4D,FULLER43H,FULLER7H]
-# <Address Type> chosen from [Q2DI,SEQNUM,INTERLEAVE,PLANE,Q2DD,PROJTRI,VERTEX2DD,AIGEN,Z3,Z3_STRING,Z7,Z7_STRING,ZORDER,ZORDER_STRING]
-```
-
-### EASE-DGGS
-``` bash
+> h3grid -r 11 -b 106.699007 10.762811 106.717674 10.778649 # h3grid -r <resolution> [0..15] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> s2grid -r 18 -b 106.699007 10.762811 106.717674 10.778649 # s2grid -r <resolution> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> rhealpixgrid -r 11 -b 106.699007 10.762811 106.717674 10.778649 # rhealpix2grid -r <resolution> [0..30] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> isea4tgrid -r 17 -b 106.699007 10.762811 106.717674 10.778649 # Windows only: isea4tgrid -r <resolution> [0..25] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> isea3hgrid -r 20 -b 106.699007 10.762811 106.717674 10.778649 # isea3hgrid -r <resolution> [0..32] -b <min_lon> <min_lat> <max_lon> <max_lat>> isea3hstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 > easegrid -r 4 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # easegrid -r <resolution> [0..6] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> dggridgen -t ISEA3H -r 2 -a ZORDER # Linux only: dggrid -t <DGGS Type> -r <resolution> -a<address_type>. 
+> qtmgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # qtmgrid -r <resolution> [1..24] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> olcgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # olcgrid -r <resolution> [2,4,6,8,10..15] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> geohashgrid -r 6 -b 106.699007 10.762811 106.717674 10.778649 # geohashgrid -r <resolution> [1..10] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
+> geohashgrid -r 2 -b 106.699007 10.762811 106.717674 10.778649 # geohashgrid -r <resolution> [0..5] -b <min_lon> <min_lat> <max_lon> <max_lat> 
+> georefgrid -r 2 -b 106.699007 10.762811 106.717674 10.778649 # georefgrid -r <resolution> [-1..5] -b <min_lon> <min_lat> <max_lon> <max_lat> 
+> mgrsgrid -r 1 -gzd 48P # geohashgrid -r <resolution> [0..5] -gzd <Grid Zone Designator, e.g. 48P>
+> tilecodegrid -r 20 -b 106.699007 10.762811 106.717674 10.778649 # tilecodegrid -r <resolution> [0..26] 
+> quadkeygrid -r 20 -b 106.699007 10.762811 106.717674 10.778649 # quadkeygrid -r <resolution> [0..26] 
+> maidenheadgrid -r 4 -b 106.699007 10.762811 106.717674 10.778649 # maidenheadgrid -r <resolution> [1..4] -b <min_lon> <min_lat> <max_lon> <max_lat>
+> garsgrid -r 1 -b 106.699007 10.762811 106.717674 10.778649 # garsgrid -r <resolution> = [30,15,5,1] minutes -b <min_lon> <min_lat> <max_lon> <max_lat>
+```
+
+## DGGS Stats
+``` bash
+> h3stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> s2stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> rhealpixstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> isea4tstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> isea3hstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> dggridstats -t FULLER3H -r 8 # Linux only: dggrid -t <DGGS Type> -r <resolution>
 > easestats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> qtmstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> olcstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> geohashstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> georeftats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> mgrstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> tilecodestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
+> quadkeystats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
+> maidenheadstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
+> garsstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 ```
 
 ### POLYHEDRA GENERATOR
@@ -265,51 +286,3 @@ Convert raster layers in geographic CRS to DGGS.
 > octahedron   # Generate Global Octahedron  
 > icosahedron   # Generate Global Icosahedron  
 ``` 
-
-### OLC
-``` bash
-> olcgrid -r 8 -b 106.6990073571 10.7628112647 106.71767427 10.778649620 # olcgrid -r <resolution> [2,4,6,8,10,11,12,13,14,15] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> olcstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### Geohash
-``` bash
-> geohashgrid -r 6 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # geohashgrid -r <resolution> [1..10] -b <min_lon> <min_lat> <max_lon> <max_lat> 1
-> geohashstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### GEOREF
-``` bash
-> georef2geojson VGBL42404651
-> geohashgrid -r 2 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # geohashgrid -r <resolution> [0..5] -b <min_lon> <min_lat> <max_lon> <max_lat> 
-> georeftats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### MGRS
-``` bash
-> mgrstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### Tilecode
-``` bash
-> tilecodegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <resolution> [0..26] 
-> tilecodestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
-```
-
-### Quadkey
-``` bash
-> tilegrid -r 20 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # tilegrid -r <resolution> [0..29] 
-> tilestats # Number of cells, Cell Width, Cell Height, Cell Area at each resolution
-```
-
-### Maidenhead
-``` bash
-> maidenheadgrid -r 4 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # maidenheadgrid -r <resolution> [1..4] -b <min_lon> <min_lat> <max_lon> <max_lat>
-> maidenheadstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```
-
-### GARS
-``` bash
-> garsgrid -r 1 -b 106.6990073571 10.7628112647 106.71767427 10.7786496202 # garsgrid -r <resolution> = [30,15,5,1] minutes -b <min_lon> <min_lat> <max_lon> <max_lat>
-> garsstats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
-```

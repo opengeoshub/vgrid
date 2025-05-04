@@ -684,7 +684,7 @@ def isea4tcompact_cli():
         Command-line interface for isea4tcompact.
         """
         isea4t_dggs = Eaggr(Model.ISEA4T)
-        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA4T")
+        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA4T (Windows only)")
         parser.add_argument(
             '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON"
         )
@@ -1014,7 +1014,7 @@ def isea3hcompact_cli():
         """
         Command-line interface for isea3hcompact.
         """
-        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA3H")
+        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA3H (Windows only)")
         parser.add_argument(
             '-geojson', '--geojson', type=str, required=True, help="Input ISEA3H in GeoJSON"
         )
