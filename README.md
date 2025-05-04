@@ -260,7 +260,9 @@ Generate DGGS within a bounding box
 ```
 
 ## DGGS Stats
-![image](https://github.com/user-attachments/assets/23ff5ed2-3732-46e3-9233-e16271fa1bb4)
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsstats.png">
+</div>
 
 ``` bash
 > h3stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
@@ -282,9 +284,14 @@ Generate DGGS within a bounding box
 ```
 
 ### POLYHEDRA GENERATOR
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/polyhedra.png">
+</div>
+
 ``` bash
 > tetrahedron  # Generate Global Tetrahedron
 > cube         # Generate Global Cube
 > octahedron   # Generate Global Octahedron  
-> icosahedron   # Generate Global Icosahedron  
+> fuller_icosahedron   # Generate Global Fuller Icosahedron  
+> rhombic_icosahedron   # Generate Global rhombic Icosahedron 
 ``` 
