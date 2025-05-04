@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.3.3',
+    version='1.3.4',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
@@ -64,7 +64,7 @@ setup(
             'latlon2maidenhead = vgrid.conversion.latlon2dggs:latlon2maidenhead_cli',  
             'latlon2gars = vgrid.conversion.latlon2dggs:latlon2gars_cli',  
 
-            # DGGS Cell to GeoJSON
+            # DGGS ID to GeoJSON
             'h32geojson = vgrid.conversion.dggs2geojson:h32geojson_cli',  
             's22geojson = vgrid.conversion.dggs2geojson:s22geojson_cli',  
             'rhealpix2geojson = vgrid.conversion.dggs2geojson:rhealpix2geojson_cli',  
@@ -100,7 +100,7 @@ setup(
             
             'geojson2olc = vgrid.conversion.geojson2dggs.geojson2olc:main',
             'geojson2geohash = vgrid.conversion.geojson2dggs.geojson2geohash:main',
-            'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:main',
+            # 'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:main',
             'geojson2mgrs = vgrid.conversion.geojson2dggs.geojson2mgrs:main',
             'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
             'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
@@ -176,7 +176,7 @@ setup(
             'polygonbin =  vgrid.binning.polygonbin:main',
 
             # Resampling
-            'resample =  vgrid.resampling.resample:main',
+            'dggsresample =  vgrid.resampling.dggsresample:main',
             
             # Grid Generator
             'h3grid = vgrid.generator.h3grid:main',
