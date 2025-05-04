@@ -54,6 +54,11 @@
 ### Lat lon to DGGS
 
 Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4T and ISEA3H (Windows only), EASE-DGGS, QTM, OLC/ OpenLocationCode/ Google Plus Code, Geohash, GEOREF, MGRS, Tilecode, Quadkey, Maidenhead, GARS).
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/latlon2dggs.png">
+</div>
+
 ``` bash
 > latlon2h3 10.775276 106.706797 13 # latlon2h3 <lat> <lon> <resolution> [0..15] 
 > latlon2s2 10.775276 106.706797 21 # latlon2s2 <lat> <lon> <resolution> [0..30]
@@ -74,12 +79,12 @@ Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4
 ```
 
 ### DGGS to GeoJSON
+Convert DGGS cell ID to GeoJSON.
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs2geojson.png">
 </div>
 
-
-Convert DGGS cell ID to GeoJSON.
 ``` bash
 > h32geojson 8d65b56628e46bf 
 > s22geojson 31752f45cc94 
