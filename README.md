@@ -260,6 +260,8 @@ Generate DGGS within a bounding box
 ```
 
 ## DGGS Stats
+![image](https://github.com/user-attachments/assets/23ff5ed2-3732-46e3-9233-e16271fa1bb4)
+
 ``` bash
 > h3stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
 > s2stats # Number of cells, Avg Edge Length, Avg Cell Area at each resolution
