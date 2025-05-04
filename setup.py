@@ -31,7 +31,7 @@ clean_build()
 
 setup(
     name='vgrid',
-    version='1.3.2',
+    version='1.3.3',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',

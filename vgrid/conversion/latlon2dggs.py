@@ -440,7 +440,7 @@ def latlon2maidenhead_cli():
 def latlon2gars(lat,lon,res=1):
     # res: [1, 5, 15, 30 minutes]
     gars_cell = GARSGrid.from_latlon(lat,lon,res)
-    return gars_cell
+    return str(gars_cell)
 
 def latlon2gars_cli():
     """
