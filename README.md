@@ -74,6 +74,10 @@ Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4
 ```
 
 ### DGGS to GeoJSON
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs2geojson.png">
+</div>
+
 
 Convert DGGS cell ID to GeoJSON.
 ``` bash
