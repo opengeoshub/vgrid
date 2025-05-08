@@ -182,9 +182,9 @@ def generate_grid(geojson_features, to_dggs, resolution):
     if to_dggs == 'h3':
         dggs_grid = h3grid.generate_grid_resample(resolution, geojson_features)
     elif to_dggs == 's2':
-        dggs_grid = s2grid.generate_grid_sample(resolution, geojson_features)
+        dggs_grid = s2grid.generate_grid_resample(resolution, geojson_features)
     elif to_dggs == 'rhealpix':
-        dggs_grid = rhealpixgrid.generate_grid_sample(resolution, geojson_features)
+        dggs_grid = rhealpixgrid.generate_grid_resample(resolution, geojson_features)
     elif to_dggs == 'isea4t':
         if (platform.system() == 'Windows'): 
             isea4t_dggs = Eaggr(Model.ISEA4T)

@@ -16,9 +16,9 @@ def generate_grid(resolution):
     elif resolution == 2:
         lon_width, lat_width = 2, 1
     elif resolution == 3:
-        lon_width, lat_width = 0.2, 0.1
+        lon_width, lat_width = 0.083333, 0.041666  # 5 minutes x 2.5 minutes
     elif resolution == 4:
-        lon_width, lat_width = 0.02, 0.01
+        lon_width, lat_width = 0.008333, 0.004167  # 30 seconds x 15 seconds
     else:
         raise ValueError("Unsupported resolution")
 
@@ -37,16 +37,18 @@ def generate_grid(resolution):
                 cell_min_lat = min_lat + j * lat_width
                 cell_max_lat = cell_min_lat + lat_width
 
-                center_lat = (cell_min_lat + cell_max_lat) / 2
-                center_lon = (cell_min_lon + cell_max_lon) / 2
-                maidenhead_id = maidenhead.toMaiden(center_lat, center_lon, resolution)
+                cell_center_lat = (cell_min_lat + cell_max_lat) / 2
+                cell_center_lat = (cell_min_lon + cell_max_lon) / 2
+                maidenhead_id = maidenhead.toMaiden(cell_center_lat, cell_center_lat, resolution)
+                _, _, min_lat_maiden, min_lon_maiden, max_lat_maiden, max_lon_maiden, _ = maidenhead.maidenGrid(maidenhead_id)
+                # Define the polygon based on the bounding box
                 cell_polygon = Polygon([
-                        [cell_min_lon, cell_min_lat],  # Bottom-left
-                        [cell_max_lon, cell_min_lat],  # Bottom-right
-                        [cell_max_lon, cell_max_lat],  # Top-right
-                        [cell_min_lon, cell_max_lat],  # Top-left
-                        [cell_min_lon, cell_min_lat]   # Closing the polygon
-                    ])
+                    [min_lon_maiden, min_lat_maiden],  # Bottom-left corner
+                    [max_lon_maiden, min_lat_maiden],  # Bottom-right corner
+                    [max_lon_maiden, max_lat_maiden],  # Top-right corner
+                    [min_lon_maiden, max_lat_maiden],  # Top-left corner
+                    [min_lon_maiden, min_lat_maiden]   # Closing the polygon (same as the first point)
+                ])
                 maidenhead_feature = graticule_dggs_to_feature('maidenhead',maidenhead_id,resolution,cell_polygon)
                 maidenhead_features.append(maidenhead_feature)
                 pbar.update(1)
@@ -63,9 +65,9 @@ def generate_grid_within_bbox(resolution, bbox):
     elif resolution == 2:
         lon_width, lat_width = 2, 1
     elif resolution == 3:
-        lon_width, lat_width = 0.2, 0.1
+        lon_width, lat_width = 0.083333, 0.041666  # 5 minutes x 2.5 minutes
     elif resolution == 4:
-        lon_width, lat_width = 0.02, 0.01
+        lon_width, lat_width = 0.008333, 0.004167  # 30 seconds x 15 seconds
     else:
         raise ValueError("Unsupported resolution")
 
@@ -96,18 +98,20 @@ def generate_grid_within_bbox(resolution, bbox):
                 if not (cell_max_lon < min_lon or cell_min_lon > max_lon or
                         cell_max_lat < min_lat or cell_min_lat > max_lat):
                     # Center point for the Maidenhead code
-                    center_lat = (cell_min_lat + cell_max_lat) / 2
-                    center_lon = (cell_min_lon + cell_max_lon) / 2
-
-                    maidenhead_id = maidenhead.toMaiden(center_lat, center_lon, resolution)
-
+                    cell_center_lat = (cell_min_lat + cell_max_lat) / 2
+                    cell_center_lat = (cell_min_lon + cell_max_lon) / 2
+                    
+                    maidenhead_id = maidenhead.toMaiden(cell_center_lat, cell_center_lat, resolution)
+                    _, _, min_lat_maiden, min_lon_maiden, max_lat_maiden, max_lon_maiden, _ = maidenhead.maidenGrid(maidenhead_id)
+                    # Define the polygon based on the bounding box
                     cell_polygon = Polygon([
-                        [cell_min_lon, cell_min_lat],  # Bottom-left
-                        [cell_max_lon, cell_min_lat],  # Bottom-right
-                        [cell_max_lon, cell_max_lat],  # Top-right
-                        [cell_min_lon, cell_max_lat],  # Top-left
-                        [cell_min_lon, cell_min_lat]   # Closing the polygon
+                        [min_lon_maiden, min_lat_maiden],  # Bottom-left corner
+                        [max_lon_maiden, min_lat_maiden],  # Bottom-right corner
+                        [max_lon_maiden, max_lat_maiden],  # Top-right corner
+                        [min_lon_maiden, max_lat_maiden],  # Top-left corner
+                        [min_lon_maiden, min_lat_maiden]   # Closing the polygon (same as the first point)
                     ])
+                    
                     maidenhead_feature = graticule_dggs_to_feature('maidenhead',maidenhead_id,resolution,cell_polygon)            
                  
                     maidenhead_features.append(maidenhead_feature)

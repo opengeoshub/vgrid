@@ -616,7 +616,7 @@ def maidenhead2geojson(maidenhead_id):
             [min_lon, max_lat],  # Top-left corner
             [min_lon, min_lat]   # Closing the polygon (same as the first point)
         ])
-        maidenhead_feature = graticule_dggs_to_feature("gars",maidenhead_id,resolution,cell_polygon)   
+        maidenhead_feature = graticule_dggs_to_feature("maidenhead",maidenhead_id,resolution,cell_polygon)   
         maidenhead_features.append(maidenhead_feature)
 
     return {
