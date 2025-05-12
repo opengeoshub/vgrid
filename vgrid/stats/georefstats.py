@@ -8,17 +8,17 @@ locale.setlocale(locale.LC_ALL, '')
 
 def georef_metrics(res):
     earth_surface_area_km2 = 510_065_621.724 
-    base_cells = 288
-    num_cells = base_cells
-    if res == -1:
-        num_cells =  base_cells
-    elif res == 0:
-        num_cells =  base_cells * (15 * 15)  # Subdivision into 1° x 1° cells
+    if res == 0:
+        num_cells =  (180/15)*(360/15) # 15 x 15 degrees
     elif res == 1:
-        num_cells = base_cells * (15 * 15) * (60 * 60)  # Subdivision into 1' x 1' cells
-    elif res >= 2:
-        num_cells =  base_cells * (15 * 15) * (60 * 60) * (100 ** (res - 2))  # Finer subdivisions
-
+        num_cells =  180*360   # 1 x 1 degrees
+    elif res == 2:
+        num_cells = (180*60)*(360 * 60)  # Subdivision into 1' x 1' cells
+    elif res ==3:
+        num_cells =  (180*600)*(360 * 600) # Subdivision into 0.1' x 0.1' cells
+    elif res ==4:
+        num_cells =  (180*6000)*(360 * 6000) # Subdivision into 0.01' x 0.01' cells
+  
     avg_area = (earth_surface_area_km2 / num_cells)*(10**6)
     avg_edge_length = math.sqrt(avg_area)
     return num_cells, avg_edge_length, avg_area
@@ -26,7 +26,7 @@ def georef_metrics(res):
 
 def georef_stats(output_file=None):
     min_res=0 
-    max_res=5 
+    max_res=4 
     # Create a Texttable object for displaying in the terminal
     t = Texttable()
     
@@ -63,10 +63,11 @@ def main():
     parser.add_argument('-o', '--output', help="Output CSV file name.")
     args = parser.parse_args()
 
-    print('Resolution -1: 15 x 15 degrees')
-    print('Resolution 0: 1 x 1 degree')
-    print('Resolution 1: 1 x 1 minute')
-    print('Resolution 2 - 5 = Finer subdivisions (0.1 x 0.1 minute, 0.01 x 0.01 minute, etc.)')
+    print('Resolution 0: 15 x 15 degrees')
+    print('Resolution 1: 1 x 1 degree')
+    print('Resolution 2: 1 x 1 minute')
+    print('Resolution 3: 0.1 x 0.1 minute')
+    print('Resolution 4: 0.01 x 0.01 minute')
 
     # Call the function with the provided output file (if any)
     georef_stats(args.output)

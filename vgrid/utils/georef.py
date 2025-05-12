@@ -147,11 +147,18 @@ def decode(georef, centerp=False):
 def georefcell(georef_id):
     # Decode the GEOREF code to get the center coordinates and resolution
     center_lat, center_lon, resolution = decode(georef_id, True) #True for center point, not bottom-left
-    grid_size = 15 # degrees
-    if resolution == 1:
-        grid_size == 1
-    if resolution > 1:
-        grid_size = 1 / (10 ** resolution)
+    if resolution == 0:
+      grid_size = 15
+    elif resolution == 1:
+      grid_size = 1
+    elif resolution == 2:
+      grid_size = 1/60
+    elif resolution == 3:
+      grid_size = 1/600
+    elif resolution == 4:
+      grid_size = 1/6000
+    elif resolution == 5:
+      grid_size = 1/60000
 
     min_lon = float(int(center_lon // grid_size) * grid_size)
     max_lon = min_lon + grid_size

@@ -8,21 +8,18 @@ locale.setlocale(locale.LC_ALL, '')
 
 def gars_metrics(res):
     earth_surface_area_km2 = 510_065_621.724 
-    base_cells = 259_200
-    num_cells =  base_cells   
     if res == 1:
-        num_cells =  base_cells # 30 minutes
+        num_cells =  360*(60/30)*180*(60/30) # 30 minutes
     elif res == 2:
-        num_cells =  base_cells * 4  # 15 minutes - 4 quadrants per cell
+        num_cells =  360*(60/15)*180*(60/15)  # 15 minutes 
     elif res == 3:
-        num_cells =  base_cells * 4 * 9  # 5 minutes - 9 subquadrants per quadrant
+        num_cells =  360*(60/5)*180*(60/5)  # 5 minutes - 9 subquadrants per quadrant
     elif res == 4:
-        num_cells =  base_cells * 30 * 30  # 1 minute
+        num_cells =  360*(60/1)*180*(60/1)  # 1 minute
 
     avg_area = (earth_surface_area_km2 / num_cells)*(10**6)
     avg_edge_length = math.sqrt(avg_area)
     return num_cells, avg_edge_length, avg_area
-
 
 def gars_stats(output_file=None):
     min_res=1
@@ -68,7 +65,7 @@ def main():
     print('Resolution 4: 1 x 1 minutes')
 
     # Call the function with the provided output file (if any)
-    gars_stats(args.minres, args.maxres, args.output)
+    gars_stats(args.output)
 
 if __name__ == "__main__":
     main()

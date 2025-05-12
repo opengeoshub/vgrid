@@ -7,11 +7,23 @@ from texttable import Texttable
 locale.setlocale(locale.LC_ALL, '')
 
 def maidenhead_metrics(res):
-    earth_surface_area_km2 = 510_065_621.724 
-    base_cells = 324    
-    num_cells =  base_cells * (100 ** (res - 1))
+    earth_surface_area_km2 = 510_065_621.724
+    if res == 1:
+        lon_width, lat_width = 20, 10
+    elif res == 2:
+        lon_width, lat_width = 2, 1
+    elif res == 3:
+        lon_width, lat_width = 0.083333, 0.041666  # ~5 min x 2.5 min
+    elif res == 4:
+        lon_width, lat_width = 0.008333, 0.004167  # ~30 sec x 15 sec
+    
+    num_lon_cells = int(360 / lon_width)
+    num_lat_cells = int(180 / lat_width)
+    num_cells = num_lon_cells * num_lat_cells
+
     avg_area = (earth_surface_area_km2 / num_cells)*(10**6)
     avg_edge_length = math.sqrt(avg_area)
+
     return num_cells, avg_edge_length, avg_area
 
 def maidenhead_stats( output_file=None):
