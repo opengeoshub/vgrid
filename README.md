@@ -8,7 +8,7 @@
   </p>
 </p>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs.png">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs.png width=200">
 </div>
 
 <!-- TABLE OF CONTENTS -->
