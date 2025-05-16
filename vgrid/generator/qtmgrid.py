@@ -30,6 +30,7 @@ def generate_grid(resolution):
                 [n90_p0, n90_p90, p0_p90, p0_p0, n90_p0, False],
                 [n90_p90, n90_p180, p0_p180, p0_p90, n90_p90, False],
             ]
+            
 
             for i, facet in enumerate(initial_facets):
                 facet_geom = qtm.constructGeometry(facet)
