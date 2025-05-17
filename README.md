@@ -55,9 +55,9 @@
 
 Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4T and ISEA3H (Windows only), EASE-DGGS, QTM, OLC/ OpenLocationCode/ Google Plus Code, Geohash, GEOREF, MGRS, Tilecode, Quadkey, Maidenhead, GARS).
 
-```geojson
-{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.70789209957029, 10.77601109480422], [106.70745212203926, 10.777918172217145], [106.7055792173179, 10.778494886227104], [106.70414629547702, 10.777164500398262], [106.70458630070586, 10.775257408234628], [106.70645920007833, 10.774680716650128], [106.70789209957029, 10.77601109480422]]]}, "properties": {"h3": "8965b56628fffff", "resolution": 9, "center_lat": 10.7765878, "center_lon": 106.7060192, "avg_edge_len": 215.295, "cell_area": 120421.396}}]}
-```
+<div align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/latlon2dggs.png">
+</div>
 
 ``` bash
 > latlon2h3 10.775276 106.706797 13 # latlon2h3 <lat> <lon> <resolution> [0..15] 
@@ -81,9 +81,9 @@ Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4
 ### DGGS to GeoJSON
 Convert DGGS cell ID to GeoJSON.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs2geojson.png">
-</div>
+```geojson
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.70789209957029, 10.77601109480422], [106.70745212203926, 10.777918172217145], [106.7055792173179, 10.778494886227104], [106.70414629547702, 10.777164500398262], [106.70458630070586, 10.775257408234628], [106.70645920007833, 10.774680716650128], [106.70789209957029, 10.77601109480422]]]}, "properties": {"h3": "8965b56628fffff", "resolution": 9, "center_lat": 10.7765878, "center_lon": 106.7060192, "avg_edge_len": 215.295, "cell_area": 120421.396}}]}
+```
 
 ``` bash
 > h32geojson 8d65b56628e46bf 
