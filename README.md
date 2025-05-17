@@ -55,9 +55,13 @@
 
 Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, rHEALPix, OpenEaggr ISEA4T and ISEA3H (Windows only), EASE-DGGS, QTM, OLC/ OpenLocationCode/ Google Plus Code, Geohash, GEOREF, MGRS, Tilecode, Quadkey, Maidenhead, GARS).
 
+```geojson
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.70713615426936, 10.774978441229653], [106.70721514572995, 10.775713374905791], [106.70661718075799, 10.776150587194028], [106.70594022237229, 10.77585286364977], [106.70586123315323, 10.77511792678204], [106.70645920007833, 10.774680716650128], [106.70713615426936, 10.774978441229653]]]}, "properties": {"h3": "8a65b56628e7fff", "resolution": 10, "center_lat": 10.7754157, "center_lon": 106.7065382, "avg_edge_len": 81.374, "cell_area": 17202.984}}]}
+```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/latlon2dggs.png">
 </div>
+
 
 ``` bash
 > latlon2h3 10.775276 106.706797 13 # latlon2h3 <lat> <lon> <resolution> [0..15] 
