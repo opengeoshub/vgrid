@@ -1235,7 +1235,7 @@ Convert Vector layers (Point/ Multipoint, Linestring/ Multilinestring, polygon/ 
 > geojson2quadkey -r 18 -geojson polygon.geojson # geojson2quadkey -r <resolution>[0..29] -geojson <GeoJSON file> -compact [optional]
 ```
 ### Raster to DGGS
-Convert raster layers in geographic CRS to the output DGGS with the closest matching resolution.
+Convert raster layers in geographic CRS to output DGGS with closest matching resolution.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/raster2dggs_h3.png">
@@ -1330,7 +1330,7 @@ Binning point layer to DGGS
 ``` 
 
 ## DGGS Resampling
-Resample the input DGGS to the output DGGS with the closest matching resolution.
+Resample input DGGS to output DGGS with closest matching resolution.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsresampling_h32s2.png">
