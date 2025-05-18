@@ -436,7 +436,7 @@ def geohash2geojson_cli():
 def mgrs2geojson(mgrs_id):
     # Assuming mgrs.mgrscell returns cell bounds and origin
     min_lat, min_lon, max_lat, max_lon, resolution = mgrs.mgrscell(mgrs_id)
-    
+    mgrs_features = []
     # Define the polygon coordinates for the MGRS cell
     cell_polygon = Polygon([
         (min_lon, min_lat),  # Bottom-left corner
@@ -464,8 +464,13 @@ def mgrs2geojson(mgrs_id):
                     mgrs_feature = graticule_dggs_to_feature("mgrs",mgrs_id,resolution,intersected_polygon)
     except:
         pass    
+    mgrs_features.append(mgrs_feature)
     
-    return mgrs_feature
+    return {
+        "type": "FeatureCollection",
+        "features": mgrs_features
+    }
+       
     
 def mgrs2geojson_cli():
     """
