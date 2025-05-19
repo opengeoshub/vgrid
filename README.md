@@ -45,7 +45,7 @@
     ```
 - Visit Vgrid on [PyPI](https://pypi.org/project/vgrid/)
 
-- Demo Page:  [Vgrid Home](https://vgrid.vn)
+- Vgrid Home:  [Vgrid DGGS](https://vgrid.vn)
 
 ## ***The following Vgrid user guide is intended for use in a Command Line Interface (CLI) environment.***
 
