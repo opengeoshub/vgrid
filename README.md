@@ -39,12 +39,13 @@
 </details>
 
 ## Vgrid Installation
+[![PyPI version](https://badge.fury.io/py/vgrid.svg)](https://badge.fury.io/py/vgrid)
+[![PyPI downloads](https://img.shields.io/pypi/dm/vgrid.svg)](https://pypistats.org/packages/vgrid)
+
 - Using pip:   
     ``` bash 
     pip install vgrid --upgrade
     ```
-- Visit Vgrid on [PyPI](https://pypi.org/project/vgrid/)
-
 - Vgrid Home:  [Vgrid DGGS](https://vgrid.vn)
 
 ## ***The following Vgrid user guide is intended for use in a Command Line Interface (CLI) environment.***
