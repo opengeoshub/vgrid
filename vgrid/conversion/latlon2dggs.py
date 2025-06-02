@@ -438,26 +438,28 @@ def latlon2maidenhead_cli():
     print(maidenhead_cell)
 
 def latlon2gars(lat,lon,res=1):
-    # res: [1, 5, 15, 30 minutes]
-    gars_cell = GARSGrid.from_latlon(lat,lon,res)
+    # res: [1..4] where 1 is min res (30 minutes), 4 is max res (1 minute)
+    # Convert res to minutes: 1->30, 2->15, 3->5, 4->1
+    minutes_map = {1: 30, 2: 15, 3: 5, 4: 1}
+    minutes = minutes_map[res]
+    gars_cell = GARSGrid.from_latlon(lat,lon,minutes)
     return str(gars_cell)
 
 def latlon2gars_cli():
     """
     Command-line interface for latlon2gars.
     """
-    parser = argparse.ArgumentParser(description="Convert Lat, Long to Tile code at a specific resolution [1, 5, 15, 30 minutes]. \
-                                     Usage: latlon2gars <lat> <lon> <res> [1, 5, 15, 30 minutes]. \
+    parser = argparse.ArgumentParser(description="Convert Lat, Long to GARS code at a specific resolution [1..4]. \
+                                     Usage: latlon2gars <lat> <lon> <res> [1..4]. \
                                      Ex: latlon2gars 10.775275567242561 106.70679737574993 1")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution [1, 5, 15, 30 minutes]")
+    parser.add_argument("res",type=int, help="Input Resolution [1..4] (1=30min, 2=15min, 3=5min, 4=1min)")
     args = parser.parse_args()
     
     res = args.res
-    valid_resolutions = [1, 5, 15, 30]
-    if args.res not in valid_resolutions:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in {valid_resolutions} (minutes).")
+    if res < 1 or res > 4:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolution in [1..4].")
         return 
             
     gars_cell = latlon2gars(args.lat,args.lon,res)

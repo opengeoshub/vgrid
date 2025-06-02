@@ -646,10 +646,21 @@ def gars2geojson(gars_id):
     gars_features = []
     
     if wkt_polygon:
-        # # Create the bounding box coordinates for the polygon
-        resolution_minute = gars_grid.resolution        
+        # Map the GARS resolution to a value between 1 and 4
+        # 30' -> 1, 15' -> 2, 5' -> 3, 1' -> 4
+        resolution_minute = gars_grid.resolution
+        resolution = 1
+        if resolution_minute == 30:
+            resolution = 1
+        elif resolution_minute == 15:
+            resolution = 2
+        elif resolution_minute == 5:
+            resolution = 3
+        elif resolution_minute == 1:
+            resolution = 4
+            
         cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
-        gars_feature = graticule_dggs_to_feature("gars",gars_id,resolution_minute,cell_polygon)   
+        gars_feature = graticule_dggs_to_feature("gars",gars_id,resolution,cell_polygon)   
         gars_features.append(gars_feature)
 
     return {

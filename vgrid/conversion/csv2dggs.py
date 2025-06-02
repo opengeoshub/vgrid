@@ -1015,10 +1015,21 @@ def gars2feature(gars_id):
     wkt_polygon = gars_grid.polygon
     
     if wkt_polygon:
-        # # Create the bounding box coordinates for the polygon
-        resolution_minute = gars_grid.resolution        
+        # Convert minute-based resolution to 1-4 scale
+        resolution_minute = gars_grid.resolution
+        if resolution_minute == 30:
+            resolution = 1
+        elif resolution_minute == 15:
+            resolution = 2
+        elif resolution_minute == 5:
+            resolution = 3
+        elif resolution_minute == 1:
+            resolution = 4
+        else:
+            resolution = 1  # Default to level 1 if unknown
+            
         cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
-        gars_feature = graticule_dggs_to_feature("gars",gars_id,resolution_minute,cell_polygon)   
+        gars_feature = graticule_dggs_to_feature("gars",gars_id,resolution,cell_polygon)   
         return gars_feature
     
     
