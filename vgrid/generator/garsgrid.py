@@ -56,7 +56,7 @@ def generate_grid(resolution):
                 if wkt_polygon:
                     cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
                     gars_id = gars_cell.gars_id
-                    gars_feature = graticule_dggs_to_feature('gars', gars_id, resolution_minutes, cell_polygon)
+                    gars_feature = graticule_dggs_to_feature('gars', gars_id, resolution, cell_polygon)
                     gars_features.append(gars_feature)
                     pbar.update(1)
 
@@ -91,7 +91,7 @@ def generate_grid_within_bbox(bbox, resolution):
                    
                     if bbox_polygon.intersects(cell_polygon):
                         gars_id = gars_cell.gars_id                       
-                        gars_feature = graticule_dggs_to_feature('gars', gars_id, resolution_minutes, cell_polygon)
+                        gars_feature = graticule_dggs_to_feature('gars', gars_id, resolution, cell_polygon)
                         gars_features.append(gars_feature)
                         pbar.update(1)
 
@@ -141,8 +141,7 @@ def main():
     else: 
         geojson_features = generate_grid_within_bbox(bbox, resolution)
     
-    resolution_minutes = get_resolution_minutes(resolution)
-    output_filename = f'gars_grid_{resolution_minutes}_minutes.geojson'
+    output_filename = f'gars_grid_{resolution}.geojson'
    
     with open(output_filename, 'w') as f:
         json.dump(geojson_features, f, indent=2)
