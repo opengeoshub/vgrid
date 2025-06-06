@@ -176,7 +176,6 @@ def get_nearest_resolution(geojson_features, from_dggs, to_dggs, from_field=None
     return nearest_resolution
 
 def generate_grid(geojson_features, to_dggs, resolution):
-    """Generates S2 grid cells within the GeoJSON bounding box and keeps only fully contained cells."""
     # bbox = extract_bbox(geojson_data)  # Extract bounding box from GeoJSON
     dggs_grid = {}
     if to_dggs == 'h3':
