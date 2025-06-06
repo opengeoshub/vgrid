@@ -1,7 +1,7 @@
+# pip install -e .
 # python setup.py sdist bdist_wheel
 # twine upload dist/*
-import os
-import shutil
+
 from setuptools import setup, find_packages
 
 requirements = [
@@ -19,26 +19,16 @@ requirements = [
     'rasterio'
     ],
 
-def clean_build():
-    build_dir = 'build'
-    dist_dir = 'dist'
-    if os.path.exists(build_dir):
-        shutil.rmtree(build_dir)
-    if os.path.exists(dist_dir):
-        shutil.rmtree(dist_dir)
-
-clean_build()
-
 setup(
     name='vgrid',
-    version='1.3.10',
+    version='1.3.11',
     author = 'Thang Quach',
     author_email= 'quachdongthang@gmail.com',
     url='https://github.com/thangqd/vgrid',
     description='Vgrid - DGGS and Cell-based Geocoding Utilites',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    requires_python=">=3.0",
+    python_requires=">=3.0",
     packages=find_packages(),
     include_package_data=True,  # Include package data specified in MANIFEST.in
     entry_points={

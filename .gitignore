@@ -6,7 +6,7 @@ __pycache__/
 
 # Ignore environment-specific settings
 .env
-
+.venv
 # Ignore editor-specific files
 .vscode/
 
@@ -17,3 +17,4 @@ dist/
 build/
 vgrid.egg-info/
 *.geojson
+.pypirc
