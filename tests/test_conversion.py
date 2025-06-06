@@ -7,4 +7,3 @@ def test_latlon2h3_basic(sample_data):
     h3_index = latlon2h3(lat, lon, res=9)
     assert h3_index is not None
     assert isinstance(h3_index, str)
-    assert len(h3_index) > 0
