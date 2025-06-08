@@ -1,15 +1,12 @@
 <!-- PROJECT LOGO -->
 <p align="center">
-    <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/vgrid192.svg" alt="Logo">
-  <h2 align="center">Vgrid</h2>
-  <p align="center">
+  <strong >Vgrid </strong> <br>
     <b><i>DGGS and Cell-based Geocoding Utilities</i><b>
-    <br />
-  </p>
 </p>
-<div align="center">
+<p align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs.png">
-</div>
+</p>
+
 
 <!-- TABLE OF CONTENTS -->
 <details open="open">
