@@ -5,13 +5,13 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    'tqdm~=4.66.2',
-    'shapely~=2.0.1',
-    'protobuf~=5.26.1',
+    'tqdm',
+    'shapely',
+    'protobuf',
     'fiona',
     'pyproj',
-    'pyclipper~=1.3.0',
-    'h3~=4.1.1',
+    'pyclipper',
+    'h3',
     'geopandas',
     'scipy',
     'future',
