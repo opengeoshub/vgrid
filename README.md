@@ -39,6 +39,7 @@
 [![PyPI version](https://badge.fury.io/py/vgrid.svg)](https://badge.fury.io/py/vgrid)
 [![PyPI downloads](https://img.shields.io/pypi/dm/vgrid.svg)](https://pypistats.org/packages/vgrid)
 ![Total downloads](https://static.pepy.tech/personalized-badge/vgrid?period=total&units=international_system&left_color=grey&right_color=blue&left_text=total)
+[![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 - Using pip:   
     ``` bash 
