@@ -7,7 +7,9 @@
 [![image](https://static.pepy.tech/badge/vgrid)](https://pepy.tech/project/vgrid)
 [![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![logo](https://raw.githubusercontent.com/opengeoshub/vgrid/master/docs/assets/logo_rect.png)](https://github.com/opengeoshub/vgrid/blob/master/docs/assets/logo.png)
+<div align="center">
+<img src="https://raw.githubusercontent.com/opengeoshub/vgrid/master/docs/assets/logo_rect.png" alt="logo">
+</div>
 
 **A Python package for geospatial analysis and interactive mapping in a Jupyter environment.**
 
