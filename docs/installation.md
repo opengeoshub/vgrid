@@ -38,13 +38,6 @@ To install the development version from GitHub using [Git](https://git-scm.com/)
 pip install git+https://github.com/opengeoshub/vgrid
 ```
 
-## Use docker
-
-You can also use [docker](https://hub.docker.com/r/giswqs/vgrid/) to run vgrid:
-
-```bash
-docker run -it -p 8888:8888 giswqs/vgrid:latest
-```
 
 ## Upgrade vgrid
 
@@ -67,31 +60,3 @@ import vgrid
 vgrid.update_package()
 ```
 
-## Troubleshooting
-
-If the interactive map does not show up on Jupyter Notebook and JupyterLab, it is probably because the [ipyleaflet](https://github.com/jupyter-widgets/ipyleaflet) extension is not installed properly.
-For example, you might receive an error message saying `Error displaying widget: model not found`. This a well-known issue related to ipyleaflet. See some relevant issues below.
-
--   [How to display map object using ipyleaflet in jupyter notebook or jupyter Lab](https://github.com/jupyter-widgets/ipyleaflet/issues/739)
--   [ipyleaflet does not work in jupyter lab - "Error displaying widget: model not found"](https://github.com/jupyter-widgets/ipyleaflet/issues/418)
--   [Error displaying widget: model not found](https://github.com/jupyter-widgets/ipyleaflet/issues/504)
-
-Try some of the options below to resolve the issue. If the issue persists after trying these steps, you can open an issue on the [ipyleaflet](https://github.com/jupyter-widgets/ipyleaflet/issues) repository.
-
-For Jupyter notebook, try running the following two commands within your vgrid conda environment:
-
-```
-jupyter nbextension install --py --symlink --sys-prefix ipyleaflet
-jupyter nbextension enable --py --sys-prefix ipyleaflet
-```
-
-For JupyterLab, try running the following command within your vgrid conda environment:
-
-```
-jupyter labextension install @jupyter-widgets/jupyterlab-manager jupyter-leaflet
-
-```
-
-Alternatively, you can run vgrid directly using binder:
-
--   <https://mybinder.org/v2/gh/opengeoshub/vgrid/HEAD>
