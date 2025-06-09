@@ -1,14 +1,9 @@
 # Tutorials
 
-[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/examples/notebooks/00_key_features.ipynb)
+[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/docs/notebooks/00_h3.ipynb)
 [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/opengeoshub/vgrid/blob/master)
 [![image](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/opengeoshub/vgrid/HEAD)
 
-## Workshops
-
--   FOSS4G 2021 - Using vgrid for Geospatial Analysis and Data Visualization ([notebook](https://vgrid.org/workshops/FOSS4G_2021/))
--   SIGSPATIAL 2021 - Interactive Mapping and Geospatial Analysis with vgrid & Jupyter ([notebook](https://vgrid.org/workshops/SIGSPATIAL_2021/))
--   YouthMappers 2021 - Interactive Mapping and Geospatial Analysis with vgrid and Jupyter ([notebook](https://vgrid.org/workshops/YouthMappers_2021/))
 
 ## Tutorials
 
