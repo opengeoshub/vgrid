@@ -1,8 +1,9 @@
-# Ignore compiled Python bytecode files
-*.pyc
-
-# Ignore Python cache directories
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+**/.DS_Store
 
 # Ignore environment-specific settings
 .env
@@ -15,6 +16,15 @@ data/
 references/
 dist/
 build/
-vgrid.egg-info/
-*.geojson
+*.egg-info/
+*.egg
 .pypirc
+
+.ipynb_checkpoints
+examples/notebooks/cache/
+docs/cache/
+docs/changelog_update.md
+docs/changelog_update.py
+
+*.geojson
+*.db
