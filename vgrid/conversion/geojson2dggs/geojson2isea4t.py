@@ -80,95 +80,120 @@ def poly_to_grid(isea4t_dggs, resolution, geometry,feature_properties,compact=No
         "features": isea4t_features,
     }
 
+def geojson2isea4t(geojson_data, resolution, compact=False):
+    """
+    Convert GeoJSON data to ISEA4T DGGS format.
+    
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): Resolution level [0..25]
+        compact (bool, optional): Enable ISEA4T compact mode for polygons. Defaults to False.
+    
+    Returns:
+        dict: GeoJSON data in ISEA4T DGGS format
+    """
+    if platform.system() != 'Windows':
+        raise NotImplementedError("ISEA4T DGGS conversion is only supported on Windows")
+        
+    if resolution < 0 or resolution > 25:
+        raise ValueError("Resolution must be in range [0..25]")
+        
+    isea4t_dggs = Eaggr(Model.ISEA4T)
+    geojson_features = []
 
-def main():
+    for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
+        feature_properties = feature['properties']    
+        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'Point':
+                point = Point(coordinates)
+                point_features = point_to_grid(isea4t_dggs, resolution, point, feature_properties)
+                geojson_features.extend(point_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPoint':
+                for point_coords in coordinates:
+                    point = Point(point_coords)
+                    point_features = point_to_grid(isea4t_dggs, resolution, point, feature_properties)
+                    geojson_features.extend(point_features['features'])
+        
+        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'LineString':
+                polyline = LineString(coordinates)
+                polyline_features = poly_to_grid(isea4t_dggs, resolution, polyline, feature_properties)
+                geojson_features.extend(polyline_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiLineString':
+                for line_coords in coordinates:
+                    polyline = LineString(line_coords)
+                    polyline_features = poly_to_grid(isea4t_dggs, resolution, polyline, feature_properties)
+                    geojson_features.extend(polyline_features['features'])
+            
+        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
+            coordinates = feature['geometry']['coordinates']
+
+            if feature['geometry']['type'] == 'Polygon':
+                exterior_ring = coordinates[0]
+                interior_rings = coordinates[1:]
+                polygon = Polygon(exterior_ring, interior_rings)
+                polygon_features = poly_to_grid(isea4t_dggs, resolution, polygon, feature_properties, compact)
+                geojson_features.extend(polygon_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                for sub_polygon_coords in coordinates:
+                    exterior_ring = sub_polygon_coords[0]
+                    interior_rings = sub_polygon_coords[1:]
+                    polygon = Polygon(exterior_ring, interior_rings)
+                    polygon_features = poly_to_grid(isea4t_dggs, resolution, polygon, feature_properties, compact)
+                    geojson_features.extend(polygon_features['features'])
+
+    return {
+        "type": "FeatureCollection",
+        "features": geojson_features
+    }
+
+def geojson2isea4t_cli():
+    """
+    Command-line interface for converting GeoJSON to ISEA4T DGGS format.
+    """
     parser = argparse.ArgumentParser(description="Convert GeoJSON to Open-Eaggr ISEA4T DGGS")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..25]")
-    # actual resolution range: [0..39]
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable ISEA4T compact mode - for polygon only")
 
-    if (platform.system() == 'Windows'):
-        isea4t_dggs = Eaggr(Model.ISEA4T)
-        args = parser.parse_args()
-        geojson = args.geojson
-        resolution = args.resolution
-        compact = args.compact  
+    if platform.system() != 'Windows':
+        print("Error: ISEA4T DGGS conversion is only supported on Windows")
+        return
 
-        if resolution < 0 or resolution > 25:
-            print(f"Please select a resolution in [0..25] range and try again ")
-            return
-        
-        if not os.path.exists(geojson):
-            print(f"Error: The file {geojson} does not exist.")
-            return
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+    compact = args.compact  
 
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    try:
         with open(geojson, 'r', encoding='utf-8') as f:
             geojson_data = json.load(f)
         
-        geojson_features = []
-
-        for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
-            feature_properties = feature['properties']    
-            if feature['geometry']['type'] in ['Point', 'MultiPoint']:
-                coordinates = feature['geometry']['coordinates']
-                if feature['geometry']['type'] == 'Point':
-                    point = Point(coordinates)
-                    point_features = point_to_grid(isea4t_dggs,resolution, point,feature_properties)
-                    geojson_features.extend(point_features['features'])
-
-                elif feature['geometry']['type'] == 'MultiPoint':
-                    for point_coords in coordinates:
-                        point = Point(point_coords)  # Create Point for each coordinate set
-                        point_features = point_to_grid(isea4t_dggs,resolution, point,feature_properties)
-                        geojson_features.extend(point_features['features'])
-            
-            elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
-                coordinates = feature['geometry']['coordinates']
-                if feature['geometry']['type'] == 'LineString':
-                    # Directly process LineString geometry
-                    polyline = LineString(coordinates)
-                    polyline_features = poly_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
-                    geojson_features.extend(polyline_features['features'])
-
-                elif feature['geometry']['type'] == 'MultiLineString':
-                    # Iterate through each line in MultiLineString geometry
-                    for line_coords in coordinates:
-                        polyline = LineString(line_coords)  # Use each part's coordinates
-                        polyline_features = poly_to_grid(isea4t_dggs,resolution, polyline,feature_properties)
-                        geojson_features.extend(polyline_features['features'])
-                
-            elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
-                coordinates = feature['geometry']['coordinates']
-
-                if feature['geometry']['type'] == 'Polygon':
-                    # Create Polygon with exterior and interior rings
-                    exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
-                    interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
-                    polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
-                    geojson_features.extend(polygon_features['features'])
-
-                elif feature['geometry']['type'] == 'MultiPolygon':
-                    # Handle each sub-polygon in MultiPolygon geometry
-                    for sub_polygon_coords in coordinates:
-                        exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
-                        interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
-                        polygon = Polygon(exterior_ring, interior_rings)
-                        polygon_features = poly_to_grid(isea4t_dggs,resolution, polygon,feature_properties,compact)
-                        geojson_features.extend(polygon_features['features'])
-
+        result = geojson2isea4t(geojson_data, resolution, compact)
+        
         geojson_name = os.path.splitext(os.path.basename(geojson))[0]
         geojson_path = f"{geojson_name}2isea4t_{resolution}.geojson"
         if compact:
             geojson_path = f"{geojson_name}2isea4t_{resolution}_compacted.geojson"
     
         with open(geojson_path, 'w') as f:
-            json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
+            json.dump(result, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    geojson2isea4t_cli()

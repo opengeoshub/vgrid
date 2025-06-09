@@ -239,7 +239,7 @@ def main():
                 # Initialize a list to store all grid cells
         all_cells = []
         geojson_features = []
-        for feature in geojson_data['features']:            
+        for feature in tqdm(geojson_data['features'], desc="Processing features"):            
             if feature['geometry']['type'] in ['Point', 'MultiPoint']:
                 coordinates = feature['geometry']['coordinates']
                 
@@ -314,7 +314,7 @@ def main():
 
         if geojson_features:
             with open(geojson_path, 'w') as f:
-                json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
+                json.dump({"type": "FeatureCollection", "features": geojson_features}, f)
         elif all_cells:
             final_gdf = gpd.GeoDataFrame(pd.concat(all_cells, ignore_index=True), crs=all_cells[0].crs)
             final_gdf.to_file(geojson_path, driver='GeoJSON')

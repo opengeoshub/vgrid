@@ -83,9 +83,78 @@ def poly_to_grid(resolution, geometry,feature_properties, compact= None):
         "features": h3_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def geojson2h3(geojson_data, resolution, compact=False):
+    """
+    Convert GeoJSON data to H3 grid cells.
+    
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): H3 resolution [0..15]
+        compact (bool): Enable H3 compact mode - for polygon only
+        
+    Returns:
+        dict: GeoJSON FeatureCollection containing H3 grid cells
+    """
+    if resolution < 0 or resolution > 15:
+        raise ValueError("Resolution must be in range [0..15]")
+    
+    geojson_features = []
+
+    for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
+        feature_properties = feature['properties'] 
+        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'Point':
+                point = Point(coordinates)
+                point_features = point_to_grid(resolution, point, feature_properties)
+                geojson_features.extend(point_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPoint':
+                for point_coords in coordinates:
+                    point = Point(point_coords)
+                    point_features = point_to_grid(resolution, point, feature_properties)
+                    geojson_features.extend(point_features['features'])
+
+        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'LineString':
+                polyline = LineString(coordinates)
+                polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                geojson_features.extend(polyline_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiLineString':
+                for line_coords in coordinates:
+                    polyline = LineString(line_coords)
+                    polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                    geojson_features.extend(polyline_features['features'])
+
+        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
+            coordinates = feature['geometry']['coordinates']
+
+            if feature['geometry']['type'] == 'Polygon':
+                exterior_ring = coordinates[0]
+                interior_rings = coordinates[1:]
+                polygon = Polygon(exterior_ring, interior_rings)
+                polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                geojson_features.extend(polygon_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                for sub_polygon_coords in coordinates:
+                    exterior_ring = sub_polygon_coords[0]
+                    interior_rings = sub_polygon_coords[1:]
+                    polygon = Polygon(exterior_ring, interior_rings)
+                    polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                    geojson_features.extend(polygon_features['features'])
+
+    return {
+        "type": "FeatureCollection",
+        "features": geojson_features,
+    }
+
+def geojson2h3_cli():
+    """
+    Command-line interface for converting GeoJSON to H3 grid cells.
+    """
     parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 DGGS")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
     parser.add_argument(
@@ -98,10 +167,6 @@ def main():
     resolution = args.resolution
     compact = args.compact  
 
-    if resolution < 0 or resolution > 15:
-        print(f"Please select a resolution in [0..15] range and try again ")
-        return
-    
     if not os.path.exists(geojson):
         print(f"Error: The file {geojson} does not exist.")
         return
@@ -109,65 +174,20 @@ def main():
     with open(geojson, 'r', encoding='utf-8') as f:
         geojson_data = json.load(f)
     
-    geojson_features = []
+    try:
+        result = geojson2h3(geojson_data, resolution, compact)
+        
+        geojson_name = os.path.splitext(os.path.basename(geojson))[0]
+        geojson_path = f"{geojson_name}2h3_{resolution}.geojson"
+        if compact:
+            geojson_path = f"{geojson_name}2h3_{resolution}_compacted.geojson"
+        
+        with open(geojson_path, 'w') as f:
+            json.dump(result, f)
 
-    for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
-        feature_properties = feature['properties'] 
-        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'Point':
-                point = Point(coordinates)
-                point_features = point_to_grid(resolution, point,feature_properties)
-                geojson_features.extend(point_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPoint':
-                for point_coords in coordinates:
-                    point = Point(point_coords)
-                    point_features = point_to_grid(resolution, point,feature_properties)
-                    geojson_features.extend(point_features['features'])
-
-        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'LineString':
-                polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
-                geojson_features.extend(polyline_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiLineString':
-                for line_coords in coordinates:
-                    polyline = LineString(line_coords)
-                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
-                    geojson_features.extend(polyline_features['features'])
-
-        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
-            coordinates = feature['geometry']['coordinates']
-
-            if feature['geometry']['type'] == 'Polygon':
-                exterior_ring = coordinates[0]
-                interior_rings = coordinates[1:]
-                polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon,feature_properties, compact)
-                geojson_features.extend(polygon_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPolygon':
-                for sub_polygon_coords in coordinates:
-                    exterior_ring = sub_polygon_coords[0]
-                    interior_rings = sub_polygon_coords[1:]
-                    polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
-                    geojson_features.extend(polygon_features['features'])
-
-   
-    geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2h3_{resolution}.geojson"
-    if compact:
-        geojson_path = f"{geojson_name}2h3_{resolution}_compacted.geojson"
-    
-    with open(geojson_path, 'w') as f:
-        json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
-
-    print(f"GeoJSON saved as {geojson_path}")
-
-
+        print(f"GeoJSON saved as {geojson_path}")
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+        
 if __name__ == "__main__":
-    main()
+    geojson2h3_cli()

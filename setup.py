@@ -78,22 +78,22 @@ setup(
             'gars2geojson = vgrid.conversion.dggs2geojson:gars2geojson_cli',  
             
             # GeoJSON to DGGS
-            'geojson2h3 = vgrid.conversion.geojson2dggs.geojson2h3:main',
-            'geojson2s2 = vgrid.conversion.geojson2dggs.geojson2s2:main',
-            'geojson2rhealpix = vgrid.conversion.geojson2dggs.geojson2rhealpix:main',
-            'geojson2isea4t = vgrid.conversion.geojson2dggs.geojson2isea4t:main',
-            'geojson2isea3h = vgrid.conversion.geojson2dggs.geojson2isea3h:main',
-            'geojson2ease = vgrid.conversion.geojson2dggs.geojson2ease:main',
+            'geojson2h3 = vgrid.conversion.geojson2dggs.geojson2h3:geojson2h3_cli',   
+            'geojson2s2 = vgrid.conversion.geojson2dggs.geojson2s2:geojson2s2_cli',
+            'geojson2rhealpix = vgrid.conversion.geojson2dggs.geojson2rhealpix:geojson2rhealpix_cli',
+            'geojson2isea4t = vgrid.conversion.geojson2dggs.geojson2isea4t:geojson2isea4t_cli',
+            'geojson2isea3h = vgrid.conversion.geojson2dggs.geojson2isea3h:geojson2isea3h_cli',
+            'geojson2ease = vgrid.conversion.geojson2dggs.geojson2ease:geojson2ease_cli',
 
-            'geojson2dggrid = vgrid.conversion.geojson2dggs.geojson2dggrid:main',
-            'geojson2qtm = vgrid.conversion.geojson2dggs.geojson2qtm:main',
+            'geojson2dggrid = vgrid.conversion.geojson2dggs.geojson2dggrid:geojson2dggrid_cli',
+            'geojson2qtm = vgrid.conversion.geojson2dggs.geojson2qtm:geojson2qtm_cli',
             
-            'geojson2olc = vgrid.conversion.geojson2dggs.geojson2olc:main',
-            'geojson2geohash = vgrid.conversion.geojson2dggs.geojson2geohash:main',
-            # 'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:main',
-            'geojson2mgrs = vgrid.conversion.geojson2dggs.geojson2mgrs:main',
-            'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:main',
-            'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:main',
+            'geojson2olc = vgrid.conversion.geojson2dggs.geojson2olc:geojson2olc_cli',
+            'geojson2geohash = vgrid.conversion.geojson2dggs.geojson2geohash:geojson2geohash_cli',
+            # 'geojson2georef = vgrid.conversion.geojson2dggs.geojson2georef:geojson2georef_cli',
+            'geojson2mgrs = vgrid.conversion.geojson2dggs.geojson2mgrs:geojson2mgrs_cli',
+            'geojson2tilecode = vgrid.conversion.geojson2dggs.geojson2tilecode:geojson2tilecode_cli',
+            'geojson2quadkey = vgrid.conversion.geojson2dggs.geojson2quadkey:geojson2quadkey_cli',
 
             # DGGS compact/ expand
             'h3compact =  vgrid.conversion.dggscompact:h3compact_cli',
