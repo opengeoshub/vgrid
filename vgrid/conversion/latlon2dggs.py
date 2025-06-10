@@ -28,8 +28,10 @@ import argparse
 
 def latlon2h3(lat,lon,res=13):
     # res: [0..15]  
-    h3_cell = h3.latlng_to_cell(lat, lon, res)
-    return h3_cell
+    if res < 0 or res > 15:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..15].")
+    h3_id = h3.latlng_to_cell(lat, lon, res)
+    return h3_id
 
 def latlon2h3_cli():
     """
@@ -48,11 +50,13 @@ def latlon2h3_cli():
         print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [0..15].")
         return  
     
-    h3_cell = latlon2h3(args.lat,args.lon,args.res)
-    print(h3_cell)
+    h3_id = latlon2h3(args.lat,args.lon,args.res)
+    print(h3_id)
 
 def latlon2s2(lat,lon,res=21):
     # res: [0..30] 
+    if res < 0 or res > 30:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..30].")
     lat_lng = s2.LatLng.from_degrees(lat, lon)
     cell_id = s2.CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
     cell_id = cell_id.parent(res) # get S2 cell at resolution
@@ -81,6 +85,8 @@ def latlon2s2_cli():
 
 def latlon2rhealpix(lat,lon,res=14):
     # res: [0..15]        
+    if res < 0 or res > 15:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..15].")
     E = WGS84_ELLIPSOID
     rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
     point = (lon, lat)
@@ -110,6 +116,8 @@ def latlon2rhealpix_cli():
 def latlon2isea4t(lat,lon,res=21):
     if (platform.system() == 'Windows'):
         # res: [0..39]
+        if res < 0 or res > 39:
+            raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..39].")
         isea4t_dggs = Eaggr(Model.ISEA4T)
         max_accuracy =  isea4t_res_accuracy_dict[39] # maximum cell_id length with 41 characters
         lat_long_point = LatLongPoint(lat, lon, max_accuracy)
@@ -142,6 +150,8 @@ def latlon2isea4t_cli():
 def latlon2isea3h(lat,lon,res=27):
     if (platform.system() == 'Windows'):
         # res: [0..40], res=27 is suitable for geocoding
+        if res < 0 or res > 40:
+            raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..40].")
         isea3h_dggs = Eaggr(Model.ISEA3H)
         accuracy = isea3h_res_accuracy_dict.get(res)            
         lat_long_point = LatLongPoint(lat, lon, accuracy)
@@ -208,6 +218,8 @@ def latlon2dggrid_cli():
 
 def latlon2ease(lat,lon,res=6):
     # res = [0..6]  
+    if res < 0 or res > 6:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..6].")
     easedggs_cell = geos_to_grid_ids([(lon,lat)],level = res)
     easedggs_cell_id = easedggs_cell['result']['data'][0]
     return easedggs_cell_id
@@ -235,6 +247,9 @@ def latlon2ease_cli():
 
 
 def latlon2qtm(lat, lon, res=10):
+    # res: [1..24]
+    if res < 1 or res > 24:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [1..24].")
     return qtm.latlon_to_qtm_id(lat, lon, res)
     
 def latlon2qtm_cli():
@@ -260,6 +275,9 @@ def latlon2qtm_cli():
  
 def latlon2olc(lat,lon,res=11):
     # res: [2,4,6,8,10..15]        
+    valid_resolutions = [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
+    if res not in valid_resolutions:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in {valid_resolutions}.")
     olc_cell = olc.encode(lat, lon, res)
     return olc_cell
 
@@ -288,6 +306,8 @@ def latlon2olc_cli():
 
 def latlon2geohash(lat,lon,res=6):
     # res: [1..10]    
+    if res < 1 or res > 10:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [1..10].")
     geohash_id= geohash.encode(lat, lon, res)
     return geohash_id
 
@@ -312,7 +332,9 @@ def latlon2geohash_cli():
     print(geohash_id)
 
 def latlon2georef(lat,lon,res=4):
-    # res: [-1..5]        
+    # res: [0..5]        
+    if res < 0 or res > 5:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..5].")
     georef_cell = georef.encode(lat,lon,res)
     return georef_cell
 
@@ -321,16 +343,16 @@ def latlon2georef_cli():
     Command-line interface for latlon2georef.
     """
     parser = argparse.ArgumentParser(description="Convert Lat, Long to GEOREF code at a specific resolution [0..5]. \
-                                     Usage: latlon2georef <lat> <lon> <res> [-1..5]. \
-                                     Ex: latlon2georef 10.775275567242561 106.70679737574993 4")
+                                     Usage: latlon2georef <lat> <lon> <res> [0..5]. \
+                                     Ex: latlon2georef 10.775275567242561 106.70679737574993 5")
     parser.add_argument("lat",type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument("res",type=int, help="Input Resolution [-1..5]")
+    parser.add_argument("res",type=int, help="Input Resolution [0..5]")
     args = parser.parse_args()
     
     res = args.res
-    if res < -1 or res > 5:
-        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [-1..5].")
+    if res < 0 or res > 5:
+        print(f"Error: Invalid resolution {res}. Please input a valid resolutions in [0..5].")
         return  
     
     georef_cell = latlon2georef(args.lat,args.lon,res)
@@ -338,6 +360,8 @@ def latlon2georef_cli():
 
 def latlon2mgrs(lat,lon,res=4):
     # res: [0..5]  
+    if res < 0 or res > 5:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..5].")
     mgrs_cell = mgrs.toMgrs(lat,lon,res)
     return mgrs_cell
 
@@ -363,6 +387,8 @@ def latlon2mgrs_cli():
 
 def latlon2tilecode(lat,lon,res=23):
     # res: [0..29]        
+    if res < 0 or res > 29:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..29].")
     tilecode_id = tilecode.latlon2tilecode(lat,lon,res)
     return tilecode_id
 
@@ -389,6 +415,8 @@ def latlon2tilecode_cli():
 
 def latlon2quadkey(lat,lon,res=23):
     # res: [0..29]        
+    if res < 0 or res > 29:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [0..29].")
     quadkey = tilecode.latlon2quadkey(lat,lon,res)
     return quadkey
 
@@ -414,6 +442,9 @@ def latlon2quadkey_cli():
 
 
 def latlon2maidenhead(lat,lon,res=4):  
+    # res: [1..4]
+    if res < 1 or res > 4:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [1..4].")
     maidenhead_cell = maidenhead.toMaiden(lat,lon,res)
     return maidenhead_cell
 
@@ -439,6 +470,8 @@ def latlon2maidenhead_cli():
 
 def latlon2gars(lat,lon,res=1):
     # res: [1..4] where 1 is min res (30 minutes), 4 is max res (1 minute)
+    if res < 1 or res > 4:
+        raise ValueError(f"Invalid resolution {res}. Please input a valid resolution in [1..4].")
     # Convert res to minutes: 1->30, 2->15, 3->5, 4->1
     minutes_map = {1: 30, 2: 15, 3: 5, 4: 1}
     minutes = minutes_map[res]

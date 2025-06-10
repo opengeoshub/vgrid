@@ -1,10 +1,9 @@
-import os, argparse, json
+import os, argparse, json, csv
 from tqdm import tqdm
 import rasterio
 from vgrid.utils import s2
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
-import json
 from vgrid.stats.s2stats import s2_metrics
 from vgrid.utils.antimeridian import fix_polygon
 from vgrid.generator.settings import geodesic_dggs_metrics, geodesic_dggs_to_feature
@@ -54,7 +53,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_s2(raster_path, resolution=None):
+def raster2s2(raster_path, resolution=None, format='geojson'):
     # Step 1: Determine the nearest s2 resolution if none is provided
     if resolution is None:
         resolution = get_nearest_s2_resolution(raster_path)
@@ -67,21 +66,21 @@ def raster_to_s2(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    s2_cells = set()
+    s2_tokens = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
             lat_lng = s2.LatLng.from_degrees(lat, lon)
-            cell_id = s2.CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
-            cell_id = cell_id.parent(resolution) # get S2 cell at resolution
-            cell_token = s2.CellId.to_token(cell_id) # get Cell ID Token, shorter than cell_id.id()
-            s2_cells.add(cell_token)
+            s2_id = s2.CellId.from_lat_lng(lat_lng) # return S2 cell at max level 30
+            s2_id = s2_id.parent(resolution) # get S2 cell at resolution
+            s2_token = s2.CellId.to_token(s2_id) # get Cell ID Token, shorter than cell_id.id()
+            s2_tokens.add(s2_token)
 
     # Sample the raster values at the centroids of the s2 hexagons
     s2_data = []
     
-    for s2_token in s2_cells:       
+    for s2_token in tqdm(s2_tokens, desc="Resampling", unit=" cells"):
         cell_id = s2.CellId.from_token(s2_token)
         s2_cell = s2.Cell(cell_id)
         vertices = [s2_cell.get_vertex(i) for i in range(4)]
@@ -98,7 +97,7 @@ def raster_to_s2(raster_path, resolution=None):
         # Create a Shapely Polygon
         cell_polygon = fix_polygon(Polygon(shapely_vertices)) # Fix antimeridian
         num_edges = 4
-        centroid_lat, centroid_lon,avg_edge_len,cell_area =  geodesic_dggs_metrics(cell_polygon,num_edges)
+        centroid_lat, centroid_lon,_,_ =  geodesic_dggs_metrics(cell_polygon,num_edges)
         
         col, row = ~transform * (centroid_lon, centroid_lat)
         
@@ -107,13 +106,21 @@ def raster_to_s2(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             s2_data.append({
                 "s2": s2_token,
-                # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format.lower()  == 'csv':
+        import io
+        output = io.StringIO()
+        if s2_data:
+            writer = csv.DictWriter(output, fieldnames=s2_data[0].keys())
+            writer.writeheader()
+            writer.writerows(s2_data)
+        return output.getvalue()
+    
     # Create the GeoJSON-like structure
     s2_features = []
-    for data in tqdm(s2_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(s2_data, desc="Converting to GeoJSON", unit=" cells"):
         cell_id = s2.CellId.from_token(data['s2'])
         s2_cell = s2.Cell(cell_id)
         if s2_cell:
@@ -134,7 +141,7 @@ def raster_to_s2(raster_path, resolution=None):
             num_edges = 4
             band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
             s2_feature = geodesic_dggs_to_feature("s2",data["s2"],resolution,cell_polygon,num_edges)   
-            s2_feature["properties"].update(convert_numpy_types(band_properties) )
+            s2_feature["properties"].update(convert_numpy_types(band_properties))
 
             s2_features.append(s2_feature)
 
@@ -142,40 +149,56 @@ def raster_to_s2(raster_path, resolution=None):
         "type": "FeatureCollection",
         "features": s2_features
     }
- 
-       
-def main():
+
+def raster2s2_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to S2 DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..24]"
+        '-r', '--resolution', type=int, required=False, default=None, 
+        help="Resolution [0..24]"
     )
 
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
         return
+        
     if resolution is not None:
         if resolution < 0 or resolution > 24:
-            print(f"Please select a resolution in [0..24] range and try again ")
+            print(f"Please select a resolution in [0..24] range and try again")
             return
 
-    s2_geojson = raster_to_s2(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2s2.geojson"
-   
-    with open(geojson_path, 'w') as f:
-        json.dump(s2_geojson, f)
+    # Process the raster
+    result = raster2s2(raster, resolution, format)
     
-    print(f"GeoJSON saved as {geojson_path}")
-
+    # Generate output filename
+    base_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{base_name}2s2.{format}"
+    
+    # Save the output
+    if format.lower()  == 'geojson':
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+    elif format.lower()  == 'csv':
+        fieldnames = list(result[0].keys())
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(result)
+    
+    print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2s2_cli()

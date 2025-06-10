@@ -1,10 +1,11 @@
-#Reference: https://observablehq.com/@claude-ducharme/h3-map
+# Reference: https://observablehq.com/@claude-ducharme/h3-map
 # https://h3-snow.streamlit.app/
 
 import h3
 from shapely.geometry import Polygon, box
 import argparse
 import json
+import csv
 from tqdm import tqdm
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
@@ -20,7 +21,7 @@ def fix_h3_antimeridian_cells(hex_boundary, threshold=-128):
         return [(lat, lon - 360 if lon > 0 else lon) for lat, lon in hex_boundary]
     return hex_boundary
 
-def generate_grid(resolution):
+def generate_grid(resolution, format='geojson'):
     base_cells = h3.get_res0_cells()
     num_base_cells = len(base_cells)
     h3_features = []
@@ -46,10 +47,20 @@ def generate_grid(resolution):
                     h3_features.append(h3_feature)
                     pbar.update(1)
 
-    return {
-        "type": "FeatureCollection",
-        "features": h3_features,
-    }
+    if format.lower() == 'csv':
+        csv_rows = []
+        for feature in h3_features:
+            props = feature['properties']
+            row = {
+                'h3': props['h3']
+            }
+            csv_rows.append(row)
+        return csv_rows
+    else:
+        return {
+            "type": "FeatureCollection",
+            "features": h3_features,
+        }
     
 def geodesic_buffer(polygon, distance):
     buffered_coords = []
@@ -65,7 +76,7 @@ def geodesic_buffer(polygon, distance):
     all_coords = [coord for circle in buffered_coords for coord in circle]
     return Polygon(all_coords).convex_hull
 
-def generate_grid_within_bbox(resolution,bbox):
+def generate_grid_within_bbox(resolution, bbox, format='geojson'):
     bbox_polygon = box(*bbox)  # Create a bounding box polygon
     distance = h3.average_hexagon_edge_length(resolution,unit='m')*2
     bbox_buffer = geodesic_buffer(bbox_polygon, distance)
@@ -96,10 +107,20 @@ def generate_grid_within_bbox(resolution,bbox):
                     h3_feature = geodesic_dggs_to_feature("h3",h3_id,resolution,cell_polygon,num_edges)   
                     h3_features.append(h3_feature)
 
-        return {
-            "type": "FeatureCollection",
-            "features": h3_features,
-        }
+        if format.lower() == 'csv':
+            csv_rows = []
+            for feature in h3_features:
+                props = feature['properties']
+                row = {
+                    'h3': props['h3']                    
+                }
+                csv_rows.append(row)
+            return csv_rows
+        else:
+            return {
+                "type": "FeatureCollection",
+                "features": h3_features,
+            }
 
 def generate_grid_resample(resolution, geojson_features):
     # Create a unified geometry from all features
@@ -133,47 +154,66 @@ def generate_grid_resample(resolution, geojson_features):
         "features": h3_features,
     }
 
-# Example Usage
-def main():
-    # Parse command-line arguments
+def h3grid(resolution, bbox=None, format='geojson'):
+    """
+    Generate H3 grid for pure Python usage.
+    
+    Args:
+        resolution (int): H3 resolution [0..15]
+        bbox (list, optional): Bounding box [min_lon, min_lat, max_lon, max_lat]. Defaults to None (whole world).
+        format (str, optional): Output format ('geojson' or 'csv'). Defaults to 'geojson'.
+    
+    Returns:
+        dict or list: GeoJSON FeatureCollection or list of CSV rows depending on format
+    """
+    if resolution < 0 or resolution > 15:
+        raise ValueError("Resolution must be in range [0..15]")
+
+    if bbox is None:
+        bbox = [-180, -90, 180, 90]
+        num_cells = h3.get_num_cells(resolution)
+        if num_cells > max_cells:
+            raise ValueError(f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {max_cells}")
+        return generate_grid(resolution, format)
+    else:
+        return generate_grid_within_bbox(resolution, bbox, format)
+
+def h3grid_cli():
+    """CLI interface for generating H3 grid."""
     parser = argparse.ArgumentParser(description="Generate H3 DGGS.")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
     parser.add_argument(
         '-b', '--bbox', type=float, nargs=4, 
         help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"
-    ) 
+    )
+    parser.add_argument(
+        '-f', '--format', type=str, choices=['geojson', 'csv'], default='geojson',
+        help="Output format (geojson or csv)"
+    )
     args = parser.parse_args()
-    resolution = args.resolution
-    bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     
-    if resolution < 0 or resolution > 15:
-        print(f"Please select a resolution in [0..15] range and try again ")
-        return
-
-    if bbox == [-180, -90, 180, 90]:
-        # Calculate the number of cells at the given resolution
-        num_cells = h3.get_num_cells(resolution)
-        print(f"Resolution {resolution} will generate {num_cells} cells ")
-        if num_cells > max_cells:
-            print(f"which exceeds the limit of {max_cells}.")
-            print("Please select a smaller resolution and try again.")
+    try:
+        result = h3grid(args.resolution, args.bbox, args.format)
+        if result is None:
             return
 
-        # Generate grid within the bounding box
-        geojson_features = generate_grid(resolution)
-       
-    else:
-        # Generate grid within the bounding box
-        geojson_features = generate_grid_within_bbox(resolution, bbox)
-    
-    if geojson_features:
-        # Define the GeoJSON file path
-        geojson_path = f"h3_grid_{resolution}.geojson"
-        with open(geojson_path, 'w') as f:
-            json.dump(geojson_features, f, indent=2)
+        # Define the output file path
+        output_path = f"h3_grid_{args.resolution}.{args.format}"
+        
+        if args.format == 'csv':
+            with open(output_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=['h3_id', 'resolution', 'num_edges', 'geometry'])
+                writer.writeheader()
+                writer.writerows(result)
+        else:
+            with open(output_path, 'w') as f:
+                json.dump(result, f, indent=2)
 
-        print(f"GeoJSON saved as {geojson_path}")
-
+        print(f"Output saved as {output_path}")
+        
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+        return
 
 if __name__ == "__main__":
-    main()
+    h3grid_cli()

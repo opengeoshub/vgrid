@@ -10,6 +10,7 @@ from vgrid.conversion.latlon2dggs import latlon2geohash
 from math import cos, radians
 import re
 from vgrid.utils import geohash
+import csv
 
 def get_nearest_geohash_resolution(raster_path):
     with rasterio.open(raster_path) as src:
@@ -55,11 +56,15 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_geohash(raster_path, resolution=None):
+def raster2geohash(raster_path, resolution=None, format='geojson'):
     # Step 1: Determine the nearest geohash resolution if none is provided
     if resolution is None:
         resolution = get_nearest_geohash_resolution(raster_path)
         print(f"Nearest geohash resolution determined: {resolution}")
+    
+    # Validate resolution is in valid range
+    if resolution < 1 or resolution > 10:
+        raise ValueError("Resolution must be in range [1..10]")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -79,7 +84,7 @@ def raster_to_geohash(raster_path, resolution=None):
     # Sample the raster values at the centroids of the geohash hexagons
     geohash_data = []
     
-    for geohash_id in geohash_ids:
+    for geohash_id in tqdm(geohash_ids, desc="Resampling", unit=" cells"):
         # Get the centroid of the geohash cell
         centroid_lat, centroid_lon = geohash.decode(geohash_id)        
         # Sample the raster values at the centroid (lat, lon)
@@ -90,13 +95,21 @@ def raster_to_geohash(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             geohash_data.append({
                 "geohash": geohash_id,
-                # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format.lower() == 'csv':
+        import io
+        output = io.StringIO()
+        if geohash_data:
+            writer = csv.DictWriter(output, fieldnames=geohash_data[0].keys())
+            writer.writeheader()
+            writer.writerows(geohash_data)
+        return output.getvalue()
+    
     # Create the GeoJSON-like structure
     geohash_features = []
-    for data in tqdm(geohash_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(geohash_data, desc="Converting to GeoJSON", unit=" cells"):
         geohash_id = data["geohash"]
         geohash_bbox =  geohash.bbox(geohash_id)
         if geohash_bbox:
@@ -121,40 +134,49 @@ def raster_to_geohash(raster_path, resolution=None):
         "features": geohash_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def raster2geohash_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Geohash DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [1..10]"
+        '-r', '--resolution', type=int, required=False, default=None, 
+        help="Resolution [1..10]", min=1, max=10
+    )
+
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson', 
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
     )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    output_format = args.format
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
         return
-    if resolution is not None:
-        if resolution < 1 or resolution > 10:
-            print(f"Please select a resolution in [1..10] range and try again ")
-            return
 
-
-    geohash_geojson = raster_to_geohash(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2geohash.geojson"
-   
-    with open(geojson_path, 'w') as f:
-        json.dump(geohash_geojson, f)
+    result = raster2geohash(raster, resolution, output_format)
+    base_name = os.path.splitext(os.path.basename(raster))[0]
     
-    print(f"GeoJSON saved as {geojson_path}")
+    if output_format.lower() == 'csv':
+        output_path = f"{base_name}2geohash.csv"
+        # Get all possible field names from the first row
+        fieldnames = list(result[0].keys())
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(result)
+    else:
+        output_path = f"{base_name}2geohash.geojson"
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+    
+    print(f"Output saved as {output_path}")
 
 
 if __name__ == "__main__":
-    main()
+    raster2geohash_cli()

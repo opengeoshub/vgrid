@@ -10,6 +10,7 @@ from vgrid.generator.settings import graticule_dggs_to_feature
 from math import cos, radians
 import re
 from vgrid.conversion.latlon2dggs import latlon2olc
+import csv
 
 def get_nearest_olc_resolution(raster_path):
     with rasterio.open(raster_path) as src:
@@ -56,7 +57,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_olc(raster_path, resolution=None):
+def raster2olc(raster_path, resolution=None, format='geojson'):
     # Step 1: Determine the nearest olc resolution if none is provided
     if resolution is None:
         resolution = get_nearest_olc_resolution(raster_path)
@@ -80,7 +81,7 @@ def raster_to_olc(raster_path, resolution=None):
     # Sample the raster values at the centroids of the olc hexagons
     olc_data = []
     
-    for olc_id in olc_ids:
+    for olc_id in tqdm(olc_ids, desc="Resampling", unit=" cells"): 
         # Get the centroid of the olc cell
         coord = olc.decode(olc_id)
         centroid_lat, centroid_lon = coord.latitudeCenter, coord.longitudeCenter
@@ -93,13 +94,22 @@ def raster_to_olc(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             olc_data.append({
                 "olc": olc_id,
-                # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format.lower() == 'csv':
+        import io
+        output = io.StringIO()
+        if olc_data:
+            writer = csv.DictWriter(output, fieldnames=olc_data[0].keys())
+            writer.writeheader()
+            writer.writerows(olc_data)
+        return output.getvalue()
+    
+    
     # Create the GeoJSON-like structure
     olc_features = []
-    for data in tqdm(olc_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(olc_data, desc="Converting to GeoJSON", unit=" cells"):
         olc_id = data["olc"]
         coord = olc.decode(olc_id)    
         if coord:
@@ -119,7 +129,7 @@ def raster_to_olc(raster_path, resolution=None):
             
             olc_feature = graticule_dggs_to_feature("olc",olc_id,cell_resolution,cell_polygon)   
             band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-            olc_feature["properties"].update(convert_numpy_types(band_properties) )
+            olc_feature["properties"].update(convert_numpy_types(band_properties))
             olc_features.append(olc_feature)               
             
     return {
@@ -127,41 +137,51 @@ def raster_to_olc(raster_path, resolution=None):
         "features": olc_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def raster2olc_cli():
+    """Command line interface for raster to OLC conversion"""
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to OLC/ Google Plus Code DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [10..12]"
+        '-r', '--resolution', type=int, required=False, default=None, help="Resolution [10..12]"
     )
 
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
         return
+        
     if resolution is not None:
         if resolution < 10 or resolution > 12:
             print(f"Please select a resolution in [10..12] range and try again ")
             return
 
-
-    olc_geojson = raster_to_olc(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2olc.geojson"
+    output_data = raster2olc(raster, resolution, format)
+    output_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{output_name}2olc.{format}"
    
-    with open(geojson_path, 'w') as f:
-        json.dump(olc_geojson, f)
-    
-    print(f"GeoJSON saved as {geojson_path}")
-
+    if format.lower() == 'csv':
+        with open(output_path, 'w', newline='') as f:
+            if output_data:
+                writer = csv.DictWriter(f, fieldnames=output_data[0].keys())
+                writer.writeheader()
+                writer.writerows(output_data)
+    else:  # geojson
+        with open(output_path, 'w') as f:
+            json.dump(output_data, f)
+            
+    print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2olc_cli()

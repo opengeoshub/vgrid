@@ -4,6 +4,7 @@ import rasterio
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
+import csv
 from vgrid.stats.isea4tstats import isea4t_metrics
 from vgrid.utils.antimeridian import fix_polygon
 from vgrid.generator.settings import geodesic_dggs_metrics, geodesic_dggs_to_feature
@@ -65,7 +66,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
+def raster2isea4t(isea4t_dggs, raster_path, resolution=None, format='geojson'):
     if (platform.system() == 'Windows'):  
         # Step 1: Determine the nearest isea4t resolution if none is provided
         if resolution is None:
@@ -94,7 +95,7 @@ def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
         # Sample the raster values at the centroids of the isea4t hexagons
         isea4t_data = []
         
-        for isea4t_id in isea4t_ids:       
+        for isea4t_id in tqdm(isea4t_ids, desc="Resampling", unit=" cells"):
             cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(DggsCell(isea4t_id),ShapeStringFormat.WKT)
             cell_to_shape_fixed = loads(fix_isea4t_wkt(cell_to_shape))
             if isea4t_id.startswith('00') or isea4t_id.startswith('09') or isea4t_id.startswith('14')\
@@ -114,10 +115,18 @@ def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
                     **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
                 })
         
+        if format.lower() == 'csv':
+            import io
+            output = io.StringIO()
+            if isea4t_data:
+                writer = csv.DictWriter(output, fieldnames=isea4t_data[0].keys())
+                writer.writeheader()
+                writer.writerows(isea4t_data)
+            return output.getvalue()
+            
         # Create the GeoJSON-like structure
         isea4t_features = []
-        for data in tqdm(isea4t_data, desc="Resampling", unit=" cells"):
-            # isea4t_uids = (data['isea4t'][0],) + tuple(map(int, data['isea4t'][1:]))
+        for data in tqdm(isea4t_data, desc="Converting to GeoJSON", unit=" cells"):
             isea4t_id = data['isea4t']
             isea4t_cell = DggsCell(isea4t_id)
             cell_to_shape = isea4t_dggs.convert_dggs_cell_outline_to_shape_string(isea4t_cell,ShapeStringFormat.WKT)
@@ -140,21 +149,27 @@ def raster_to_isea4t(isea4t_dggs, raster_path, resolution=None):
             "type": "FeatureCollection",
             "features": isea4t_features
         }
-    
-       
-def main():
+
+def raster2isea4t_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Open-Eaggr ISEA4T DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..23]"
+        '-r', '--resolution', type=int, required=False, default=None, help="Resolution [0..23]"
     )
+
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson', 
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
+    )
+
     if (platform.system() == 'Windows'):
         args = parser.parse_args()
         raster = args.raster
         resolution = args.resolution
+        format = args.format
         isea4t_dggs = Eaggr(Model.ISEA4T)
 
         if not os.path.exists(raster):
@@ -165,15 +180,22 @@ def main():
                 print(f"Please select a resolution in [0..23] range and try again ")
                 return
 
-        isea4t_geojson = raster_to_isea4t(isea4t_dggs, raster, resolution)
-        geojson_name = os.path.splitext(os.path.basename(raster))[0]
-        geojson_path = f"{geojson_name}2isea4t.geojson"
-    
-        with open(geojson_path, 'w') as f:
-            json.dump(isea4t_geojson, f)
+        result = raster2isea4t(isea4t_dggs, raster, resolution, format)
+        base_name = os.path.splitext(os.path.basename(raster))[0]
         
-        print(f"GeoJSON saved as {geojson_path}")
-
+        if format.lower() == 'csv':
+            output_path = f"{base_name}2isea4t.csv"
+            with open(output_path, 'w', newline='') as f:
+                if result:
+                    writer = csv.DictWriter(f, fieldnames=result[0].keys())
+                    writer.writeheader()
+                    writer.writerows(result)
+        else:
+            output_path = f"{base_name}2isea4t.geojson"
+            with open(output_path, 'w') as f:
+                json.dump(result, f)
+        
+        print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2isea4t_cli()

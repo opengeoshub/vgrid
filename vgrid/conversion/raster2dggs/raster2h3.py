@@ -5,6 +5,7 @@ import h3
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
+import csv
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from math import cos, radians
@@ -53,11 +54,15 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_h3(raster_path, resolution=None):
+def raster2h3(raster_path, resolution=None, format='geojson'):
     # Step 1: Determine the nearest H3 resolution if none is provided
     if resolution is None:
         resolution = get_nearest_h3_resolution(raster_path)
         print(f"Nearest H3 resolution determined: {resolution}")
+    
+    # Validate resolution is in valid range
+    if resolution < 0 or resolution > 15:
+        raise ValueError("Resolution must be in range [0..15]")
 
     # Open the raster file to get metadata and data
     with rasterio.open(raster_path) as src:
@@ -66,21 +71,20 @@ def raster_to_h3(raster_path, resolution=None):
         width, height = src.width, src.height
         band_count = src.count  # Number of bands in the raster
 
-    h3_cells = set()
+    h3_ids = set()
     
     for row in range(height):
         for col in range(width):
             lon, lat = transform * (col, row)
-            h3_index = h3.latlng_to_cell(lat, lon,resolution)
-            h3_cells.add(h3_index)
+            h3_id = h3.latlng_to_cell(lat, lon,resolution)
+            h3_ids.add(h3_id)
 
     # Sample the raster values at the centroids of the H3 hexagons
     h3_data = []
     
-    for h3_index in h3_cells:
+    for h3_id in tqdm(h3_ids, desc="Resampling", unit=" cells"):
         # Get the centroid of the H3 cell
-        centroid_lat, centroid_lon = h3.cell_to_latlng(h3_index)
-        
+        centroid_lat, centroid_lon = h3.cell_to_latlng(h3_id)
         # Sample the raster values at the centroid (lat, lon)
         col, row = ~transform * (centroid_lon, centroid_lat)
         
@@ -88,29 +92,28 @@ def raster_to_h3(raster_path, resolution=None):
             # Get the values for all bands at this centroid
             values = raster_data[:, int(row), int(col)]
             h3_data.append({
-                "h3": h3_index,
-                # "centroid": Point(centroid_lon, centroid_lat),
+                "h3": h3_id,
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format.lower() == 'csv':
+        import io
+        output = io.StringIO()
+        if h3_data:
+            writer = csv.DictWriter(output, fieldnames=h3_data[0].keys())
+            writer.writeheader()
+            writer.writerows(h3_data)
+        return output.getvalue()
+    
     # Create the GeoJSON-like structure
     h3_features = []
-    for data in tqdm(h3_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(h3_data, desc="Converting to GeoJSON", unit=" cells"):
         cell_boundary = h3.cell_to_boundary(data["h3"])   
         if cell_boundary:
             filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
             # Reverse lat/lon to lon/lat for GeoJSON compatibility
             reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-            cell_polygon = Polygon(reversed_boundary)
-            resolution = h3.get_resolution(data["h3"]) 
-            h3_feature = {
-                "type": "Feature",
-                "geometry":mapping(cell_polygon),
-                "properties": {
-                    "h3": data["h3"],
-                    "resolution": resolution                    
-                }
-            }
+            cell_polygon = Polygon(reversed_boundary)            
             num_edges = 6
             if (h3.is_pentagon(data["h3"])):
                 num_edges = 5
@@ -126,22 +129,26 @@ def raster_to_h3(raster_path, resolution=None):
         "features": h3_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def raster2h3_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to H3 DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..15]"
+        '-r', '--resolution', type=int, required=False, default=None, 
+        help="Resolution [0..15]", min=0, max=15
     )
 
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson', 
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
@@ -151,16 +158,25 @@ def main():
             print(f"Please select a resolution in [0..15] range and try again ")
             return
 
-
-    h3_geojson = raster_to_h3(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2h3.geojson"
-   
-    with open(geojson_path, 'w') as f:
-        json.dump(h3_geojson, f)
+    result = raster2h3(raster, resolution, format)
+    base_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{base_name}2h3.{format}"
     
-    print(f"GeoJSON saved as {geojson_path}")
+    
+    if format.lower() == 'geojson':
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+    
+    elif format.lower() == 'csv':
+        # Get all possible field names from the first row
+        fieldnames = list(result[0].keys())
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(result)
+    
+    print(f"Output saved as {output_path}")
 
 
 if __name__ == "__main__":
-    main()
+    raster2h3_cli()

@@ -8,7 +8,7 @@ import json
 from vgrid.stats.quadkeystats import quadkey_metrics
 from vgrid.generator.settings import graticule_dggs_to_feature
 from math import cos, radians
-import re
+import csv
 
 def get_nearest_quadkey_resolution(raster_path):
     with rasterio.open(raster_path) as src:
@@ -54,7 +54,18 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_quadkey(raster_path, resolution=None):
+def raster2quadkey(raster_path, resolution=None, format='geojson'):
+    """Convert raster to quadkey format
+    
+    Args:
+        raster_path (str): Path to input raster file
+        resolution (int, optional): Quadkey resolution level [0-29]. If None, will be determined automatically
+        format (str, optional): Output format, either 'geojson' or 'csv'. Defaults to 'geojson'
+        
+    Returns:
+        dict: For geojson format, returns a GeoJSON FeatureCollection
+        str: For csv format, returns a CSV string
+    """
     # Step 1: Determine the nearest quadkey resolution if none is provided
     if resolution is None:
         resolution = get_nearest_quadkey_resolution(raster_path)
@@ -78,7 +89,7 @@ def raster_to_quadkey(raster_path, resolution=None):
     # Sample the raster values at the centroids of the quadkey hexagons
     quadkey_data = []
     
-    for quadkey_id in quadkey_ids:
+    for quadkey_id in tqdm(quadkey_ids, desc="Resampling", unit=" cells"):  
         # Get the centroid of the quadkey cell
         centroid_lat, centroid_lon = tilecode.quadkey2latlon(quadkey_id)
         
@@ -90,13 +101,21 @@ def raster_to_quadkey(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             quadkey_data.append({
                 "quadkey": quadkey_id,
-                # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format == 'csv':
+        import io
+        output = io.StringIO()
+        if quadkey_data:
+            writer = csv.DictWriter(output, fieldnames=quadkey_data[0].keys())
+            writer.writeheader()
+            writer.writerows(quadkey_data)
+        return output.getvalue()
+    
     # Create the GeoJSON-like structure
     quadkey_features = []
-    for data in tqdm(quadkey_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(quadkey_data, desc="Converting to GeoJSON", unit=" cells"):
         quadkey_id = data["quadkey"]
         tile = mercantile.quadkey_to_tile(quadkey_id)    
         # Format as tilecode_id
@@ -119,7 +138,7 @@ def raster_to_quadkey(raster_path, resolution=None):
         cell_resolution = z
         quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,cell_resolution,cell_polygon)   
         band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-        quadkey_feature["properties"].update(convert_numpy_types(band_properties) )
+        quadkey_feature["properties"].update(convert_numpy_types(band_properties))
         quadkey_features.append(quadkey_feature)               
             
     return {
@@ -127,41 +146,51 @@ def raster_to_quadkey(raster_path, resolution=None):
         "features": quadkey_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def raster2quadkey_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Quadkey DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..29]"
+        '-r', '--resolution', type=int, required=False, default=None, help="Resolution [0..29]"
     )
-
+    
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], 
+        help="Output format: 'geojson' for GeoJSON format with geometry, 'csv' for tabular data with quadkey and band values"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format.lower()
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
         return
+        
     if resolution is not None:
         if resolution < 0 or resolution > 29:
             print(f"Please select a resolution in [0..29] range and try again ")
             return
 
+    result = raster2quadkey(raster, resolution, format)
 
-    quadkey_geojson = raster_to_quadkey(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2quadkey.geojson"
+    output_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{output_name}2quadkey.{format}"
    
-    with open(geojson_path, 'w') as f:
-        json.dump(quadkey_geojson, f)
-    
-    print(f"GeoJSON saved as {geojson_path}")
+   
 
+    if format.lower() == 'csv':
+        with open(output_path, 'w', newline='') as f:
+            f.write(result)
+    else:  # geojson
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+            
+    print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2quadkey_cli()
