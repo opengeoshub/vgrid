@@ -16,6 +16,7 @@ data/
 references/
 dist/
 build/
+site/
 *.egg-info/
 *.egg
 .pypirc

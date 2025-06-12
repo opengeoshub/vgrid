@@ -42,7 +42,7 @@ plugins:
     - mkdocstrings:
           handlers:
               python:
-                  selection:
+                  options:
                       docstring_style: google
                   rendering:
                       show_root_heading: true
