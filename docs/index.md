@@ -1,7 +1,7 @@
 # Welcome to vgrid
 
 [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/opengeoshub/vgrid/blob/master)
-[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/docs/notebooks/00_conversion.ipynb)
+[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/docs/notebooks/00_intro.ipynb)
 [![image](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/opengeoshub/vgrid/HEAD)
 [![image](https://img.shields.io/pypi/v/vgrid.svg)](https://pypi.python.org/pypi/vgrid)
 [![image](https://static.pepy.tech/badge/vgrid)](https://pepy.tech/project/vgrid)
@@ -39,7 +39,7 @@ This doc  is inspired by ([leafmap](https://leafmap.org/)).
 
 Launch the interactive notebook tutorial for the **vgrid** Python package with Amazon SageMaker Studio Lab, Microsoft Planetary Computer, Google Colab, or Binder:
 
-[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/docs/notebooks/00_conversion.ipynb)
+[![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/master/docs/notebooks/00_intro.ipynb)
 [![image](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/opengeoshub/vgrid/blob/master)
 [![image](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/opengeoshub/vgrid/HEAD)
 

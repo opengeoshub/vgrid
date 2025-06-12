@@ -11,6 +11,8 @@ from vgrid.generator.settings import geodesic_dggs_to_feature
 from math import cos, radians
 import re
 from vgrid.conversion.latlon2dggs import latlon2qtm
+import csv
+
 
 def get_nearest_qtm_resolution(raster_path):
     with rasterio.open(raster_path) as src:
@@ -56,7 +58,18 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_qtm(raster_path, resolution=None):
+def raster2qtm(raster_path, resolution=None, format='geojson'):
+    """
+    Convert raster data to QTM DGGS format.
+    
+    Args:
+        raster_path (str): Path to the raster file
+        resolution (int, optional): QTM resolution level. If None, will be determined automatically.
+        format (str): Output format, either 'geojson' or 'csv'
+        
+    Returns:
+        dict or str: A dictionary containing the QTM data in GeoJSON format, or a CSV string if format is 'csv'
+    """
     # Step 1: Determine the nearest qtm resolution if none is provided
     if resolution is None:
         resolution = get_nearest_qtm_resolution(raster_path)
@@ -80,7 +93,7 @@ def raster_to_qtm(raster_path, resolution=None):
     # Sample the raster values at the centroids of the qtm hexagons
     qtm_data = []
     
-    for qtm_id in qtm_ids:
+    for qtm_id in tqdm(qtm_ids, desc="Resampling", unit=" cells"):
         # Get the centroid of the qtm cell
         facet = qtm_id_to_facet(qtm_id)
         cell_polygon = constructGeometry(facet)    
@@ -95,13 +108,21 @@ def raster_to_qtm(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             qtm_data.append({
                 "qtm": qtm_id,
-                # "centroid": Point(centroid_lon, centroid_lat),
-                **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
+                **{f"band_{i+1}": values[i] for i in range(band_count)}
             })
+    
+    if format.lower() == 'csv':
+        import io
+        output = io.StringIO()
+        if qtm_data:
+            writer = csv.DictWriter(output, fieldnames=qtm_data[0].keys())
+            writer.writeheader()
+            writer.writerows(qtm_data)
+        return output.getvalue()
     
     # Create the GeoJSON-like structure
     qtm_features = []
-    for data in tqdm(qtm_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(qtm_data, desc="Converting to GeoJSON", unit=" cells"):
         qtm_id = data["qtm"]
         facet = qtm_id_to_facet(qtm_id)
         cell_polygon = constructGeometry(facet)    
@@ -109,30 +130,32 @@ def raster_to_qtm(raster_path, resolution=None):
         num_edges = 3
         qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id,cell_resolution,cell_polygon,num_edges)   
         band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-        qtm_feature["properties"].update(convert_numpy_types(band_properties) )
+        qtm_feature["properties"].update(convert_numpy_types(band_properties))
         qtm_features.append(qtm_feature)               
             
     return {
         "type": "FeatureCollection",
-        "features": qtm_features,
+        "features": qtm_features
     }
- 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+
+def raster2qtm_cli():
+    """Command line interface for raster2qtm conversion"""
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to QTM DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
-    
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [1..24]"
+        '-r', '--resolution', type=int, required=False, default=None, help="Resolution [1..24]"
     )
-
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
@@ -142,16 +165,22 @@ def main():
             print(f"Please select a resolution in [1..24] range and try again ")
             return
 
-
-    qtm_geojson = raster_to_qtm(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2qtm.geojson"
-   
-    with open(geojson_path, 'w') as f:
-        json.dump(qtm_geojson, f)
+    # Process the raster
+    result = raster2qtm(raster, resolution, format)
     
-    print(f"GeoJSON saved as {geojson_path}")
-
+    # Generate output filename
+    base_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{base_name}2qtm.{format}"
+    
+    # Save the output
+    if format.lower() == 'geojson':
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+    else:  # csv
+        with open(output_path, 'w', newline='') as f:
+            f.write(result)
+    
+    print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2qtm_cli()

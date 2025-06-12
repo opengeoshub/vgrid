@@ -4,6 +4,8 @@ import rasterio
 import numpy as np
 from shapely.geometry import Polygon, Point, mapping
 import json
+import csv
+import io
 from vgrid.stats.rhealpixstats import rhealpix_metrics
 from vgrid.generator.settings import geodesic_dggs_metrics, geodesic_dggs_to_feature
 from math import cos, radians
@@ -11,7 +13,7 @@ from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.utils.rhealpixdggs.utils import my_round
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 from vgrid.conversion.dggs2geojson import rhealpix_cell_to_polygon
-  
+
 def get_nearest_rhealpix_resolution(raster_path):
     with rasterio.open(raster_path) as src:
         transform = src.transform
@@ -56,7 +58,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
+def raster2rhealpix(rhealpix_dggs, raster_path, resolution=None, format='geojson'):
     # Step 1: Determine the nearest rhealpix resolution if none is provided
     if resolution is None:
         resolution = get_nearest_rhealpix_resolution(raster_path)
@@ -81,10 +83,9 @@ def raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
     # Sample the raster values at the centroids of the rhealpix hexagons
     rhealpix_data = []
     
-    for rhealpix_id in rhealpix_ids:       
+    for rhealpix_id in tqdm(rhealpix_ids, desc="Resampling", unit=" cells"):           
         rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
         rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
-        resolution = rhealpix_cell.resolution        
         cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
         num_edges = 4
         if rhealpix_cell.ellipsoidal_shape() == 'dart':
@@ -101,62 +102,84 @@ def raster_to_rhealpix(rhealpix_dggs, raster_path, resolution=None):
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format.lower() == 'csv':
+        import io
+        output = io.StringIO()
+        if rhealpix_data:
+            writer = csv.DictWriter(output, fieldnames=rhealpix_data[0].keys())
+            writer.writeheader()
+            writer.writerows(rhealpix_data)
+        return output.getvalue()
+            
     # Create the GeoJSON-like structure
     rhealpix_features = []
-    for data in tqdm(rhealpix_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(rhealpix_data, desc="Converting to GeoJSON", unit=" cells"):
         rhealpix_uids = (data['rhealpix'][0],) + tuple(map(int, data['rhealpix'][1:]))
         rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
         if rhealpix_cell:
-            #  resolution = rhealpix_cell.resolution        
             cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
             num_edges = 4
             if rhealpix_cell.ellipsoidal_shape() == 'dart':
                 num_edges = 3
             rhealpix_feature = geodesic_dggs_to_feature("rhealpix",str(rhealpix_cell),resolution,cell_polygon,num_edges)   
             band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-            rhealpix_feature["properties"].update(convert_numpy_types(band_properties) )
+            rhealpix_feature["properties"].update(convert_numpy_types(band_properties))
             rhealpix_features.append(rhealpix_feature)
 
+   
     return {
         "type": "FeatureCollection",
         "features": rhealpix_features
     }
- 
-       
-def main():
+
+def raster2rhealpix_cli():
+    """Command line interface for raster2rhealpix"""
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to rHEALPix DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
-    
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..15]"
+        '-r', '--resolution', type=int, required=False, default=None, 
+        help="Resolution [0..15]"
+    )
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], help="Output format (geojson or csv)"
     )
 
-
     args = parser.parse_args()
-    raster = args.raster
-    resolution = args.resolution
-    E = WGS84_ELLIPSOID
-    rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3) 
-
-    if not os.path.exists(raster):
-        print(f"Error: The file {raster} does not exist.")
-        return
-    if resolution is not None:
-        if resolution < 0 or resolution > 15:
-            print(f"Please select a resolution in [0..15] range and try again ")
-            return
-
-    rhealpix_geojson = raster_to_rhealpix(rhealpix_dggs, raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2rhealpix.geojson"
-   
-    with open(geojson_path, 'w') as f:
-        json.dump(rhealpix_geojson, f)
     
-    print(f"GeoJSON saved as {geojson_path}")
+    try:
+        E = WGS84_ELLIPSOID
+        rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
+        
+        if not os.path.exists(args.raster):
+            raise FileNotFoundError(f"The file {args.raster} does not exist.")
+        
+        if args.resolution is not None and (args.resolution < 0 or args.resolution > 15):
+            raise ValueError("Resolution must be in range [0..15]")
 
+        result = raster2rhealpix(rhealpix_dggs, args.raster, args.resolution, args.format)
+        
+        # Generate output filename
+        base_name = os.path.splitext(os.path.basename(args.raster))[0]
+        
+        if args.format.lower() == 'csv':
+            output_path = f"{base_name}2rhealpix.csv"
+            with open(output_path, 'w', newline='') as f:
+                f.write(result)
+        else:
+            output_path = f"{base_name}2rhealpix.geojson"
+            with open(output_path, 'w') as f:
+                json.dump(result, f)
+        
+        print(f"Output saved as {output_path}")
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    exit(raster2rhealpix_cli())

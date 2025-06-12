@@ -87,33 +87,18 @@ def poly_to_grid(resolution, geometry,feature_properties,compact):
 
             else: return olc_geosjon
 
-
-def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to OLC DGGS")
-    parser.add_argument(
-            '-r', '--resolution',
-            type=int,
-            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
-            help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]"
-        )
-    parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
-    )
-    parser.add_argument('-compact', action='store_true', help="Enable Tilecode compact mode")
-
-    args = parser.parse_args()
-    geojson = args.geojson
-     # Initialize h3 DGGS
-    resolution = args.resolution
-    compact = args.compact  
+def geojson2olc(geojson_data, resolution, compact=False):
+    """
+    Convert GeoJSON data to OLC DGGS format.
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
-    
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): Resolution level [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
+        compact (bool): Whether to enable Tilecode compact mode
+        
+    Returns:
+        dict: GeoJSON data in OLC DGGS format
+    """
     geojson_features = []
 
     for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
@@ -136,14 +121,14 @@ def main():
             if feature['geometry']['type'] == 'LineString':
                 # Directly process LineString geometry
                 polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
+                polyline_features = poly_to_grid(resolution, polyline,feature_properties, compact)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
                 # Iterate through each line in MultiLineString geometry
                 for line_coords in coordinates:
                     polyline = LineString(line_coords)  # Use each part's coordinates
-                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
+                    polyline_features = poly_to_grid(resolution, polyline,feature_properties, compact)
                     geojson_features.extend(polyline_features['features'])
             
         elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
@@ -154,7 +139,7 @@ def main():
                 exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
                 interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
+                polygon_features = poly_to_grid(resolution, polygon,feature_properties, compact)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -163,8 +148,40 @@ def main():
                     exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
                     interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
+                    polygon_features = poly_to_grid(resolution, polygon,feature_properties, compact)
                     geojson_features.extend(polygon_features['features'])
+
+    return {"type": "FeatureCollection", "features": geojson_features}
+
+def geojson2olc_cli():
+    """
+    Command-line interface for converting GeoJSON to OLC DGGS format.
+    """
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to OLC DGGS")
+    parser.add_argument(
+            '-r', '--resolution',
+            type=int,
+            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+            help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]"
+        )
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
+    )
+    parser.add_argument('-compact', action='store_true', help="Enable Tilecode compact mode")
+
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+    compact = args.compact  
+    
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
+
+    with open(geojson, 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    
+    result = geojson2olc(geojson_data, resolution, compact)
 
     geojson_name = os.path.splitext(os.path.basename(geojson))[0]
     geojson_path = f"{geojson_name}2olc_{resolution}.geojson"
@@ -172,9 +189,9 @@ def main():
         geojson_path = f"{geojson_name}2olc_{resolution}_compacted.geojson"
     
     with open(geojson_path, 'w') as f:
-        json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
+        json.dump(result, f, indent=2)
 
     print(f"GeoJSON saved as {geojson_path}")
 
 if __name__ == "__main__":
-    main()
+    geojson2olc_cli()

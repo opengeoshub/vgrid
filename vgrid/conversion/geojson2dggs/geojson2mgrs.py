@@ -32,32 +32,20 @@ def poly_to_grid(resolution, geometry,feature_properties):
         "features": mgrs_features
     }
 
-def main():
-    parser = argparse.ArgumentParser(description="Convert GeoJSON to MGRS DGGS")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..5]")
-    parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
-    )
-    args = parser.parse_args()
-    geojson = args.geojson
-    resolution = args.resolution
+def geojson2mgrs(geojson_data, resolution):
+    """
+    Convert GeoJSON data to MGRS DGGS format.
     
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): MGRS resolution [0..5]
+        
+    Returns:
+        dict: GeoJSON FeatureCollection with MGRS grid cells
+    """
     if resolution < 0 or resolution > 5:
-        print(f"Please select a resolution in [0..5] range and try again ")
-        return
-    
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, "r", encoding="utf-8") as f:
-        try:
-            geojson_data = json.load(f)  # Attempt to parse the JSON
-        except json.JSONDecodeError as e:
-            print(f"Invalid GeoJSON file: {e}")
-            return
-
-    
+        raise ValueError("Resolution must be in range [0..5]")
+        
     geojson_features = []
 
     for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
@@ -68,7 +56,6 @@ def main():
                 point = Point(coordinates)                
                 point_features = point_to_grid(resolution, point,feature_properties)
                 geojson_features.extend(point_features['features'])   
-
 
             elif feature['geometry']['type'] == 'MultiPoint':
                 for point_coords in coordinates:
@@ -111,14 +98,45 @@ def main():
                     polygon_features = poly_to_grid(resolution, polygon,feature_properties)
                     geojson_features.extend(polygon_features['features'])
 
-    # Save the results to GeoJSON
-    geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2mgrs_{resolution}.geojson"
-    with open(geojson_path, 'w') as f:
-        json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
+    return {"type": "FeatureCollection", "features": geojson_features}
 
-    print(f"GeoJSON saved as {geojson_path}")
+def geojson2mgrs_cli():
+    """
+    Command-line interface for converting GeoJSON to MGRS DGGS format.
+    """
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to MGRS DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..5]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
+    )
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+    
+    if not os.path.exists(geojson):
+        print(f"Error: The file {geojson} does not exist.")
+        return
 
+    with open(geojson, "r", encoding="utf-8") as f:
+        try:
+            geojson_data = json.load(f)  # Attempt to parse the JSON
+        except json.JSONDecodeError as e:
+            print(f"Invalid GeoJSON file: {e}")
+            return
+
+    try:
+        result = geojson2mgrs(geojson_data, resolution)
+        
+        # Save the results to GeoJSON
+        geojson_name = os.path.splitext(os.path.basename(geojson))[0]
+        geojson_path = f"{geojson_name}2mgrs_{resolution}.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(result, f, indent=2)
+
+        print(f"GeoJSON saved as {geojson_path}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        return
 
 if __name__ == "__main__":
-    main()
+    geojson2mgrs_cli()

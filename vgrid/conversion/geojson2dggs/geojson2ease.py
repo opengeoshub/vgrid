@@ -6,8 +6,18 @@ from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geos_to_grid_ids, geo_polygon_to_grid_ids
 from vgrid.conversion.dggscompact import ease_compact
 
-# Function to generate grid for Point
 def point_to_grid(resolution, point, feature_properties):
+    """
+    Convert a Point geometry to EASE-DGGS grid cells.
+    
+    Args:
+        resolution (int): Resolution level [0..6]
+        point (Point): Shapely Point geometry
+        feature_properties (dict): Properties to be added to the output features
+        
+    Returns:
+        dict: GeoJSON FeatureCollection containing the grid cells
+    """
     ease_features = []
     latitude = point.y
     longitude = point.x
@@ -48,7 +58,19 @@ def point_to_grid(resolution, point, feature_properties):
         "features": ease_features
     }
 
-def poly_to_grid(resolution, geometry, feature_properties,compact=None):    
+def poly_to_grid(resolution, geometry, feature_properties, compact=None):
+    """
+    Convert a Polygon or LineString geometry to EASE-DGGS grid cells.
+    
+    Args:
+        resolution (int): Resolution level [0..6]
+        geometry (Polygon/LineString): Shapely geometry
+        feature_properties (dict): Properties to be added to the output features
+        compact (bool, optional): Whether to enable EASE compact mode
+        
+    Returns:
+        dict: GeoJSON FeatureCollection containing the grid cells
+    """
     ease_features = []
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon':
         polys = [geometry]
@@ -97,12 +119,83 @@ def poly_to_grid(resolution, geometry, feature_properties,compact=None):
         "features": ease_features
     }
 
+def geojson2ease(geojson_data, resolution, compact=False):
+    """
+    Convert GeoJSON data to EASE-DGGS format.
+    
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): Resolution level [0..6]
+        compact (bool): Whether to enable EASE compact mode
         
-def main():
+    Returns:
+        dict: GeoJSON data in EASE-DGGS format
+        
+    Raises:
+        ValueError: If resolution is not in range [0..6]
+    """
+    if resolution < 0 or resolution > 6:
+        raise ValueError("Resolution must be in range [0..6]")
+        
+    geojson_features = []
+
+    for feature in tqdm(geojson_data['features'], desc="Processing features"):
+        feature_properties = feature['properties'] 
+        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'Point':
+                point = Point(coordinates)
+                point_features = point_to_grid(resolution, point, feature_properties)
+                geojson_features.extend(point_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPoint':
+                for point_coords in coordinates:
+                    point = Point(point_coords)
+                    point_features = point_to_grid(resolution, point, feature_properties)
+                    geojson_features.extend(point_features['features'])
+        
+        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'LineString':
+                polyline = LineString(coordinates)
+                polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                geojson_features.extend(polyline_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiLineString':
+                for line_coords in coordinates:
+                    polyline = LineString(line_coords)
+                    polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                    geojson_features.extend(polyline_features['features'])
+            
+        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
+            coordinates = feature['geometry']['coordinates']
+
+            if feature['geometry']['type'] == 'Polygon':
+                exterior_ring = coordinates[0]
+                interior_rings = coordinates[1:]
+                polygon = Polygon(exterior_ring, interior_rings)
+                polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                geojson_features.extend(polygon_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                for sub_polygon_coords in coordinates:
+                    exterior_ring = sub_polygon_coords[0]
+                    interior_rings = sub_polygon_coords[1:]
+                    polygon = Polygon(exterior_ring, interior_rings)
+                    polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                    geojson_features.extend(polygon_features['features'])
+
+    return {
+        "type": "FeatureCollection",
+        "features": geojson_features
+    }
+
+def geojson2ease_cli():
+    """
+    Command-line interface for converting GeoJSON to EASE-DGGS format.
+    """
     parser = argparse.ArgumentParser(description="Convert GeoJSON to EASE-DGGS")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..6]")
-    # actual resolution range: [0..40]
-
     parser.add_argument(
         '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
     )
@@ -113,80 +206,33 @@ def main():
     resolution = args.resolution
     compact = args.compact  
 
-    if resolution < 0 or resolution > 6:
-        print(f"Please select a resolution in [0..6] range and try again ")
-        return
-    
     if not os.path.exists(geojson):
         print(f"Error: The file {geojson} does not exist.")
         return
 
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
-    
-    geojson_features = []
-
-    for feature in tqdm(geojson_data['features'], desc="Processing features"):
-        feature_properties = feature['properties'] 
-        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'Point':
-                point = Point(coordinates)
-                point_features = point_to_grid(resolution, point,feature_properties)
-                geojson_features.extend(point_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPoint':
-                for point_coords in coordinates:
-                    point = Point(point_coords)  # Create Point for each coordinate set
-                    point_features = point_to_grid(resolution, point,feature_properties)
-                    geojson_features.extend(point_features['features'])
+    try:
+        with open(geojson, 'r', encoding='utf-8') as f:
+            geojson_data = json.load(f)
         
-        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
-            coordinates = feature['geometry']['coordinates']
-            if feature['geometry']['type'] == 'LineString':
-                # Directly process LineString geometry
-                polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline,feature_properties)
-                geojson_features.extend(polyline_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiLineString':
-                # Iterate through each line in MultiLineString geometry
-                for line_coords in coordinates:
-                    polyline = LineString(line_coords)  # Use each part's coordinates
-                    polyline_features = poly_to_grid(resolution, polyline,feature_properties)
-                    geojson_features.extend(polyline_features['features'])
+        # Convert the GeoJSON data
+        result = geojson2ease(geojson_data, resolution, compact)
+        
+        # Save the result
+        geojson_name = os.path.splitext(os.path.basename(geojson))[0]
+        geojson_path = f"{geojson_name}2ease_{resolution}.geojson"
+        if compact:        
+            geojson_path = f"{geojson_name}2ease_{resolution}_compacted.geojson"
             
-        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
-            coordinates = feature['geometry']['coordinates']
+        with open(geojson_path, 'w') as f:
+            json.dump(result, f)
 
-            if feature['geometry']['type'] == 'Polygon':
-                # Create Polygon with exterior and interior rings
-                exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
-                interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
-                polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
-                geojson_features.extend(polygon_features['features'])
-
-            elif feature['geometry']['type'] == 'MultiPolygon':
-                # Handle each sub-polygon in MultiPolygon geometry
-                for sub_polygon_coords in coordinates:
-                    exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
-                    interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
-                    polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon,feature_properties,compact)
-                    geojson_features.extend(polygon_features['features'])
-
-                    
-    geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-    geojson_path = f"{geojson_name}2ease_{resolution}.geojson"
-    if compact:        
-        geojson_path = f"{geojson_name}2ease_{resolution}_compacted.geojson"
+        print(f"GeoJSON saved as {geojson_path}")
         
-    with open(geojson_path, 'w') as f:
-        json.dump({"type": "FeatureCollection", "features": geojson_features}, f, indent=2)
-
-    print(f"GeoJSON saved as {geojson_path}")
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 
 if __name__ == "__main__":
-    main()
+    geojson2ease_cli()

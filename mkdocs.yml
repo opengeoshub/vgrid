@@ -42,7 +42,7 @@ plugins:
     - mkdocstrings:
           handlers:
               python:
-                  selection:
+                  options:
                       docstring_style: google
                   rendering:
                       show_root_heading: true
@@ -63,7 +63,7 @@ plugins:
           execute_ignore:
               [
                   "changelog_update.py",
-                  "notebooks/00_conversion.ipynb",
+                  "notebooks/00_intro.ipynb",
               ]
 
 markdown_extensions:
@@ -90,7 +90,7 @@ nav:
     - Book: https://book.vgrid.org
     - Installation: installation.md
     - Get Started: get-started.md
-    - Usage: notebooks/00_conversion.ipynb
+    - Usage: notebooks/00_intro.ipynb
     - Web App: https://vgrid.vn
     - Tutorials: tutorials.md
     - Contributing: contributing.md
@@ -100,4 +100,4 @@ nav:
     - API Reference:
           - dggsconversion: dggsconversion.md
     - Notebooks:
-          - notebooks/00_conversion.ipynb   
+          - notebooks/00_intro.ipynb   

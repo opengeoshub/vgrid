@@ -3,11 +3,12 @@ from tqdm import tqdm
 import rasterio
 from vgrid.utils import tilecode, mercantile
 import numpy as np
-from shapely.geometry import Polygon, Point, mapping
+from shapely.geometry import Polygon
 import json
 from vgrid.stats.tilecodestats import tilecode_metrics
 from vgrid.generator.settings import graticule_dggs_to_feature
 from math import cos, radians
+import csv
 import re
 
 def get_nearest_tilecode_resolution(raster_path):
@@ -17,6 +18,7 @@ def get_nearest_tilecode_resolution(raster_path):
         pixel_width = transform.a
         pixel_height = -transform.e
         cell_size = pixel_width*pixel_height
+        
         if crs.is_geographic: 
             # Latitude of the raster center
             center_latitude = (src.bounds.top + src.bounds.bottom) / 2
@@ -27,20 +29,20 @@ def get_nearest_tilecode_resolution(raster_path):
             pixel_width_m = pixel_width * meter_per_degree_lon
             pixel_height_m = pixel_height * meter_per_degree_lat
             cell_size = pixel_width_m*pixel_height_m    
+       
+    nearest_resolution = None
+    min_diff = float('inf')
         
-        nearest_resolution = None
-        min_diff = float('inf')
-            
-        # Check resolutions from 0 to 26
-        for res in range(27):
-            _, _, avg_area = tilecode_metrics(res)
-            diff = abs(avg_area - cell_size)        
-            # If the difference is smaller than the current minimum, update the nearest resolution
-            if diff < min_diff:
-                min_diff = diff
-                nearest_resolution = res
-        
-        return nearest_resolution
+    # Check resolutions from 0 to 26
+    for res in range(27):
+        _, _, avg_area = tilecode_metrics(res)
+        diff = abs(avg_area - cell_size)        
+        # If the difference is smaller than the current minimum, update the nearest resolution
+        if diff < min_diff:
+            min_diff = diff
+            nearest_resolution = res
+    
+    return nearest_resolution
 
 def convert_numpy_types(obj):
     """ Recursively convert NumPy types to native Python types """
@@ -53,7 +55,18 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def raster_to_tilecode(raster_path, resolution=None):
+def raster2tilecode(raster_path, resolution=None, format='geojson'):
+    """Convert raster to tilecode format
+    
+    Args:
+        raster_path (str): Path to input raster file
+        resolution (int, optional): Tilecode resolution level [0-26]. If None, will be determined automatically
+        format (str, optional): Output format, either 'geojson' or 'csv'. Defaults to 'geojson'
+        
+    Returns:
+        dict: For geojson format, returns a GeoJSON FeatureCollection
+        str: For csv format, returns a CSV string
+    """
     # Step 1: Determine the nearest tilecode resolution if none is provided
     if resolution is None:
         resolution = get_nearest_tilecode_resolution(raster_path)
@@ -77,7 +90,7 @@ def raster_to_tilecode(raster_path, resolution=None):
     # Sample the raster values at the centroids of the tilecode hexagons
     tilecode_data = []
     
-    for tilecode_id in tilecode_ids:
+    for tilecode_id in tqdm(tilecode_ids, desc="Resampling", unit=" cells"):  
         # Get the centroid of the tilecode cell
         centroid_lat, centroid_lon = tilecode.tilecode2latlon(tilecode_id)
         
@@ -89,13 +102,21 @@ def raster_to_tilecode(raster_path, resolution=None):
             values = raster_data[:, int(row), int(col)]
             tilecode_data.append({
                 "tilecode": tilecode_id,
-                # "centroid": Point(centroid_lon, centroid_lat),
                 **{f"band_{i+1}": values[i] for i in range(band_count)}  # Create separate columns for each band
             })
     
+    if format == 'csv':
+        import io
+        output = io.StringIO()
+        if tilecode_data:
+            writer = csv.DictWriter(output, fieldnames=tilecode_data[0].keys())
+            writer.writeheader()
+            writer.writerows(tilecode_data)
+        return output.getvalue()
+    
     # Create the GeoJSON-like structure
     tilecode_features = []
-    for data in tqdm(tilecode_data, desc="Resampling", unit=" cells"):
+    for data in tqdm(tilecode_data, desc="Converting to GeoJSON", unit=" cells"):
         tilecode_id = data["tilecode"]
         match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
         if match:
@@ -121,7 +142,7 @@ def raster_to_tilecode(raster_path, resolution=None):
                 cell_resolution = z
                 tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,cell_resolution,cell_polygon)   
                 band_properties = {f"band_{i+1}": data[f"band_{i+1}"] for i in range(band_count)}
-                tilecode_feature["properties"].update(convert_numpy_types(band_properties) )
+                tilecode_feature["properties"].update(convert_numpy_types(band_properties))
                 tilecode_features.append(tilecode_feature)               
             
     return {
@@ -129,41 +150,49 @@ def raster_to_tilecode(raster_path, resolution=None):
         "features": tilecode_features,
     }
 
-       
-# Main function to handle different GeoJSON shapes
-def main():
+def raster2tilecode_cli():
     parser = argparse.ArgumentParser(description="Convert Raster in Geographic CRS to Tilecode DGGS")
     parser.add_argument(
         '-raster', type=str, required=True, help="Raster file path"
     )
     
     parser.add_argument(
-        '-r', '--resolution', type=int, required=False, default= None, help="Resolution [0..26]"
+        '-r', '--resolution', type=int, required=False, default=None, help="Resolution [0..26]"
     )
-
+    
+    parser.add_argument(
+        '-f', '--format', type=str, required=False, default='geojson',
+        choices=['geojson', 'csv'], 
+        help="Output format: 'geojson' for GeoJSON format with geometry, 'csv' for tabular data with tilecode and band values"
+    )
 
     args = parser.parse_args()
     raster = args.raster
     resolution = args.resolution
+    format = args.format.lower()
     
     if not os.path.exists(raster):
         print(f"Error: The file {raster} does not exist.")
         return
+        
     if resolution is not None:
         if resolution < 0 or resolution > 26:
             print(f"Please select a resolution in [0..26] range and try again ")
             return
 
+    result = raster2tilecode(raster, resolution, format)
 
-    tilecode_geojson = raster_to_tilecode(raster, resolution)
-    geojson_name = os.path.splitext(os.path.basename(raster))[0]
-    geojson_path = f"{geojson_name}2tilecode.geojson"
+    output_name = os.path.splitext(os.path.basename(raster))[0]
+    output_path = f"{output_name}2tilecode.{format}"
    
-    with open(geojson_path, 'w') as f:
-        json.dump(tilecode_geojson, f)
-    
-    print(f"GeoJSON saved as {geojson_path}")
-
+    if format.lower() == 'csv':
+        with open(output_path, 'w', newline='') as f:
+            f.write(result)
+    else:  # geojson
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+            
+    print(f"Output saved as {output_path}")
 
 if __name__ == "__main__":
-    main()
+    raster2tilecode_cli()
