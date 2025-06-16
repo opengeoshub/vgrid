@@ -87,7 +87,7 @@ extra:
 
 nav:
     - Home: index.md
-    - Book: https://book.vgrid.org
+    - Book: https://book.opengeoshub.vn
     - Installation: installation.md
     - Get Started: get-started.md
     - Usage: notebooks/00_intro.ipynb
