@@ -26,7 +26,9 @@ jobs:
                   # enable-cache: true
 
             - name: Set up Python ${{ matrix.python-version }}
-              run: uv python install ${{ matrix.python-version }}
+              run: |
+                uv python install ${{ matrix.python-version }}
+                uv venv --python ${{ matrix.python-version }}
 
             # - name: Install dependencies
             #   run: |
