@@ -10,7 +10,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: ["3.12"]
+                python-version: ["3.8"]
 
         env:
             USE_MKDOCS: ${{ secrets.USE_MKDOCS }}
@@ -52,5 +52,5 @@ jobs:
 
             - name: Install mkdocs
               run: |
-                  uv pip install -r requirements_docs.txt
+                  uv pip install --no-deps -r requirements_docs.txt
                   uv run mkdocs gh-deploy --force
