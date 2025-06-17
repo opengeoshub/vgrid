@@ -196,6 +196,3 @@ def raster2isea4t_cli():
                 json.dump(result, f)
         
         print(f"Output saved as {output_path}")
-
-if __name__ == "__main__":
-    raster2isea4t_cli()

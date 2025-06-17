@@ -182,7 +182,6 @@ def raster2quadkey_cli():
     output_path = f"{output_name}2quadkey.{format}"
    
    
-
     if format.lower() == 'csv':
         with open(output_path, 'w', newline='') as f:
             f.write(result)
@@ -191,6 +190,3 @@ def raster2quadkey_cli():
             json.dump(result, f)
             
     print(f"Output saved as {output_path}")
-
-if __name__ == "__main__":
-    raster2quadkey_cli()

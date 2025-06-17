@@ -181,6 +181,3 @@ def raster2qtm_cli():
             f.write(result)
     
     print(f"Output saved as {output_path}")
-
-if __name__ == "__main__":
-    raster2qtm_cli()

@@ -2,6 +2,9 @@ import os,argparse,json, re
 import pandas as pd
 from tqdm import tqdm
 import h3
+from urllib.parse import urlparse
+import requests
+from io import StringIO
 
 from shapely.geometry import Polygon, mapping
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
@@ -59,38 +62,50 @@ def h32feature(h3_id):
         
         return h3_feature
     
-def csv2h3(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2h3(csv_file, column='h3'):
+    """Convert CSV file containing H3 cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'h3'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            h3_id = row[id_col]
+            h3_id = row[column]
             h3_feature = h32feature(h3_id)
             if h3_feature:
-                h3_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(h3_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    h3_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return h3_geojson
+    if not geojson_features:
+        print("No valid H3 cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2h3_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with H3 column to GeoJSON")
@@ -137,38 +152,74 @@ def s22feature(s2_token):
         s2_feature = geodesic_dggs_to_feature("s2",s2_token,resolution,cell_polygon,num_edges)              
         return s2_feature
 
-def csv2s2(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
-    
-    if id_col is None:
-        id_col = 's2'
-        
+def is_url(path):
+    """Check if the given path is a URL."""
     try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+def read_csv_file(csv_file):
+    """Read CSV file from either local path or URL."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            return pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        return pd.read_csv(csv_file)
+
+def csv2s2(csv_file, column='s2'):
+    """Convert CSV file containing S2 cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
+    
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            s2_id = row[id_col]
+            s2_id = row[column]
             s2_feature = s22feature(s2_id)
             if s2_feature:
-                s2_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(s2_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    s2_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return s2_geojson
+    if not geojson_features:
+        print("No valid S2 cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2s2_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with S2 column to GeoJSON")
@@ -203,38 +254,50 @@ def rhealpix2feature(rhealpix_id):
         rhealpix_feature = geodesic_dggs_to_feature("rhealpix",rhealpix_id,resolution,cell_polygon,num_edges)                
         return rhealpix_feature
 
-def csv2rhealpix(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2rhealpix(csv_file, column='rhealpix'):
+    """Convert CSV file containing rHEALPix cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'rhealpix'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            rhealpix_id = row[id_col]
+            rhealpix_id = row[column]
             rhealpix_feature = rhealpix2feature(rhealpix_id)
             if rhealpix_feature:
-                rhealpix_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(rhealpix_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    rhealpix_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return rhealpix_geojson
+    if not geojson_features:
+        print("No valid rHEALPix cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2rhealpix_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with rhealpix column to GeoJSON")
@@ -272,38 +335,50 @@ def isea4t2feature(isea4t_id):
             isea4t_feature = geodesic_dggs_to_feature("isea4t",isea4t_id,resolution,cell_polygon,num_edges)   
             return isea4t_feature
 
-def csv2isea4t(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2isea4t(csv_file, column='isea4t'):
+    """Convert CSV file containing ISEA4T cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'isea4t'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            isea4t_id = row[id_col]
+            isea4t_id = row[column]
             isea4t_feature = isea4t2feature(isea4t_id)
             if isea4t_feature:
-                isea4t_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(isea4t_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    isea4t_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return isea4t_geojson
+    if not geojson_features:
+        print("No valid ISEA4T cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2isea4t_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with ISEA4T column to GeoJSON")
@@ -463,38 +538,50 @@ def ease2feature(ease_id):
         ease_feature = geodesic_dggs_to_feature("ease",ease_id,resolution,cell_polygon,num_edges)   
         return ease_feature
 
-def csv2ease(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2ease(csv_file, column='ease'):
+    """Convert CSV file containing EASE cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'ease'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            ease_id = row[id_col]
+            ease_id = row[column]
             ease_feature = ease2feature(ease_id)
             if ease_feature:
-                ease_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(ease_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    ease_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return ease_geojson
+    if not geojson_features:
+        print("No valid EASE cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2ease_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with EASE column to GeoJSON")
@@ -526,38 +613,50 @@ def qtm2feature(qtm_id):
         qtm_feature = geodesic_dggs_to_feature("qtm",qtm_id,resolution,cell_polygon,num_edges)   
         return qtm_feature
     
-def csv2qtm(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2qtm(csv_file, column='qtm'):
+    """Convert CSV file containing QTM cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'qtm'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            qtm_id = row[id_col]
+            qtm_id = row[column]
             qtm_feature = qtm2feature(qtm_id)
             if qtm_feature:
-                qtm_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(qtm_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    qtm_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return qtm_geojson
+    if not geojson_features:
+        print("No valid QTM cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2qtm_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with qtm column to GeoJSON")
@@ -600,38 +699,50 @@ def olc2feature(olc_id):
         olc_feature = graticule_dggs_to_feature("olc",olc_id,resolution,cell_polygon)   
         return olc_feature
     
-def csv2olc(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2olc(csv_file, column='olc'):
+    """Convert CSV file containing OLC cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'olc'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            olc_id = row[id_col]
+            olc_id = row[column]
             olc_feature = olc2feature(olc_id)
             if olc_feature:
-                olc_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(olc_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    olc_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return olc_geojson
+    if not geojson_features:
+        print("No valid OLC cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2olc_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with OLC column to GeoJSON")
@@ -672,38 +783,50 @@ def geohash2feature(geohash_id):
         geohash_feature = graticule_dggs_to_feature("geohash",geohash_id,resolution,cell_polygon)   
         return geohash_feature
     
-def csv2geohash(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2geohash(csv_file, column='geohash'):
+    """Convert CSV file containing Geohash cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'geohash'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            geohash_id = row[id_col]
+            geohash_id = row[column]
             geohash_feature = geohash2feature(geohash_id)
             if geohash_feature:
-                geohash_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(geohash_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    geohash_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return geohash_geojson
+    if not geojson_features:
+        print("No valid Geohash cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2geohash_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with Geohash column to GeoJSON")
@@ -740,38 +863,50 @@ def georef2feature(georef_id):
         georef_feature = graticule_dggs_to_feature("georef",georef_id,resolution,cell_polygon) 
         return   georef_feature
     
-def csv2georef(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2georef(csv_file, column='georef'):
+    """Convert CSV file containing Georef cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'georef'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            georef_id = row[id_col]
+            georef_id = row[column]
             georef_feature = georef2feature(georef_id)
             if georef_feature:
-                georef_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(georef_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    georef_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return georef_geojson
+    if not geojson_features:
+        print("No valid Georef cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2georef_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with GEOREF column to GeoJSON")
@@ -811,38 +946,50 @@ def mgrs2feature(mgrs_id):
         return   mgrs_feature
         
     
-def csv2mgrs(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2mgrs(csv_file, column='mgrs'):
+    """Convert CSV file containing MGRS cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'mgrs'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            mgrs_id = row[id_col]
+            mgrs_id = row[column]
             mgrs_feature = mgrs2feature(mgrs_id)
             if mgrs_feature:
-                mgrs_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(mgrs_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    mgrs_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return mgrs_geojson
+    if not geojson_features:
+        print("No valid MGRS cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2mgrs_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with mgrs column to GeoJSON")
@@ -890,38 +1037,50 @@ def tilecode2feature(tilecode_id):
             tilecode_feature = graticule_dggs_to_feature("tilecode",tilecode_id,resolution,cell_polygon)           
             return tilecode_feature
         
-def csv2tilecode(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2tilecode(csv_file, column='tilecode'):
+    """Convert CSV file containing Tilecode cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'tilecode'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            tilecode_id = row[id_col]
+            tilecode_id = row[column]
             tilecode_feature = tilecode2feature(tilecode_id)
             if tilecode_feature:
-                tilecode_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(tilecode_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    tilecode_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return tilecode_geojson
+    if not geojson_features:
+        print("No valid Tilecode cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2tilecode_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with tilecode column to GeoJSON")
@@ -970,38 +1129,50 @@ def quadkey2feature(quadkey_id):
         quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon)   
         return quadkey_feature
         
-def csv2quadkey(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2quadkey(csv_file, column='quadkey'):
+    """Convert CSV file containing Quadkey cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'quadkey'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            quadkey_id = row[id_col]
+            quadkey_id = row[column]
             quadkey_feature = quadkey2feature(quadkey_id)
             if quadkey_feature:
-                quadkey_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(quadkey_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    quadkey_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return quadkey_geojson
+    if not geojson_features:
+        print("No valid Quadkey cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2quadkey_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with quadkey column to GeoJSON")
@@ -1040,38 +1211,50 @@ def maidenhead2feature(maidenhead_id):
         maidenhead_feature = graticule_dggs_to_feature("gars",maidenhead_id,resolution,cell_polygon) 
         return maidenhead_feature
     
-def csv2maidenhead(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2maidenhead(csv_file, column='maidenhead'):
+    """Convert CSV file containing Maidenhead cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'maidenhead'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            maidenhead_id = row[id_col]
+            maidenhead_id = row[column]
             maidenhead_feature = maidenhead2feature(maidenhead_id)
             if maidenhead_feature:
-                maidenhead_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(maidenhead_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    maidenhead_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return maidenhead_geojson
+    if not geojson_features:
+        print("No valid Maidenhead cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2maidenhead_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with Maidenhead column to GeoJSON")
@@ -1117,38 +1300,50 @@ def gars2feature(gars_id):
         return gars_feature
     
     
-def csv2gars(csv_file, id_col=None):
-    if not os.path.exists(csv_file):
-        print(f"Error: Input file {csv_file} does not exist.")
-        return    
+def csv2gars(csv_file, column='gars'):
+    """Convert CSV file containing GARS cell IDs to GeoJSON."""
+    if is_url(csv_file):
+        try:
+            response = requests.get(csv_file)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text))
+        except requests.RequestException as e:
+            print(f"Error: Failed to download CSV from URL {csv_file}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(csv_file):
+            print(f"Error: Input file {csv_file} does not exist.")
+            return None
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return None
     
-    if id_col is None:
-        id_col = 'gars'
-        
-    try:
-        df = pd.read_csv(csv_file, dtype=str)  # Read entire file
-        
-        if id_col not in df.columns:
-            print(f"Error: Column '{id_col}' is missing in the input CSV. Please check and try again.")
-            return
-        
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    if column not in df.columns:
+        print(f"Error: Column '{column}' is missing in the input CSV. Please check and try again.")
+        return None
     
     geojson_features = []    
     for _, row in df.iterrows():
         try:
-            gars_id = row[id_col]
+            gars_id = row[column]
             gars_feature = gars2feature(gars_id)
             if gars_feature:
-                gars_feature["properties"].update(row.to_dict())  # Append all CSV data to properties
                 geojson_features.append(gars_feature)
         except Exception as e:
-            print(f" Skipping row {row.to_dict()}: {e}")
+            print(f"Error processing row: {str(e)}")
+            continue
     
-    gars_geojson = {"type": "FeatureCollection", "features": geojson_features}
-    return gars_geojson
+    if not geojson_features:
+        print("No valid GARS cells found in the CSV file.")
+        return None
+    
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+    return geojson
 
 def csv2gars_cli():
     parser = argparse.ArgumentParser(description="Convert CSV with GARS column to GeoJSON")

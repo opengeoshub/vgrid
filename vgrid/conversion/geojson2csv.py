@@ -10,9 +10,15 @@ import json
 import csv
 import sys
 import argparse
+import requests
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Union
 from io import StringIO
+from urllib.parse import urlparse
+from tqdm import tqdm
+from shapely.geometry import Polygon, box, Point, LineString
+from vgrid.utils.download import is_url, read_geojson_file
 
 
 def extract_coordinates(geometry: Dict[str, Any]) -> Dict[str, float]:
@@ -82,32 +88,37 @@ def geojson2csv_cli() -> None:
     
     Usage:
         python geojson2csv.py -geojson input.geojson
+        python geojson2csv.py -geojson https://example.com/data.geojson
     """
     parser = argparse.ArgumentParser(description='Convert GeoJSON to CSV format')
-    parser.add_argument('-geojson', required=True, help='Input GeoJSON file path')
+    parser.add_argument('-geojson', required=True, help='Input GeoJSON file path or URL')
     
     args = parser.parse_args()
     
-    # Create output CSV path by replacing .geojson extension with .csv
-    input_path = Path(args.geojson)
-    output_path = input_path.with_suffix('.csv')
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(args.geojson)
+    if geojson_data is None:
+        sys.exit(1)
     
     try:
-        # Read GeoJSON file
-        with open(input_path, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
-        
         csv_data = geojson2csv(geojson_data)
+        
+        # Create output CSV path
+        if is_url(args.geojson):
+            # For URLs, use the last part of the URL as the base filename
+            base_name = os.path.splitext(os.path.basename(urlparse(args.geojson).path))[0]
+            if not base_name:  # If URL doesn't end with a filename
+                base_name = "geojson_data"
+            output_path = f"{base_name}.csv"
+        else:
+            # For local files, replace .geojson extension with .csv
+            input_path = Path(args.geojson)
+            output_path = input_path.with_suffix('.csv')
+        
         # Write CSV data to file
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             f.write(csv_data)
-        print(f"Successfully converted {input_path} to {output_path}")
-    except FileNotFoundError:
-        print(f"Error: Could not find file {input_path}")
-        sys.exit(1)
-    except json.JSONDecodeError:
-        print(f"Error: Invalid JSON format in {input_path}")
-        sys.exit(1)
+        print(f"Successfully converted to {output_path}")
     except Exception as e:
         print(f"Error: {str(e)}")
         sys.exit(1)

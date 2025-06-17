@@ -149,37 +149,27 @@ def raster2rhealpix_cli():
 
     args = parser.parse_args()
     
-    try:
-        E = WGS84_ELLIPSOID
-        rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
-        
-        if not os.path.exists(args.raster):
-            raise FileNotFoundError(f"The file {args.raster} does not exist.")
-        
-        if args.resolution is not None and (args.resolution < 0 or args.resolution > 15):
-            raise ValueError("Resolution must be in range [0..15]")
-
-        result = raster2rhealpix(rhealpix_dggs, args.raster, args.resolution, args.format)
-        
-        # Generate output filename
-        base_name = os.path.splitext(os.path.basename(args.raster))[0]
-        
-        if args.format.lower() == 'csv':
-            output_path = f"{base_name}2rhealpix.csv"
-            with open(output_path, 'w', newline='') as f:
-                f.write(result)
-        else:
-            output_path = f"{base_name}2rhealpix.geojson"
-            with open(output_path, 'w') as f:
-                json.dump(result, f)
-        
-        print(f"Output saved as {output_path}")
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return 1
+    E = WGS84_ELLIPSOID
+    rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
     
-    return 0
+    if not os.path.exists(args.raster):
+        raise FileNotFoundError(f"The file {args.raster} does not exist.")
+    
+    if args.resolution is not None and (args.resolution < 0 or args.resolution > 15):
+        raise ValueError("Resolution must be in range [0..15]")
 
-if __name__ == "__main__":
-    exit(raster2rhealpix_cli())
+    result = raster2rhealpix(rhealpix_dggs, args.raster, args.resolution, args.format)
+    
+    # Generate output filename
+    base_name = os.path.splitext(os.path.basename(args.raster))[0]
+    
+    if args.format.lower() == 'csv':
+        output_path = f"{base_name}2rhealpix.csv"
+        with open(output_path, 'w', newline='') as f:
+            f.write(result)
+    else:
+        output_path = f"{base_name}2rhealpix.geojson"
+        with open(output_path, 'w') as f:
+            json.dump(result, f)
+    
+    print(f"Output saved as {output_path}")        

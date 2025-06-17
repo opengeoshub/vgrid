@@ -1,6 +1,10 @@
 import os
 import zipfile
 import tarfile
+import json
+import requests
+from urllib.parse import urlparse
+# Reference: https://github.com/opengeos/segment-geospatial/blob/main/samgeo/common.py
 
 
 def github_raw_url(url):

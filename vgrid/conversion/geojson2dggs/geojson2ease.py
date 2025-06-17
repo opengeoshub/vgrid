@@ -1,6 +1,8 @@
 import argparse, json, os
 from tqdm import tqdm
 from shapely.geometry import Polygon, box, Point, LineString
+import requests
+from urllib.parse import urlparse
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from vgrid.utils.easedggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from vgrid.utils.easedggs.dggs.grid_addressing import grid_ids_to_geos, geos_to_grid_ids, geo_polygon_to_grid_ids
@@ -190,6 +192,35 @@ def geojson2ease(geojson_data, resolution, compact=False):
         "features": geojson_features
     }
 
+def is_url(path):
+    """Check if the given path is a URL."""
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+def read_geojson_file(geojson_path):
+    """Read GeoJSON from either a local file or URL."""
+    if is_url(geojson_path):
+        try:
+            response = requests.get(geojson_path)
+            response.raise_for_status()
+            return json.loads(response.text)
+        except requests.RequestException as e:
+            print(f"Error: Failed to download GeoJSON from URL {geojson_path}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(geojson_path):
+            print(f"Error: The file {geojson_path} does not exist.")
+            return None
+        try:
+            with open(geojson_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading GeoJSON file: {e}")
+            return None
+
 def geojson2ease_cli():
     """
     Command-line interface for converting GeoJSON to EASE-DGGS format.
@@ -197,7 +228,8 @@ def geojson2ease_cli():
     parser = argparse.ArgumentParser(description="Convert GeoJSON to EASE-DGGS")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..6]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
+        '-geojson', '--geojson', type=str, required=True, 
+        help="GeoJSON file path or URL (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable EASE compact mode")
 
@@ -206,19 +238,16 @@ def geojson2ease_cli():
     resolution = args.resolution
     compact = args.compact  
 
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
     try:
-        with open(geojson, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
+        # Load GeoJSON data from file or URL
+        geojson_data = read_geojson_file(geojson)
         
         # Convert the GeoJSON data
         result = geojson2ease(geojson_data, resolution, compact)
         
         # Save the result
-        geojson_name = os.path.splitext(os.path.basename(geojson))[0]
+        # Extract base name from URL or file path
+        geojson_name = os.path.splitext(os.path.basename(args.geojson))[0]
         geojson_path = f"{geojson_name}2ease_{resolution}.geojson"
         if compact:        
             geojson_path = f"{geojson_name}2ease_{resolution}_compacted.geojson"
@@ -232,7 +261,3 @@ def geojson2ease_cli():
         print(f"Error: {str(e)}")
     except Exception as e:
         print(f"An error occurred: {str(e)}")
-
-
-if __name__ == "__main__":
-    geojson2ease_cli()

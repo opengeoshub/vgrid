@@ -2,6 +2,8 @@ import os, argparse, json
 from tqdm import tqdm
 from shapely.geometry import Point, LineString, Polygon, mapping, box
 import h3
+import requests
+from urllib.parse import urlparse
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from pyproj import Geod
@@ -151,43 +153,70 @@ def geojson2h3(geojson_data, resolution, compact=False):
         "features": geojson_features,
     }
 
+def is_url(path):
+    """Check if the given path is a URL."""
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+def read_geojson_file(geojson_path):
+    """Read GeoJSON from either a local file or URL."""
+    if is_url(geojson_path):
+        try:
+            response = requests.get(geojson_path)
+            response.raise_for_status()
+            return json.loads(response.text)
+        except requests.RequestException as e:
+            print(f"Error: Failed to download GeoJSON from URL {geojson_path}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(geojson_path):
+            print(f"Error: The file {geojson_path} does not exist.")
+            return None
+        try:
+            with open(geojson_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading GeoJSON file: {e}")
+            return None
+
 def geojson2h3_cli():
     """
     Command-line interface for converting GeoJSON to H3 grid cells.
+    Supports both local files and remote URLs.
     """
     parser = argparse.ArgumentParser(description="Convert GeoJSON to H3 DGGS")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="GeoJSON file path (Point, Polyline or Polygon)"
+        '-geojson', '--geojson', type=str, required=True, 
+        help="GeoJSON file path or URL (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable H3 compact mode - for polygon only")
 
     args = parser.parse_args()
-    geojson = args.geojson
-    resolution = args.resolution
-    compact = args.compact  
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(args.geojson)
+    if geojson_data is None:
         return
 
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
-    
     try:
-        result = geojson2h3(geojson_data, resolution, compact)
+        result = geojson2h3(geojson_data, args.resolution, args.compact)
         
-        geojson_name = os.path.splitext(os.path.basename(geojson))[0]
-        geojson_path = f"{geojson_name}2h3_{resolution}.geojson"
-        if compact:
-            geojson_path = f"{geojson_name}2h3_{resolution}_compacted.geojson"
+        # Save the results to GeoJSON
+        geojson_name = os.path.splitext(os.path.basename(args.geojson))[0]
+        geojson_path = f"{geojson_name}2h3_{args.resolution}.geojson"
+        if args.compact:
+            geojson_path = f"{geojson_name}2h3_{args.resolution}_compacted.geojson"
         
         with open(geojson_path, 'w') as f:
             json.dump(result, f)
 
         print(f"GeoJSON saved as {geojson_path}")
+        
     except ValueError as e:
         print(f"Error: {str(e)}")
-        
-if __name__ == "__main__":
-    geojson2h3_cli()
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")

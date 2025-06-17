@@ -214,6 +214,3 @@ def h3grid_cli():
     except ValueError as e:
         print(f"Error: {str(e)}")
         return
-
-if __name__ == "__main__":
-    h3grid_cli()

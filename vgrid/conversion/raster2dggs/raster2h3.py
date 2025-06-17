@@ -176,7 +176,3 @@ def raster2h3_cli():
             writer.writerows(result)
     
     print(f"Output saved as {output_path}")
-
-
-if __name__ == "__main__":
-    raster2h3_cli()

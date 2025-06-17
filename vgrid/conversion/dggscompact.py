@@ -1,6 +1,8 @@
 from shapely.wkt import loads
 from shapely.geometry import Polygon,mapping
 import json, re,os,argparse
+import requests
+from urllib.parse import urlparse
 
 from vgrid.utils import s2, olc, geohash,  mercantile, tilecode
 from vgrid.utils import qtm
@@ -80,13 +82,43 @@ def h3compact(geojson_data,h3_id=None):
             "features": h3_features
         }
         
+def is_url(path):
+    """Check if the given path is a URL."""
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+
+def read_geojson_file(geojson_path):
+    """Read GeoJSON from either a local file or URL."""
+    if is_url(geojson_path):
+        try:
+            response = requests.get(geojson_path)
+            response.raise_for_status()
+            return json.loads(response.text)
+        except requests.RequestException as e:
+            print(f"Error: Failed to download GeoJSON from URL {geojson_path}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(geojson_path):
+            print(f"Error: The file {geojson_path} does not exist.")
+            return None
+        try:
+            with open(geojson_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading GeoJSON file: {e}")
+            return None
+
 def h3compact_cli():
     """
     Command-line interface for h3compact.
     """
     parser = argparse.ArgumentParser(description="Compact H3")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input H3 in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input H3 in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="H3 ID field"
@@ -96,12 +128,10 @@ def h3compact_cli():
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
     geojson_features = h3compact(geojson_data, cellid)
     if geojson_features:
@@ -160,10 +190,9 @@ def h3expand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand H3")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input H3 in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input H3 in GeoJSON file path or URL"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
-   
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="H3 ID field"
     )
@@ -177,14 +206,12 @@ def h3expand_cli():
         print(f"Please select a resolution in [0..15] range and try again ")
         return
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = h3expand(geojson_data,resolution,cellid)
+    geojson_features = h3expand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"h3_{resolution}_expanded.geojson"
@@ -250,21 +277,20 @@ def s2compact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact S2")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input S2 in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input S2 in GeoJSON file path or URL"
     )
     parser.add_argument(
-        '-cellid', '--cellid', type=str, required=True, help="S2 token field"
+        '-cellid', '--cellid', type=str, help="S2 ID field"
     )
+
     args = parser.parse_args()
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
     geojson_features = s2compact(geojson_data, cellid)
     if geojson_features:
@@ -274,7 +300,7 @@ def s2compact_cli():
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-    else: 
+    else:
         print('S2 compact failed.')
         
 def s2_expand(s2_ids, resolution):
@@ -343,30 +369,28 @@ def s2expand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand S2")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input S2 in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input S2 in GeoJSON file path or URL"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..30]")
     parser.add_argument(
-        '-cellid', '--cellid', type=str, help="S2 token field"
+        '-cellid', '--cellid', type=str, help="S2 ID field"
     )
+
     args = parser.parse_args()
     geojson = args.geojson
-    cellid = args.cellid
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
-    
     resolution = args.resolution
-
+    cellid = args.cellid
+    
     if resolution < 0 or resolution > 30:
         print(f"Please select a resolution in [0..30] range and try again ")
         return
     
-    geojson_features = s2expand(geojson_data,resolution,cellid)
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = s2expand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"s2_{resolution}_expanded.geojson"
@@ -457,7 +481,7 @@ def rhealpixcompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact rHEALPix")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input rHEALPix in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input rHEALPix in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="rHEALPix ID field"
@@ -468,15 +492,13 @@ def rhealpixcompact_cli():
     args = parser.parse_args()
     geojson = args.geojson
     cellid = args.cellid
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = rhealpixcompact(rhealpix_dggs,geojson_data,cellid)
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = rhealpixcompact(rhealpix_dggs, geojson_data, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = "rhealpix_compacted.geojson"
@@ -553,9 +575,9 @@ def rhealpixexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand rHEALPix")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input rHEALPix in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input rHEALPix in GeoJSON file path or URL"
     )
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..15]")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..6]")
     parser.add_argument('-cellid', '--cellid', type=str, help="rHEALPix ID field")
 
     rhealpix_dggs = RHEALPixDGGS()
@@ -564,19 +586,17 @@ def rhealpixexpand_cli():
     geojson = args.geojson
     resolution = args.resolution
     cellid = args.cellid
-        
-    if resolution < 0 or resolution > 15:
-        print(f"Please select a resolution in [0..15] range and try again ")
-        return
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = rhealpixexpand(rhealpix_dggs,geojson_data,resolution,cellid)
+    if resolution < 0 or resolution > 6:
+        print(f"Please select a resolution in [0..6] range and try again ")
+        return
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = rhealpixexpand(rhealpix_dggs, geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"rhealpix_{resolution}_expanded.geojson"
@@ -584,7 +604,6 @@ def rhealpixexpand_cli():
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-   
     else:
         print('rHEALPix expand failed.')
         
@@ -679,40 +698,42 @@ def isea4tcompact(isea4t_dggs,geojson_data, isea4t_id= None):
             }
 
 def isea4tcompact_cli():
-    if (platform.system() == 'Windows'):  
-        """
-        Command-line interface for isea4tcompact.
-        """
+    """
+    Command-line interface for isea4tcompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact ISEA4T")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON file path or URL"
+    )
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="ISEA4T ID field"
+    )
+
+    if (platform.system() == 'Windows'):
         isea4t_dggs = Eaggr(Model.ISEA4T)
-        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA4T (Windows only)")
-        parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON"
-        )
-        parser.add_argument(
-            '-cellid', '--cellid', type=str,  help="ISEA4T ID field"
-        )
+    else:
+        print("ISEA4T DGGS conversion is only supported on Windows")
+        return
 
-        args = parser.parse_args()
-        geojson = args.geojson
-        cellid = args.cellid
+    args = parser.parse_args()
+    geojson = args.geojson
+    cellid = args.cellid
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = isea4tcompact(isea4t_dggs, geojson_data, cellid)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "isea4t_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-        if not os.path.exists(geojson):
-            print(f"Error: The file {geojson} does not exist.")
-            return
-
-        with open(geojson, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
-        
-        geojson_features = isea4tcompact(isea4t_dggs,geojson_data,cellid)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = "isea4t_compacted.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
-        else:
-            print('ISEA4T compact failed.')
+        print(f"GeoJSON saved as {geojson_path}")
+    else:
+        print('ISEA4T compact failed.')
         
 def isea4t_expand(isea4t_dggs, isea4t_ids, resolution):
     """Expands a list of DGGS cells to the target resolution."""
@@ -765,45 +786,48 @@ def isea4texpand(isea4t_dggs,geojson_data,resolution, isea4t_id=None):
             }
                 
 def isea4texpand_cli():
+    """
+    Command-line interface for isea4texpand.
+    """
+    parser = argparse.ArgumentParser(description="Expand ISEA4T")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON file path or URL"
+    )
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..32]")
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="ISEA4T ID field"
+    )
+
     if (platform.system() == 'Windows'):
-        """
-        Command-line interface for isea4texpand.
-        """
         isea4t_dggs = Eaggr(Model.ISEA4T)
-        parser = argparse.ArgumentParser(description="Expand OpenEaggr ISEA4T")
-        parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input ISEA4T in GeoJSON"
-        )
-        parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..25]")
-        parser.add_argument('-cellid', '--cellid', type=str, help="ISEA4T ID field")
+    else:
+        print("ISEA4T DGGS conversion is only supported on Windows")
+        return
 
-        args = parser.parse_args()
-        geojson = args.geojson
-        resolution = args.resolution
-        cellid = args.cellid
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+    cellid = args.cellid
+    
+    if resolution < 0 or resolution > 32:
+        print(f"Please select a resolution in [0..32] range and try again ")
+        return
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = isea4texpand(isea4t_dggs, geojson_data, resolution, cellid)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"isea4t_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-        # actual resolution range: [0..39]
-        if resolution < 0 or resolution > 25:
-            print(f"Please select a resolution in [0..25] range and try again ")
-            return
-
-        if not os.path.exists(geojson):
-            print(f"Error: The file {geojson} does not exist.")
-            return
-
-        with open(geojson, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
-        
-        geojson_features = isea4texpand(isea4t_dggs,geojson_data,resolution,cellid)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = f"isea4t_{resolution}_expanded.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
-        else:
-            print('ISEA4T expand failed.')
+        print(f"GeoJSON saved as {geojson_path}")
+    else:
+        print('ISEA4T expand failed.')
 
 #################
 # ISEA3H
@@ -1009,40 +1033,42 @@ def isea3hcompact(isea3h_dggs,geojson_data,isea3h_id= None):
         }
 
 def isea3hcompact_cli():
-    if (platform.system() == 'Windows'):  
+    """
+    Command-line interface for isea3hcompact.
+    """
+    parser = argparse.ArgumentParser(description="Compact ISEA3H")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input ISEA3H in GeoJSON file path or URL"
+    )
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="ISEA3H ID field"
+    )
+
+    if (platform.system() == 'Windows'):
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        """
-        Command-line interface for isea3hcompact.
-        """
-        parser = argparse.ArgumentParser(description="Compact OpenEaggr ISEA3H (Windows only)")
-        parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input ISEA3H in GeoJSON"
-        )
-        parser.add_argument(
-            '-cellid', '--cellid', type=str, help="ISEA3H ID field"
-        )
+    else:
+        print("ISEA3H DGGS conversion is only supported on Windows")
+        return
 
-        args = parser.parse_args()
-        geojson = args.geojson
-        celiid = args.cellid
+    args = parser.parse_args()
+    geojson = args.geojson
+    cellid = args.cellid
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = isea3hcompact(isea3h_dggs, geojson_data, cellid)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = "isea3h_compacted.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-        if not os.path.exists(geojson):
-            print(f"Error: The file {geojson} does not exist.")
-            return
-
-        with open(geojson, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
-        
-        geojson_features = isea3hcompact(isea3h_dggs,geojson_data,celiid)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = "isea3h_compacted.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
-        else:
-            print('ISEA3H compact failed.')
+        print(f"GeoJSON saved as {geojson_path}")
+    else:
+        print('ISEA3H compact failed.')
         
 def isea3h_expand(isea3h_dggs, isea3h_ids, resolution):
     """Expands a list of DGGS cells to the target resolution."""
@@ -1135,45 +1161,48 @@ def isea3hexpand(isea3h_dggs,geojson_data,resolution,isea3h_id=None):
 
             
 def isea3hexpand_cli():
+    """
+    Command-line interface for isea3hexpand.
+    """
+    parser = argparse.ArgumentParser(description="Expand ISEA3H")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, help="Input ISEA3H in GeoJSON file path or URL"
+    )
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..32]")
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="ISEA3H ID field"
+    )
+
     if (platform.system() == 'Windows'):
-        """
-        Command-line interface for isea3hexpand.
-        """
         isea3h_dggs = Eaggr(Model.ISEA3H)
-        parser = argparse.ArgumentParser(description="Expand OpenEaggr ISEA3H")
-        parser.add_argument(
-            '-geojson', '--geojson', type=str, required=True, help="Input OpenEaggr ISEA3H in GeoJSON"
-        )
-        parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..32]")
-        parser.add_argument('-cellid', '--cellid', type=str, help="ISEA3H ID field")
+    else:
+        print("ISEA3H DGGS conversion is only supported on Windows")
+        return
 
-        args = parser.parse_args()
-        geojson = args.geojson
-        resolution = args.resolution
-        cellid = args.cellid
-        
-        # actual resolution range: [0..40]
-        if resolution < 0 or resolution > 32:
-            print(f"Please select a resolution in [0..32] range and try again ")
-            return
+    args = parser.parse_args()
+    geojson = args.geojson
+    resolution = args.resolution
+    cellid = args.cellid
+    
+    if resolution < 0 or resolution > 32:
+        print(f"Please select a resolution in [0..32] range and try again ")
+        return
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = isea3hexpand(isea3h_dggs, geojson_data, resolution, cellid)
+    if geojson_features:
+        # Define the GeoJSON file path
+        geojson_path = f"isea3h_{resolution}_expanded.geojson"
+        with open(geojson_path, 'w') as f:
+            json.dump(geojson_features, f, indent=2)
 
-        if not os.path.exists(geojson):
-            print(f"Error: The file {geojson} does not exist.")
-            return
-
-        with open(geojson, 'r', encoding='utf-8') as f:
-            geojson_data = json.load(f)
-        
-        geojson_features = isea3hexpand(isea3h_dggs,geojson_data,resolution,cellid)
-        if geojson_features:
-            # Define the GeoJSON file path
-            geojson_path = f"isea3h_{resolution}_expanded.geojson"
-            with open(geojson_path, 'w') as f:
-                json.dump(geojson_features, f, indent=2)
-
-            print(f"GeoJSON saved as {geojson_path}")
-        else:
-            print('ISEA3H expand failed.')
+        print(f"GeoJSON saved as {geojson_path}")
+    else:
+        print('ISEA3H expand failed.')
 
 #################
 # EASE
@@ -1281,7 +1310,7 @@ def easecompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact EASE")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="EASE ID field"
@@ -1290,15 +1319,13 @@ def easecompact_cli():
     args = parser.parse_args()
     geojson = args.geojson
     cellid = args.cellid
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = easecompact(geojson_data,cellid)
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = easecompact(geojson_data, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = "ease_compacted.geojson"
@@ -1380,32 +1407,31 @@ def easeexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand EASE")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input EASE in GeoJSON file path or URL"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..6]")
-    parser.add_argument('-cellid', '--cellid', type=str, help="EASE ID field")
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="EASE ID field"
+    )
 
     args = parser.parse_args()
     geojson = args.geojson
     resolution = args.resolution
     cellid = args.cellid
-
+    
     if resolution < 0 or resolution > 6:
         print(f"Please select a resolution in [0..6] range and try again ")
         return
-
-
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
-        return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = easeexpand(geojson_data,resolution,cellid)
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
+        return
+    
+    geojson_features = easeexpand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
-        geojson_path = "ease_expanded.geojson"
+        geojson_path = f"ease_{resolution}_expanded.geojson"
         with open(geojson_path, 'w') as f:
             json.dump(geojson_features, f, indent=2)
 
@@ -1481,7 +1507,7 @@ def qtmcompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact QTM")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="QTM ID field"
@@ -1491,12 +1517,10 @@ def qtmcompact_cli():
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
     geojson_features = qtmcompact(geojson_data, cellid)
     if geojson_features:
@@ -1560,7 +1584,7 @@ def qtmexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand QTM")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input QTM in GeoJSON file path or URL"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..24]")
     parser.add_argument('-cellid', '--cellid', type=str,  help="QTM ID field")
@@ -1571,7 +1595,7 @@ def qtmexpand_cli():
     cellid = args.cellid
 
     if resolution < 1 or resolution > 24:
-        print(f"Please select a resolution in [1..24] and try again ")
+        print(f"Please select a resolution in [1..24] range and try again ")
         return
 
     if not os.path.exists(geojson):
@@ -1676,24 +1700,22 @@ def olccompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact OLC")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input OLC in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input OLC in GeoJSON file path or URL"
     )
     parser.add_argument(
-        '-cellid', '--cellid', type=str, help="OLC Token field"
+        '-cellid', '--cellid', type=str, help="OLC ID field"
     )
 
     args = parser.parse_args()
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = olccompact(geojson_data,cellid)
+    geojson_features = olccompact(geojson_data, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = "olc_compacted.geojson"
@@ -1765,11 +1787,11 @@ def olcexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand OLC")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input OLC in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input OLC in GeoJSON file path or URL"
     )
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [2, 4, 6, 8, 10..15]")
     parser.add_argument(
-        '-cellid', '--cellid', type=str, help="OLC Token field"
+        '-cellid', '--cellid', type=str, help="OLC ID field"
     )
 
     args = parser.parse_args()
@@ -1778,7 +1800,7 @@ def olcexpand_cli():
     cellid = args.cellid
 
     if resolution not in [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]:
-        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] and try again ")
+        print(f"Please select a resolution in [2, 4, 6, 8, 10..15] range and try again ")
         return
 
     if not os.path.exists(geojson):
@@ -1788,7 +1810,7 @@ def olcexpand_cli():
     with open(geojson, 'r', encoding='utf-8') as f:
         geojson_data = json.load(f)
     
-    geojson_features = olcexpand(geojson_data,resolution,cellid)
+    geojson_features = olcexpand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"olc_{resolution}_expanded.geojson"
@@ -1867,22 +1889,20 @@ def geohashcompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact Geohash")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON file path or URL"
     )
     parser.add_argument(
-        '-cellid', '--cellid', type=str, help="Geohash cell ID"
+        '-cellid', '--cellid', type=str, help="Geohash ID field"
     )
 
     args = parser.parse_args()
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
     geojson_features = geohashcompact(geojson_data, cellid)
     if geojson_features:
@@ -1892,7 +1912,6 @@ def geohashcompact_cli():
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-    
     else:
         print('Geohash compact failed.')
             
@@ -1946,28 +1965,28 @@ def geohashexpand_cli():
     """
     parser = argparse.ArgumentParser(description="Expand Geohash")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Geohash in GeoJSON file path or URL"
     )
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..10]")
-    parser.add_argument('-cellid', '--cellid', type=str, help="Geohash ID field")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [1..12]")
+    parser.add_argument(
+        '-cellid', '--cellid', type=str, help="Geohash ID field"
+    )
 
     args = parser.parse_args()
     geojson = args.geojson
     resolution = args.resolution
     cellid = args.cellid
 
-    if resolution < 1 or resolution > 10:
-        print(f"Please select a resolution in [1..10] range and try again ")
+    if resolution < 1 or resolution > 12:
+        print(f"Please select a resolution in [1..12] range and try again ")
         return
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = geohashexpand(geojson_data,resolution,cellid)
+    geojson_features = geohashexpand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"geohash_{resolution}_expanded.geojson"
@@ -1975,7 +1994,6 @@ def geohashexpand_cli():
             json.dump(geojson_features, f, indent=2)
 
         print(f"GeoJSON saved as {geojson_path}")
-    
     else:
         print('Geohash expand failed.')
 
@@ -2071,7 +2089,7 @@ def tilecodecompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact Tilecode")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str,  help="Tilecode ID field"
@@ -2081,14 +2099,12 @@ def tilecodecompact_cli():
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = tilecodecompact(geojson_data,cellid)
+    geojson_features = tilecodecompact(geojson_data, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = "tilecode_compacted.geojson"
@@ -2169,10 +2185,10 @@ def tilecodeexpand_cli():
     Command-line interface for tilecodeexpand.
     """
     parser = argparse.ArgumentParser(description="Expand Tilecode")
-    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..29]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Tilecode in GeoJSON file path or URL"
     )
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..29]")
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="Tilecode ID field"
     )
@@ -2185,14 +2201,12 @@ def tilecodeexpand_cli():
         print(f"Please select a resolution in [0..29] range and try again ")
         return
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = tilecodeexpand(geojson_data,resolution,cellid)
+    geojson_features = tilecodeexpand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"tilecode_{resolution}_expanded.geojson"
@@ -2292,7 +2306,7 @@ def quadkeycompact_cli():
     """
     parser = argparse.ArgumentParser(description="Compact Quadkey")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON file path or URL"
     )
     parser.add_argument(
         '-cellid', '--cellid', type=str, help="Quadkey ID field"
@@ -2302,14 +2316,12 @@ def quadkeycompact_cli():
     geojson = args.geojson
     cellid = args.cellid
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = quadkeycompact(geojson_data,cellid)
+    geojson_features = quadkeycompact(geojson_data, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = "quadkey_compacted.geojson"
@@ -2388,7 +2400,7 @@ def quadkeyexpand_cli():
     parser = argparse.ArgumentParser(description="Expand Quadkey ")
     parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..29]")
     parser.add_argument(
-        '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON"
+        '-geojson', '--geojson', type=str, required=True, help="Input Quadkey in GeoJSON file path or URL"
     )
     parser.add_argument('-cellid', '--cellid', type=str, help="Quadkey ID field")
 
@@ -2401,14 +2413,12 @@ def quadkeyexpand_cli():
         print(f"Please select a resolution in [0..29] range and try again ")
         return
     
-    if not os.path.exists(geojson):
-        print(f"Error: The file {geojson} does not exist.")
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(geojson)
+    if geojson_data is None:
         return
-
-    with open(geojson, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
     
-    geojson_features = quadkeyexpand(geojson_data,resolution,cellid)
+    geojson_features = quadkeyexpand(geojson_data, resolution, cellid)
     if geojson_features:
         # Define the GeoJSON file path
         geojson_path = f"quadkey_{resolution}_expanded.geojson"

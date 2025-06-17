@@ -182,6 +182,3 @@ def raster2olc_cli():
             json.dump(output_data, f)
             
     print(f"Output saved as {output_path}")
-
-if __name__ == "__main__":
-    raster2olc_cli()

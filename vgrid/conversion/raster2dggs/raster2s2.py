@@ -199,6 +199,3 @@ def raster2s2_cli():
             writer.writerows(result)
     
     print(f"Output saved as {output_path}")
-
-if __name__ == "__main__":
-    raster2s2_cli()
