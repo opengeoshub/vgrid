@@ -52,5 +52,7 @@ jobs:
 
             - name: Install mkdocs
               run: |
-                  uv pip install --no-deps -r requirements_docs.txt
+                  cd /tmp
+                  uv pip install -r $GITHUB_WORKSPACE/requirements_docs.txt
+                  cd $GITHUB_WORKSPACE
                   uv run mkdocs gh-deploy --force
