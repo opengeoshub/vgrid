@@ -15,17 +15,15 @@ authors = [
 urls = {Homepage = "https://github.com/thangqd/vgrid"}
 dependencies = [
     "tqdm~=4.66.2",
-    "shapely~=2.0.1",
     "protobuf~=5.26.1",
-    "fiona",
-    "pyproj",
     "pyclipper~=1.3.0",
     "h3~=4.1.1",
     "geopandas",
     "scipy",
     "future",
     "texttable",
-    "rasterio"
+    "rasterio",
+    "requests"
 ]
 
 [project.scripts]
@@ -67,6 +65,7 @@ gars2geojson = "vgrid.conversion.dggs2geojson:gars2geojson_cli"
 
 # GeoJSON to DGGS
 geojson2h3 = "vgrid.conversion.geojson2dggs.geojson2h3:geojson2h3_cli"
+vector2h3 = "vgrid.conversion.vector2dggs.vector2h3:vector2h3_cli"
 geojson2s2 = "vgrid.conversion.geojson2dggs.geojson2s2:geojson2s2_cli"
 geojson2rhealpix = "vgrid.conversion.geojson2dggs.geojson2rhealpix:geojson2rhealpix_cli"
 geojson2isea4t = "vgrid.conversion.geojson2dggs.geojson2isea4t:geojson2isea4t_cli"

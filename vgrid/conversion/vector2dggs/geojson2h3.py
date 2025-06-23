@@ -1,6 +1,6 @@
 import os, argparse, json
 from tqdm import tqdm
-from shapely.geometry import Point, LineString, Polygon, mapping, box
+from shapely.geometry import Point, LineString, Polygon, mapping, box, MultiPoint
 import h3
 import requests
 from urllib.parse import urlparse
@@ -8,9 +8,42 @@ from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from pyproj import Geod
 geod = Geod(ellps="WGS84")
+from vgrid.utils.geometry import calculate_point_distances
+
+def get_nearest_h3_resolution(points):
+    """
+    Find the first H3 resolution where avg_edge_length < shortest_distance.
+    Uses h3.average_edge_length(resolution) to compare with the calculated shortest distance.
+    
+    Args:
+        points: Shapely Point geometry or MultiPoint geometry
+        
+    Returns:
+        int: First H3 resolution where avg_edge_length < shortest_distance (0-15)
+    """
+    # Calculate the shortest distance between points
+    shortest_distance = calculate_point_distances(points)
+    
+    # If only one point or no distance, return a default resolution
+    if shortest_distance == 0:
+        return 0  # Default resolution for single points
+    
+    # Check resolutions from 0 to 15 (lowest to highest)
+    for resolution in range(16):
+        # Get average edge length for this H3 resolution in meters
+        avg_edge_length = h3.average_hexagon_edge_length(res=resolution, unit='m')
+        
+        # Return the first resolution where avg_edge_length < shortest_distance
+        if avg_edge_length <= shortest_distance:
+            return resolution
+    
+    # If no resolution found where avg_edge_length < shortest_distance, return the highest resolution
+    return 15
+
 
 # Function to generate grid for Point
-def point_to_grid(resolution, point,feature_properties):
+def point_to_grid(resolution, point,feature_properties, topology=False): 
+        
     h3_features = []
     # Convert point to the seed cell
     latitude = point.y
@@ -50,7 +83,7 @@ def geodesic_buffer(polygon, distance):
     all_coords = [coord for circle in buffered_coords for coord in circle]
     return Polygon(all_coords).convex_hull
 
-def poly_to_grid(resolution, geometry,feature_properties, compact= None):
+def poly_to_grid(resolution, geometry,feature_properties, compact= False, topology=False):
     h3_features = []
 
     if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon' :
@@ -85,7 +118,7 @@ def poly_to_grid(resolution, geometry,feature_properties, compact= None):
         "features": h3_features,
     }
 
-def geojson2h3(geojson_data, resolution, compact=False):
+def geojson2h3(geojson_data, resolution, compact=False, topology=False):
     """
     Convert GeoJSON data to H3 grid cells.
     
@@ -93,6 +126,7 @@ def geojson2h3(geojson_data, resolution, compact=False):
         geojson_data (dict): GeoJSON data as a dictionary
         resolution (int): H3 resolution [0..15]
         compact (bool): Enable H3 compact mode - for polygon only
+        topology (bool): Enable H3 topology preserving mode
         
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
@@ -101,27 +135,70 @@ def geojson2h3(geojson_data, resolution, compact=False):
         raise ValueError("Resolution must be in range [0..15]")
     
     geojson_features = []
-
+    
+    # If topology mode is enabled, convert GeoJSON to Shapely geometries first
+    if topology:
+        # Extract all geometries from GeoJSON
+        geometries = []
+        for feature in geojson_data['features']:
+            geom_type = feature['geometry']['type']
+            coords = feature['geometry']['coordinates']
+            
+            if geom_type == 'Point':
+                geometries.append(Point(coords))
+            elif geom_type == 'MultiPoint':
+                for point_coords in coords:
+                    geometries.append(Point(point_coords))
+            elif geom_type == 'LineString':
+                geometries.append(LineString(coords))
+            elif geom_type == 'MultiLineString':
+                for line_coords in coords:
+                    geometries.append(LineString(line_coords))
+            elif geom_type == 'Polygon':
+                exterior_ring = coords[0]
+                interior_rings = coords[1:]
+                geometries.append(Polygon(exterior_ring, interior_rings))
+            elif geom_type == 'MultiPolygon':
+                for sub_polygon_coords in coords:
+                    exterior_ring = sub_polygon_coords[0]
+                    interior_rings = sub_polygon_coords[1:]
+                    geometries.append(Polygon(exterior_ring, interior_rings))
+        
+        # Create MultiPoint from all geometries for resolution calculation
+        all_points = []
+        for geom in geometries:
+            if geom.geom_type == 'Point':
+                all_points.append(geom)
+            elif geom.geom_type == 'MultiPoint':
+                all_points.extend(list(geom.geoms))
+            else:
+                # For other geometry types, add representative points
+                all_points.append(geom.representative_point())
+        
+        if all_points:
+            points = MultiPoint(all_points)
+            resolution = get_nearest_h3_resolution(points)
+        
     for feature in tqdm(geojson_data['features'], desc="Processing GeoJSON features"):
         feature_properties = feature['properties'] 
         if feature['geometry']['type'] in ['Point', 'MultiPoint']:
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'Point':
                 point = Point(coordinates)
-                point_features = point_to_grid(resolution, point, feature_properties)
+                point_features = point_to_grid(resolution, point, feature_properties, topology)
                 geojson_features.extend(point_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPoint':
                 for point_coords in coordinates:
                     point = Point(point_coords)
-                    point_features = point_to_grid(resolution, point, feature_properties)
+                    point_features = point_to_grid(resolution, point, feature_properties,topology)
                     geojson_features.extend(point_features['features'])
 
         elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
             coordinates = feature['geometry']['coordinates']
             if feature['geometry']['type'] == 'LineString':
                 polyline = LineString(coordinates)
-                polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                polyline_features = poly_to_grid(resolution, polyline, feature_properties, topology)
                 geojson_features.extend(polyline_features['features'])
 
             elif feature['geometry']['type'] == 'MultiLineString':
@@ -137,7 +214,7 @@ def geojson2h3(geojson_data, resolution, compact=False):
                 exterior_ring = coordinates[0]
                 interior_rings = coordinates[1:]
                 polygon = Polygon(exterior_ring, interior_rings)
-                polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact, topology)
                 geojson_features.extend(polygon_features['features'])
 
             elif feature['geometry']['type'] == 'MultiPolygon':
@@ -145,7 +222,7 @@ def geojson2h3(geojson_data, resolution, compact=False):
                     exterior_ring = sub_polygon_coords[0]
                     interior_rings = sub_polygon_coords[1:]
                     polygon = Polygon(exterior_ring, interior_rings)
-                    polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                    polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact, topology)
                     geojson_features.extend(polygon_features['features'])
 
     return {
@@ -194,6 +271,7 @@ def geojson2h3_cli():
         help="GeoJSON file path or URL (Point, Polyline or Polygon)"
     )
     parser.add_argument('-compact', action='store_true', help="Enable H3 compact mode - for polygon only")
+    parser.add_argument('-topology', action='store_true', help="Enable H3 topology preserving mode")
 
     args = parser.parse_args()
     
@@ -203,14 +281,18 @@ def geojson2h3_cli():
         return
 
     try:
-        result = geojson2h3(geojson_data, args.resolution, args.compact)
+        result = geojson2h3(geojson_data, args.resolution, args.compact, args.topology)
         
         # Save the results to GeoJSON
         geojson_name = os.path.splitext(os.path.basename(args.geojson))[0]
         geojson_path = f"{geojson_name}2h3_{args.resolution}.geojson"
+        suffix = ""
         if args.compact:
-            geojson_path = f"{geojson_name}2h3_{args.resolution}_compacted.geojson"
-        
+            suffix = "_compacted"
+        if args.topology:
+            suffix += "_topology"
+        geojson_path = f"{geojson_name}2h3_{args.resolution}{suffix}.geojson"
+
         with open(geojson_path, 'w') as f:
             json.dump(result, f)
 
