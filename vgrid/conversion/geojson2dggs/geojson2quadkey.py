@@ -1,0 +1,220 @@
+from vgrid.utils import tilecode
+from shapely.geometry import Point, LineString, Polygon
+import argparse
+import json
+from tqdm import tqdm
+import os
+from vgrid.utils import mercantile
+from vgrid.generator.settings import graticule_dggs_to_feature
+from vgrid.conversion.dggscompact import quadkeycompact
+import requests
+from urllib.parse import urlparse
+
+# Function to generate grid for Point
+def point_to_grid(resolution, point, feature_properties):  
+    quadkey_features = []
+     # res: [0..29]        
+    quadkey_id = tilecode.latlon2quadkey(point.y, point.x,resolution)
+    quadkey_cell = mercantile.tile(point.x, point.y, resolution)
+    bounds = mercantile.bounds(quadkey_cell)
+    if bounds:
+        # Create the bounding box coordinates for the polygon
+        min_lat, min_lon = bounds.south, bounds.west
+        max_lat, max_lon = bounds.north, bounds.east
+      
+        cell_polygon = Polygon([
+            [min_lon, min_lat],  # Bottom-left corner
+            [max_lon, min_lat],  # Bottom-right corner
+            [max_lon, max_lat],  # Top-right corner
+            [min_lon, max_lat],  # Top-left corner
+            [min_lon, min_lat]   # Closing the polygon (same as the first point)
+        ])
+        
+        quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon)   
+        quadkey_feature["properties"].update(feature_properties)
+
+        quadkey_features.append(quadkey_feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": quadkey_features
+    }
+
+def poly_to_grid(resolution, geometry,feature_properties,compact=None):
+    quadkey_features = []
+    if geometry.geom_type == 'LineString' or geometry.geom_type == 'Polygon' :
+        polys = [geometry]
+    elif geometry.geom_type == 'MultiLineString' or geometry.geom_type == 'MultiPolygon' :
+        polys = list(geometry)
+
+    for poly in polys:    
+        min_lon, min_lat, max_lon, max_lat = poly.bounds
+        tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+        for tile in tiles:
+            z, x, y = tile.z, tile.x, tile.y
+            bounds = mercantile.bounds(x, y, z)
+            if bounds:
+                # Create the bounding box coordinates for the polygon
+                min_lat, min_lon = bounds.south, bounds.west
+                max_lat, max_lon = bounds.north, bounds.east
+                quadkey_id = mercantile.quadkey(tile)
+                
+                cell_polygon = Polygon([
+                    [min_lon, min_lat],  # Bottom-left corner
+                    [max_lon, min_lat],  # Bottom-right corner
+                    [max_lon, max_lat],  # Top-right corner
+                    [min_lon, max_lat],  # Top-left corner
+                    [min_lon, min_lat]   # Closing the polygon (same as the first point)
+                ])
+                if cell_polygon.intersects(poly):
+                    quadkey_feature = graticule_dggs_to_feature("quadkey",quadkey_id,resolution,cell_polygon) 
+                    quadkey_feature["properties"].update(feature_properties)
+                    quadkey_features.append(quadkey_feature)
+
+    quadkey_geosjon = {
+            "type": "FeatureCollection",
+            "features": quadkey_features
+    }
+    if compact:
+        return quadkeycompact(quadkey_geosjon)
+
+    else: return quadkey_geosjon
+
+def geojson2quadkey(geojson_data, resolution, compact=False):
+    """
+    Convert GeoJSON data to Quadkey DGGS format.
+    
+    Args:
+        geojson_data (dict): GeoJSON data as a dictionary
+        resolution (int): Resolution level [0..29]
+        compact (bool): Whether to enable Tilecode compact mode
+        
+    Returns:
+        dict: GeoJSON data in Quadkey DGGS format
+    """
+    if resolution < 0 or resolution > 29:
+        raise ValueError("Resolution must be in range [0..29]")
+        
+    geojson_features = []
+
+    for feature in tqdm(geojson_data['features'], desc="Processing features"):
+        feature_properties = feature['properties']
+        if feature['geometry']['type'] in ['Point', 'MultiPoint']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'Point':
+                point = Point(coordinates)                
+                point_features = point_to_grid(resolution, point, feature_properties)
+                geojson_features.extend(point_features['features'])   
+
+            elif feature['geometry']['type'] == 'MultiPoint':
+                for point_coords in coordinates:
+                    point = Point(point_coords)  # Create Point for each coordinate set
+                    point_features = point_to_grid(resolution, point, feature_properties)
+                    geojson_features.extend(point_features['features'])
+        
+        elif feature['geometry']['type'] in ['LineString', 'MultiLineString']:
+            coordinates = feature['geometry']['coordinates']
+            if feature['geometry']['type'] == 'LineString':
+                # Directly process LineString geometry
+                polyline = LineString(coordinates)
+                polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                geojson_features.extend(polyline_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiLineString':
+                # Iterate through each line in MultiLineString geometry
+                for line_coords in coordinates:
+                    polyline = LineString(line_coords)  # Use each part's coordinates
+                    polyline_features = poly_to_grid(resolution, polyline, feature_properties)
+                    geojson_features.extend(polyline_features['features'])
+            
+        elif feature['geometry']['type'] in ['Polygon', 'MultiPolygon']:
+            coordinates = feature['geometry']['coordinates']
+
+            if feature['geometry']['type'] == 'Polygon':
+                # Create Polygon with exterior and interior rings
+                exterior_ring = coordinates[0]  # The first coordinate set is the exterior ring
+                interior_rings = coordinates[1:]  # Remaining coordinate sets are interior rings (holes)
+                polygon = Polygon(exterior_ring, interior_rings)
+                polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                geojson_features.extend(polygon_features['features'])
+
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                # Handle each sub-polygon in MultiPolygon geometry
+                for sub_polygon_coords in coordinates:
+                    exterior_ring = sub_polygon_coords[0]  # The first coordinate set is the exterior ring
+                    interior_rings = sub_polygon_coords[1:]  # Remaining coordinate sets are interior rings (holes)
+                    polygon = Polygon(exterior_ring, interior_rings)
+                    polygon_features = poly_to_grid(resolution, polygon, feature_properties, compact)
+                    geojson_features.extend(polygon_features['features'])
+
+    return {"type": "FeatureCollection", "features": geojson_features}
+
+def is_url(path):
+    """Check if the given path is a URL."""
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+def read_geojson_file(geojson_path):
+    """Read GeoJSON from either a local file or URL."""
+    if is_url(geojson_path):
+        try:
+            response = requests.get(geojson_path)
+            response.raise_for_status()
+            return json.loads(response.text)
+        except requests.RequestException as e:
+            print(f"Error: Failed to download GeoJSON from URL {geojson_path}: {str(e)}")
+            return None
+    else:
+        if not os.path.exists(geojson_path):
+            print(f"Error: The file {geojson_path} does not exist.")
+            return None
+        try:
+            with open(geojson_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading GeoJSON file: {e}")
+            return None
+
+def geojson2quadkey_cli():
+    """Command line interface for converting GeoJSON to Quadkey DGGS format."""
+    parser = argparse.ArgumentParser(description="Convert GeoJSON to Quadkey DGGS")
+    parser.add_argument('-r', '--resolution', type=int, required=True, help="Resolution [0..29]")
+    parser.add_argument(
+        '-geojson', '--geojson', type=str, required=True, 
+        help="GeoJSON file path or URL (Point, Polyline or Polygon)"
+    )
+    parser.add_argument('-compact', action='store_true', help="Enable Tilecode compact mode")
+
+    args = parser.parse_args()
+    
+    if args.resolution < 0 or args.resolution > 29:
+        print(f"Please select a resolution in [0..29] range and try again ")
+        return
+    
+    # Read GeoJSON data from file or URL
+    geojson_data = read_geojson_file(args.geojson)
+    if geojson_data is None:
+        return
+
+    try:
+        # Convert the GeoJSON data
+        result = geojson2quadkey(geojson_data, args.resolution, args.compact)
+        
+        # Save the result
+        geojson_name = os.path.splitext(os.path.basename(args.geojson))[0]
+        geojson_path = f"{geojson_name}2quadkey_{args.resolution}.geojson"
+        if args.compact:        
+            geojson_path = f"{geojson_name}2quadkey_{args.resolution}_compacted.geojson"
+            
+        with open(geojson_path, 'w') as f:
+            json.dump(result, f)
+
+        print(f"GeoJSON saved as {geojson_path}")
+        
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
