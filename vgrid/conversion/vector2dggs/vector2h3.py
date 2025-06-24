@@ -501,7 +501,7 @@ def vector2h3_cli():
                        choices=['intersect', 'within', 'centroid_within', 'largest_overlap'],
                        help='Spatial predicate: intersect, within, centroid_within, largest_overlap for polygons')
     parser.add_argument('-c', '--compact', action='store_true', help='Enable H3 compact mode for polygons')
-    parser.add_argument('-t', '--topology', action='store_true', help='Enable H3 topology preserving mode')
+    parser.add_argument('-t', '--topology', action='store_true', help='Enable topology preserving mode')
     parser.add_argument('-np', '-no-props', dest='include_properties', action='store_false', help="Do not include original feature properties.")
     parser.add_argument('-f', '--format', default='geojson', 
                        choices=['geojson', 'gpkg', 'parquet', 'csv', 'shapefile'],
