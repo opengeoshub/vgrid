@@ -57,7 +57,7 @@ def point2isea4t(isea4t_dggs, resolution, point, feature_properties=None, predic
     if cell_polygon:
         num_edges = 3
         isea4t_feature = geodesic_dggs_to_feature("isea4t", isea4t_id, resolution, cell_polygon, num_edges)
-        if feature_properties:
+        if include_properties and feature_properties:
             isea4t_feature["properties"].update(feature_properties)
         isea4t_features.append(isea4t_feature)
     return isea4t_features
@@ -91,7 +91,7 @@ def polyline2isea4t(isea4t_dggs, resolution, feature, feature_properties=None, p
                 num_edges = 3
                 cell_resolution = len(isea4t_id) - 2
                 isea4t_feature = geodesic_dggs_to_feature("isea4t", isea4t_id, cell_resolution, cell_polygon, num_edges)
-                if feature_properties:
+                if include_properties and feature_properties:
                     isea4t_feature["properties"].update(feature_properties)
                 isea4t_features.append(isea4t_feature)
     return isea4t_features
@@ -102,6 +102,8 @@ def polygon2isea4t(isea4t_dggs, resolution, feature, feature_properties=None, pr
         polygons = [feature]
     elif feature.geom_type in ('MultiPolygon'):
         polygons = list(feature.geoms)
+    else:
+        return []
     for polygon in polygons:
         accuracy = isea4t_res_accuracy_dict.get(resolution)
         bounding_box = box(*polygon.bounds)
@@ -123,7 +125,7 @@ def polygon2isea4t(isea4t_dggs, resolution, feature, feature_properties=None, pr
                 num_edges = 3
                 cell_resolution = len(isea4t_id) - 2
                 isea4t_feature = geodesic_dggs_to_feature("isea4t", isea4t_id, cell_resolution, cell_polygon, num_edges)
-                if feature_properties:
+                if include_properties and feature_properties:
                     isea4t_feature["properties"].update(feature_properties)
                 isea4t_features.append(isea4t_feature)
     return isea4t_features
@@ -132,6 +134,7 @@ def polygon2isea4t(isea4t_dggs, resolution, feature, feature_properties=None, pr
 def geometry2isea4t(geometries, resolution, properties_list=None, predicate=None, compact=False, topology=False, include_properties=True):
     if not is_windows():
         raise NotImplementedError("ISEA4T DGGS conversion is only supported on Windows")
+    
     resolution = validate_isea4t_resolution(resolution)
     # Handle single geometry or list of geometries
     if not isinstance(geometries, list):
@@ -191,18 +194,7 @@ def geodataframe2isea4t(gdf, resolution, predicate=None, compact=False, topology
 def vector2isea4t(data, resolution, predicate=None, compact=False, topology=False, output_format='geojson', output_path=None, include_properties=True, **kwargs):
     if not is_windows():
         raise NotImplementedError("ISEA4T DGGS conversion is only supported on Windows")
-    
-    resolution = validate_isea4t_resolution(resolution)
-    # Handle single geometry or list of geometries
-    if not isinstance(geometries, list):
-        geometries = [geometries]
-    
-    # Handle properties
-    if properties_list is None:
-        properties_list = [{} for _ in geometries]
-    elif not isinstance(properties_list, list):
-        properties_list = [properties_list for _ in geometries]
-
+   
     if hasattr(data, 'geometry') and hasattr(data, 'columns'):
         result = geodataframe2isea4t(data, resolution, predicate, compact, topology, include_properties)
     elif isinstance(data, pd.DataFrame):

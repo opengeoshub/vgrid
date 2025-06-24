@@ -18,7 +18,7 @@ def calculate_total_cells(resolution, bbox):
     
     return total_lat_steps * total_lng_steps
 
-def generate_grid(resolution):
+def generate_grid(resolution, verbose = True):
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
     as a GeoJSON-like feature collection.
@@ -39,7 +39,7 @@ def generate_grid(resolution):
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
     total_steps = total_lat_steps * total_lng_steps
 
-    with tqdm(total=total_steps, desc="Generating OLC DGGS",unit=" cells") as pbar:
+    with tqdm(total=total_steps, desc="Generating OLC DGGS",unit=" cells", disable=not verbose) as pbar:
         lat = sw_lat
         while lat < ne_lat:
             lng = sw_lng
@@ -77,7 +77,7 @@ def generate_grid_within_bbox(resolution, bbox):
 
     # Step 1: Generate base cells at the lowest resolution (e.g., resolution 2)
     base_resolution = 2
-    base_cells = generate_grid(base_resolution)
+    base_cells = generate_grid(base_resolution, verbose = False)
 
     # Step 2: Identify seed cells that intersect with the bounding box
     seed_cells = []
@@ -187,7 +187,7 @@ def generate_grid_resample(resolution, geojson_features):
 
     # Step 2: Generate base cells at the lowest resolution (e.g., resolution 2)
     base_resolution = 2
-    base_cells = generate_grid(base_resolution)
+    base_cells = generate_grid(base_resolution, verbose = True)
 
     # Step 3: Identify seed cells that intersect with the unified geometry
     seed_cells = []
@@ -223,7 +223,7 @@ def generate_grid_resample(resolution, geojson_features):
             final_features.append(feature)
             seen_olc_ids.add(olc_id)
 
-    return {
+    return {    
         "type": "FeatureCollection",
         "features": final_features
     }
@@ -257,7 +257,7 @@ def main():
             print(f"which exceeds the limit of {max_cells}. ")
             print("Please select a smaller resolution and try again.")
             return
-        geojson_features = generate_grid(resolution)
+        geojson_features = generate_grid(resolution, verbose = True)
    
     else:
         geojson_features = generate_grid_within_bbox(resolution, bbox)

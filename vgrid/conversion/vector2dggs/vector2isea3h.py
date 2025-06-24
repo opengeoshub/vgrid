@@ -58,7 +58,7 @@ def point2isea3h(isea3h_dggs, resolution, point, feature_properties=None, predic
         cell_resolution = resolution
         num_edges = 3 if cell_resolution == 0 else 6
         isea3h_feature = geodesic_dggs_to_feature("isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges)
-        if feature_properties:
+        if include_properties and feature_properties:       
             isea3h_feature["properties"].update(feature_properties)
         isea3h_features.append(isea3h_feature)
     return isea3h_features
@@ -69,7 +69,8 @@ def polyline2isea3h(isea3h_dggs, resolution, feature, feature_properties=None, p
         polylines = [feature]
     elif feature.geom_type in ('MultiLineString'):
         polylines = list(feature.geoms)
-    
+    else:
+        return []
     for polyline in polylines:
         accuracy = isea3h_res_accuracy_dict.get(resolution)
         bounding_box = box(*polyline.bounds)
@@ -91,7 +92,7 @@ def polyline2isea3h(isea3h_dggs, resolution, feature, feature_properties=None, p
                 cell_resolution = isea3h_accuracy_res_dict.get(cell_accuracy)
                 num_edges = 3 if cell_resolution == 0 else 6
                 isea3h_feature = geodesic_dggs_to_feature("isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges)
-                if feature_properties:
+                if include_properties and feature_properties:
                     isea3h_feature["properties"].update(feature_properties)
                 isea3h_features.append(isea3h_feature)
     return isea3h_features
@@ -103,7 +104,8 @@ def polygon2isea3h(isea3h_dggs, resolution, feature, feature_properties=None, pr
         polygons = [feature]
     elif feature.geom_type in ('MultiPolygon'):
         polygons = list(feature.geoms)
-    
+    else:   
+        return []   
     for polygon in polygons:
         accuracy = isea3h_res_accuracy_dict.get(resolution)
         bounding_box = box(*polygon.bounds)
@@ -125,7 +127,7 @@ def polygon2isea3h(isea3h_dggs, resolution, feature, feature_properties=None, pr
                 cell_resolution = isea3h_accuracy_res_dict.get(cell_accuracy)
                 num_edges = 3 if cell_resolution == 0 else 6
                 isea3h_feature = geodesic_dggs_to_feature("isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges)
-                if feature_properties:
+                if include_properties and feature_properties:
                     isea3h_feature["properties"].update(feature_properties)
                 isea3h_features.append(isea3h_feature)
     return isea3h_features
@@ -194,8 +196,6 @@ def vector2isea3h(data, resolution, predicate=None, compact=False, topology=Fals
     if not is_windows():
         raise NotImplementedError("ISEA3H DGGS conversion is only supported on Windows")
     
-    resolution = validate_isea3h_resolution(resolution)
-
     if hasattr(data, 'geometry') and hasattr(data, 'columns'):
         result = geodataframe2isea3h(data, resolution, predicate, compact, topology, include_properties)
     elif isinstance(data, pd.DataFrame):
@@ -273,6 +273,14 @@ def vector2isea3h_cli():
     if not is_windows():
         print("ISEA3H DGGS conversion is only supported on Windows", file=sys.stderr)
         sys.exit(1)
+      # Validate resolution if provided
+    if args.resolution is not None:
+        try:
+            args.resolution = validate_isea3h_resolution(args.resolution)
+        except (ValueError, TypeError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
     data = args.input
     output_path = args.output
     if not output_path and args.format in ['geojson', 'gpkg', 'parquet', 'csv', 'shapefile']:

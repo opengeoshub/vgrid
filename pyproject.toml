@@ -74,6 +74,7 @@ vector2dggrid = "vgrid.conversion.vector2dggs.vector2dggrid:vector2dggrid_cli"
 vector2qtm = "vgrid.conversion.vector2dggs.vector2qtm:vector2qtm_cli"
 vector2olc = "vgrid.conversion.vector2dggs.vector2olc:vector2olc_cli"
 vector2geohash = "vgrid.conversion.vector2dggs.vector2geohash:vector2geohash_cli"
+vector2mgrs = "vgrid.conversion.vector2dggs.vector2mgrs:vector2mgrs_cli"
 vector2tilecode = "vgrid.conversion.vector2dggs.vector2tilecode:vector2tilecode_cli"
 vector2quadkey = "vgrid.conversion.vector2dggs.vector2quadkey:vector2quadkey_cli"
 

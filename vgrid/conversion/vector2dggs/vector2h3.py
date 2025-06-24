@@ -125,7 +125,8 @@ def polyline2h3(resolution, feature, feature_properties=None, predicate = None, 
         polylines = [feature]
     elif feature.geom_type == 'MultiLineString' :
         polylines = list(feature.geoms)
-
+    else:
+        return []
     for polyline in polylines:    
         avg_edge_length = h3.average_hexagon_edge_length(resolution, unit='m')
         
@@ -195,7 +196,8 @@ def polygon2h3(resolution, feature, feature_properties=None, predicate = None, c
         polygons = [feature]
     elif feature.geom_type == 'MultiPolygon' :
         polygons = list(feature.geoms)
-
+    else:
+        return []   
     for polygon in polygons:
         bbox = box(*polygon.bounds)
         distance = h3.average_hexagon_edge_length(resolution, unit='m') * 2
@@ -305,9 +307,7 @@ def dataframe2h3(df, resolution, predicate = None, compact=False, topology=False
         
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
-    """
-    resolution = validate_h3_resolution(resolution)
-    
+    """   
     # Find geometry column
     geometry_col = None
     for col in df.columns:
@@ -351,9 +351,7 @@ def geodataframe2h3(gdf, resolution, predicate = None, compact=False, topology=F
         
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
-    """
-    resolution = validate_h3_resolution(resolution)
-    
+    """   
     # Extract geometries and properties from GeoDataFrame
     geometries = []
     properties_list = []
@@ -398,19 +396,17 @@ def vector2h3(data, resolution, predicate=None, compact=False, topology=False, o
         
     Returns:
         dict or str: Output in the specified format
-    """
-    resolution = validate_h3_resolution(resolution)
-    
+    """    
     # Process input data directly
     if hasattr(data, 'geometry') and hasattr(data, 'columns'):
         # GeoDataFrame - convert to Shapely geometries first
         result = geodataframe2h3(data, resolution, predicate, compact, topology, include_properties)
     elif isinstance(data, pd.DataFrame):
         # Regular DataFrame with geometry column - convert to Shapely geometries first
-        result = dataframe2h3(data, resolution, predicate=compact, topology=topology, include_properties=include_properties)
+        result = dataframe2h3(data, resolution, predicate, compact, topology, include_properties)
     elif hasattr(data, 'geom_type') or (isinstance(data, list) and len(data) > 0 and hasattr(data[0], 'geom_type')):
         # Shapely geometry objects - process directly
-        result = geometry2h3(data, resolution, None, predicate, compact, topology, include_properties)
+        result = geometry2h3(data, resolution, None,predicate, compact, topology, include_properties)
     elif isinstance(data, dict) and 'type' in data:
         # GeoJSON data - convert to GeoDataFrame first, then process
         try:

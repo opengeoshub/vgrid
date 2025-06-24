@@ -226,7 +226,6 @@ def dataframe2rhealpix(df, resolution, predicate=None, compact=False, topology=F
     return geometry2rhealpix(geometries, resolution, properties_list, predicate, compact, topology, include_properties)
 
 def geodataframe2rhealpix(gdf, resolution, predicate=None, compact=False, topology=False, include_properties=True):
-    resolution = validate_rhealpix_resolution(resolution)
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -240,7 +239,6 @@ def geodataframe2rhealpix(gdf, resolution, predicate=None, compact=False, topolo
     return geometry2rhealpix(geometries, resolution, properties_list, predicate, compact, topology, include_properties)
 
 def vector2rhealpix(data, resolution, predicate=None, compact=False, topology=False, output_format='geojson', output_path=None, include_properties=True, **kwargs):
-    resolution = validate_rhealpix_resolution(resolution)
     if hasattr(data, 'geometry') and hasattr(data, 'columns'):
         result = geodataframe2rhealpix(data, resolution, predicate, compact, topology, include_properties)
     elif isinstance(data, pd.DataFrame):

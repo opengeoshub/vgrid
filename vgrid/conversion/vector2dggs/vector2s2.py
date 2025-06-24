@@ -47,7 +47,7 @@ def point2s2(resolution, point, feature_properties=None, predicate = None, compa
         resolution = cell_id.level()
         num_edges = 4
         s2_feature = geodesic_dggs_to_feature("s2", cell_token, resolution, cell_polygon, num_edges)
-        if feature_properties:
+        if include_properties and feature_properties:
             s2_feature["properties"].update(feature_properties)
         s2_features.append(s2_feature)
     return s2_features
@@ -56,9 +56,10 @@ def polyline2hs2(resolution, feature, feature_properties=None, predicate = None,
     s2_features = []
     if feature.geom_type in ('LineString'):
         polylines = [feature]
-    elif feature.geom_type in ('MultiPolygon'):
+    elif feature.geom_type in ('MultiLineString'):
         polylines = list(feature.geoms)
-        
+    else:
+        return []
     for polyline in polylines:
         min_lng, min_lat, max_lng, max_lat = polyline.bounds
         level = resolution
@@ -83,7 +84,7 @@ def polyline2hs2(resolution, feature, feature_properties=None, predicate = None,
             cell_resolution = cell_id.level()
             num_edges = 4
             s2_feature = geodesic_dggs_to_feature("s2", cell_token, cell_resolution, cell_polygon, num_edges)
-            if feature_properties:
+            if include_properties and feature_properties:
                 s2_feature["properties"].update(feature_properties)
             s2_features.append(s2_feature)
     return s2_features
@@ -91,13 +92,14 @@ def polyline2hs2(resolution, feature, feature_properties=None, predicate = None,
 
 def polygon2hs2(resolution, feature, feature_properties=None, predicate = None, compact= False, topology=False, include_properties=True):
     s2_features = []
-    if feature.geom_type in ('LineString', 'Polygon'):
-        polys = [feature]
-    elif feature.geom_type in ('MultiLineString', 'MultiPolygon'):
-        polys = list(feature.geoms)
-        
-    for poly in polys:
-        min_lng, min_lat, max_lng, max_lat = poly.bounds
+    if feature.geom_type in ('Polygon'):
+        polygons = [feature]
+    elif feature.geom_type in ('MultiPolygon'):
+        polygons = list(feature.geoms)
+    else:
+        return []
+    for polygon in polygons:
+        min_lng, min_lat, max_lng, max_lat = polygon.bounds
         level = resolution
         coverer = s2.RegionCoverer()
         coverer.min_level = level
@@ -114,13 +116,13 @@ def polygon2hs2(resolution, feature, feature_properties=None, predicate = None, 
             cell_ids = covering.cell_ids()
         for cell_id in cell_ids:
             cell_polygon = s2_cell_to_polygon(cell_id)
-            if not check_predicate(cell_polygon, poly, predicate):
+            if not check_predicate(cell_polygon, polygon, predicate):
                 continue
             cell_token = s2.CellId.to_token(cell_id)
             cell_resolution = cell_id.level()
             num_edges = 4
             s2_feature = geodesic_dggs_to_feature("s2", cell_token, cell_resolution, cell_polygon, num_edges)
-            if feature_properties:
+            if include_properties and feature_properties:
                 s2_feature["properties"].update(feature_properties)
             s2_features.append(s2_feature)
     return s2_features
@@ -158,8 +160,7 @@ def geometry2s2(geometries, resolution, properties_list=None, predicate=None, co
     return {"type": "FeatureCollection", "features": s2_features}
 
 # --- DataFrame/GeoDataFrame conversion ---
-def dataframe2s2(df, resolution, predicate=None, compact=False, topology=False, include_properties=True):
-    resolution = validate_s2_resolution(resolution)
+def dataframe2s2(df, resolution, predicate=None, compact=False, topology=False, include_properties=True):    
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -173,7 +174,6 @@ def dataframe2s2(df, resolution, predicate=None, compact=False, topology=False, 
     return geometry2s2(geometries, resolution, properties_list, predicate, compact, topology, include_properties)
 
 def geodataframe2s2(gdf, resolution, predicate=None, compact=False, topology=False, include_properties=True):
-    resolution = validate_s2_resolution(resolution)
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -202,7 +202,6 @@ def vector2s2(data, resolution, predicate=None, compact=False, topology=False, o
     Returns:
         dict or str: Output in the specified format
     """
-    resolution = validate_s2_resolution(resolution)
     # Process input data directly
     if hasattr(data, 'geometry') and hasattr(data, 'columns'):
         # GeoDataFrame

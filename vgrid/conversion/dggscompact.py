@@ -2259,7 +2259,7 @@ def quadkey_compact(quadkey_ids):
 
 def quadkeycompact(geojson_data,quadkey_id=None):
     if not quadkey_id:
-        quadkey_id='tilecode'
+        quadkey_id='quadkey'
     try:
         quadkey_ids = [feature["properties"][quadkey_id] for feature in geojson_data.get("features", []) if quadkey_id in feature.get("properties", {})]
         if not quadkey_ids:
