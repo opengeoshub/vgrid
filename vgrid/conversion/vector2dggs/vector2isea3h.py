@@ -34,7 +34,7 @@ def validate_isea3h_resolution(resolution):
     Validate that ISEA3H resolution is in the valid range [0..32].
 
     Args:
-        resolution: Resolution value to validate
+        resolution (int): Resolution value to validate
 
     Returns:
         int: Validated resolution value
@@ -48,8 +48,8 @@ def validate_isea3h_resolution(resolution):
             f"Resolution must be an integer, got {type(resolution).__name__}"
         )
 
-        if resolution < 0 or resolution > 32:
-            raise ValueError(f"Resolution must be in range [0..32], got {resolution}")
+    if resolution < 0 or resolution > 32:
+        raise ValueError(f"Resolution must be in range [0..32], got {resolution}")
 
     return resolution
 
@@ -64,6 +64,22 @@ def point2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a point geometry to an ISEA3H grid cell.
+
+    Args:
+        isea3h_dggs: Eaggr instance for ISEA3H DGGS operations.
+        resolution (int): ISEA3H resolution [0..32]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable ISEA3H compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing ISEA3H cells containing the point
+    """
     isea3h_features = []
     accuracy = isea3h_res_accuracy_dict.get(resolution)
     lat_long_point = LatLongPoint(point.y, point.x, accuracy)
@@ -92,6 +108,22 @@ def polyline2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to ISEA3H grid cells.
+
+    Args:
+        isea3h_dggs: Eaggr instance for ISEA3H DGGS operations.
+        resolution (int): ISEA3H resolution [0..32]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable ISEA3H compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing ISEA3H cells intersecting the line
+    """
     isea3h_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -142,6 +174,22 @@ def polygon2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to ISEA3H grid cells.
+
+    Args:
+        isea3h_dggs: Eaggr instance for ISEA3H DGGS operations.
+        resolution (int): ISEA3H resolution [0..32]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable ISEA3H compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing ISEA3H cells based on predicate
+    """
     isea3h_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -191,6 +239,21 @@ def geometry2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to ISEA3H grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): ISEA3H resolution [0..32]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable ISEA3H compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with ISEA3H grid cells
+    """
     if not is_windows():
         raise NotImplementedError("ISEA3H DGGS conversion is only supported on Windows")
 
@@ -270,6 +333,20 @@ def dataframe2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to ISEA3H grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): ISEA3H resolution [0..32]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable ISEA3H compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with ISEA3H grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -299,6 +376,20 @@ def geodataframe2isea3h(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to ISEA3H grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): ISEA3H resolution [0..32]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable ISEA3H compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with ISEA3H grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -331,6 +422,20 @@ def vector2isea3h(
     include_properties=True,
     **kwargs,
 ):
+    """
+    Convert vector data to ISEA3H grid cells from various input formats.
+
+    Args:
+        data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
+        resolution (int): ISEA3H resolution [0..32]
+        compact (bool): Enable ISEA3H compact mode for polygons (default: False)
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str): Output file path (optional)
+        include_properties (bool): If False, do not include original feature properties. (default: True)
+        **kwargs: Additional arguments passed to geopandas read functions
+    Returns:
+        dict or str: Output in the specified format
+    """
     if not is_windows():
         raise NotImplementedError("ISEA3H DGGS conversion is only supported on Windows")
 
@@ -370,6 +475,20 @@ def vector2isea3h(
 
 
 def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
@@ -412,6 +531,22 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 
 def vector2isea3h_cli():
+    """
+    Command-line interface for vector2isea3h conversion (Windows only).
+
+    Usage:
+        python vector2isea3h.py -i input.shp -r 10 -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: ISEA3H resolution [0..32]
+        -c, --compact: Enable ISEA3H compact mode
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+    """
     parser = argparse.ArgumentParser(
         description="Convert vector data to ISEA3H grid cells (Windows only)"
     )

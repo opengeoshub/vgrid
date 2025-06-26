@@ -661,8 +661,8 @@ def convert_to_output_format(result, output_format, output_path=None):
         if output_path:
             import json
 
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result  # Already in GeoJSON format

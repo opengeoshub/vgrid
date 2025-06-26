@@ -17,7 +17,7 @@ def validate_olc_resolution(resolution):
     Validate that OLC resolution is in the valid range [2,4,6,8,10,11,12,13,14,15].
 
     Args:
-        resolution: Resolution value to validate
+        resolution (int): Resolution value to validate
 
     Returns:
         int: Validated resolution value
@@ -48,6 +48,21 @@ def point2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a point geometry to an OLC grid cell.
+
+    Args:
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable OLC compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing OLC cells containing the point
+    """
     olc_features = []
     olc_id = olc.encode(point.y, point.x, resolution)
     coord = olc.decode(olc_id)
@@ -79,6 +94,21 @@ def polyline2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to OLC grid cells.
+
+    Args:
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable OLC compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing OLC cells intersecting the line
+    """
     olc_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -133,6 +163,21 @@ def polygon2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to OLC grid cells.
+
+    Args:
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable OLC compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing OLC cells based on predicate
+    """
     olc_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -190,6 +235,21 @@ def geometry2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to OLC grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable OLC compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with OLC grid cells
+    """
     resolution = validate_olc_resolution(resolution)
     # Handle single geometry or list of geometries
     if not isinstance(geometries, list):
@@ -270,6 +330,20 @@ def dataframe2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to OLC grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable OLC compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with OLC grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -299,6 +373,20 @@ def geodataframe2olc(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to OLC grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable OLC compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with OLC grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -331,6 +419,20 @@ def vector2olc(
     include_properties=True,
     **kwargs,
 ):
+    """
+    Convert vector data to OLC grid cells from various input formats.
+
+    Args:
+        data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
+        resolution (int): OLC resolution [2,4,6,8,10,11,12,13,14,15]
+        compact (bool): Enable OLC compact mode for polygons (default: False)
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str): Output file path (optional)
+        include_properties (bool): If False, do not include original feature properties. (default: True)
+        **kwargs: Additional arguments passed to geopandas read functions
+    Returns:
+        dict or str: Output in the specified format
+    """
     if hasattr(data, "geometry") and hasattr(data, "columns"):
         result = geodataframe2olc(
             data, resolution, predicate, compact, topology, include_properties
@@ -367,12 +469,26 @@ def vector2olc(
 
 
 def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
         if output_path:
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result
@@ -388,7 +504,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2olc.parquet", index=False)
+            return "vector2olc.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
@@ -409,6 +526,22 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 
 def vector2olc_cli():
+    """
+    Command-line interface for vector2olc conversion.
+
+    Usage:
+        python vector2olc.py -i input.shp -r 10 -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: OLC resolution (see OLC spec)
+        -c, --compact: Enable OLC compact mode
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+    """
     parser = argparse.ArgumentParser(
         description="Convert vector data to OLC grid cells"
     )

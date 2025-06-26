@@ -571,8 +571,8 @@ def convert_to_output_format(result, output_format, output_path=None):
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
         if output_path:
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result

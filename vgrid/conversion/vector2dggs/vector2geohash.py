@@ -21,7 +21,7 @@ def validate_geohash_resolution(resolution):
     Validate that Geohash resolution is in the valid range [1..10] (1=coarsest, 10=finest).
 
     Args:
-        resolution: Resolution value to validate
+        resolution (int): Resolution value to validate
 
     Returns:
         int: Validated resolution value
@@ -50,6 +50,21 @@ def point2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a point geometry to a Geohash grid cell.
+
+    Args:
+        resolution (int): Geohash resolution [1..10]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable Geohash compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing Geohash cells containing the point
+    """
     geohash_features = []
     longitude = point.x
     latitude = point.y
@@ -85,6 +100,21 @@ def polyline2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to Geohash grid cells.
+
+    Args:
+        resolution (int): Geohash resolution [1..10]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable Geohash compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing Geohash cells intersecting the line
+    """
     geohash_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -124,6 +154,21 @@ def polygon2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to Geohash grid cells.
+
+    Args:
+        resolution (int): Geohash resolution [1..10]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable Geohash compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing Geohash cells based on predicate
+    """
     geohash_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -165,6 +210,21 @@ def geometry2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to Geohash grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): Geohash resolution [1..10]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable Geohash compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with Geohash grid cells
+    """
     resolution = validate_geohash_resolution(resolution)
     # Handle single geometry or list of geometries
     if not isinstance(geometries, list):
@@ -246,6 +306,20 @@ def dataframe2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to Geohash grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): Geohash resolution [1..10]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable Geohash compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with Geohash grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -275,6 +349,20 @@ def geodataframe2geohash(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to Geohash grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): Geohash resolution [1..10]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable Geohash compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with Geohash grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -310,6 +398,7 @@ def vector2geohash(
 ):
     """
     Convert vector data to Geohash grid cells from various input formats.
+
     Args:
         data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
         resolution (int): Geohash resolution [1..10]
@@ -365,12 +454,26 @@ def vector2geohash(
 
 # --- Output format conversion ---
 def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
         if output_path:
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result
@@ -386,7 +489,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2geohash.parquet", index=False)
+            return "vector2geohash.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
@@ -408,6 +512,22 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 # --- CLI ---
 def vector2geohash_cli():
+    """
+    Command-line interface for vector2geohash conversion.
+
+    Usage:
+        python vector2geohash.py -i input.shp -r 5 -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: Geohash resolution [1..10]
+        -c, --compact: Enable Geohash compact mode
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+    """
     parser = argparse.ArgumentParser(
         description="Convert vector data to Geohash grid cells"
     )

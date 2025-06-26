@@ -17,6 +17,19 @@ geod = Geod(ellps="WGS84")
 
 # Function to generate grid for Point
 def point_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
+    """
+    Generate DGGRID cell(s) for a Point or MultiPoint geometry.
+
+    Args:
+        dggrid_instance: DGGRIDv7 instance for grid operations.
+        dggs_type (str): Type of DGGS (e.g., ISEA4H, FULLER, etc.).
+        res (int): Resolution for the DGGRID.
+        address_type (str): Address type for the output grid cells.
+        geometry (shapely.geometry.Point or MultiPoint): Input geometry.
+
+    Returns:
+        str: GeoJSON FeatureCollection as a string containing the grid cell(s).
+    """
     # Initialize an empty list to store filtered grid cells
     merged_grids = []
 
@@ -100,6 +113,19 @@ def point_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
 
 # Function to generate grid for Polyline
 def polyline_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
+    """
+    Generate DGGRID cells intersecting with a LineString or MultiLineString geometry.
+
+    Args:
+        dggrid_instance: DGGRIDv7 instance for grid operations.
+        dggs_type (str): Type of DGGS (e.g., ISEA4H, FULLER, etc.).
+        res (int): Resolution for the DGGRID.
+        address_type (str): Address type for the output grid cells.
+        geometry (shapely.geometry.LineString or MultiLineString): Input geometry.
+
+    Returns:
+        geopandas.GeoDataFrame: GeoDataFrame containing DGGRID cells intersecting with the input geometry.
+    """
     # Initialize an empty list to store filtered grid cells
     merged_grids = []
 
@@ -172,15 +198,15 @@ def polygon_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
     """
     Generate DGGRID cells intersecting with a given polygon or multipolygon geometry.
 
-    Parameters:
-        dggrid_instance: DGGRID instance to generate grid cells.
-        dggs_type: Type of DGGS (e.g., ISEA4H, FULLER, etc.).
-        res: Resolution for the DGGRID.
-        address_type: Address type for the output grid cells.
-        geometry: A Shapely Polygon or MultiPolygon geometry.
+    Args:
+        dggrid_instance: DGGRIDv7 instance for grid operations.
+        dggs_type (str): Type of DGGS (e.g., ISEA4H, FULLER, etc.).
+        res (int): Resolution for the DGGRID.
+        address_type (str): Address type for the output grid cells.
+        geometry (shapely.geometry.Polygon or MultiPolygon): Input geometry.
 
     Returns:
-        GeoDataFrame containing DGGRID cells intersecting with the input geometry.
+        geopandas.GeoDataFrame: GeoDataFrame containing DGGRID cells intersecting with the input geometry.
     """
     # Initialize an empty list to store filtered grid cells
     merged_grids = []
@@ -251,6 +277,20 @@ def polygon_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
 
 
 def main():
+    """
+    Command-line interface for converting GeoJSON to DGGRID grid cells.
+
+    Usage:
+        python vector2dggrid.py -t <dggs_type> -r <resolution> -a <address_type> -geojson <geojson_file>
+
+    Arguments:
+        -t, --dggs_type: DGGS type (e.g., ISEA4H, FULLER, etc.)
+        -r, --resolution: Resolution for the DGGRID
+        -a, --address_type: Output address type (default: SEQNUM)
+        -geojson, --geojson: Path to GeoJSON file with Point, Polyline, or Polygon
+
+    The function reads the input GeoJSON, processes each feature, and writes the output as a new GeoJSON file with grid cells.
+    """
     if platform.system() == "Linux":
         parser = argparse.ArgumentParser(description="Convert GeoJSON to DGGRID")
         parser.add_argument(

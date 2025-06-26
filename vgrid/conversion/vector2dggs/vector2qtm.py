@@ -39,7 +39,7 @@ def validate_qtm_resolution(resolution):
     Validate that QTM resolution is in the valid range [1..24].
 
     Args:
-        resolution: Resolution value to validate
+        resolution (int): Resolution value to validate
 
     Returns:
         int: Validated resolution value
@@ -68,6 +68,21 @@ def point2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a point geometry to a QTM grid cell.
+
+    Args:
+        resolution (int): QTM resolution [1..24]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable QTM compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing QTM cells containing the point
+    """
     qtm_features = []
     latitude = point.y
     longitude = point.x
@@ -94,6 +109,21 @@ def polyline2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to QTM grid cells.
+
+    Args:
+        resolution (int): QTM resolution [1..24]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable QTM compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing QTM cells intersecting the line
+    """
     qtm_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -165,6 +195,21 @@ def polygon2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to QTM grid cells.
+
+    Args:
+        resolution (int): QTM resolution [1..24]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable QTM compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing QTM cells based on predicate
+    """
     qtm_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -239,6 +284,21 @@ def geometry2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to QTM grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): QTM resolution [1..24]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable QTM compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with QTM grid cells
+    """
     resolution = validate_qtm_resolution(resolution)
 
     # Handle single geometry or list of geometries
@@ -320,6 +380,20 @@ def dataframe2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to QTM grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): QTM resolution [1..24]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable QTM compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with QTM grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -349,6 +423,20 @@ def geodataframe2qtm(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to QTM grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): QTM resolution [1..24]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable QTM compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with QTM grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -381,6 +469,20 @@ def vector2qtm(
     include_properties=True,
     **kwargs,
 ):
+    """
+    Convert vector data to QTM grid cells from various input formats.
+
+    Args:
+        data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
+        resolution (int): QTM resolution [1..24]
+        compact (bool): Enable QTM compact mode for polygons (default: False)
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str): Output file path (optional)
+        include_properties (bool): If False, do not include original feature properties. (default: True)
+        **kwargs: Additional arguments passed to geopandas read functions
+    Returns:
+        dict or str: Output in the specified format
+    """
     if hasattr(data, "geometry") and hasattr(data, "columns"):
         result = geodataframe2qtm(
             data, resolution, predicate, compact, topology, include_properties
@@ -417,12 +519,26 @@ def vector2qtm(
 
 
 def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
         if output_path:
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result
@@ -438,7 +554,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2qtm.parquet", index=False)
+            return "vector2qtm.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
@@ -459,6 +576,22 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 
 def vector2qtm_cli():
+    """
+    Command-line interface for vector2qtm conversion.
+
+    Usage:
+        python vector2qtm.py -i input.shp -r 10 -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: QTM resolution [1..24]
+        -c, --compact: Enable QTM compact mode
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+    """
     parser = argparse.ArgumentParser(
         description="Convert vector data to QTM grid cells"
     )

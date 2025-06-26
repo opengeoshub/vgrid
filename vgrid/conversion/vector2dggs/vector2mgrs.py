@@ -265,8 +265,8 @@ def convert_to_output_format(result, output_format, output_path=None):
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
         if output_path:
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
             return output_path
         else:
             return result
@@ -282,7 +282,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2mgrs.parquet", index=False)
+            return "vector2mgrs.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
