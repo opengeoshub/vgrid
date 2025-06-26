@@ -44,6 +44,28 @@ def point2s2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a single point geometry to S2 grid cells.
+
+    Args:
+        resolution (int): S2 resolution level [0..28]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable S2 compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing S2 cells containing the point
+
+    Example:
+        >>> from shapely.geometry import Point
+        >>> point = Point(-122.4194, 37.7749)  # San Francisco
+        >>> cells = point2s2(10, point, {"name": "SF"})
+        >>> len(cells)
+        1
+    """
     s2_features = []
     lat_lng = s2.LatLng.from_degrees(point.y, point.x)
     cell_id_max_res = s2.CellId.from_lat_lng(lat_lng)
@@ -72,6 +94,28 @@ def polyline2hs2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to S2 grid cells.
+
+    Args:
+        resolution (int): S2 resolution level [0..28]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable S2 compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing S2 cells intersecting the line
+
+    Example:
+        >>> from shapely.geometry import LineString
+        >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
+        >>> cells = polyline2hs2(10, line, {"name": "route"})
+        >>> len(cells) > 0
+        True
+    """
     s2_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -120,6 +164,28 @@ def polygon2hs2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to S2 grid cells.
+
+    Args:
+        resolution (int): S2 resolution level [0..28]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable S2 compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing S2 cells based on predicate
+
+    Example:
+        >>> from shapely.geometry import Polygon
+        >>> poly = Polygon([(-122.5, 37.7), (-122.3, 37.7), (-122.3, 37.9), (-122.5, 37.9)])
+        >>> cells = polygon2hs2(10, poly, {"name": "area"}, predicate="intersect")
+        >>> len(cells) > 0
+        True
+    """
     s2_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -169,6 +235,29 @@ def geometry2s2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to S2 grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): S2 resolution level [0..28]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable S2 compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with S2 grid cells
+
+    Example:
+        >>> from shapely.geometry import Point, Polygon
+        >>> geoms = [Point(-122.4194, 37.7749), Polygon([(-122.5, 37.7), (-122.3, 37.7), (-122.3, 37.9), (-122.5, 37.9)])]
+        >>> props = [{"name": "point"}, {"name": "polygon"}]
+        >>> result = geometry2s2(geoms, 10, props, predicate="intersect")
+        >>> result["type"]
+        'FeatureCollection'
+    """
     resolution = validate_s2_resolution(resolution)
 
     # Handle single geometry or list of geometries
@@ -253,6 +342,31 @@ def dataframe2s2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to S2 grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): S2 resolution level [0..28]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable S2 compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with S2 grid cells
+
+    Example:
+        >>> import pandas as pd
+        >>> from shapely.geometry import Point
+        >>> df = pd.DataFrame({
+        ...     'geometry': [Point(-122.4194, 37.7749)],
+        ...     'name': ['San Francisco']
+        ... })
+        >>> result = dataframe2s2(df, 10)
+        >>> result["type"]
+        'FeatureCollection'
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -282,6 +396,31 @@ def geodataframe2s2(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to S2 grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): S2 resolution level [0..28]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable S2 compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with S2 grid cells
+
+    Example:
+        >>> import geopandas as gpd
+        >>> from shapely.geometry import Point
+        >>> gdf = gpd.GeoDataFrame({
+        ...     'name': ['San Francisco'],
+        ...     'geometry': [Point(-122.4194, 37.7749)]
+        ... })
+        >>> result = geodataframe2s2(gdf, 10)
+        >>> result["type"]
+        'FeatureCollection'
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -317,17 +456,53 @@ def vector2s2(
 ):
     """
     Convert vector data to S2 grid cells from various input formats.
+
+    This is the main function that handles conversion of vector data to S2 grid cells.
+    It supports multiple input formats including file paths, URLs, DataFrames, GeoDataFrames,
+    GeoJSON dictionaries, and Shapely geometries.
+
     Args:
-        data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
-        resolution (int): S2 resolution [0..28]
-        predicate (str or int): Spatial predicate to apply (see check_predicate function)
-        compact (bool): Enable S2 compact mode for polygons (default: False)
-        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
-        output_path (str): Output file path (optional)
-        include_properties (bool): If False, do not include original feature properties. (default: True)
+        data: Input data in one of the following formats:
+            - File path (str): Path to vector file (shapefile, GeoJSON, etc.)
+            - URL (str): URL to vector data
+            - pandas.DataFrame: DataFrame with geometry column
+            - geopandas.GeoDataFrame: GeoDataFrame
+            - dict: GeoJSON dictionary
+            - shapely.geometry.BaseGeometry: Single geometry
+            - list: List of Shapely geometries
+        resolution (int): S2 resolution level [0..28] (0=coarsest, 28=finest)
+        predicate (str, optional): Spatial predicate for polygons:
+            - 'intersect': Include cells that intersect the polygon
+            - 'within': Include cells completely within the polygon
+            - 'centroid_within': Include cells whose centroids are within the polygon
+            - 'largest_overlap': Include cells with largest overlap with the polygon
+        compact (bool, optional): Enable S2 compact mode to reduce cell count for polygons and lines
+        topology (bool, optional): Enable topology preserving mode (currently not implemented)
+        output_format (str, optional): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+        include_properties (bool, optional): Whether to include original feature properties in output
         **kwargs: Additional arguments passed to geopandas read functions
+
     Returns:
-        dict or str: Output in the specified format
+        dict or str: Output in the specified format. Returns file path if output_path is specified,
+        otherwise returns the data directly.
+
+    Raises:
+        ValueError: If input data type is not supported or conversion fails
+        TypeError: If resolution is not an integer
+
+    Example:
+        >>> # Convert from file
+        >>> result = vector2s2("cities.shp", 10, predicate="intersect")
+        
+        >>> # Convert from GeoDataFrame
+        >>> import geopandas as gpd
+        >>> gdf = gpd.read_file("cities.shp")
+        >>> result = vector2s2(gdf, 10, output_format="geojson")
+        
+        >>> # Convert from GeoJSON dict
+        >>> geojson = {"type": "FeatureCollection", "features": [...]}
+        >>> result = vector2s2(geojson, 10, compact=True)
     """
     # Process input data directly
     if hasattr(data, "geometry") and hasattr(data, "columns"):
@@ -372,6 +547,26 @@ def vector2s2(
 
 # --- Output format conversion ---
 def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+
+    Example:
+        >>> result = {"type": "FeatureCollection", "features": [...]}
+        >>> output = convert_to_output_format(result, "geojson", "output.geojson")
+        >>> output
+        'output.geojson'
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
@@ -393,7 +588,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2s2.parquet", index=False)
+            return "vector2s2.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
@@ -415,6 +611,29 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 # --- CLI ---
 def vector2s2_cli():
+    """
+    Command-line interface for vector2s2 conversion.
+
+    This function provides a command-line interface for converting vector data to S2 grid cells.
+    It parses command-line arguments and calls the main vector2s2 function.
+
+    Usage:
+        python vector2s2.py -i input.shp -r 10 -p intersect -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: S2 resolution [0..28]
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -c, --compact: Enable S2 compact mode
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+
+    Example:
+        >>> # Convert shapefile to S2 cells at resolution 10
+        >>> # python vector2s2.py -i cities.shp -r 10 -p intersect -f geojson
+    """
     parser = argparse.ArgumentParser(description="Convert vector data to S2 grid cells")
     parser.add_argument("-i", "--input", help="Input file path, URL")
     parser.add_argument(

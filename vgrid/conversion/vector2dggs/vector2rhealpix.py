@@ -39,6 +39,14 @@ def validate_rhealpix_resolution(resolution):
 
 
 def rhealpix_cell_to_polygon(cell):
+    """Convert rHEALPix cell to Shapely polygon.
+    
+    Args:
+        cell: rHEALPix cell object
+        
+    Returns:
+        Polygon: Shapely polygon representation of the cell
+    """
     vertices = [
         tuple(my_round(coord, 14) for coord in vertex)
         for vertex in cell.vertices(plane=False)
@@ -59,6 +67,21 @@ def point2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert point geometry to rHEALPix grid cells.
+    
+    Args:
+        rhealpix_dggs: RHEALPixDGGS instance
+        resolution: rHEALPix resolution level
+        point: Point geometry
+        feature_properties: Optional properties to include
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        list: List of rHEALPix feature dictionaries
+    """
     rhealpix_features = []
     seed_cell = rhealpix_dggs.cell_from_point(
         resolution, (point.x, point.y), plane=False
@@ -88,7 +111,23 @@ def polyline2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert polyline geometry to rHEALPix grid cells.
+    
+    Args:
+        rhealpix_dggs: RHEALPixDGGS instance
+        resolution: rHEALPix resolution level
+        feature: LineString or MultiLineString geometry
+        feature_properties: Optional properties to include
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        list: List of rHEALPix feature dictionaries
+    """
     rhealpix_features = []
+    polylines = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
     elif feature.geom_type in ("MultiLineString"):
@@ -163,7 +202,23 @@ def polygon2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert polygon geometry to rHEALPix grid cells.
+    
+    Args:
+        rhealpix_dggs: RHEALPixDGGS instance
+        resolution: rHEALPix resolution level
+        feature: Polygon or MultiPolygon geometry
+        feature_properties: Optional properties to include
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        list: List of rHEALPix feature dictionaries
+    """
     rhealpix_features = []
+    polygons = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
     elif feature.geom_type in ("MultiPolygon"):
@@ -237,6 +292,20 @@ def geometry2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert list of geometries to rHEALPix grid cells.
+    
+    Args:
+        geometries: Single geometry or list of geometries
+        resolution: rHEALPix resolution level
+        properties_list: Optional list of properties for each geometry
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        dict: GeoJSON FeatureCollection with rHEALPix features
+    """
     resolution = validate_rhealpix_resolution(resolution)
     # Handle single geometry or list of geometries
     if not isinstance(geometries, list):
@@ -324,6 +393,19 @@ def dataframe2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert pandas DataFrame with geometry column to rHEALPix grid cells.
+    
+    Args:
+        df: pandas DataFrame with geometry column
+        resolution: rHEALPix resolution level
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        dict: GeoJSON FeatureCollection with rHEALPix features
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -353,6 +435,19 @@ def geodataframe2rhealpix(
     topology=False,
     include_properties=True,
 ):
+    """Convert GeoDataFrame to rHEALPix grid cells.
+    
+    Args:
+        gdf: GeoDataFrame with geometry column
+        resolution: rHEALPix resolution level
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        include_properties: Whether to include properties
+        
+    Returns:
+        dict: GeoJSON FeatureCollection with rHEALPix features
+    """
     geometries = []
     properties_list = []
     for idx, row in gdf.iterrows():
@@ -385,6 +480,22 @@ def vector2rhealpix(
     include_properties=True,
     **kwargs,
 ):
+    """Convert vector data to rHEALPix grid cells.
+    
+    Args:
+        data: Input data (GeoDataFrame, DataFrame, geometry, GeoJSON dict, or file path)
+        resolution: rHEALPix resolution level
+        predicate: Spatial predicate for filtering
+        compact: Enable compact mode
+        topology: Enable topology preserving mode
+        output_format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        output_path: Output file path
+        include_properties: Whether to include properties
+        **kwargs: Additional arguments for file reading
+        
+    Returns:
+        str or dict: Output file path or GeoJSON FeatureCollection
+    """
     if hasattr(data, "geometry") and hasattr(data, "columns"):
         result = geodataframe2rhealpix(
             data, resolution, predicate, compact, topology, include_properties
@@ -421,6 +532,16 @@ def vector2rhealpix(
 
 
 def convert_to_output_format(result, output_format, output_path=None):
+    """Convert result to specified output format.
+    
+    Args:
+        result: GeoJSON FeatureCollection
+        output_format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        output_path: Output file path
+        
+    Returns:
+        str or bytes: Output file path or data
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
@@ -442,7 +563,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2rhealpix.parquet", index=False)
+            return "vector2rhealpix.parquet"
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
@@ -463,6 +585,7 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 
 def vector2rhealpix_cli():
+    """Command-line interface for vector2rhealpix conversion."""
     parser = argparse.ArgumentParser(
         description="Convert vector data to rHEALPix grid cells"
     )

@@ -215,11 +215,11 @@ def raster2s2_cli():
 
     # Save the output
     if format.lower() == "geojson":
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f)
     elif format.lower() == "csv":
         fieldnames = list(result[0].keys())
-        with open(output_path, "w", newline="") as f:
+        with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(result)

@@ -21,7 +21,7 @@ def validate_ease_resolution(resolution):
     Validate that EASE resolution is in the valid range [0..6].
 
     Args:
-        resolution: Resolution value to validate
+        resolution (int): Resolution value to validate
 
     Returns:
         int: Validated resolution value
@@ -50,6 +50,21 @@ def point2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a single point geometry to EASE grid cell.
+
+    Args:
+        resolution (int): EASE resolution level [0..6]
+        point (shapely.geometry.Point): Point geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for points)
+        compact (bool, optional): Enable EASE compact mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode (not used for points)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing EASE cells containing the point
+    """
     ease_features = []
     latitude = point.y
     longitude = point.x
@@ -94,6 +109,21 @@ def polyline2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert line geometries (LineString, MultiLineString) to EASE grid cells.
+
+    Args:
+        resolution (int): EASE resolution level [0..6]
+        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Line geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply (not used for lines)
+        compact (bool, optional): Enable EASE compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing EASE cells intersecting the line
+    """
     ease_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -157,6 +187,21 @@ def polygon2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert polygon geometries (Polygon, MultiPolygon) to EASE grid cells.
+
+    Args:
+        resolution (int): EASE resolution level [0..6]
+        feature (shapely.geometry.Polygon or shapely.geometry.MultiPolygon): Polygon geometry to convert
+        feature_properties (dict, optional): Properties to include in output features
+        predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
+        compact (bool, optional): Enable EASE compact mode to reduce cell count
+        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        list: List of GeoJSON feature dictionaries representing EASE cells based on predicate
+    """
     ease_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -220,6 +265,21 @@ def geometry2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a list of geometries to EASE grid cells.
+
+    Args:
+        geometries (shapely.geometry.BaseGeometry or list): Single geometry or list of geometries
+        resolution (int): EASE resolution level [0..6]
+        properties_list (list, optional): List of property dictionaries for each geometry
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable EASE compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with EASE grid cells
+    """
     resolution = validate_ease_resolution(resolution)
     # Handle single geometry or list of geometries
     if not isinstance(geometries, list):
@@ -283,6 +343,20 @@ def dataframe2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a pandas DataFrame with geometry column to EASE grid cells.
+
+    Args:
+        df (pandas.DataFrame): DataFrame with geometry column
+        resolution (int): EASE resolution level [0..6]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable EASE compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with EASE grid cells
+    """
     geometries = []
     properties_list = []
     for idx, row in df.iterrows():
@@ -312,9 +386,23 @@ def geodataframe2ease(
     topology=False,
     include_properties=True,
 ):
+    """
+    Convert a GeoDataFrame to EASE grid cells.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to convert
+        resolution (int): EASE resolution level [0..6]
+        predicate (str, optional): Spatial predicate to apply for polygons
+        compact (bool, optional): Enable EASE compact mode for polygons and lines
+        topology (bool, optional): Enable topology preserving mode
+        include_properties (bool, optional): Whether to include properties in output
+
+    Returns:
+        dict: GeoJSON FeatureCollection with EASE grid cells
+    """
     geometries = []
     properties_list = []
-    for idx, row in gdf.iterrows():
+    for _, row in gdf.iterrows():
         geom = row.geometry
         if geom is not None:
             geometries.append(geom)
@@ -347,6 +435,7 @@ def vector2ease(
 ):
     """
     Convert vector data to EASE grid cells from various input formats.
+
     Args:
         data: File path, URL, DataFrame, GeoJSON dict, or Shapely geometry
         resolution (int): EASE resolution [0..6]
@@ -403,6 +492,20 @@ def vector2ease(
 def convert_to_output_format(
     result, output_format, output_path=None
 ):  # topology=Falset to bypass warning from pyogrio
+    """
+    Convert GeoJSON FeatureCollection to various output formats.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection dictionary
+        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
+        output_path (str, optional): Output file path. If None, uses default naming
+
+    Returns:
+        dict or str: Output in the specified format or file path
+
+    Raises:
+        ValueError: If output format is not supported
+    """
     gdf = gpd.GeoDataFrame.from_features(result["features"])
     gdf.set_crs(epsg=4326, inplace=True)
     if output_format.lower() == "geojson":
@@ -446,6 +549,25 @@ def convert_to_output_format(
 
 # --- CLI ---
 def vector2ease_cli():
+    """
+    Command-line interface for vector2ease conversion.
+
+    This function provides a command-line interface for converting vector data to EASE grid cells.
+    It parses command-line arguments and calls the main vector2ease function.
+
+    Usage:
+        python vector2ease.py -i input.shp -r 3 -c -f geojson -o output.geojson
+
+    Arguments:
+        -i, --input: Input file path or URL
+        -r, --resolution: EASE resolution [0..6]
+        -c, --compact: Enable EASE compact mode
+        -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
+        -t, --topology: Enable topology preserving mode
+        -np, --no-props: Do not include original feature properties
+        -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
+        -o, --output: Output file path
+    """
     parser = argparse.ArgumentParser(
         description="Convert vector data to EASE grid cells"
     )

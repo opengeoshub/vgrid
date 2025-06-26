@@ -622,6 +622,7 @@ def vector2h3(
             )
         except Exception as e:
             raise ValueError(f"Failed to convert GeoJSON to GeoDataFrame: {str(e)}")
+    
     elif isinstance(data, str):
         # File path or URL - use geopandas.read_file directly
         try:
@@ -679,7 +680,8 @@ def convert_to_output_format(result, output_format, output_path=None):
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2h3.parquet", index=False)
+            return "vector2h3.parquet"
 
     elif output_format.lower() == "csv":
         if output_path:
@@ -703,6 +705,7 @@ def convert_to_output_format(result, output_format, output_path=None):
 
 
 def vector2h3_cli():
+    """Command-line interface for vector2h3 conversion."""
     parser = argparse.ArgumentParser(description="Convert vector data to H3 grid cells")
     parser.add_argument("-i", "--input", help="Input file path, URL")
     parser.add_argument(
