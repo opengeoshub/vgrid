@@ -1,9 +1,6 @@
 import os
 import zipfile
 import tarfile
-import json
-import requests
-from urllib.parse import urlparse
 # Reference: https://github.com/opengeos/segment-geospatial/blob/main/samgeo/common.py
 
 
@@ -20,6 +17,7 @@ def github_raw_url(url):
             "blob/", ""
         )
     return url
+
 
 def install_package(package):
     """Install a Python package.
@@ -52,6 +50,7 @@ def install_package(package):
 
         # Wait for process to complete
         process.wait()
+
 
 def extract_archive(archive, outdir=None, **kwargs) -> None:
     """
@@ -95,7 +94,7 @@ def extract_archive(archive, outdir=None, **kwargs) -> None:
 
     try:
         patoolib.extract_archive(archive, outdir=outdir, **kwargs)
-    except Exception as e:
+    except Exception:
         print("The unzipped files might already exist. Skipping extraction.")
         return
 

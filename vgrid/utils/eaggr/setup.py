@@ -24,50 +24,46 @@ from _ast import __version__
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
+with open(path.join(here, "DESCRIPTION.rst"), encoding="utf-8") as f:
     long_description = f.read()
-with open(path.join(here, 'eaggr', 'version.py'), encoding='utf-8') as f:
+with open(path.join(here, "eaggr", "version.py"), encoding="utf-8") as f:
     exec(f.read())
 
 setup(
-    name='eaggr',
+    name="eaggr",
     version=__version__,
-
-    description='EAGGR Python Library',
+    description="EAGGR Python Library",
     long_description=long_description,
-
-    url='http://www.riskaware.co.uk',
-
-    author='Riskaware Ltd',
-    author_email='ian.bush@riskaware.co.uk',
-
+    url="http://www.riskaware.co.uk",
+    author="Riskaware Ltd",
+    author_email="ian.bush@riskaware.co.uk",
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
-        'Topic :: Scientific/Engineering',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Topic :: Scientific/Engineering",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.4",
     ],
-    keywords=['eaggr','dggs',],
-
+    keywords=[
+        "eaggr",
+        "dggs",
+    ],
     packages=[
-        'eaggr',
-        'eaggr.enums',
-        'eaggr.exceptions',
-        'eaggr.shapes',
-        'eaggr.dlls.win32-x86',
-        'eaggr.dlls.win32-x86-64',
-        'eaggr.dlls.linux-x86-64',
+        "eaggr",
+        "eaggr.enums",
+        "eaggr.exceptions",
+        "eaggr.shapes",
+        "eaggr.dlls.win32-x86",
+        "eaggr.dlls.win32-x86-64",
+        "eaggr.dlls.linux-x86-64",
     ],
     install_requires=[],
     extras_require={},
-
     package_data={
-        'eaggr.dlls.win32-x86' : ['*.dll'],
-        'eaggr.dlls.win32-x86-64' : ['*.dll'],
-        'eaggr.dlls.linux-x86-64' : ['*.so*'],
+        "eaggr.dlls.win32-x86": ["*.dll"],
+        "eaggr.dlls.win32-x86-64": ["*.dll"],
+        "eaggr.dlls.linux-x86-64": ["*.so*"],
     },
     data_files=[],
-
     entry_points={},
 )

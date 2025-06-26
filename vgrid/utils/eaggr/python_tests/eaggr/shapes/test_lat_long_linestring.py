@@ -24,11 +24,8 @@ from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
 
 ## Unit tests for the LatLongLinestring class.
 class TestLatLongLinestring(unittest.TestCase):
-
     def test_getters(self):
-        orig_points = [
-            LatLongPoint(1.0, 2.0, 3.0),
-            LatLongPoint(4.0, 5.0, 6.0)]
+        orig_points = [LatLongPoint(1.0, 2.0, 3.0), LatLongPoint(4.0, 5.0, 6.0)]
         linestring = LatLongLinestring()
         linestring.add_point(orig_points[0])
         linestring.add_point(orig_points[1])
@@ -39,5 +36,5 @@ class TestLatLongLinestring(unittest.TestCase):
 
     def test_errors(self):
         linestring = LatLongLinestring()
-        with self.assertRaises(ValueError) as cm:
-            linestring.add_point('Not a LatLongPoint')
+        with self.assertRaises(ValueError):
+            linestring.add_point("Not a LatLongPoint")

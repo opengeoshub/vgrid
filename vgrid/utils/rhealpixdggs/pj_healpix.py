@@ -24,7 +24,7 @@ from numpy import pi, floor, sqrt, sin, arcsin, sign, array, deg2rad, rad2deg
 from typing import Callable
 
 # Import my modules.
-from vgrid.utils.rhealpixdggs.utils import my_round, auth_lat, auth_rad
+from vgrid.utils.rhealpixdggs.utils import auth_lat, auth_rad
 
 
 def healpix_sphere(lam: float, phi: float) -> tuple[float, float]:

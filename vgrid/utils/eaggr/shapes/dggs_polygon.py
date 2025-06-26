@@ -23,7 +23,6 @@ from vgrid.utils.eaggr.shapes.dggs_linestring import DggsLinestring
 ## Defines a DGGS polygon made up of an outer ring and zero or more inner rings.
 #  The outer and inner rings are linestrings made up of DGGS cells.
 class DggsPolygon(object):
-
     ## Sets the outer ring of the polygon. Initially the polygon has no inner rings.
     #  @note Call add_inner_ring() to add inner rings to the polygon.
     #  @param outer_ring DggsLinestring defining the outer ring of the polygon.
@@ -39,7 +38,9 @@ class DggsPolygon(object):
     #  @throw ValueError Thrown if input argument is not a DggsLinestring object.
     def add_inner_ring(self, inner_ring):
         if not isinstance(inner_ring, DggsLinestring):
-            raise ValueError("Input argument to add_inner_ring() must be a DggsLinestring")
+            raise ValueError(
+                "Input argument to add_inner_ring() must be a DggsLinestring"
+            )
         self._inner_rings.append(inner_ring)
 
     ## @return DggsLinestring defining the outer ring of the polygon.

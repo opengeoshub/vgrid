@@ -22,7 +22,6 @@ from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 
 ## Defines a linestring made up of WGS84 lat/long points.
 class LatLongLinestring(object):
-
     ## Initially the linestring contains no points.
     #  @note Call add_point() to add points to the linestring.
     def __init__(self):

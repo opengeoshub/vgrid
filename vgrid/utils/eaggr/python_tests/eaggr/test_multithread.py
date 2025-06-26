@@ -22,14 +22,13 @@ import unittest
 from vgrid.utils.eaggr.eaggr import Eaggr
 from vgrid.utils.eaggr.enums.model import Model
 from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
-from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
+
 
 ## Tests for using the Eaggr class in a multithreaded environment.
 class TestDggsPython(unittest.TestCase):
-
     def convert_point_to_dggs_cell_in_thread(self, latitude, longitude):
         # Create the lat/long points
-        lat_long_point = LatLongPoint(latitude, longitude, 1E-5)
+        lat_long_point = LatLongPoint(latitude, longitude, 1e-5)
         # Initialise the DGGS model
         dggs = Eaggr(Model.ISEA4T)
         # Convert the lat/long point
@@ -37,15 +36,25 @@ class TestDggsPython(unittest.TestCase):
         # Convert back to a lat/long point
         converted_point = dggs.convert_dggs_cell_to_point(dggs_cell)
         # Check converted point is the same as the original
-        self.failUnlessAlmostEqual(lat_long_point.get_latitude(), converted_point.get_latitude(), places=3)
-        self.failUnlessAlmostEqual(lat_long_point.get_longitude(), converted_point.get_longitude(), places=3)
-        
+        self.failUnlessAlmostEqual(
+            lat_long_point.get_latitude(), converted_point.get_latitude(), places=3
+        )
+        self.failUnlessAlmostEqual(
+            lat_long_point.get_longitude(), converted_point.get_longitude(), places=3
+        )
+
     def test_multithread(self):
         # Initialise the thread objects
         for latitude in range(-16, 16):
             for longitude in range(-34, 34):
                 dggsRunners = []
-                dggsRunners.append(threading.Thread(self.convert_point_to_dggs_cell_in_thread(5 * latitude, 5 * longitude)))
+                dggsRunners.append(
+                    threading.Thread(
+                        self.convert_point_to_dggs_cell_in_thread(
+                            5 * latitude, 5 * longitude
+                        )
+                    )
+                )
         # Start the threads
         for runner in dggsRunners:
             runner.start()

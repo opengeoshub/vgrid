@@ -337,8 +337,8 @@ def neighbors(*tile, **kwargs):
     # Make sure to not generate invalid tiles for valid input
     # https://github.com/mapbox/mercantile/issues/122
     def valid(tile):
-        validx = 0 <= tile.x <= 2 ** tile.z - 1
-        validy = 0 <= tile.y <= 2 ** tile.z - 1
+        validx = 0 <= tile.x <= 2**tile.z - 1
+        validy = 0 <= tile.y <= 2**tile.z - 1
         validz = 0 <= tile.z
         return validx and validy and validz
 
@@ -380,7 +380,6 @@ def xy_bounds(*tile):
 
 
 def _xy(lng, lat, truncate=False):
-
     if truncate:
         lng, lat = truncate_lnglat(lng, lat)
 
@@ -944,4 +943,4 @@ def minmax(zoom):
     except ValueError:
         raise InvalidZoomError("zoom must be a positive integer")
 
-    return (0, 2 ** zoom - 1)
+    return (0, 2**zoom - 1)

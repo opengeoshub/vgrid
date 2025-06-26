@@ -1,5 +1,5 @@
-#Reference: 
-# https://github.com/aaliddell/s2cell, 
+# Reference:
+# https://github.com/aaliddell/s2cell,
 # https://medium.com/@claude.ducharme/selecting-a-geo-representation-81afeaf3bf01
 # https://github.com/sidewalklabs/s2
 # https://github.com/google/s2geometry/tree/master/src/python
@@ -9,8 +9,8 @@
 from vgrid.utils import s2
 import json
 from tqdm import tqdm
-from vgrid.utils.antimeridian import fix_polygon
 from shapely.geometry import Polygon, mapping
+
 
 def cell_to_polygon(cell_id):
     cell = s2.Cell(cell_id)
@@ -18,14 +18,14 @@ def cell_to_polygon(cell_id):
     for i in range(4):
         vertex = s2.LatLng.from_point(cell.get_vertex(i))
         vertices.append((vertex.lng().degrees, vertex.lat().degrees))
-    
+
     vertices.append(vertices[0])  # Close the polygon
-    
+
     # Create a Shapely Polygon
     polygon = Polygon(vertices)
     return polygon
     # #  Fix Antimerididan:
-    # fixed_polygon = fix_polygon(polygon)    
+    # fixed_polygon = fix_polygon(polygon)
     # return fixed_polygon
 
 
@@ -42,8 +42,9 @@ def generate_grid():
     # coverer.max_cells = 1_000_000  # Adjust as needed
 
     # Define the region to cover (in this example, we'll use the entire world)
-    region = s2.LatLngRect(s2.LatLng.from_degrees(-90, -180),
-                           s2.LatLng.from_degrees(90, 180))
+    region = s2.LatLngRect(
+        s2.LatLng.from_degrees(-90, -180), s2.LatLng.from_degrees(90, 180)
+    )
 
     # Get the covering cells
     covering = coverer.get_covering(region)
@@ -64,26 +65,24 @@ def generate_grid():
         feature = {
             "type": "Feature",
             "geometry": geometry,
-            "properties": {"s2": cell_id.to_token()}
+            "properties": {"s2": cell_id.to_token()},
         }
 
         features.append(feature)
 
     # Create a FeatureCollection
-    return {
-        "type": "FeatureCollection",
-        "features": features
-    }
+    return {"type": "FeatureCollection", "features": features}
 
-def main():   
+
+def main():
     geojson_features = generate_grid()
     # Define the GeoJSON file path
-    geojson_path = f"cube.geojson"
-    with open(geojson_path, 'w') as f:
+    geojson_path = "cube.geojson"
+    with open(geojson_path, "w") as f:
         json.dump(geojson_features, f, indent=2)
 
-    print(f"Cube saved as {geojson_path}")    
-   
+    print(f"Cube saved as {geojson_path}")
+
 
 if __name__ == "__main__":
     main()

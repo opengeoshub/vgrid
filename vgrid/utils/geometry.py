@@ -1,56 +1,56 @@
 import shapely
-import matplotlib.pyplot as plt
-import json
 from pyproj import Geod
-import h3
-import pandas as pd
 from shapely.geometry import Polygon, Point, LineString
 import numpy as np
 
 # Initialize Geod with WGS84 ellipsoid
-geod = Geod(ellps='WGS84')
+geod = Geod(ellps="WGS84")
+
 
 def calculate_point_distances(points):
     """
     Calculate distances between points in a Shapely geometry.
     If there's only one point, return 0.
     If there are multiple points, calculate Delaunay triangulation and return distances.
-    
+
     Args:
         points: Shapely Point or MultiPoint geometry
-        
+
     Returns:
         tuple: shortest_distance
     """
     # Handle single Point
     if isinstance(points, Point):
         return 0  # Single point has no distance to other points
-    
+
     # Handle MultiPoint with single point
     if len(points.geoms) == 1:
         return 0
-    
+
     # Generate Delaunay triangulation
     delaunay = shapely.delaunay_triangles(points, only_edges=True)
-    
+
     # Find the shortest edge
-    shortest_distance = float('inf')
-    
+    shortest_distance = float("inf")
+
     for line in delaunay.geoms:
         # Get the coordinates of the line endpoints
         coords = list(line.coords)
         lon1, lat1 = coords[0]
         lon2, lat2 = coords[1]
-        
+
         # Calculate the distance in meters using pyproj Geod
-        distance = geod.inv(lon1, lat1, lon2, lat2)[2]  # [2] gives the distance in meters
+        distance = geod.inv(lon1, lat1, lon2, lat2)[
+            2
+        ]  # [2] gives the distance in meters
         if distance < shortest_distance:
             shortest_distance = distance
-    
+
     return shortest_distance
 
 
 geod = Geod(ellps="WGS84")
+
 
 def densify_line(line, segment_length):
     total_length = line.length
@@ -68,15 +68,18 @@ def densify_line(line, segment_length):
         points = [line.interpolate(0), line.interpolate(total_length)]
     return LineString(points)
 
-def geodesic_distance(lat: float, lon: float, length_meter: float) -> tuple[float, float]:
+
+def geodesic_distance(
+    lat: float, lon: float, length_meter: float
+) -> tuple[float, float]:
     """
     Convert meters to approximate degree offsets at a given location.
-    
+
     Parameters:
         lat (float): Latitude of the reference point
         lon (float): Longitude of the reference point
         length_meter (float): Distance in meters
-    
+
     Returns:
         (delta_lat_deg, delta_lon_deg): Tuple of degree offsets in latitude and longitude
     """
@@ -94,11 +97,11 @@ def geodesic_distance(lat: float, lon: float, length_meter: float) -> tuple[floa
 def geodesic_buffer(polygon, distance):
     """
     Create a geodesic buffer around a polygon using pyproj Geod.
-    
+
     Args:
         polygon: Shapely Polygon geometry
         distance: Buffer distance in meters
-        
+
     Returns:
         Shapely Polygon: Buffered polygon
     """
@@ -106,19 +109,22 @@ def geodesic_buffer(polygon, distance):
     for lon, lat in polygon.exterior.coords:
         # Generate points around the current vertex to approximate a circle
         circle_coords = [
-            geod.fwd(lon, lat, azimuth, distance)[:2]  # Forward calculation: returns (lon, lat, back_azimuth)
+            geod.fwd(lon, lat, azimuth, distance)[
+                :2
+            ]  # Forward calculation: returns (lon, lat, back_azimuth)
             for azimuth in range(0, 360, 10)  # Generate points every 10 degrees
         ]
         buffered_coords.append(circle_coords)
-    
+
     # Flatten the list of buffered points and form a Polygon
     all_coords = [coord for circle in buffered_coords for coord in circle]
     return Polygon(all_coords).convex_hull
 
+
 def check_predicate(cell_polygon, input_geometry, predicate=None):
     """
     Determine whether to keep an H3 cell based on its relationship with the input geometry.
-    
+
     Args:
         cell_polygon: Shapely Polygon representing the H3 cell
         input_geometry: Shapely geometry (Polygon, LineString, etc.)
@@ -133,20 +139,20 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
                 1: within
                 2: centroid_within
                 3: intersection >= 50% of cell area
-            
+
     Returns:
         bool: True if cell should be kept, False otherwise
     """
     # Handle string predicates
     if isinstance(predicate, str):
         predicate_lower = predicate.lower()
-        if predicate_lower in ['intersects', 'intersect']:
+        if predicate_lower in ["intersects", "intersect"]:
             return cell_polygon.intersects(input_geometry)
-        elif predicate_lower == 'within':
+        elif predicate_lower == "within":
             return cell_polygon.within(input_geometry)
-        elif predicate_lower in ['centroid_within', 'centroid']:
+        elif predicate_lower in ["centroid_within", "centroid"]:
             return cell_polygon.centroid.within(input_geometry)
-        elif predicate_lower in ['largest_overlap', 'overlap', 'majority']:
+        elif predicate_lower in ["largest_overlap", "overlap", "majority"]:
             # intersection >= 50% of cell area
             if cell_polygon.intersects(input_geometry):
                 intersection_geom = cell_polygon.intersection(input_geometry)
@@ -158,7 +164,7 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
         else:
             # Unknown string predicate, default to intersects
             return cell_polygon.intersects(input_geometry)
-    
+
     # Handle integer predicates (backward compatibility)
     elif isinstance(predicate, int):
         if predicate == 0:
@@ -182,11 +188,10 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
         else:
             # Unknown predicate, default to intersects
             return cell_polygon.intersects(input_geometry)
-    
+
     else:
         # None or other types, default to intersects
         return cell_polygon.intersects(input_geometry)
-
 
 
 #### Test
@@ -217,7 +222,7 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
 # # Generate Delaunay triangulation for plotting
 # if len(points.geoms) > 1:
 #     delaunay = shapely.delaunay_triangles(points, only_edges=True)
-    
+
 #     # Find the shortest edge for highlighting
 #     shortest_edge = None
 #     for line in delaunay.geoms:
@@ -228,12 +233,12 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
 #         if abs(distance - shortest_distance) < 0.01:  # Small tolerance for floating point comparison
 #             shortest_edge = line
 #             break
-    
+
 #     # Plot the delaunay triangulation edges
 #     for line in delaunay.geoms:
 #         x_coords = [coord[0] for coord in line.coords]
 #         y_coords = [coord[1] for coord in line.coords]
-        
+
 #         # Check if this is the shortest edge
 #         if line == shortest_edge:
 #             plt.plot(x_coords, y_coords, 'g-', linewidth=3, label='Shortest Edge')

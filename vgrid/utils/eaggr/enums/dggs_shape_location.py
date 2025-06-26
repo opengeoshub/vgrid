@@ -22,14 +22,18 @@ or can be found at <http://www.gnu.org/licenses/>.
 #  @param value Input to check.
 #  @throw ValueError Thrown if the input is not a DGGS shape location.
 def check_dggs_shape_location(value):
-    if not (isinstance(value, int) and
-            value >= DggsShapeLocation.ONE_FACE and value <= DggsShapeLocation.NO_LOCATION):
-        raise ValueError('DGGS shape location must be one of the DggsShapeLocation values')
+    if not (
+        isinstance(value, int)
+        and value >= DggsShapeLocation.ONE_FACE
+        and value <= DggsShapeLocation.NO_LOCATION
+    ):
+        raise ValueError(
+            "DGGS shape location must be one of the DggsShapeLocation values"
+        )
 
 
 ## Different DGGS shape location types.
 class DggsShapeLocation:
-
     ## Shape sits entirely on one face.
     ONE_FACE = 0
     ## Shape spans two faces.

@@ -26,11 +26,10 @@ from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
 
 ## Shape defined by DGGS cells.
 #
-#  The class wraps one of a DggsCell, DggsLinestring or DggsPolygon 
+#  The class wraps one of a DggsCell, DggsLinestring or DggsPolygon
 #  (depending on the type of the lat/long shape that was coverted by the library).
 #  The type of shape stored can be found from the get_shape_type() method.
 class DggsShape(object):
-
     ## Sets the shape, along with its type and location.
     #  @param shape Must be DggsCell, DggsLinestring or DggsPolygon.
     #  @param location Must be one of the DggsShapeLocation values.
@@ -43,7 +42,9 @@ class DggsShape(object):
         elif isinstance(shape, DggsPolygon):
             self._shape_type = DggsShapeType.POLYGON
         else:
-            raise ValueError("First input argument to DggsShape() must be DggsCell, DggsLinestring or DggsPolygon")
+            raise ValueError(
+                "First input argument to DggsShape() must be DggsCell, DggsLinestring or DggsPolygon"
+            )
         self._shape = shape
         check_dggs_shape_location(location)
         self._location = location

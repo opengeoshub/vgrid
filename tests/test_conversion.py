@@ -1,5 +1,5 @@
-import pytest
 from vgrid.conversion.latlon2dggs import latlon2h3
+
 
 def test_latlon2h3_basic(sample_data):
     """Test basic lat/lon to H3 conversion."""

@@ -24,9 +24,9 @@ import xmlrunner
 ## Runs all tests in the modules of "tests" package that match the pattern "test_*.py".
 #  Results are output to an xUnit compatible XML file in a directory called "reportsXX",
 #  where "XX" is the version number of the Python interpreter used to run the tests.
-if __name__ == '__main__':
-    report_dir = 'reports' + str(sys.version_info[0]) + str(sys.version_info[1])
+if __name__ == "__main__":
+    report_dir = "reports" + str(sys.version_info[0]) + str(sys.version_info[1])
     loader = unittest.TestLoader()
-    tests = loader.discover('.')
+    tests = loader.discover(".")
     runner = xmlrunner.XMLTestRunner(output=report_dir)
     runner.run(tests)

@@ -24,10 +24,9 @@ from vgrid.utils.eaggr.exceptions.eaggr_exception import EaggrException
 
 ## Unit tests for the EaggrException class.
 class TestLatLongPoint(unittest.TestCase):
-
     def test_getters(self):
         orig_return_code = DggsReturnCode.DGGS_SUCCESS
-        orig_message = 'Test message'
+        orig_message = "Test message"
         exception = EaggrException(orig_return_code, orig_message)
         self.assertEqual(orig_return_code, exception.get_return_code())
         self.assertEqual(orig_message, str(exception))

@@ -20,7 +20,6 @@ or can be found at <http://www.gnu.org/licenses/>.
 
 ## Exception thrown if a DGGS DLL function fails.
 class EaggrException(Exception):
-
     ## Stores an error message and the value returned by the DGGS DLL function.
     def __init__(self, return_code, message):
         # Call the base class constructor with the parameters it needs

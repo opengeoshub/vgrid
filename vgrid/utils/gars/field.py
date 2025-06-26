@@ -5,6 +5,7 @@ This module contains tools to generate
 - the desired resolution.
 
 """
+
 import itertools
 from typing import List, Optional, Tuple, Type
 
@@ -77,12 +78,14 @@ class GARSField:
 
         # first north/south letter,  GARSGrid (A-Q), EDGARSGRid (A-B)
         lat_letter1_range: str = gars_grid.LETTERS[  # type: ignore
-            gars_grid.LETTERS.index(ll_lat1) : gars_grid.LETTERS.index(ur_lat1) + 1  # type: ignore
+            gars_grid.LETTERS.index(ll_lat1) : gars_grid.LETTERS.index(ur_lat1)
+            + 1  # type: ignore
         ]
 
         # second north/south letter, A-Z
         lat_letter2_range: str = gars_grid.LETTERS[  # type: ignore
-            gars_grid.LETTERS.index(ll_lat2) : gars_grid.LETTERS.index(ur_lat2) + 1  # type: ignore
+            gars_grid.LETTERS.index(ll_lat2) : gars_grid.LETTERS.index(ur_lat2)
+            + 1  # type: ignore
         ]
 
         lat_letter_range: List[str] = []
@@ -93,7 +96,8 @@ class GARSField:
 
             # part 2: from second letter1 to next to last letter2 with all LETTERS
             for letter1, letter2 in itertools.product(
-                lat_letter1_range[1:-1], gars_grid.LETTERS  # type: ignore
+                lat_letter1_range[1:-1],
+                gars_grid.LETTERS,  # type: ignore
             ):
                 lat_letter_range.append("".join([letter1, letter2]))
 

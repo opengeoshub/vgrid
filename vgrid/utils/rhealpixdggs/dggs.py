@@ -167,8 +167,6 @@ from vgrid.utils.rhealpixdggs.ellipsoids import (
     UNIT_SPHERE,
     UNIT_SPHERE_RADIANS,
 )
-from vgrid.utils.rhealpixdggs.utils import my_round
-from numpy.testing import assert_allclose
 
 
 class RHEALPixDGGS(object):
@@ -1246,7 +1244,7 @@ class RHEALPixDGGS(object):
             S480586367780080
 
         """
-        if resolution == None:
+        if resolution is None:
             resolution = randint(0, self.max_resolution)
         suid = []
         suid.append(CELLS0[randint(0, 5)])
