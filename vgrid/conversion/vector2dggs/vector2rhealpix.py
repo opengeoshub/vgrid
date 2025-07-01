@@ -2,7 +2,7 @@ import sys
 import argparse
 import json
 from tqdm import tqdm
-from shapely.geometry import Polygon, box
+from shapely.geometry import Polygon, box, MultiPoint, MultiLineString, MultiPolygon
 import pandas as pd
 import geopandas as gpd
 from vgrid.utils.rhealpixdggs.dggs import RHEALPixDGGS
@@ -11,6 +11,13 @@ from vgrid.generator.rhealpixgrid import fix_rhealpix_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
 from vgrid.conversion.dggscompact import rhealpix_compact
 from vgrid.utils.geometry import check_predicate
+import math
+from vgrid.stats.rhealpixstats import rhealpix_metrics
+from vgrid.utils.geometry import (
+    shortest_point_distance,
+    shortest_polyline_distance,
+    shortest_polygon_distance,
+)
 
 
 def validate_rhealpix_resolution(resolution):
@@ -66,6 +73,7 @@ def point2rhealpix(
     compact=False,
     topology=False,
     include_properties=True,
+    all_points=None,
 ):
     """Convert point geometry to rHEALPix grid cells.
     
@@ -78,14 +86,32 @@ def point2rhealpix(
         compact: Enable compact mode
         topology: Enable topology preserving mode
         include_properties: Whether to include properties
+        all_points: All points for topology preservation
         
     Returns:
         list: List of rHEALPix feature dictionaries
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_points is None:
+            raise ValueError("all_points parameter is required when topology=True")
+        shortest_distance = shortest_point_distance(all_points)
+        # print(shortest_distance)
+        if shortest_distance > 0:
+            for res in range(16):
+                _, avg_edge_length, _ = rhealpix_metrics(res)
+                cell_diameter = avg_edge_length * 2
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                resolution = 15
+    
     rhealpix_features = []
     seed_cell = rhealpix_dggs.cell_from_point(
         resolution, (point.x, point.y), plane=False
     )
+
     seed_cell_polygon = rhealpix_cell_to_polygon(seed_cell)
     if seed_cell_polygon:
         seed_cell_id = str(seed_cell)
@@ -110,6 +136,7 @@ def polyline2rhealpix(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polylines=None,
 ):
     """Convert polyline geometry to rHEALPix grid cells.
     
@@ -122,10 +149,25 @@ def polyline2rhealpix(
         compact: Enable compact mode
         topology: Enable topology preserving mode
         include_properties: Whether to include properties
+        all_polylines: All polylines for topology preservation
         
     Returns:
         list: List of rHEALPix feature dictionaries
     """
+       # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polylines is None:
+            raise ValueError("all_polylines parameter is required when topology=True")
+        shortest_distance = shortest_polyline_distance(all_polylines)
+        if shortest_distance > 0:
+            for res in range(16):
+                _, avg_edge_length, _ = rhealpix_metrics(res)
+                cell_diameter = avg_edge_length * 2
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                resolution = 15
     rhealpix_features = []
     polylines = []
     if feature.geom_type in ("LineString"):
@@ -189,6 +231,9 @@ def polyline2rhealpix(
                 if feature_properties:
                     rhealpix_feature["properties"].update(feature_properties)
                 rhealpix_features.append(rhealpix_feature)
+
+ 
+
     return rhealpix_features
 
 
@@ -201,6 +246,7 @@ def polygon2rhealpix(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polygons=None,
 ):
     """Convert polygon geometry to rHEALPix grid cells.
     
@@ -213,10 +259,25 @@ def polygon2rhealpix(
         compact: Enable compact mode
         topology: Enable topology preserving mode
         include_properties: Whether to include properties
+        all_polygons: All polygons for topology preservation
         
     Returns:
         list: List of rHEALPix feature dictionaries
     """
+     # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polygons is None:
+            raise ValueError("all_polygons parameter is required when topology=True")
+        shortest_distance = shortest_polygon_distance(all_polygons)
+        if shortest_distance > 0:
+            for res in range(16):
+                _, avg_edge_length, _ = rhealpix_metrics(res)
+                cell_diameter = avg_edge_length * 2
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                resolution = 15
     rhealpix_features = []
     polygons = []
     if feature.geom_type in ("Polygon"):
@@ -280,6 +341,7 @@ def polygon2rhealpix(
                 if feature_properties:
                     rhealpix_feature["properties"].update(feature_properties)
                 rhealpix_features.append(rhealpix_feature)
+
     return rhealpix_features
 
 
@@ -319,6 +381,37 @@ def geometry2rhealpix(
 
     rhealpix_dggs = RHEALPixDGGS()
     rhealpix_features = []
+
+    # Collect all points, polylines, and polygons for topology preservation if needed
+    all_points = None
+    all_polylines = None
+    all_polygons = None
+    if topology:
+        points_list = []
+        polylines_list = []
+        polygons_list = []
+        for i, geom in enumerate(geometries):
+            if geom is None:
+                continue
+            if geom.geom_type == "Point":
+                points_list.append(geom)
+            elif geom.geom_type == "MultiPoint":
+                points_list.extend(list(geom.geoms))
+            elif geom.geom_type == "LineString":
+                polylines_list.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                polylines_list.extend(list(geom.geoms))
+            elif geom.geom_type == "Polygon":
+                polygons_list.append(geom)
+            elif geom.geom_type == "MultiPolygon":
+                polygons_list.extend(list(geom.geoms))
+        if points_list:
+            all_points = MultiPoint(points_list)
+        if polylines_list:
+            all_polylines = MultiLineString(polylines_list)
+        if polygons_list:
+            all_polygons = MultiPolygon(polygons_list)
+
     for idx, geom in enumerate(tqdm(geometries, desc="Processing features")):
         if geom is None:
             continue
@@ -340,6 +433,7 @@ def geometry2rhealpix(
                     compact,
                     topology,
                     include_properties,
+                    all_points,
                 )
             )
         elif geom.geom_type == "MultiPoint":
@@ -354,6 +448,7 @@ def geometry2rhealpix(
                         compact,
                         topology,
                         include_properties,
+                        all_points,
                     )
                 )
         elif geom.geom_type in ("LineString", "MultiLineString"):
@@ -367,6 +462,7 @@ def geometry2rhealpix(
                     compact,
                     topology,
                     include_properties,
+                    all_polylines,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -380,6 +476,7 @@ def geometry2rhealpix(
                     compact,
                     topology,
                     include_properties,
+                    all_polygons,
                 )
             )
     return {"type": "FeatureCollection", "features": rhealpix_features}
@@ -532,25 +629,71 @@ def vector2rhealpix(
 
 
 def convert_to_output_format(result, output_format, output_path=None):
-    """Convert result to specified output format.
-    
-    Args:
-        result: GeoJSON FeatureCollection
-        output_format: Output format (geojson, gpkg, parquet, csv, shapefile)
-        output_path: Output file path
-        
-    Returns:
-        str or bytes: Output file path or data
     """
-    gdf = gpd.GeoDataFrame.from_features(result["features"])
-    gdf.set_crs(epsg=4326, inplace=True)
+    Convert rHEALPix result to specified output format.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection result
+        output_format (str): Desired output format
+        output_path (str): Output file path (optional)
+
+    Returns:
+        dict or str: Output in the specified format
+    """
+    # Check if result has features
+    if not result or "features" not in result or not result["features"]:
+        print("Warning: No features found in result. This may happen when:")
+        print("  - Using 'within' predicate with coarse resolution (cells too large)")
+        print("  - Using 'largest_overlap' predicate with no cells having >50% overlap")
+        print("  - Input geometry is invalid or empty")
+        print("Suggestions:")
+        print("  - Try a finer resolution (higher number)")
+        print("  - Use 'intersect' or 'centroid_within' predicate instead")
+        print("  - Check that input geometry is valid")
+        raise ValueError("No features found in result")
+    
+    # First convert GeoJSON result to GeoDataFrame
+    try:
+        gdf = gpd.GeoDataFrame.from_features(result["features"])
+
+        # Set CRS to WGS84 (EPSG:4326) since rHEALPix uses WGS84 coordinates
+        gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Ensure the geometry column is set as the active geometry column
+        if 'geometry' in gdf.columns:
+            gdf.set_geometry('geometry', inplace=True)
+        else:
+            # If no geometry column found, try to identify it
+            geom_cols = [col for col in gdf.columns if hasattr(gdf[col].iloc[0], 'geom_type')]
+            if geom_cols:
+                gdf.set_geometry(geom_cols[0], inplace=True)
+            else:
+                raise ValueError("No geometry column found in GeoDataFrame")
+        
+        # Verify the GeoDataFrame has valid geometry
+        if gdf.empty:
+            raise ValueError("GeoDataFrame is empty")
+        
+        if not gdf.geometry.is_valid.all():
+            print("Warning: Some geometries are invalid")
+    
+    except Exception as e:
+        print(f"Error creating GeoDataFrame: {str(e)}")
+        print(f"Result features count: {len(result['features']) if 'features' in result else 0}")
+        if 'features' in result and result['features']:
+            print(f"First feature: {result['features'][0]}")
+        raise
+
     if output_format.lower() == "geojson":
         if output_path:
+            import json
+
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(result, f)
             return output_path
         else:
-            return result
+            return result  # Already in GeoJSON format
+
     elif output_format.lower() == "gpkg":
         if output_path:
             gdf.to_file(output_path, driver="GPKG")
@@ -558,6 +701,7 @@ def convert_to_output_format(result, output_format, output_path=None):
         else:
             gdf.to_file("vector2rhealpix.gpkg", driver="GPKG")
             return "vector2rhealpix.gpkg"
+
     elif output_format.lower() == "parquet":
         if output_path:
             gdf.to_parquet(output_path, index=False)
@@ -565,12 +709,14 @@ def convert_to_output_format(result, output_format, output_path=None):
         else:
             gdf.to_parquet("vector2rhealpix.parquet", index=False)
             return "vector2rhealpix.parquet"
+
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
             return output_path
         else:
             return gdf.to_csv(index=False)
+
     elif output_format.lower() == "shapefile":
         if output_path:
             gdf.to_file(output_path, driver="ESRI Shapefile")
@@ -578,6 +724,7 @@ def convert_to_output_format(result, output_format, output_path=None):
         else:
             gdf.to_file("vector2rhealpix.shp", driver="ESRI Shapefile")
             return "vector2rhealpix.shp"
+
     else:
         raise ValueError(
             f"Unsupported output format: {output_format}. Supported formats: geojson, gpkg, parquet, csv, shapefile"

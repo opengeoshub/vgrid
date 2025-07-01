@@ -6,12 +6,13 @@ from tqdm import tqdm
 from shapely.geometry import shape, box, Point, LineString
 from pyproj import Geod
 import platform
+import geopandas as gpd
+import pandas as pd
 
 if platform.system() == "Linux":
     from vgrid.utils.dggrid4py import DGGRIDv7, dggs_types
     from vgrid.utils.dggrid4py.dggrid_runner import output_address_types
-    import geopandas as gpd
-    import pandas as pd
+
 geod = Geod(ellps="WGS84")
 
 
@@ -274,6 +275,109 @@ def polygon_to_grid(dggrid_instance, dggs_type, res, address_type, geometry):
         final_grid = gpd.GeoDataFrame(columns=["geometry"], crs="EPSG:4326")
 
     return final_grid
+
+
+def convert_to_output_format(result, output_format, output_path=None):
+    """
+    Convert DGGRID result to specified output format.
+
+    Args:
+        result (dict): GeoJSON FeatureCollection result
+        output_format (str): Desired output format
+        output_path (str): Output file path (optional)
+
+    Returns:
+        dict or str: Output in the specified format
+    """
+    # Check if result has features
+    if not result or "features" not in result or not result["features"]:
+        print("Warning: No features found in result. This may happen when:")
+        print("  - Using 'within' predicate with coarse resolution (cells too large)")
+        print("  - Using 'largest_overlap' predicate with no cells having >50% overlap")
+        print("  - Input geometry is invalid or empty")
+        print("Suggestions:")
+        print("  - Try a finer resolution (higher number)")
+        print("  - Use 'intersect' or 'centroid_within' predicate instead")
+        print("  - Check that input geometry is valid")
+        raise ValueError("No features found in result")
+    
+    # First convert GeoJSON result to GeoDataFrame
+    try:
+        gdf = gpd.GeoDataFrame.from_features(result["features"])
+
+        # Set CRS to WGS84 (EPSG:4326) since DGGRID uses WGS84 coordinates
+        gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Ensure the geometry column is set as the active geometry column
+        if 'geometry' in gdf.columns:
+            gdf.set_geometry('geometry', inplace=True)
+        else:
+            # If no geometry column found, try to identify it
+            geom_cols = [col for col in gdf.columns if hasattr(gdf[col].iloc[0], 'geom_type')]
+            if geom_cols:
+                gdf.set_geometry(geom_cols[0], inplace=True)
+            else:
+                raise ValueError("No geometry column found in GeoDataFrame")
+        
+        # Verify the GeoDataFrame has valid geometry
+        if gdf.empty:
+            raise ValueError("GeoDataFrame is empty")
+        
+        if not gdf.geometry.is_valid.all():
+            print("Warning: Some geometries are invalid")
+    
+    except Exception as e:
+        print(f"Error creating GeoDataFrame: {str(e)}")
+        print(f"Result features count: {len(result['features']) if 'features' in result else 0}")
+        if 'features' in result and result['features']:
+            print(f"First feature: {result['features'][0]}")
+        raise
+
+    if output_format.lower() == "geojson":
+        if output_path:
+            import json
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+            return output_path
+        else:
+            return result  # Already in GeoJSON format
+
+    elif output_format.lower() == "gpkg":
+        if output_path:
+            gdf.to_file(output_path, driver="GPKG")
+            return output_path
+        else:
+            gdf.to_file("vector2dggrid.gpkg", driver="GPKG")
+            return "vector2dggrid.gpkg"
+
+    elif output_format.lower() == "parquet":
+        if output_path:
+            gdf.to_parquet(output_path, index=False)
+            return output_path
+        else:
+            gdf.to_parquet("vector2dggrid.parquet", index=False)
+            return "vector2dggrid.parquet"
+
+    elif output_format.lower() == "csv":
+        if output_path:
+            gdf.to_csv(output_path, index=False)
+            return output_path
+        else:
+            return gdf.to_csv(index=False)
+
+    elif output_format.lower() == "shapefile":
+        if output_path:
+            gdf.to_file(output_path, driver="ESRI Shapefile")
+            return output_path
+        else:
+            gdf.to_file("vector2dggrid.shp", driver="ESRI Shapefile")
+            return "vector2dggrid.shp"
+
+    else:
+        raise ValueError(
+            f"Unsupported output format: {output_format}. Supported formats: geojson, gpkg, parquet, csv, shapefile"
+        )
 
 
 def main():

@@ -1,13 +1,25 @@
 import sys
 import argparse
 import json
+import math
 from tqdm import tqdm
+from pyproj import Geod
 import pandas as pd
 import geopandas as gpd
+from shapely.geometry import Polygon, box, MultiPoint, MultiLineString, MultiPolygon
 from vgrid.utils import s2
 from vgrid.generator.s2grid import s2_cell_to_polygon
 from vgrid.generator.settings import geodesic_dggs_to_feature
-from vgrid.utils.geometry import check_predicate
+from vgrid.utils.geometry import (
+    geodesic_buffer,
+    check_predicate,
+    shortest_point_distance,
+    shortest_polyline_distance,
+    shortest_polygon_distance
+)
+from vgrid.stats.s2stats import s2_metrics
+
+geod = Geod(ellps="WGS84")
 
 
 def validate_s2_resolution(resolution):
@@ -43,6 +55,7 @@ def point2s2(
     compact=False,
     topology=False,
     include_properties=True,
+    all_points=None,  # New parameter for topology preservation
 ):
     """
     Convert a single point geometry to S2 grid cells.
@@ -53,8 +66,9 @@ def point2s2(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply (not used for points)
         compact (bool, optional): Enable S2 compact mode (not used for points)
-        topology (bool, optional): Enable topology preserving mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint points have disjoint S2 cells
         include_properties (bool, optional): Whether to include properties in output
+        all_points: List of all points for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing S2 cells containing the point
@@ -66,6 +80,32 @@ def point2s2(
         >>> len(cells)
         1
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_points is None:
+            raise ValueError("all_points parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all points
+        shortest_distance = shortest_point_distance(all_points)
+        
+        # Find resolution where S2 cell size is smaller than shortest distance
+        # This ensures disjoint points have disjoint S2 cells
+        if shortest_distance > 0:
+            for res in range(29):
+                # Use s2_metrics to get accurate edge length
+                _, avg_edge_length, _ = s2_metrics(res)
+                # Use a factor to ensure sufficient separation (cell diameter is ~2x edge length)
+                cell_diameter = avg_edge_length * math.sqrt(2) * 2
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 28
+        else:
+            # Single point or no distance, use provided resolution
+            pass
+
     s2_features = []
     lat_lng = s2.LatLng.from_degrees(point.y, point.x)
     cell_id_max_res = s2.CellId.from_lat_lng(lat_lng)
@@ -93,6 +133,7 @@ def polyline2hs2(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polylines=None,  # New parameter for topology preservation
 ):
     """
     Convert line geometries (LineString, MultiLineString) to S2 grid cells.
@@ -103,8 +144,9 @@ def polyline2hs2(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply (not used for lines)
         compact (bool, optional): Enable S2 compact mode to reduce cell count
-        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint polylines have disjoint S2 cells
         include_properties (bool, optional): Whether to include properties in output
+        all_polylines: List of all polylines for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing S2 cells intersecting the line
@@ -116,6 +158,32 @@ def polyline2hs2(
         >>> len(cells) > 0
         True
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polylines is None:
+            raise ValueError("all_polylines parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all polylines
+        shortest_distance = shortest_polyline_distance(all_polylines)
+        
+        # Find resolution where S2 cell size is smaller than shortest distance
+        # This ensures disjoint polylines have disjoint S2 cells
+        if shortest_distance > 0:
+            for res in range(29):
+                # Use s2_metrics to get accurate edge length
+                _, avg_edge_length, _ = s2_metrics(res)
+                # Use a factor to ensure sufficient separation (cell diameter is ~2x edge length)
+                cell_diameter = avg_edge_length * math.sqrt(2) * 2  # in case there are 2 cells representing the same line segment
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 28
+        else:
+            # Single polyline or no distance, use provided resolution
+            pass
+
     s2_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -163,6 +231,7 @@ def polygon2hs2(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polygons=None,  # New parameter for topology preservation
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to S2 grid cells.
@@ -173,8 +242,9 @@ def polygon2hs2(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
         compact (bool, optional): Enable S2 compact mode to reduce cell count
-        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint polygons have disjoint S2 cells
         include_properties (bool, optional): Whether to include properties in output
+        all_polygons: List of all polygons for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing S2 cells based on predicate
@@ -186,6 +256,32 @@ def polygon2hs2(
         >>> len(cells) > 0
         True
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polygons is None:
+            raise ValueError("all_polygons parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all polygons
+        shortest_distance = shortest_polygon_distance(all_polygons)
+        
+        # Find resolution where S2 cell size is smaller than shortest distance
+        # This ensures disjoint polygons have disjoint S2 cells
+        if shortest_distance > 0:
+            for res in range(29):
+                # Use s2_metrics to get accurate edge length
+                _, avg_edge_length, _ = s2_metrics(res)
+                # Use a factor to ensure sufficient separation (cell diameter is ~2x edge length)
+                cell_diameter = avg_edge_length * math.sqrt(2) * 2
+                if cell_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 28
+        else:
+            # Single polygon or no distance, use provided resolution
+            pass
+
     s2_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -193,6 +289,7 @@ def polygon2hs2(
         polygons = list(feature.geoms)
     else:
         return []
+    
     for polygon in polygons:
         min_lng, min_lat, max_lng, max_lat = polygon.bounds
         level = resolution
@@ -209,6 +306,7 @@ def polygon2hs2(
             covering = s2.CellUnion(covering)
             covering.normalize()
             cell_ids = covering.cell_ids()
+        
         for cell_id in cell_ids:
             cell_polygon = s2_cell_to_polygon(cell_id)
             if not check_predicate(cell_polygon, polygon, predicate):
@@ -222,6 +320,7 @@ def polygon2hs2(
             if include_properties and feature_properties:
                 s2_feature["properties"].update(feature_properties)
             s2_features.append(s2_feature)
+    
     return s2_features
 
 
@@ -270,6 +369,36 @@ def geometry2s2(
     elif not isinstance(properties_list, list):
         properties_list = [properties_list for _ in geometries]
 
+    # Collect all points, polylines, and polygons for topology preservation if needed
+    all_points = None
+    all_polylines = None
+    all_polygons = None
+    if topology:
+        points_list = []
+        polylines_list = []
+        polygons_list = []
+        for i, geom in enumerate(geometries):
+            if geom is None:
+                continue
+            if geom.geom_type == "Point":
+                points_list.append(geom)
+            elif geom.geom_type == "MultiPoint":
+                points_list.extend(list(geom.geoms))
+            elif geom.geom_type == "LineString":
+                polylines_list.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                polylines_list.extend(list(geom.geoms))
+            elif geom.geom_type == "Polygon":
+                polygons_list.append(geom)
+            elif geom.geom_type == "MultiPolygon":
+                polygons_list.extend(list(geom.geoms))
+        if points_list:
+            all_points = MultiPoint(points_list)
+        if polylines_list:
+            all_polylines = MultiLineString(polylines_list)
+        if polygons_list:
+            all_polygons = MultiPolygon(polygons_list)
+
     s2_features = []
     for idx, geom in enumerate(tqdm(geometries, desc="Processing features")):
         if geom is None:
@@ -291,6 +420,7 @@ def geometry2s2(
                     compact,
                     topology,
                     include_properties,
+                    all_points,  # Pass all points for topology preservation
                 )
             )
         elif geom.geom_type == "MultiPoint":
@@ -304,6 +434,7 @@ def geometry2s2(
                         compact,
                         topology,
                         include_properties,
+                        all_points,  # Pass all points for topology preservation
                     )
                 )
         elif geom.geom_type in ("LineString", "MultiLineString"):
@@ -316,6 +447,7 @@ def geometry2s2(
                     compact,
                     topology,
                     include_properties,
+                    all_polylines,  # Pass all polylines for topology preservation
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -328,6 +460,7 @@ def geometry2s2(
                     compact,
                     topology,
                     include_properties,
+                    all_polygons,  # Pass all polygons for topology preservation
                 )
             )
     return {"type": "FeatureCollection", "features": s2_features}
@@ -369,7 +502,7 @@ def dataframe2s2(
     """
     geometries = []
     properties_list = []
-    for idx, row in df.iterrows():
+    for _, row in df.iterrows():
         geom = row.geometry if "geometry" in row else row["geometry"]
         if geom is not None:
             geometries.append(geom)
@@ -423,7 +556,7 @@ def geodataframe2s2(
     """
     geometries = []
     properties_list = []
-    for idx, row in gdf.iterrows():
+    for _, row in gdf.iterrows():
         geom = row.geometry
         if geom is not None:
             geometries.append(geom)
@@ -477,7 +610,7 @@ def vector2s2(
             - 'centroid_within': Include cells whose centroids are within the polygon
             - 'largest_overlap': Include cells with largest overlap with the polygon
         compact (bool, optional): Enable S2 compact mode to reduce cell count for polygons and lines
-        topology (bool, optional): Enable topology preserving mode (currently not implemented)
+        topology (bool, optional): Enable S2 topology preserving mode - ensures disjoint features have disjoint S2 cells by automatically calculating appropriate resolution
         output_format (str, optional): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
         output_path (str, optional): Output file path. If None, uses default naming
         include_properties (bool, optional): Whether to include original feature properties in output
@@ -567,8 +700,48 @@ def convert_to_output_format(result, output_format, output_path=None):
         >>> output
         'output.geojson'
     """
-    gdf = gpd.GeoDataFrame.from_features(result["features"])
-    gdf.set_crs(epsg=4326, inplace=True)
+    # Check if result has features
+    if not result or "features" not in result or not result["features"]:
+        print("Warning: No features found in result. This may happen when:")
+        print("  - Using 'within' predicate with coarse resolution (cells too large)")
+        print("  - Using 'largest_overlap' predicate with no cells having >50% overlap")
+        print("  - Input geometry is invalid or empty")
+        print("Suggestions:")
+        print("  - Try a finer resolution (higher number)")
+        print("  - Use 'intersect' or 'centroid_within' predicate instead")
+        print("  - Check that input geometry is valid")
+        raise ValueError("No features found in result")
+    
+    # Create GeoDataFrame from features and ensure geometry column is properly set
+    try:
+        gdf = gpd.GeoDataFrame.from_features(result["features"])
+        gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Ensure the geometry column is set as the active geometry column
+        if 'geometry' in gdf.columns:
+            gdf.set_geometry('geometry', inplace=True)
+        else:
+            # If no geometry column found, try to identify it
+            geom_cols = [col for col in gdf.columns if hasattr(gdf[col].iloc[0], 'geom_type')]
+            if geom_cols:
+                gdf.set_geometry(geom_cols[0], inplace=True)
+            else:
+                raise ValueError("No geometry column found in GeoDataFrame")
+        
+        # Verify the GeoDataFrame has valid geometry
+        if gdf.empty:
+            raise ValueError("GeoDataFrame is empty")
+        
+        if not gdf.geometry.is_valid.all():
+            print("Warning: Some geometries are invalid")
+    
+    except Exception as e:
+        print(f"Error creating GeoDataFrame: {str(e)}")
+        print(f"Result features count: {len(result['features']) if 'features' in result else 0}")
+        if 'features' in result and result['features']:
+            print(f"First feature: {result['features'][0]}")
+        raise
+    
     if output_format.lower() == "geojson":
         if output_path:
             with open(output_path, "w", encoding="utf-8") as f:
@@ -625,7 +798,7 @@ def vector2s2_cli():
         -r, --resolution: S2 resolution [0..28]
         -p, --predicate: Spatial predicate (intersect, within, centroid_within, largest_overlap)
         -c, --compact: Enable S2 compact mode
-        -t, --topology: Enable topology preserving mode
+        -t, --topology: Enable topology preserving mode ensuring disjoint features have disjoint S2 cells by automatically calculating appropriate resolution.
         -np, --no-props: Do not include original feature properties
         -f, --format: Output format (geojson, gpkg, parquet, csv, shapefile)
         -o, --output: Output file path
@@ -657,7 +830,8 @@ def vector2s2_cli():
         help="Enable S2 compact mode for polygons",
     )
     parser.add_argument(
-        "-t", "--topology", action="store_true", help="Enable topology preserving mode"
+        "-t", "--topology", action="store_true", 
+        help="Enable topology preserving mode ensuring disjoint features have disjoint S2 cells by automatically calculating appropriate resolution."
     )
     parser.add_argument(
         "-np",

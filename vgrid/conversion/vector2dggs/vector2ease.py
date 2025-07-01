@@ -2,7 +2,7 @@ import sys
 import argparse
 import json
 from tqdm import tqdm
-from shapely.geometry import Polygon, box
+from shapely.geometry import Polygon, box, MultiPoint, MultiLineString, MultiPolygon
 import pandas as pd
 import geopandas as gpd
 from vgrid.generator.settings import geodesic_dggs_to_feature
@@ -13,7 +13,12 @@ from vgrid.utils.easedggs.dggs.grid_addressing import (
     geo_polygon_to_grid_ids,
 )
 from vgrid.conversion.dggscompact import ease_compact
-from vgrid.utils.geometry import check_predicate
+from vgrid.utils.geometry import (
+    check_predicate,
+    shortest_point_distance,
+    shortest_polyline_distance,
+    shortest_polygon_distance,
+)
 
 
 def validate_ease_resolution(resolution):
@@ -49,6 +54,7 @@ def point2ease(
     compact=False,
     topology=False,
     include_properties=True,
+    all_points=None,  # New parameter for topology preservation
 ):
     """
     Convert a single point geometry to EASE grid cell.
@@ -59,12 +65,38 @@ def point2ease(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply (not used for points)
         compact (bool, optional): Enable EASE compact mode (not used for points)
-        topology (bool, optional): Enable topology preserving mode (not used for points)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint points have disjoint EASE cells
         include_properties (bool, optional): Whether to include properties in output
+        all_points: List of all points for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing EASE cells containing the point
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_points is None:
+            raise ValueError("all_points parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all points
+        shortest_distance = shortest_point_distance(all_points)
+        
+        # Find resolution where EASE cell size is smaller than shortest distance
+        # This ensures disjoint points have disjoint EASE cells
+        if shortest_distance > 0:
+            for res in range(7):  # EASE resolution range is [0..6]
+                if res in levels_specs:
+                    cell_width = levels_specs[res]["x_length"]
+                    # Use a factor to ensure sufficient separation (cell diagonal is ~1.4x cell width)
+                    cell_diagonal = cell_width * 1.4
+                    if cell_diagonal < shortest_distance:
+                        resolution = res
+                        break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 6
+        else:
+            # Single point or no distance, use provided resolution
+            pass
     ease_features = []
     latitude = point.y
     longitude = point.x
@@ -108,6 +140,7 @@ def polyline2ease(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polylines=None,  # New parameter for topology preservation
 ):
     """
     Convert line geometries (LineString, MultiLineString) to EASE grid cells.
@@ -118,12 +151,38 @@ def polyline2ease(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply (not used for lines)
         compact (bool, optional): Enable EASE compact mode to reduce cell count
-        topology (bool, optional): Enable topology preserving mode (not used for lines)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint polylines have disjoint EASE cells
         include_properties (bool, optional): Whether to include properties in output
+        all_polylines: List of all polylines for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing EASE cells intersecting the line
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polylines is None:
+            raise ValueError("all_polylines parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all polylines
+        shortest_distance = shortest_polyline_distance(all_polylines)
+        
+        # Find resolution where EASE cell size is smaller than shortest distance
+        # This ensures disjoint polylines have disjoint EASE cells
+        if shortest_distance > 0:
+            for res in range(7):  # EASE resolution range is [0..6]
+                if res in levels_specs:
+                    cell_width = levels_specs[res]["x_length"]
+                    # Use a factor to ensure sufficient separation (cell diagonal is ~1.4x cell width)
+                    cell_diagonal = cell_width * 2.8  # in case there are 2 cells representing the same line segment
+                    if cell_diagonal < shortest_distance:
+                        resolution = res
+                        break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 6
+        else:
+            # Single polyline or no distance, use provided resolution
+            pass
     ease_features = []
     if feature.geom_type in ("LineString"):
         polylines = [feature]
@@ -186,6 +245,7 @@ def polygon2ease(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polygons=None,  # New parameter for topology preservation
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to EASE grid cells.
@@ -196,12 +256,38 @@ def polygon2ease(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
         compact (bool, optional): Enable EASE compact mode to reduce cell count
-        topology (bool, optional): Enable topology preserving mode (not used for polygons)
+        topology (bool, optional): Enable topology preserving mode - ensures disjoint polygons have disjoint EASE cells
         include_properties (bool, optional): Whether to include properties in output
+        all_polygons: List of all polygons for topology preservation (required when topology=True)
 
     Returns:
         list: List of GeoJSON feature dictionaries representing EASE cells based on predicate
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polygons is None:
+            raise ValueError("all_polygons parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all polygons
+        shortest_distance = shortest_polygon_distance(all_polygons)
+        
+        # Find resolution where EASE cell size is smaller than shortest distance
+        # This ensures disjoint polygons have disjoint EASE cells
+        if shortest_distance > 0:
+            for res in range(7):  # EASE resolution range is [0..6]
+                if res in levels_specs:
+                    cell_width = levels_specs[res]["x_length"]
+                    # Use a factor to ensure sufficient separation (cell diagonal is ~1.4x cell width)
+                    cell_diagonal = cell_width * 2.8
+                    if cell_diagonal < shortest_distance:
+                        resolution = res
+                        break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 6
+        else:
+            # Single polygon or no distance, use provided resolution
+            pass
     ease_features = []
     if feature.geom_type in ("Polygon"):
         polygons = [feature]
@@ -291,6 +377,36 @@ def geometry2ease(
     elif not isinstance(properties_list, list):
         properties_list = [properties_list for _ in geometries]
 
+    # Collect all points, polylines, and polygons for topology preservation if needed
+    all_points = None
+    all_polylines = None
+    all_polygons = None
+    if topology:
+        points_list = []
+        polylines_list = []
+        polygons_list = []
+        for i, geom in enumerate(geometries):
+            if geom is None:
+                continue
+            if geom.geom_type == "Point":
+                points_list.append(geom)
+            elif geom.geom_type == "MultiPoint":
+                points_list.extend(list(geom.geoms))
+            elif geom.geom_type == "LineString":
+                polylines_list.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                polylines_list.extend(list(geom.geoms))
+            elif geom.geom_type == "Polygon":
+                polygons_list.append(geom)
+            elif geom.geom_type == "MultiPolygon":
+                polygons_list.extend(list(geom.geoms))
+        if points_list:
+            all_points = MultiPoint(points_list)
+        if polylines_list:
+            all_polylines = MultiLineString(polylines_list)
+        if polygons_list:
+            all_polygons = MultiPolygon(polygons_list)
+
     ease_features = []
     for idx, geom in enumerate(tqdm(geometries, desc="Processing features")):
         if geom is None:
@@ -303,10 +419,32 @@ def geometry2ease(
         if not include_properties:
             props = {}
         if geom.geom_type == "Point":
-            ease_features.extend(point2ease(resolution, geom, props))
+            ease_features.extend(
+                point2ease(
+                    resolution,
+                    geom,
+                    props,
+                    predicate,
+                    compact,
+                    topology,
+                    include_properties,
+                    all_points,  # Pass all points for topology preservation
+                )
+            )
         elif geom.geom_type == "MultiPoint":
             for pt in geom.geoms:
-                ease_features.extend(point2ease(resolution, pt, props))
+                ease_features.extend(
+                    point2ease(
+                        resolution,
+                        pt,
+                        props,
+                        predicate,
+                        compact,
+                        topology,
+                        include_properties,
+                        all_points,  # Pass all points for topology preservation
+                    )
+                )
         elif geom.geom_type in ("LineString", "MultiLineString"):
             ease_features.extend(
                 polyline2ease(
@@ -317,6 +455,7 @@ def geometry2ease(
                     compact,
                     topology,
                     include_properties,
+                    all_polylines,  # Pass all polylines for topology preservation
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -329,6 +468,7 @@ def geometry2ease(
                     compact,
                     topology,
                     include_properties,
+                    all_polygons=all_polygons,  # Pass all polygons for topology preservation
                 )
             )
     return {"type": "FeatureCollection", "features": ease_features}
@@ -489,32 +629,72 @@ def vector2ease(
 
 
 # --- Output format conversion ---
-def convert_to_output_format(
-    result, output_format, output_path=None
-):  # topology=Falset to bypass warning from pyogrio
+def convert_to_output_format(result, output_format, output_path=None):
     """
-    Convert GeoJSON FeatureCollection to various output formats.
+    Convert EASE result to specified output format.
 
     Args:
-        result (dict): GeoJSON FeatureCollection dictionary
-        output_format (str): Output format ('geojson', 'gpkg', 'parquet', 'csv', 'shapefile')
-        output_path (str, optional): Output file path. If None, uses default naming
+        result (dict): GeoJSON FeatureCollection result
+        output_format (str): Desired output format
+        output_path (str): Output file path (optional)
 
     Returns:
-        dict or str: Output in the specified format or file path
-
-    Raises:
-        ValueError: If output format is not supported
+        dict or str: Output in the specified format
     """
-    gdf = gpd.GeoDataFrame.from_features(result["features"])
-    gdf.set_crs(epsg=4326, inplace=True)
+    # Check if result has features
+    if not result or "features" not in result or not result["features"]:
+        print("Warning: No features found in result. This may happen when:")
+        print("  - Using 'within' predicate with coarse resolution (cells too large)")
+        print("  - Using 'largest_overlap' predicate with no cells having >50% overlap")
+        print("  - Input geometry is invalid or empty")
+        print("Suggestions:")
+        print("  - Try a finer resolution (higher number)")
+        print("  - Use 'intersect' or 'centroid_within' predicate instead")
+        print("  - Check that input geometry is valid")
+        raise ValueError("No features found in result")
+    
+    # First convert GeoJSON result to GeoDataFrame
+    try:
+        gdf = gpd.GeoDataFrame.from_features(result["features"])
+
+        # Set CRS to WGS84 (EPSG:4326) since EASE uses WGS84 coordinates
+        gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Ensure the geometry column is set as the active geometry column
+        if 'geometry' in gdf.columns:
+            gdf.set_geometry('geometry', inplace=True)
+        else:
+            # If no geometry column found, try to identify it
+            geom_cols = [col for col in gdf.columns if hasattr(gdf[col].iloc[0], 'geom_type')]
+            if geom_cols:
+                gdf.set_geometry(geom_cols[0], inplace=True)
+            else:
+                raise ValueError("No geometry column found in GeoDataFrame")
+        
+        # Verify the GeoDataFrame has valid geometry
+        if gdf.empty:
+            raise ValueError("GeoDataFrame is empty")
+        
+        if not gdf.geometry.is_valid.all():
+            print("Warning: Some geometries are invalid")
+    
+    except Exception as e:
+        print(f"Error creating GeoDataFrame: {str(e)}")
+        print(f"Result features count: {len(result['features']) if 'features' in result else 0}")
+        if 'features' in result and result['features']:
+            print(f"First feature: {result['features'][0]}")
+        raise
+
     if output_format.lower() == "geojson":
         if output_path:
+            import json
+
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(result, f)
             return output_path
         else:
-            return result
+            return result  # Already in GeoJSON format
+
     elif output_format.lower() == "gpkg":
         if output_path:
             gdf.to_file(output_path, driver="GPKG")
@@ -522,18 +702,22 @@ def convert_to_output_format(
         else:
             gdf.to_file("vector2ease.gpkg", driver="GPKG")
             return "vector2ease.gpkg"
+
     elif output_format.lower() == "parquet":
         if output_path:
             gdf.to_parquet(output_path, index=False)
             return output_path
         else:
-            return gdf.to_parquet(index=False)
+            gdf.to_parquet("vector2ease.parquet", index=False)
+            return "vector2ease.parquet"
+
     elif output_format.lower() == "csv":
         if output_path:
             gdf.to_csv(output_path, index=False)
             return output_path
         else:
             return gdf.to_csv(index=False)
+
     elif output_format.lower() == "shapefile":
         if output_path:
             gdf.to_file(output_path, driver="ESRI Shapefile")
@@ -541,6 +725,7 @@ def convert_to_output_format(
         else:
             gdf.to_file("vector2ease.shp", driver="ESRI Shapefile")
             return "vector2ease.shp"
+
     else:
         raise ValueError(
             f"Unsupported output format: {output_format}. Supported formats: geojson, gpkg, parquet, csv, shapefile"

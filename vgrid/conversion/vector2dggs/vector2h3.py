@@ -1,20 +1,22 @@
+"""Convert vector data to H3 grid cells."""
+
 import sys
 import argparse
 from tqdm import tqdm
-from shapely.geometry import Polygon, box
+from pyproj import Geod
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Polygon, box,MultiPoint, MultiLineString, MultiPolygon
 import h3
 from vgrid.generator.h3grid import fix_h3_antimeridian_cells
 from vgrid.generator.settings import geodesic_dggs_to_feature
-from pyproj import Geod
-from vgrid.utils.geometry import calculate_point_distances
-import pandas as pd
-import geopandas as gpd
 from vgrid.utils.geometry import (
-    densify_line,
     geodesic_buffer,
-    geodesic_distance,
     check_predicate,
-)
+    shortest_point_distance,
+    shortest_polyline_distance,
+    shortest_polygon_distance,
+    )
 
 geod = Geod(ellps="WGS84")
 
@@ -43,37 +45,6 @@ def validate_h3_resolution(resolution):
     return resolution
 
 
-def get_nearest_h3_resolution(points):
-    """
-    Find the first H3 resolution where avg_edge_length < shortest_distance.
-    Uses h3.average_edge_length(resolution) to compare with the calculated shortest distance.
-
-    Args:
-        points: Shapely MultiPoint geometry
-
-    Returns:
-        int: First H3 resolution where avg_edge_length < shortest_distance (0-15)
-    """
-    # Calculate the shortest distance between points
-    shortest_distance = calculate_point_distances(points)
-
-    # If only one point or no distance, return a default resolution
-    if shortest_distance == 0:
-        return 0  # Default resolution for single points
-
-    # Check resolutions from 0 to 15 (lowest to highest)
-    for resolution in range(16):
-        # Get average edge length for this H3 resolution in meters
-        avg_edge_length = h3.average_hexagon_edge_length(res=resolution, unit="m")
-
-        # Return the first resolution where avg_edge_length < shortest_distance
-        if avg_edge_length <= shortest_distance:
-            return resolution
-
-    # If no resolution found where avg_edge_length < shortest_distance, return the highest resolution
-    return 15
-
-
 # Function to generate grid for Point
 def point2h3(
     resolution,
@@ -83,6 +54,7 @@ def point2h3(
     compact=False,
     topology=False,
     include_properties=True,
+    all_points=None,  # New parameter for topology preservation
 ):
     """
     Convert a point to H3 grid cells.
@@ -93,12 +65,38 @@ def point2h3(
         feature_properties (dict): Properties to add to the H3 features
         predicate (str or int): Spatial predicate to apply (see check_predicate function)
         compact (bool): Enable H3 compact mode
-        topology (bool): Enable H3 topology preserving mode
+        topology (bool): Enable H3 topology preserving mode - ensures disjoint points have disjoint H3 cells
         include_properties (bool): If False, do not include original feature properties
+        all_points: List of all points for topology preservation (required when topology=True)
 
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_points is None:
+            raise ValueError("all_points parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all points
+        shortest_distance = shortest_point_distance(all_points)
+        
+        # Find resolution where H3 cell size is smaller than shortest distance
+        # This ensures disjoint points have disjoint H3 cells
+        if shortest_distance > 0:
+            for res in range(16):
+                avg_edge_length = h3.average_hexagon_edge_length(res=res, unit="m")
+                # Use a factor to ensure sufficient separation (hexagon diameter is ~2x edge length)
+                hexagon_diameter = avg_edge_length*2 
+                if hexagon_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 15
+        else:
+            # Single point or no distance, use provided resolution
+            pass
+
     h3_features = []
     # Convert point to the seed cell
     h3_id = h3.latlng_to_cell(point.y, point.x, resolution)
@@ -125,90 +123,6 @@ def point2h3(
         "features": h3_features,
     }
 
-
-def polyline2h3_new(
-    resolution,
-    feature,
-    feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
-    include_properties=True,
-):
-    """
-    Convert a polyline to H3 grid cells.
-
-    Args:
-        resolution (int): H3 resolution [0..15]
-        feature: Shapely LineString or MultiLineString geometry
-        feature_properties (dict): Properties to add to the H3 features
-        predicate (str or int): Spatial predicate to apply (see check_predicate function)
-        compact (bool): Enable H3 compact mode
-        topology (bool): Enable H3 topology preserving mode
-        include_properties (bool): If False, do not include original feature properties
-
-    Returns:
-        dict: GeoJSON FeatureCollection containing H3 grid cells
-    """
-    h3_features = []
-    if feature.geom_type == "LineString":
-        polylines = [feature]
-    elif feature.geom_type == "MultiLineString":
-        polylines = list(feature.geoms)
-    else:
-        return []
-    for polyline in polylines:
-        avg_edge_length = h3.average_hexagon_edge_length(resolution, unit="m")
-
-        # Get the centroid of the feature to use for latitude-dependent calculation
-        feature_centroid = polyline.centroid
-        feature_lat = feature_centroid.y
-        feature_lon = feature_centroid.x
-
-        # Calculate segment length in degrees using pyproj Geod
-        segment_length_degrees, _ = geodesic_distance(
-            feature_lat, feature_lon, avg_edge_length
-        )
-
-        densified_geometry = densify_line(polyline, segment_length_degrees)
-
-        # Extract coordinates from the densified LineString
-        vertices = list(densified_geometry.coords)  # (lon, lat) format
-
-        if len(vertices) < 2:
-            continue
-
-        # Convert to (lat, lon) format for H3
-        h3_vertices = [(lat, lon) for lon, lat in vertices]  # (lat, lon)
-
-        # h3_cells = set()
-        h3_cells = []
-        for lat, lon in h3_vertices:
-            h3_cell = h3.latlng_to_cell(lat, lon, resolution)
-            h3_cells.append(h3_cell)
-
-        for h3_cell in h3_cells:
-            cell_boundary = h3.cell_to_boundary(h3_cell)
-            filtered_boundary = fix_h3_antimeridian_cells(cell_boundary)
-            reversed_boundary = [(lon, lat) for lat, lon in filtered_boundary]
-            cell_polygon = Polygon(reversed_boundary)
-            cell_resolution = h3.get_resolution(h3_cell)
-            num_edges = 6
-            if h3.is_pentagon(h3_cell):
-                num_edges = 5
-            h3_feature = geodesic_dggs_to_feature(
-                "h3", h3_cell, cell_resolution, cell_polygon, num_edges
-            )
-            if include_properties and feature_properties:
-                h3_feature["properties"].update(feature_properties)
-            h3_features.append(h3_feature)
-
-    return {
-        "type": "FeatureCollection",
-        "features": h3_features,
-    }
-
-
 def polyline2h3(
     resolution,
     feature,
@@ -217,6 +131,7 @@ def polyline2h3(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polylines=None,  # New parameter for topology preservation
 ):
     """
     Convert a polyline to H3 grid cells.
@@ -227,12 +142,38 @@ def polyline2h3(
         feature_properties (dict): Properties to add to the H3 features
         predicate (str or int): Spatial predicate to apply (see check_predicate function)
         compact (bool): Enable H3 compact mode
-        topology (bool): Enable H3 topology preserving mode
+        topology (bool): Enable H3 topology preserving mode - ensures disjoint polylines have disjoint H3 cells
         include_properties (bool): If False, do not include original feature properties
+        all_polylines: List of all polylines for topology preservation (required when topology=True)
 
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polylines is None:
+            raise ValueError("all_polylines parameter is required when topology=True")
+        
+        # Calculate the shortest distance between all polylines
+        shortest_distance = shortest_polyline_distance(all_polylines)
+        
+        # Find resolution where H3 cell size is smaller than shortest distance
+        # This ensures disjoint polylines have disjoint H3 cells
+        if shortest_distance > 0:
+            for res in range(16):
+                avg_edge_length = h3.average_hexagon_edge_length(res=res, unit="m")
+                # Use a factor to ensure sufficient separation (hexagon diameter is ~2x edge length)
+                hexagon_diameter = avg_edge_length * 4 # in case there are 2 cells representing the same line segment
+                if hexagon_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 15
+        else:
+            # Single polyline or no distance, use provided resolution
+            pass
+
     h3_features = []
     if feature.geom_type == "LineString":
         polylines = [feature]
@@ -283,6 +224,7 @@ def polygon2h3(
     compact=False,
     topology=False,
     include_properties=True,
+    all_polygons=None,  # New parameter for topology preservation
 ):
     """
     Convert a polygon to H3 grid cells.
@@ -293,12 +235,39 @@ def polygon2h3(
         feature_properties (dict): Properties to add to the H3 features
         predicate (str or int): Spatial predicate to apply (see check_predicate function)
         compact (bool): Enable H3 compact mode
-        topology (bool): Enable H3 topology preserving mode
+        topology (bool): Enable H3 topology preserving mode - ensures disjoint polygons have disjoint H3 cells
         include_properties (bool): If False, do not include original feature properties
+        all_polygons: List of all polygons for topology preservation (required when topology=True)
 
     Returns:
         dict: GeoJSON FeatureCollection containing H3 grid cells
     """
+    # If topology preservation is enabled, calculate appropriate resolution
+    if topology:
+        if all_polygons is None:
+            raise ValueError("all_polygons parameter is required when topology=True")
+        
+       
+        # Calculate the shortest distance between all polygons
+        shortest_distance = shortest_polygon_distance(all_polygons)
+        
+        # Find resolution where H3 cell size is smaller than shortest distance
+        # This ensures disjoint polygons have disjoint H3 cells
+        if shortest_distance > 0:
+            for res in range(16):
+                avg_edge_length = h3.average_hexagon_edge_length(res=res, unit="m")
+                # Use a factor to ensure sufficient separation (hexagon diameter is ~2x edge length)
+                hexagon_diameter = avg_edge_length * 4
+                if hexagon_diameter < shortest_distance:
+                    resolution = res
+                    break
+            else:
+                # If no resolution found, use the highest resolution
+                resolution = 15
+        else:
+            # Single polygon or no distance, use provided resolution
+            pass
+
     h3_features = []
     if feature.geom_type == "Polygon":
         polygons = [feature]
@@ -306,6 +275,7 @@ def polygon2h3(
         polygons = list(feature.geoms)
     else:
         return []
+    
     for polygon in polygons:
         bbox = box(*polygon.bounds)
         distance = h3.average_hexagon_edge_length(resolution, unit="m") * 2
@@ -377,6 +347,36 @@ def geometry2h3(
     elif not isinstance(properties_list, list):
         properties_list = [properties_list for _ in geometries]
 
+    # Collect all points, polylines, and polygons for topology preservation if needed
+    all_points = None
+    all_polylines = None
+    all_polygons = None
+    if topology:
+        points_list = []
+        polylines_list = []
+        polygons_list = []
+        for i, geom in enumerate(geometries):
+            if geom is None:
+                continue
+            if geom.geom_type == "Point":
+                points_list.append(geom)
+            elif geom.geom_type == "MultiPoint":
+                points_list.extend(list(geom.geoms))
+            elif geom.geom_type == "LineString":
+                polylines_list.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                polylines_list.extend(list(geom.geoms))
+            elif geom.geom_type == "Polygon":
+                polygons_list.append(geom)
+            elif geom.geom_type == "MultiPolygon":
+                polygons_list.extend(list(geom.geoms))
+        if points_list:
+            all_points = MultiPoint(points_list)
+        if polylines_list:
+            all_polylines = MultiLineString(polylines_list)
+        if polygons_list:
+            all_polygons = MultiPolygon(polygons_list)
+
     h3_features = []
 
     for i, geom in enumerate(tqdm(geometries, desc="Processing features")):
@@ -396,6 +396,7 @@ def geometry2h3(
                 compact,
                 topology,
                 include_properties,
+                all_points,  # Pass all points for topology preservation
             )
             h3_features.extend(point_features["features"])
 
@@ -409,6 +410,7 @@ def geometry2h3(
                     compact,
                     topology,
                     include_properties,
+                    all_points,  # Pass all points for topology preservation
                 )
                 h3_features.extend(point_features["features"])
 
@@ -421,6 +423,7 @@ def geometry2h3(
                 compact,
                 topology,
                 include_properties,
+                all_polylines,  # Pass all polylines for topology preservation
             )
             h3_features.extend(polyline_features["features"])
 
@@ -433,6 +436,7 @@ def geometry2h3(
                 compact,
                 topology,
                 include_properties,
+                all_polygons=all_polygons,  # Pass all polygons for topology preservation
             )
             h3_features.extend(poly_features["features"])
 
@@ -485,7 +489,7 @@ def dataframe2h3(
     geometries = []
     properties_list = []
 
-    for idx, row in df.iterrows():
+    for _, row in df.iterrows():
         # Get the geometry
         geom = row[geometry_col]
         if geom is not None:
@@ -535,7 +539,7 @@ def geodataframe2h3(
     geometries = []
     properties_list = []
 
-    for idx, row in gdf.iterrows():
+    for _, row in gdf.iterrows():
         # Get the geometry
         geom = row.geometry
         if geom is not None:
@@ -651,11 +655,49 @@ def convert_to_output_format(result, output_format, output_path=None):
     Returns:
         dict or str: Output in the specified format
     """
+    # Check if result has features
+    if not result or "features" not in result or not result["features"]:
+        print("Warning: No features found in result. This may happen when:")
+        print("  - Using 'within' predicate with coarse resolution (cells too large)")
+        print("  - Using 'largest_overlap' predicate with no cells having >50% overlap")
+        print("  - Input geometry is invalid or empty")
+        print("Suggestions:")
+        print("  - Try a finer resolution (higher number)")
+        print("  - Use 'intersect' or 'centroid_within' predicate instead")
+        print("  - Check that input geometry is valid")
+        raise ValueError("No features found in result")
+    
     # First convert GeoJSON result to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(result["features"])
+    try:
+        gdf = gpd.GeoDataFrame.from_features(result["features"])
 
-    # Set CRS to WGS84 (EPSG:4326) since H3 uses WGS84 coordinates
-    gdf.set_crs(epsg=4326, inplace=True)
+        # Set CRS to WGS84 (EPSG:4326) since H3 uses WGS84 coordinates
+        gdf.set_crs(epsg=4326, inplace=True)
+        
+        # Ensure the geometry column is set as the active geometry column
+        if 'geometry' in gdf.columns:
+            gdf.set_geometry('geometry', inplace=True)
+        else:
+            # If no geometry column found, try to identify it
+            geom_cols = [col for col in gdf.columns if hasattr(gdf[col].iloc[0], 'geom_type')]
+            if geom_cols:
+                gdf.set_geometry(geom_cols[0], inplace=True)
+            else:
+                raise ValueError("No geometry column found in GeoDataFrame")
+        
+        # Verify the GeoDataFrame has valid geometry
+        if gdf.empty:
+            raise ValueError("GeoDataFrame is empty")
+        
+        if not gdf.geometry.is_valid.all():
+            print("Warning: Some geometries are invalid")
+    
+    except Exception as e:
+        print(f"Error creating GeoDataFrame: {str(e)}")
+        print(f"Result features count: {len(result['features']) if 'features' in result else 0}")
+        if 'features' in result and result['features']:
+            print(f"First feature: {result['features'][0]}")
+        raise
 
     if output_format.lower() == "geojson":
         if output_path:
@@ -729,7 +771,8 @@ def vector2h3_cli():
         help="Enable H3 compact mode for polygons",
     )
     parser.add_argument(
-        "-t", "--topology", action="store_true", help="Enable topology preserving mode"
+        "-t", "--topology", action="store_true", 
+        help="Enable topology preserving mode ensuring disjoint features have disjoint H3 cells by automatically calculating appropriate resolution."
     )
     parser.add_argument(
         "-np",

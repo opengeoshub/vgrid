@@ -6,7 +6,7 @@ from vgrid.conversion.latlon2dggs import latlon2isea3h
 from texttable import Texttable
 import platform
 from pyproj import Geod
-
+import math
 geod = Geod(ellps="WGS84")
 
 locale.setlocale(locale.LC_ALL, "")
@@ -55,7 +55,13 @@ def isea3h_metrics(isea3h_dggs, res):
             abs(geod.geometry_area_perimeter(cell_polygon)[1]) / 3
         )  # icosahedron faces
 
-    return num_cells, avg_edge_length, avg_area, accuracy
+    return num_cells, avg_edge_length, avg_area
+    # earth_surface_area_km2 = 510_065_621.724  # 510.1 million square kilometers
+    # num_cells = 20 * (7**res)
+    # avg_area = (earth_surface_area_km2 / num_cells) * (10**6)
+    # avg_edge_length = math.sqrt((2 * avg_area) / (3 * math.sqrt(3)))
+    # return num_cells, avg_edge_length, avg_area
+
 
 
 def isea3h_stats(isea3h_dggs, output_file=None):
@@ -69,7 +75,7 @@ def isea3h_stats(isea3h_dggs, output_file=None):
             "Number of Cells",
             "Avg Edge Length (m)",
             "Avg Cell Area (sq m)",
-            "Accucracy",
+            # "Accucracy",
         ]
     )
 
@@ -84,19 +90,19 @@ def isea3h_stats(isea3h_dggs, output_file=None):
                     "Number of Cells",
                     "Avg Edge Length (m)",
                     "Avg Cell Area (sq m)",
-                    "Accucracy",
+                    # "Accucracy",
                 ]
             )
 
             for res in range(min_res, max_res + 1):
-                num_cells, avg_edge_length, avg_area, accuracy = isea3h_metrics(
+                num_cells, avg_edge_length, avg_area = isea3h_metrics(
                     isea3h_dggs, res
                 )
                 writer.writerow([res, num_cells, avg_edge_length, avg_area, accuracy])
         print(f"OpenEAGGGR ISEA3H stats saved to {output_file}.")
     else:
         for res in range(min_res, max_res + 1):
-            num_cells, avg_edge_length, avg_area, accuracy = isea3h_metrics(
+            num_cells, avg_edge_length, avg_area = isea3h_metrics(
                 isea3h_dggs, res
             )
             formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)
@@ -104,7 +110,7 @@ def isea3h_stats(isea3h_dggs, output_file=None):
                 "%.3f", avg_edge_length, grouping=True
             )
             formatted_area = locale.format_string("%.3f", avg_area, grouping=True)
-            formatted_accuracy = locale.format_string("%.3f", accuracy, grouping=True)
+            # formatted_accuracy = locale.format_string("%.3f", accuracy, grouping=True)
             # Add a row to the table
             t.add_row(
                 [
@@ -112,7 +118,7 @@ def isea3h_stats(isea3h_dggs, output_file=None):
                     formatted_num_cells,
                     formatted_edge_length,
                     formatted_area,
-                    formatted_accuracy,
+                    #formatted_accuracy,
                 ]
             )
 

@@ -5,7 +5,7 @@ from shapely.wkt import loads
 from vgrid.conversion.latlon2dggs import latlon2isea4t
 from texttable import Texttable
 import platform
-
+import math
 from pyproj import Geod
 
 geod = Geod(ellps="WGS84")
@@ -50,7 +50,12 @@ def isea4t_metrics(isea4t_dggs, res):
     avg_edge_length = (
         abs(geod.geometry_area_perimeter(cell_polygon)[1]) / 3
     )  # Perimeter in meters/ 3
-    return num_cells, avg_edge_length, avg_area, accuracy
+    return num_cells, avg_edge_length, avg_area
+    # earth_surface_area_km2 = 510_065_621.724  # 510.1 million square kilometers
+    # num_cells = 20 * (4**res)
+    # avg_area = (earth_surface_area_km2 / num_cells) * (10**6)
+    # avg_edge_length =  math.sqrt((4 * avg_area) / math.sqrt(3))
+    # return num_cells, avg_edge_length, avg_area
 
 
 def isea4t_stats(isea4t_dggs, output_file=None):
@@ -65,7 +70,7 @@ def isea4t_stats(isea4t_dggs, output_file=None):
             "Number of Cells",
             "Avg Edge Length (m)",
             "Avg Cell Area (sq m)",
-            "Accuracy",
+            # "Accuracy",
         ]
     )
 
@@ -80,20 +85,20 @@ def isea4t_stats(isea4t_dggs, output_file=None):
                     "Number of Cells",
                     "Avg Edge Length (m)",
                     "Avg Cell Area (sq m)",
-                    "Accuracy",
+                    # "Accuracy",
                 ]
             )
 
             # Iterate through resolutions and write rows to the CSV file
             for res in range(min_res, max_res):
-                num_cells, avg_edge_length, avg_area, accuracy = isea4t_metrics(
+                num_cells, avg_edge_length, avg_area = isea4t_metrics(
                     isea4t_dggs, res
                 )
                 writer.writerow([res, num_cells, avg_edge_length, avg_area, accuracy])
         print(f"OpenEAGGGR ISEA4T stats saved to {output_file}.")
     else:
         for res in range(min_res, max_res + 1):
-            num_cells, avg_edge_length, avg_area, accuracy = isea4t_metrics(
+            num_cells, avg_edge_length, avg_area = isea4t_metrics(
                 isea4t_dggs, res
             )
             formatted_num_cells = locale.format_string("%d", num_cells, grouping=True)
@@ -101,7 +106,7 @@ def isea4t_stats(isea4t_dggs, output_file=None):
                 "%.5f", avg_edge_length, grouping=True
             )
             formatted_area = locale.format_string("%.5f", avg_area, grouping=True)
-            formatted_accuracy = locale.format_string("%.3f", accuracy, grouping=True)
+            # formatted_accuracy = locale.format_string("%.3f", accuracy, grouping=True)
 
             t.add_row(
                 [
@@ -109,7 +114,7 @@ def isea4t_stats(isea4t_dggs, output_file=None):
                     formatted_num_cells,
                     formatted_edge_length,
                     formatted_area,
-                    formatted_accuracy,
+                    # formatted_accuracy,
                 ]
             )
 

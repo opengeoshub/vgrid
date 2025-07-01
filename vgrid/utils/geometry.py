@@ -2,12 +2,13 @@ import shapely
 from pyproj import Geod
 from shapely.geometry import Polygon, Point, LineString
 import numpy as np
+import matplotlib.pyplot as plt
+import geopandas as gpd
 
 # Initialize Geod with WGS84 ellipsoid
 geod = Geod(ellps="WGS84")
 
-
-def calculate_point_distances(points):
+def shortest_point_distance(points):
     """
     Calculate distances between points in a Shapely geometry.
     If there's only one point, return 0.
@@ -40,33 +41,151 @@ def calculate_point_distances(points):
         lon2, lat2 = coords[1]
 
         # Calculate the distance in meters using pyproj Geod
-        distance = geod.inv(lon1, lat1, lon2, lat2)[
-            2
-        ]  # [2] gives the distance in meters
+        distance = geod.inv(lon1, lat1, lon2, lat2)[2]  # [2] gives the distance in meters
         if distance < shortest_distance:
             shortest_distance = distance
 
-    return shortest_distance
+    return shortest_distance if shortest_distance != float("inf") else 0
 
 
-geod = Geod(ellps="WGS84")
+def shortest_polyline_distance(polylines):
+    """
+    Calculate the shortest distance between polylines using GeoPandas shortest_line() method.
+    If there's only one polyline, return 0.
+    If there are multiple polylines, use shortest_line() and return the shortest distance in meters.
+
+    Args:
+        polylines: Shapely LineString or MultiLineString geometry, or GeoSeries of LineStrings
+        
+    Returns:
+        float: shortest_distance between polylines in meters
+    """
+    # Handle single LineString
+    if isinstance(polylines, LineString):
+        return 0  # Single polyline has no distance to other polylines
+    
+    # Handle MultiLineString with single line
+    if hasattr(polylines, 'geoms') and len(polylines.geoms) == 1:
+        return 0
+    
+    # Handle GeoSeries
+    if hasattr(polylines, 'iloc'):
+        # Already a GeoSeries
+        line_list = list(polylines.geometry)
+        gs = polylines
+    else:
+        # Handle MultiLineString or list
+        line_list = list(polylines.geoms) if hasattr(polylines, 'geoms') else [polylines]
+        gs = gpd.GeoSeries(line_list)
+    
+    if len(line_list) < 2:
+        return 0
+    
+    # Calculate shortest distance between all pairs of polylines using shortest_line()
+    shortest_distance = float("inf")
+    
+    for i in range(len(line_list)):
+        for j in range(i+1, len(line_list)):
+            line1 = line_list[i]
+            line2 = line_list[j]
+            
+            # Check if polylines are disjoint
+            if line1.disjoint(line2):
+                try:
+                    # Create GeoSeries for shortest_line calculation
+                    gs1 = gpd.GeoSeries([line1])
+                    gs2 = gpd.GeoSeries([line2])
+                    
+                    # Get shortest line using GeoPandas method
+                    shortest_line = gs1.shortest_line(gs2, align=False).iloc[0]
+                    
+                    if shortest_line and shortest_line.length > 0:
+                            # Get the endpoints of the shortest line
+                            coords = list(shortest_line.coords)
+                            if len(coords) >= 2:
+                                lon1, lat1 = coords[0]
+                                lon2, lat2 = coords[1]
+                                
+                                # Calculate geodesic distance in meters
+                                distance = geod.inv(lon1, lat1, lon2, lat2)[2]  # [2] gives distance in meters
+                                
+                                if distance < shortest_distance:
+                                    shortest_distance = distance
+                except Exception as e:
+                    print(f"Error calculating distance between polylines {i} and {j}: {e}")
+                    continue
+    
+    return shortest_distance if shortest_distance != float("inf") else 0 
 
 
-def densify_line(line, segment_length):
-    total_length = line.length
-    if total_length == 0:
-        # Degenerate line, just return start and end twice
-        coords = list(line.coords)
-        if len(coords) == 1:
-            coords = coords * 2
-        return LineString(coords)
-    num_segments = max(1, int(np.ceil(total_length / segment_length)))
-    distances = np.linspace(0, total_length, num_segments + 1)
-    points = [line.interpolate(d) for d in distances]
-    # Ensure at least two points
-    if len(points) < 2:
-        points = [line.interpolate(0), line.interpolate(total_length)]
-    return LineString(points)
+def shortest_polygon_distance(polygons):
+    """
+    Calculate the shortest distance between polygons using GeoPandas shortest_line() method.
+    If there's only one polygon, return 0.
+    If there are multiple polygons, use shortest_line() and return the shortest distance in meters.
+
+    Args:
+        polygons: Shapely Polygon or MultiPolygon geometry, or GeoSeries of Polygons
+        
+    Returns:
+        float: shortest_distance between polygons in meters
+    """
+    # Handle single Polygon
+    if isinstance(polygons, Polygon):
+        return 0  # Single polygon has no distance to other polygons
+    
+    # Handle MultiPolygon with single polygon
+    if hasattr(polygons, 'geoms') and len(polygons.geoms) == 1:
+        return 0
+    
+    # Handle GeoSeries
+    if hasattr(polygons, 'iloc'):
+        # Already a GeoSeries
+        polygon_list = list(polygons.geometry)
+        gs = polygons
+    else:
+        # Handle MultiPolygon or list
+        polygon_list = list(polygons.geoms) if hasattr(polygons, 'geoms') else [polygons]
+        gs = gpd.GeoSeries(polygon_list)
+    
+    if len(polygon_list) < 2:
+        return 0
+    
+    # Calculate shortest distance between all pairs of polygons using shortest_line()
+    shortest_distance = float("inf")
+    
+    for i in range(len(polygon_list)):
+        for j in range(i+1, len(polygon_list)):
+            polygon1 = polygon_list[i]
+            polygon2 = polygon_list[j]
+            
+            # Check if polygons are disjoint
+            if polygon1.disjoint(polygon2):
+                try:
+                    # Create GeoSeries for shortest_line calculation
+                    gs1 = gpd.GeoSeries([polygon1])
+                    gs2 = gpd.GeoSeries([polygon2])
+                    
+                    # Get shortest line using GeoPandas method
+                    shortest_line = gs1.shortest_line(gs2, align=False).iloc[0]
+                    
+                    if shortest_line and shortest_line.length > 0:
+                            # Get the endpoints of the shortest line
+                            coords = list(shortest_line.coords)
+                            if len(coords) >= 2:
+                                lon1, lat1 = coords[0]
+                                lon2, lat2 = coords[1]
+                                
+                                # Calculate geodesic distance in meters
+                                distance = geod.inv(lon1, lat1, lon2, lat2)[2]  # [2] gives distance in meters
+                                
+                                if distance < shortest_distance:
+                                    shortest_distance = distance
+                except Exception as e:
+                    print(f"Error calculating distance between polygons {i} and {j}: {e}")
+                    continue
+    
+    return shortest_distance if shortest_distance != float("inf") else 0
 
 
 def geodesic_distance(
@@ -194,62 +313,82 @@ def check_predicate(cell_polygon, input_geometry, predicate=None):
         return cell_polygon.intersects(input_geometry)
 
 
-#### Test
-# Read points from GeoJSON file
-# with open('./data/shape/point.geojson', 'r', encoding='utf-8') as f:
-#     geojson_data = json.load(f)
+#### Test - Shortest Lines Between Polygons
+# Example demonstrating shortest lines between polygons
 
-# # Extract coordinates from the GeoJSON features
-# coordinates = []
-# for feature in geojson_data['features']:
-#     coords = feature['geometry']['coordinates']
-#     coordinates.append((coords[0], coords[1]))  # (longitude, latitude)
+# Create test polygons (3 separated polygons)
+# polygons = [
+#     Polygon([(0, 0), (2, 2), (0, 2)]),
+#     Polygon([(4, 4), (7, 8), (8, 0)]),
+#     Polygon([(8, 8), (10, 12), (11, 10)]),
+# ]
 
-# print(f"Number of points: {len(coordinates)}")
+# # Create GeoSeries
+# s = gpd.GeoSeries(polygons,)
 
-# # Create MultiPoint from the coordinates
-# points = MultiPoint(coordinates)
+# # Calculate shortest lines between all pairs using pairwise approach
+# print("Calculating shortest lines between polygons...")
+# shortest_lines = s.shortest_line(s, align=False)
+# print(shortest_lines)
+# # # Create the plot
+# fig, ax = plt.subplots(figsize=(10, 8))
 
-# # Calculate distances using the function
-# shortest_distance = calculate_point_distances(points)
-# print(f"Shortest distance: {shortest_distance:.2f} meters")
+# # Plot polygons with different colors
+# colors = ['lightblue', 'lightgreen', 'lightcoral']
+# for i, (polygon, color) in enumerate(zip(polygons, colors)):
+#     x, y = polygon.exterior.xy
+#     ax.fill(x, y, alpha=0.7, fc=color, ec='black', linewidth=2, label=f'Polygon {i+1}')
+    
+#     # Add polygon label
+#     centroid = polygon.centroid
+#     ax.annotate(f'P{i+1}', (centroid.x, centroid.y), 
+#                fontsize=12, ha='center', va='center', weight='bold')
 
-# # Plot the points
-# x_coords = [point.x for point in points.geoms]
-# y_coords = [point.y for point in points.geoms]
-# plt.scatter(x_coords, y_coords, color='red', s=100, zorder=3)
+# # Plot shortest lines between all pairs
+# line_colors = ['red', 'blue', 'green']
+# line_idx = 0
 
-# # Generate Delaunay triangulation for plotting
-# if len(points.geoms) > 1:
-#     delaunay = shapely.delaunay_triangles(points, only_edges=True)
+# for i in range(len(polygons)):
+#     for j in range(len(polygons)):
+#         if i != j:  # Don't connect polygon to itself
+#             try:
+#                 # Create GeoSeries with proper indices to avoid alignment warning
+#                 source_series = gpd.GeoSeries([s.iloc[i]], index=[0])
+#                 target_series = gpd.GeoSeries([s.iloc[j]], index=[0])
+                
+#                 # Get the shortest line with explicit alignment
+#                 shortest_lines = source_series.shortest_line(target_series, align=True)
+#                 line = shortest_lines.iloc[0]
+                
+#                 if line and not line.is_empty:
+#                     x, y = line.xy
+#                     color = line_colors[line_idx % len(line_colors)]
+#                     ax.plot(x, y, color=color, linewidth=2, linestyle='--', 
+#                            label=f'P{i+1} to P{j+1}' if line_idx < 3 else "")
+                    
+#                     # Add distance label at midpoint
+#                     midpoint = line.interpolate(0.5, normalized=True)
+#                     distance = line.length
+#                     ax.annotate(f'{distance:.2f}', (midpoint.x, midpoint.y), 
+#                                fontsize=8, ha='center', va='bottom',
+#                                bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+#                     line_idx += 1
+                    
+#                     print(f"P{i+1} to P{j+1}: Length = {distance:.4f}")
+#             except Exception as e:
+#                 print(f"Error calculating line from P{i+1} to P{j+1}: {e}")
 
-#     # Find the shortest edge for highlighting
-#     shortest_edge = None
-#     for line in delaunay.geoms:
-#         coords = list(line.coords)
-#         lon1, lat1 = coords[0]
-#         lon2, lat2 = coords[1]
-#         distance = geod.inv(lon1, lat1, lon2, lat2)[2]
-#         if abs(distance - shortest_distance) < 0.01:  # Small tolerance for floating point comparison
-#             shortest_edge = line
-#             break
+# # Customize the plot
+# ax.set_xlim(-1, 12)
+# ax.set_ylim(-1, 13)
+# ax.set_xlabel('X Coordinate')
+# ax.set_ylabel('Y Coordinate')
+# ax.set_title('3 Separated Polygons with Shortest Connecting Lines')
+# ax.grid(True, alpha=0.3)
+# ax.legend()
+# ax.set_aspect('equal')
 
-#     # Plot the delaunay triangulation edges
-#     for line in delaunay.geoms:
-#         x_coords = [coord[0] for coord in line.coords]
-#         y_coords = [coord[1] for coord in line.coords]
-
-#         # Check if this is the shortest edge
-#         if line == shortest_edge:
-#             plt.plot(x_coords, y_coords, 'g-', linewidth=3, label='Shortest Edge')
-#         else:
-#             plt.plot(x_coords, y_coords, 'b-', linewidth=1)
-
-# plt.xlabel('Longitude')
-# plt.ylabel('Latitude')
-# plt.title(f'Delaunay Triangulation')
-# plt.grid(True, alpha=0.3)
-# plt.axis('equal')
-# if len(points.geoms) > 1:
-#     plt.legend()
+# plt.tight_layout()
 # plt.show()
+
+# print("\nShortest lines calculation completed!")
