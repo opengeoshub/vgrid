@@ -23,16 +23,15 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 
 ## Unit tests for the DggsCell class.
 class TestDggsCell(unittest.TestCase):
-
     def test_getters(self):
-        cell_id = '0123'
+        cell_id = "0123"
         cell = DggsCell(cell_id)
         self.assertEqual(cell.get_cell_id(), cell_id)
 
     def test_operators(self):
-        orig_cell = DggsCell('0123')
-        same_cell = DggsCell('0123')
-        diff_cell = DggsCell('3210')
+        orig_cell = DggsCell("0123")
+        same_cell = DggsCell("0123")
+        diff_cell = DggsCell("3210")
         self.assertTrue(orig_cell == same_cell)
         self.assertFalse(orig_cell == diff_cell)
         self.assertEqual(orig_cell, same_cell)

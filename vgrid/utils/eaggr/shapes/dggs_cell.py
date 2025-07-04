@@ -20,7 +20,6 @@ or can be found at <http://www.gnu.org/licenses/>.
 
 ## Defines a DGGS cell.
 class DggsCell(object):
-
     ## Sets the cell ID of the DGGS cell.
     #  @param cell_id ID of the cell as a string.
     def __init__(self, cell_id):

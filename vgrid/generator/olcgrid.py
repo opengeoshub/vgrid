@@ -6,19 +6,23 @@ from shapely.geometry import shape, box, Polygon
 from vgrid.generator.settings import max_cells, graticule_dggs_to_feature
 from shapely.ops import unary_union
 
+
 def calculate_total_cells(resolution, bbox):
     """Calculate the total number of cells within the bounding box for a given resolution."""
-    area = olc.decode(olc.encode(bbox[1], bbox[0], resolution))  # Use bbox min lat, min lon for the area
+    area = olc.decode(
+        olc.encode(bbox[1], bbox[0], resolution)
+    )  # Use bbox min lat, min lon for the area
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
 
-    sw_lng,sw_lat,ne_lng,ne_lat = bbox
+    sw_lng, sw_lat, ne_lng, ne_lat = bbox
     total_lat_steps = int((ne_lat - sw_lat) / lat_step)
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
-    
+
     return total_lat_steps * total_lng_steps
 
-def generate_grid(resolution):
+
+def generate_grid(resolution, verbose=True):
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
     as a GeoJSON-like feature collection.
@@ -39,7 +43,12 @@ def generate_grid(resolution):
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
     total_steps = total_lat_steps * total_lng_steps
 
-    with tqdm(total=total_steps, desc="Generating OLC DGGS",unit=" cells") as pbar:
+    with tqdm(
+        total=total_steps,
+        desc="Generating OLC DGGS",
+        unit=" cells",
+        disable=not verbose,
+    ) as pbar:
         lat = sw_lat
         while lat < ne_lat:
             lng = sw_lng
@@ -49,24 +58,26 @@ def generate_grid(resolution):
                 center_lon = lng + lng_step / 2
                 olc_id = olc.encode(center_lat, center_lon, resolution)
                 resolution = olc.decode(olc_id).codeLength
-                cell_polygon = Polygon([
-                            [lng, lat],  # SW
-                            [lng, lat + lat_step],  # NW
-                            [lng + lng_step, lat + lat_step],  # NE
-                            [lng + lng_step, lat],  # SE
-                            [lng, lat]  # Close the polygon
-                    ])
-                olc_feature = graticule_dggs_to_feature('olc',olc_id,resolution,cell_polygon)
+                cell_polygon = Polygon(
+                    [
+                        [lng, lat],  # SW
+                        [lng, lat + lat_step],  # NW
+                        [lng + lng_step, lat + lat_step],  # NE
+                        [lng + lng_step, lat],  # SE
+                        [lng, lat],  # Close the polygon
+                    ]
+                )
+                olc_feature = graticule_dggs_to_feature(
+                    "olc", olc_id, resolution, cell_polygon
+                )
                 olc_features.append(olc_feature)
                 lng += lng_step
                 pbar.update(1)  # Update progress bar
             lat += lat_step
 
     # Return the feature collection
-    return {
-        "type": "FeatureCollection",
-        "features": olc_features
-    }
+    return {"type": "FeatureCollection", "features": olc_features}
+
 
 def generate_grid_within_bbox(resolution, bbox):
     """
@@ -77,7 +88,7 @@ def generate_grid_within_bbox(resolution, bbox):
 
     # Step 1: Generate base cells at the lowest resolution (e.g., resolution 2)
     base_resolution = 2
-    base_cells = generate_grid(base_resolution)
+    base_cells = generate_grid(base_resolution, verbose=False)
 
     # Step 2: Identify seed cells that intersect with the bounding box
     seed_cells = []
@@ -98,11 +109,15 @@ def generate_grid_within_bbox(resolution, bbox):
         else:
             # Refine the seed cell to the output resolution and add it to the output
             refined_features.extend(
-                refine_cell(seed_cell_poly.bounds, base_resolution, resolution, bbox_poly)
+                refine_cell(
+                    seed_cell_poly.bounds, base_resolution, resolution, bbox_poly
+                )
             )
 
     resolution_features = [
-        feature for feature in refined_features if feature["properties"]["resolution"] == resolution
+        feature
+        for feature in refined_features
+        if feature["properties"]["resolution"] == resolution
     ]
 
     final_features = []
@@ -114,10 +129,7 @@ def generate_grid_within_bbox(resolution, bbox):
             final_features.append(feature)
             seen_olc_ids.add(olc_id)
 
-    return {
-        "type": "FeatureCollection",
-        "features": final_features
-    }
+    return {"type": "FeatureCollection", "features": final_features}
 
 
 def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
@@ -127,8 +139,9 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     min_lon, min_lat, max_lon, max_lat = bounds
     if current_resolution < 10:
         valid_resolution = current_resolution + 2
-    else: valid_resolution = current_resolution + 1
-    
+    else:
+        valid_resolution = current_resolution + 1
+
     area = olc.decode(olc.encode(min_lat, min_lon, valid_resolution))
     lat_step = area.latitudeHi - area.latitudeLo
     lng_step = area.longitudeHi - area.longitudeLo
@@ -148,18 +161,22 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                 center_lon = lng + lng_step / 2
                 olc_id = olc.encode(center_lat, center_lon, valid_resolution)
                 resolution = olc.decode(olc_id).codeLength
-                
-                cell_polygon = Polygon([
+
+                cell_polygon = Polygon(
+                    [
                         [lng, lat],  # SW
                         [lng, lat + lat_step],  # NW
                         [lng + lng_step, lat + lat_step],  # NE
                         [lng + lng_step, lat],  # SE
-                        [lng, lat]  # Close the polygon
-                ])
-            
-                olc_feature = graticule_dggs_to_feature('olc',olc_id,resolution,cell_polygon)
+                        [lng, lat],  # Close the polygon
+                    ]
+                )
+
+                olc_feature = graticule_dggs_to_feature(
+                    "olc", olc_id, resolution, cell_polygon
+                )
                 olc_features.append(olc_feature)
-                
+
                 # Recursively refine the cell if not at target resolution
                 if valid_resolution < target_resolution:
                     olc_features.extend(
@@ -167,7 +184,7 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                             finer_cell_bounds,
                             valid_resolution,
                             target_resolution,
-                            bbox_poly
+                            bbox_poly,
                         )
                     )
 
@@ -177,17 +194,20 @@ def refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
 
     return olc_features
 
+
 def generate_grid_resample(resolution, geojson_features):
     """
     Generate a grid of Open Location Codes (Plus Codes) within the specified GeoJSON features.
     """
     # Step 1: Union all input geometries
-    geometries = [shape(feature["geometry"]) for feature in geojson_features["features"]]
+    geometries = [
+        shape(feature["geometry"]) for feature in geojson_features["features"]
+    ]
     unified_geom = unary_union(geometries)
 
     # Step 2: Generate base cells at the lowest resolution (e.g., resolution 2)
     base_resolution = 2
-    base_cells = generate_grid(base_resolution)
+    base_cells = generate_grid(base_resolution, verbose=True)
 
     # Step 3: Identify seed cells that intersect with the unified geometry
     seed_cells = []
@@ -206,12 +226,16 @@ def generate_grid_resample(resolution, geojson_features):
             refined_features.append(seed_cell)
         else:
             refined_features.extend(
-                refine_cell(seed_cell_poly.bounds, base_resolution, resolution, unified_geom)
+                refine_cell(
+                    seed_cell_poly.bounds, base_resolution, resolution, unified_geom
+                )
             )
 
     # Step 5: Filter features to keep only those at the desired resolution and remove duplicates
     resolution_features = [
-        feature for feature in refined_features if feature["properties"]["resolution"] == resolution
+        feature
+        for feature in refined_features
+        if feature["properties"]["resolution"] == resolution
     ]
 
     final_features = []
@@ -223,50 +247,54 @@ def generate_grid_resample(resolution, geojson_features):
             final_features.append(feature)
             seen_olc_ids.add(olc_id)
 
-    return {
-        "type": "FeatureCollection",
-        "features": final_features
-    }
+    return {"type": "FeatureCollection", "features": final_features}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate OpenLocationCode/ Google Pluscode DGGS.")
+    parser = argparse.ArgumentParser(
+        description="Generate OpenLocationCode/ Google Pluscode DGGS."
+    )
     parser.add_argument(
-            '-r', '--resolution',
-            type=int,
-            choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
-            default=8,
-            help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]"
-        )
-    
+        "-r",
+        "--resolution",
+        type=int,
+        choices=[2, 4, 6, 8, 10, 11, 12, 13, 14, 15],
+        default=8,
+        help="Resolution [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]",
+    )
+
     parser.add_argument(
-        '-b', '--bbox', type=float, nargs=4, 
-        help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)"
+        "-b",
+        "--bbox",
+        type=float,
+        nargs=4,
+        help="Bounding box in the format: min_lon min_lat max_lon max_lat (default is the whole world)",
     )
 
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
-  
+
     num_cells = calculate_total_cells(resolution, bbox)
 
-    if  bbox == [-180, -90, 180, 90]:
+    if bbox == [-180, -90, 180, 90]:
         print(f"Resolution {resolution} will generate {num_cells} cells ")
 
         if num_cells > max_cells:
             print(f"which exceeds the limit of {max_cells}. ")
             print("Please select a smaller resolution and try again.")
             return
-        geojson_features = generate_grid(resolution)
-   
+        geojson_features = generate_grid(resolution, verbose=True)
+
     else:
         geojson_features = generate_grid_within_bbox(resolution, bbox)
-        
+
     geojson_path = f"olc_grid_{resolution}.geojson"
     with open(geojson_path, "w") as f:
         json.dump(geojson_features, f, indent=2)
-    
+
     print(f"OLC grid saved to {geojson_path}")
+
 
 if __name__ == "__main__":
     main()

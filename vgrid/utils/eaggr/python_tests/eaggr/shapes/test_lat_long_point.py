@@ -23,7 +23,6 @@ from vgrid.utils.eaggr.shapes.lat_long_point import LatLongPoint
 
 ## Unit tests for the LatLongPoint class.
 class TestLatLongPoint(unittest.TestCase):
-
     def test_getters(self):
         latitude = 1.0
         longitude = 2.0

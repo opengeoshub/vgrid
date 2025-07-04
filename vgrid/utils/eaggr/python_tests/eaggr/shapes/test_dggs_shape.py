@@ -28,11 +28,8 @@ from vgrid.utils.eaggr.shapes.dggs_shape import DggsShape
 
 ## Unit tests for the DggsShape class.
 class TestDggsShape(unittest.TestCase):
-
     def test_getters(self):
-        orig_cells = [
-            DggsCell('0000'),
-            DggsCell('1111')]
+        orig_cells = [DggsCell("0000"), DggsCell("1111")]
         # Cell
         shape = DggsShape(orig_cells[0], DggsShapeLocation.ONE_FACE)
         self.assertEqual(shape.get_shape_type(), DggsShapeType.CELL)
@@ -57,8 +54,8 @@ class TestDggsShape(unittest.TestCase):
 
     def test_errors(self):
         # Invalid shape
-        with self.assertRaises(ValueError) as cm:
-            DggsShape('Invalid shape', DggsShapeLocation.NO_LOCATION)
+        with self.assertRaises(ValueError):
+            DggsShape("Invalid shape", DggsShapeLocation.NO_LOCATION)
         # Invalid location type
-        with self.assertRaises(ValueError) as cm:
-            DggsShape(DggsCell('0000'), 'Not a DggsShapeLocation')
+        with self.assertRaises(ValueError):
+            DggsShape(DggsCell("0000"), "Not a DggsShapeLocation")

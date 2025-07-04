@@ -21,7 +21,6 @@ or can be found at <http://www.gnu.org/licenses/>.
 ## Value returned by the functions in the DLL. Indicates if the function
 #  completed successfully, or the reason the function failed.
 class DggsReturnCode:
-
     DGGS_SUCCESS = 0
     DGGS_NOT_IMPLEMENTED = 1
     DGGS_INVALID_HANDLE = 2

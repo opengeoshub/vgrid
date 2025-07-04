@@ -22,13 +22,17 @@ or can be found at <http://www.gnu.org/licenses/>.
 #  @param value Input to check.
 #  @throw ValueError Thrown if the input is not a shape string format.
 def check_shape_string_format(value):
-    if not (isinstance(value, int) and
-            value >= ShapeStringFormat.WKT and value <= ShapeStringFormat.GEO_JSON):
-        raise ValueError('Shape string format must be one of the ShapeStringFormat values')
+    if not (
+        isinstance(value, int)
+        and value >= ShapeStringFormat.WKT
+        and value <= ShapeStringFormat.GEO_JSON
+    ):
+        raise ValueError(
+            "Shape string format must be one of the ShapeStringFormat values"
+        )
 
 
 ## Different shape string formats supported by the library.
 class ShapeStringFormat:
-
     WKT = 0
     GEO_JSON = 1

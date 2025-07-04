@@ -20,7 +20,6 @@ or can be found at <http://www.gnu.org/licenses/>.
 
 ## WGS84 lat/long coordinate with an accuracy in metres squared.
 class LatLongPoint(object):
-
     ## Sets the latitude, longitude and accuracy of the point.
     #  @param latitude Latitude of the point (in degrees).
     #  @param longitude Longitude of the point (in degrees).
@@ -45,9 +44,11 @@ class LatLongPoint(object):
     ## @return True if points have the same latitude, longitude and accuracy values,
     #          otherwise false.
     def __eq__(self, other):
-        return (self._latitude == other.get_latitude() and
-                self._longitude == other.get_longitude() and
-                self._accuracy == other.get_accuracy())
+        return (
+            self._latitude == other.get_latitude()
+            and self._longitude == other.get_longitude()
+            and self._accuracy == other.get_accuracy()
+        )
 
     ## @return Opposite of the == operator.
     def __ne__(self, other):

@@ -30,8 +30,7 @@ class Angle(object):
         self.__radians = radians
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                self.__radians == other.__radians)
+        return isinstance(other, self.__class__) and self.__radians == other.__radians
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -43,7 +42,7 @@ class Angle(object):
         return self.__class__.from_radians(self.__radians + other.__radians)
 
     def __repr__(self):
-        return '{}: {}'.format(self.__class__.__name__, self.__radians)
+        return "{}: {}".format(self.__class__.__name__, self.__radians)
 
     @classmethod
     def from_degrees(cls, degrees):
@@ -86,8 +85,7 @@ class Point(object):
         return self.__class__(-self[0], -self[1], -self[2])
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                self.__point == other.__point)
+        return isinstance(other, self.__class__) and self.__point == other.__point
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -96,32 +94,30 @@ class Point(object):
         return hash(self.__point)
 
     def __repr__(self):
-        return 'Point: {}'.format(self.__point)
+        return "Point: {}".format(self.__point)
 
     def __add__(self, other):
-        return self.__class__(self[0] + other[0],
-                              self[1] + other[1],
-                              self[2] + other[2])
+        return self.__class__(
+            self[0] + other[0], self[1] + other[1], self[2] + other[2]
+        )
 
     def __sub__(self, other):
-        return self.__class__(self[0] - other[0],
-                              self[1] - other[1],
-                              self[2] - other[2])
+        return self.__class__(
+            self[0] - other[0], self[1] - other[1], self[2] - other[2]
+        )
 
     def __mul__(self, other):
-        return self.__class__(self[0] * other,
-                              self[1] * other,
-                              self[2] * other)
+        return self.__class__(self[0] * other, self[1] * other, self[2] * other)
 
     def __rmul__(self, other):
-        return self.__class__(self[0] * other,
-                              self[1] * other,
-                              self[2] * other)
+        return self.__class__(self[0] * other, self[1] * other, self[2] * other)
 
     def abs(self):
-        return self.__class__(math.fabs(self.__point[0]),
-                              math.fabs(self.__point[1]),
-                              math.fabs(self.__point[2]))
+        return self.__class__(
+            math.fabs(self.__point[0]),
+            math.fabs(self.__point[1]),
+            math.fabs(self.__point[2]),
+        )
 
     def largest_abs_component(self):
         temp = self.abs()
@@ -142,9 +138,7 @@ class Point(object):
     def cross_prod(self, other):
         x, y, z = self.__point
         ox, oy, oz = other.__point
-        return self.__class__(y * oz - z * oy,
-                              z * ox - x * oz,
-                              x * oy - y * ox)
+        return self.__class__(y * oz - z * oy, z * ox - x * oz, x * oy - y * ox)
 
     def dot_prod(self, other):
         x, y, z = self.__point
@@ -181,8 +175,7 @@ class LatLng(object):
 
     @classmethod
     def from_point(cls, point):
-        return cls(LatLng.latitude(point).radians,
-                   LatLng.longitude(point).radians)
+        return cls(LatLng.latitude(point).radians, LatLng.longitude(point).radians)
 
     @classmethod
     def from_angles(cls, lat, lng):
@@ -209,27 +202,30 @@ class LatLng(object):
         return hash(self.__coords)
 
     def __repr__(self):
-        return 'LatLng: {},{}'.format(math.degrees(self.__coords[0]),
-                                      math.degrees(self.__coords[1]))
+        return "LatLng: {},{}".format(
+            math.degrees(self.__coords[0]), math.degrees(self.__coords[1])
+        )
 
     def __add__(self, other):
-        return self.__class__(self.lat().radians + other.lat().radians,
-                              self.lng().radians + other.lng().radians)
+        return self.__class__(
+            self.lat().radians + other.lat().radians,
+            self.lng().radians + other.lng().radians,
+        )
 
     def __sub__(self, other):
-        return self.__class__(self.lat().radians - other.lat().radians,
-                              self.lng().radians - other.lng().radians)
+        return self.__class__(
+            self.lat().radians - other.lat().radians,
+            self.lng().radians - other.lng().radians,
+        )
 
     # only implemented so we can do scalar * LatLng
     def __rmul__(self, other):
-        return self.__class__(other * self.lat().radians,
-                              other * self.lng().radians)
+        return self.__class__(other * self.lat().radians, other * self.lng().radians)
 
     @staticmethod
     def latitude(point):
         return Angle.from_radians(
-            math.atan2(point[2],
-                       math.sqrt(point[0] * point[0] + point[1] * point[1]))
+            math.atan2(point[2], math.sqrt(point[0] * point[0] + point[1] * point[1]))
         )
 
     @staticmethod
@@ -243,27 +239,28 @@ class LatLng(object):
         return Angle.from_radians(self.__coords[1])
 
     def is_valid(self):
-        return (abs(self.lat().radians) <= (math.pi / 2) and
-                abs(self.lng().radians) <= math.pi)
+        return (
+            abs(self.lat().radians) <= (math.pi / 2)
+            and abs(self.lng().radians) <= math.pi
+        )
 
     def to_point(self):
         phi = self.lat().radians
         theta = self.lng().radians
         cosphi = math.cos(phi)
-        return Point(math.cos(theta) * cosphi,
-                     math.sin(theta) * cosphi,
-                     math.sin(phi))
+        return Point(math.cos(theta) * cosphi, math.sin(theta) * cosphi, math.sin(phi))
 
     def normalized(self):
         return self.__class__(
             max(-math.pi / 2.0, min(math.pi / 2.0, self.lat().radians)),
-            drem(self.lng().radians, 2 * math.pi))
+            drem(self.lng().radians, 2 * math.pi),
+        )
 
     def approx_equals(self, other, max_error=1e-15):
-        return (math.fabs(self.lat().radians -
-                          other.lat().radians) < max_error and
-                math.fabs(self.lng().radians -
-                          other.lng().radians) < max_error)
+        return (
+            math.fabs(self.lat().radians - other.lat().radians) < max_error
+            and math.fabs(self.lng().radians - other.lng().radians) < max_error
+        )
 
     def get_distance(self, other):
         assert self.is_valid()
@@ -294,8 +291,7 @@ class Cap(object):
         self.__height = height
 
     def __repr__(self):
-        return '{}: {} {}'.format(self.__class__.__name__, self.__axis,
-                                  self.__height)
+        return "{}: {} {}".format(self.__class__.__name__, self.__axis, self.__height)
 
     @classmethod
     def from_axis_height(cls, axis, height):
@@ -343,9 +339,7 @@ class Cap(object):
     def angle(self):
         if self.is_empty():
             return Angle.from_radians(-1)
-        return Angle.from_radians(
-            2 * math.asin(math.sqrt(0.5 * self.height()))
-        )
+        return Angle.from_radians(2 * math.asin(math.sqrt(0.5 * self.height())))
 
     def is_valid(self):
         return is_unit_length(self.axis()) and self.height() <= 2
@@ -382,8 +376,10 @@ class Cap(object):
         if isinstance(other, self.__class__):
             if self.is_full() or other.is_empty():
                 return True
-            return (self.angle().radians >=
-                    self.axis().angle(other.axis()) + other.angle().radians)
+            return (
+                self.angle().radians
+                >= self.axis().angle(other.axis()) + other.angle().radians
+            )
         elif isinstance(other, Point):
             assert is_unit_length(other)
             return (self.axis() - other).norm2() <= 2 * self.height()
@@ -400,8 +396,7 @@ class Cap(object):
     def interior_contains(self, other):
         if isinstance(other, Point):
             assert is_unit_length(other)
-            return (self.is_full() or
-                    (self.axis() - other).norm2() < 2 * self.height())
+            return self.is_full() or (self.axis() - other).norm2() < 2 * self.height()
         else:
             raise NotImplementedError()
 
@@ -410,10 +405,14 @@ class Cap(object):
             other = args[0]
             if self.is_empty() or other.is_empty():
                 return False
-            return (self.angle().radians + other.angle().radians >=
-                    self.axis().angle(other.axis()))
-        elif len(args) == 2 and isinstance(args[0], Cell) \
-                and isinstance(args[1], (list, tuple)):
+            return self.angle().radians + other.angle().radians >= self.axis().angle(
+                other.axis()
+            )
+        elif (
+            len(args) == 2
+            and isinstance(args[0], Cell)
+            and isinstance(args[1], (list, tuple))
+        ):
             cell, vertices = args
             if self.height() >= 1:
                 return False
@@ -431,8 +430,10 @@ class Cap(object):
                 if dot * dot > sin2_angle * edge.norm2():
                     return False
                 dir = edge.cross_prod(self.axis())
-                if dir.dot_prod(vertices[k]) < 0 \
-                        and dir.dot_prod(vertices[(k + 1) & 3]) > 0:
+                if (
+                    dir.dot_prod(vertices[k]) < 0
+                    and dir.dot_prod(vertices[(k + 1) & 3]) > 0
+                ):
                     return True
             return False
         else:
@@ -449,8 +450,9 @@ class Cap(object):
     def interior_intersects(self, other):
         if self.height() <= 0 or other.is_empty():
             return False
-        return (self.angle().radians + other.angle().radians >
-                self.axis().angle(other.axis()))
+        return self.angle().radians + other.angle().radians > self.axis().angle(
+            other.axis()
+        )
 
     def get_rect_bound(self):
         if self.is_empty():
@@ -485,19 +487,22 @@ class Cap(object):
         return LatLngRect(LineInterval(*lat), SphereInterval(*lng))
 
     def approx_equals(self, other, max_error=1e-14):
-        return ((self.axis().angle(other.axis()) <= max_error and
-                 math.fabs(self.height() - other.height()) <= max_error) or
-                (self.is_empty() and other.height() <= max_error) or
-                (other.is_empty() and self.height() <= max_error) or
-                (self.is_full() and other.height() >= 2 - max_error) or
-                (other.is_full() and self.height() >= 2 - max_error))
+        return (
+            (
+                self.axis().angle(other.axis()) <= max_error
+                and math.fabs(self.height() - other.height()) <= max_error
+            )
+            or (self.is_empty() and other.height() <= max_error)
+            or (other.is_empty() and self.height() <= max_error)
+            or (self.is_full() and other.height() >= 2 - max_error)
+            or (other.is_full() and self.height() >= 2 - max_error)
+        )
 
     def expanded(self, distance):
         assert distance.radians >= 0
         if self.is_empty():
             return self.__class__.empty()
-        return self.__class__.from_axis_angle(self.axis(),
-                                              self.angle() + distance)
+        return self.__class__.from_axis_angle(self.axis(), self.angle() + distance)
 
 
 class LatLngRect(object):
@@ -514,22 +519,23 @@ class LatLngRect(object):
             lo, hi = args
             self.__lat = LineInterval(lo.lat().radians, hi.lat().radians)
             self.__lng = SphereInterval(lo.lng().radians, hi.lng().radians)
-        elif isinstance(args[0], LineInterval) \
-                and isinstance(args[1], SphereInterval):
+        elif isinstance(args[0], LineInterval) and isinstance(args[1], SphereInterval):
             self.__lat, self.__lng = args
         else:
             raise NotImplementedError()
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                self.lat() == other.lat() and self.lng() == other.lng())
+        return (
+            isinstance(other, self.__class__)
+            and self.lat() == other.lat()
+            and self.lng() == other.lng()
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '{}: {}, {}'.format(self.__class__.__name__,
-                                   self.lat(), self.lng())
+        return "{}: {}, {}".format(self.__class__.__name__, self.lat(), self.lng())
 
     def lat(self):
         return self.__lat
@@ -577,10 +583,10 @@ class LatLngRect(object):
     def from_point_pair(cls, a, b):
         assert a.is_valid()
         assert b.is_valid()
-        return LatLngRect(LineInterval.from_point_pair(a.lat().radians,
-                                                       b.lat().radians),
-                          SphereInterval.from_point_pair(a.lng().radians,
-                                                         b.lng().radians))
+        return LatLngRect(
+            LineInterval.from_point_pair(a.lat().radians, b.lat().radians),
+            SphereInterval.from_point_pair(a.lng().radians, b.lng().radians),
+        )
 
     @classmethod
     def full_lat(cls):
@@ -598,27 +604,28 @@ class LatLngRect(object):
         return self.lat() == self.__class__.full_lat() and self.lng().is_full()
 
     def is_valid(self):
-        return (math.fabs(self.lat().lo()) <= math.pi / 2.0 and
-                math.fabs(self.lat().hi()) <= math.pi / 2.0 and
-                self.lng().is_valid() and
-                self.lat().is_empty() == self.lng().is_empty())
+        return (
+            math.fabs(self.lat().lo()) <= math.pi / 2.0
+            and math.fabs(self.lat().hi()) <= math.pi / 2.0
+            and self.lng().is_valid()
+            and self.lat().is_empty() == self.lng().is_empty()
+        )
 
     @classmethod
     def empty(cls):
         return cls()
 
     def get_center(self):
-        return LatLng.from_radians(self.lat().get_center(),
-                                   self.lng().get_center())
+        return LatLng.from_radians(self.lat().get_center(), self.lng().get_center())
 
     def get_size(self):
-        return LatLng.from_radians(self.lat().get_length(),
-                                   self.lng().get_length())
+        return LatLng.from_radians(self.lat().get_length(), self.lng().get_length())
 
     def get_vertex(self, k):
         # Twiddle bits to return the points in CCW order (SW, SE, NE, NW)
-        return LatLng.from_radians(self.lat().bound(k >> 1),
-                                   self.lng().bound((k >> 1) ^ (k & 1)))
+        return LatLng.from_radians(
+            self.lat().bound(k >> 1), self.lng().bound((k >> 1) ^ (k & 1))
+        )
 
     def area(self):
         """Area in steradians."""
@@ -626,24 +633,23 @@ class LatLngRect(object):
             return 0.0
 
         return self.lng().get_length() * math.fabs(
-            math.sin(self.lat_hi().radians) -
-            math.sin(self.lat_lo().radians)
+            math.sin(self.lat_hi().radians) - math.sin(self.lat_lo().radians)
         )
 
     def is_empty(self):
         return self.lat().is_empty()
 
     def is_point(self):
-        return (self.lat().lo() == self.lat().hi() and
-                self.lng().lo() == self.lng().hi())
+        return self.lat().lo() == self.lat().hi() and self.lng().lo() == self.lng().hi()
 
     def convolve_with_cap(self, angle):
         cap = Cap.from_axis_angle(Point(1, 0, 0), angle)
 
         r = self
         for k in range(4):
-            vertex_cap = Cap.from_axis_height(self.get_vertex(k).to_point(),
-                                              cap.height())
+            vertex_cap = Cap.from_axis_height(
+                self.get_vertex(k).to_point(), cap.height()
+            )
             r = r.union(vertex_cap.get_rect_bound())
         return r
 
@@ -652,11 +658,11 @@ class LatLngRect(object):
             return self.contains(LatLng.from_point(other))
         elif isinstance(other, LatLng):
             assert other.is_valid()
-            return (self.lat().contains(other.lat().radians) and
-                    self.lng().contains(other.lng().radians))
+            return self.lat().contains(other.lat().radians) and self.lng().contains(
+                other.lng().radians
+            )
         elif isinstance(other, self.__class__):
-            return (self.lat().contains(other.lat()) and
-                    self.lng().contains(other.lng()))
+            return self.lat().contains(other.lat()) and self.lng().contains(other.lng())
         elif isinstance(other, Cell):
             return self.contains(other.get_rect_bound())
         else:
@@ -667,11 +673,13 @@ class LatLngRect(object):
             self.interior_contains(LatLng(other))
         elif isinstance(other, LatLng):
             assert other.is_valid()
-            return (self.lat().interior_contains(other.lat().radians) and
-                    self.lng().interior_contains(other.lng().radians))
+            return self.lat().interior_contains(
+                other.lat().radians
+            ) and self.lng().interior_contains(other.lng().radians)
         elif isinstance(other, self.__class__):
-            return (self.lat().interior_contains(other.lat()) and
-                    self.lng().interior_contains(other.lng()))
+            return self.lat().interior_contains(
+                other.lat()
+            ) and self.lng().interior_contains(other.lng())
         else:
             raise NotImplementedError()
 
@@ -681,8 +689,9 @@ class LatLngRect(object):
     def intersects(self, *args):
         if isinstance(args[0], self.__class__):
             other = args[0]
-            return (self.lat().intersects(other.lat()) and
-                    self.lng().intersects(other.lng()))
+            return self.lat().intersects(other.lat()) and self.lng().intersects(
+                other.lng()
+            )
         elif isinstance(args[0], Cell):
             cell = args[0]
             if self.is_empty():
@@ -716,21 +725,21 @@ class LatLngRect(object):
                 b = cell_v[(i + 1) & 3]
                 if edge_lng.contains(self.lng().lo()):
                     if self.__class__.intersects_lng_edge(
-                            a, b,
-                            self.lat(), self.lng().lo()):
+                        a, b, self.lat(), self.lng().lo()
+                    ):
                         return True
                 if edge_lng.contains(self.lng().hi()):
                     if self.__class__.intersects_lng_edge(
-                            a, b,
-                            self.lat(), self.lng().hi()):
+                        a, b, self.lat(), self.lng().hi()
+                    ):
                         return True
                 if self.__class__.intersects_lat_edge(
-                        a, b,
-                        self.lat().lo(), self.lng()):
+                    a, b, self.lat().lo(), self.lng()
+                ):
                     return True
                 if self.__class__.intersects_lat_edge(
-                        a, b,
-                        self.lat().hi(), self.lng()):
+                    a, b, self.lat().hi(), self.lng()
+                ):
                     return True
             return False
         else:
@@ -739,7 +748,8 @@ class LatLngRect(object):
     @classmethod
     def intersects_lng_edge(cls, a, b, lat, lng):
         return simple_crossing(
-            a, b,
+            a,
+            b,
             LatLng.from_radians(lat.lo(), lng).to_point(),
             LatLng.from_radians(lat.hi(), lng).to_point(),
         )
@@ -785,14 +795,16 @@ class LatLngRect(object):
     def interior_intersects(self, *args):
         if isinstance(args[0], self.__class__):
             other = args[0]
-            return (self.lat().interior_intersects(other.lat()) and
-                    self.lng().interior_intersects(other.lng()))
+            return self.lat().interior_intersects(
+                other.lat()
+            ) and self.lng().interior_intersects(other.lng())
         else:
             raise NotImplementedError()
 
     def union(self, other):
-        return self.__class__(self.lat().union(other.lat()),
-                              self.lng().union(other.lng()))
+        return self.__class__(
+            self.lat().union(other.lat()), self.lng().union(other.lng())
+        )
 
     def intersection(self, other):
         lat = self.lat().intersection(other.lat())
@@ -814,16 +826,14 @@ class LatLngRect(object):
         assert margin.lat().radians > 0
         assert margin.lng().radians > 0
         return self.__class__(
-            (self.lat()
-             .expanded(margin.lat().radians)
-             .intersection(self.full_lat())),
-            (self.lng()
-             .expanded(margin.lng().radians))
+            (self.lat().expanded(margin.lat().radians).intersection(self.full_lat())),
+            (self.lng().expanded(margin.lng().radians)),
         )
 
     def approx_equals(self, other, max_error=1e-15):
-        return (self.lat().approx_equals(other.lat(), max_error) and
-                self.lng().approx_equals(other.lng(), max_error))
+        return self.lat().approx_equals(
+            other.lat(), max_error
+        ) and self.lng().approx_equals(other.lng(), max_error)
 
     def get_cap_bound(self):
         if self.is_empty():
@@ -836,14 +846,16 @@ class LatLngRect(object):
             pole_z = 1
             pole_angle = math.pi / 2.0 - self.lat().lo()
 
-        pole_cap = Cap.from_axis_angle(Point(0, 0, pole_z),
-                                       Angle.from_radians(pole_angle))
+        pole_cap = Cap.from_axis_angle(
+            Point(0, 0, pole_z), Angle.from_radians(pole_angle)
+        )
 
         lng_span = self.lng().hi() - self.lng().lo()
         if drem(lng_span, 2 * math.pi) >= 0:
             if lng_span < 2 * math.pi:
-                mid_cap = Cap.from_axis_angle(self.get_center().to_point(),
-                                              Angle.from_radians(0))
+                mid_cap = Cap.from_axis_angle(
+                    self.get_center().to_point(), Angle.from_radians(0)
+                )
 
                 for k in range(4):
                     mid_cap.add_point(self.get_vertex(k).to_point())
@@ -857,10 +869,7 @@ LOOKUP_BITS = 4
 SWAP_MASK = 0x01
 INVERT_MASK = 0x02
 
-POS_TO_IJ = ((0, 1, 3, 2),
-             (0, 2, 3, 1),
-             (3, 2, 0, 1),
-             (3, 1, 0, 2))
+POS_TO_IJ = ((0, 1, 3, 2), (0, 2, 3, 1), (3, 2, 0, 1), (3, 1, 0, 2))
 POS_TO_ORIENTATION = [SWAP_MASK, 0, 0, INVERT_MASK | SWAP_MASK]
 LOOKUP_POS = [None] * (1 << (2 * LOOKUP_BITS + 2))
 LOOKUP_IJ = [None] * (1 << (2 * LOOKUP_BITS + 2))
@@ -879,9 +888,12 @@ def _init_lookup_cell(level, i, j, orig_orientation, pos, orientation):
         r = POS_TO_IJ[orientation]
         for index in range(4):
             _init_lookup_cell(
-                level, i + (r[index] >> 1),
-                j + (r[index] & 1), orig_orientation,
-                pos + index, orientation ^ POS_TO_ORIENTATION[index],
+                level,
+                i + (r[index] >> 1),
+                j + (r[index] & 1),
+                orig_orientation,
+                pos + index,
+                orientation ^ POS_TO_ORIENTATION[index],
             )
 
 
@@ -925,10 +937,10 @@ class CellId(object):
     WRAP_OFFSET = NUM_FACES << POS_BITS
 
     def __init__(self, id_=0):
-        self.__id = id_ % 0xffffffffffffffff
+        self.__id = id_ % 0xFFFFFFFFFFFFFFFF
 
     def __repr__(self):
-        return 'CellId: {:016x}'.format(self.id())
+        return "CellId: {:016x}".format(self.id())
 
     def __hash__(self):
         return hash(self.id())
@@ -964,11 +976,11 @@ class CellId(object):
 
         for k in range(7, -1, -1):
             mask = (1 << LOOKUP_BITS) - 1
-            bits += (((i >> (k * LOOKUP_BITS)) & mask) << (LOOKUP_BITS + 2))
-            bits += (((j >> (k * LOOKUP_BITS)) & mask) << 2)
+            bits += ((i >> (k * LOOKUP_BITS)) & mask) << (LOOKUP_BITS + 2)
+            bits += ((j >> (k * LOOKUP_BITS)) & mask) << 2
             bits = LOOKUP_POS[bits]
             n |= (bits >> 2) << (k * 2 * LOOKUP_BITS)
-            bits &= (SWAP_MASK | INVERT_MASK)
+            bits &= SWAP_MASK | INVERT_MASK
 
         return cls(n * 2 + 1)
 
@@ -1039,8 +1051,10 @@ class CellId(object):
     def intersects(self, other):
         assert self.is_valid()
         assert other.is_valid()
-        return (other.range_min() <= self.range_max() and
-                other.range_max() >= self.range_min())
+        return (
+            other.range_min() <= self.range_max()
+            and other.range_max() >= self.range_min()
+        )
 
     def is_face(self):
         return (self.id() & (self.lsb_for_level(0) - 1)) == 0
@@ -1049,8 +1063,9 @@ class CellId(object):
         return self.__id
 
     def is_valid(self):
-        return ((self.face() < self.__class__.NUM_FACES) and
-                (self.lsb() & 0x1555555555555555) != 0)
+        return (self.face() < self.__class__.NUM_FACES) and (
+            self.lsb() & 0x1555555555555555
+        ) != 0
 
     def lsb(self):
         return self.id() & -self.id()
@@ -1060,7 +1075,7 @@ class CellId(object):
 
     def pos(self):
         # is this correct?
-        return self.id() & (0xffffffffffffffff >> self.__class__.FACE_BITS)
+        return self.id() & (0xFFFFFFFFFFFFFFFF >> self.__class__.FACE_BITS)
 
     def is_leaf(self):
         return (self.id() & 1) != 0
@@ -1069,13 +1084,13 @@ class CellId(object):
         if self.is_leaf():
             return self.__class__.MAX_LEVEL
 
-        x = (self.id() & 0xffffffff)
+        x = self.id() & 0xFFFFFFFF
         level = -1
         if x != 0:
             level += 16
         else:
             # is this correct?
-            x = ((self.id() >> 32) & 0xffffffff)
+            x = (self.id() >> 32) & 0xFFFFFFFF
 
         x &= -x
         if x & 0x00005555:
@@ -1102,10 +1117,11 @@ class CellId(object):
             level = args[0]
             assert level >= self.level()
             assert level <= self.__class__.MAX_LEVEL
-            return (self.__class__(self.id() - self.lsb() +
-                    self.__class__.lsb_for_level(level)))
+            return self.__class__(
+                self.id() - self.lsb() + self.__class__.lsb_for_level(level)
+            )
         else:
-            raise ValueError('no args or level arg')
+            raise ValueError("no args or level arg")
 
     def child_end(self, *args):
         assert self.is_valid()
@@ -1117,10 +1133,11 @@ class CellId(object):
             level = args[0]
             assert level >= self.level()
             assert level <= self.__class__.MAX_LEVEL
-            return (self.__class__(self.id() + self.lsb() +
-                    self.__class__.lsb_for_level(level)))
+            return self.__class__(
+                self.id() + self.lsb() + self.__class__.lsb_for_level(level)
+            )
         else:
-            raise ValueError('no args or level arg')
+            raise ValueError("no args or level arg")
 
     def prev(self):
         return self.__class__(self.id() - (self.lsb() << 1))
@@ -1252,8 +1269,9 @@ class CellId(object):
             if steps < min_steps:
                 steps = min_steps
         else:
-            max_steps = (self.__class__.WRAP_OFFSET +
-                         self.lsb() - self.id()) >> step_shift
+            max_steps = (
+                self.__class__.WRAP_OFFSET + self.lsb() - self.id()
+            ) >> step_shift
             if steps > max_steps:
                 steps = max_steps
 
@@ -1292,28 +1310,29 @@ class CellId(object):
         """
         face, si, ti = self.get_center_si_ti()
         cls = self.__class__
-        return (cls.st_to_uv((0.5 / cls.MAX_SIZE) * si),
-                cls.st_to_uv((0.5 / cls.MAX_SIZE) * ti))
+        return (
+            cls.st_to_uv((0.5 / cls.MAX_SIZE) * si),
+            cls.st_to_uv((0.5 / cls.MAX_SIZE) * ti),
+        )
 
     def to_face_ij_orientation(self):
         i, j = 0, 0
         face = self.face()
-        bits = (face & SWAP_MASK)
+        bits = face & SWAP_MASK
 
         for k in range(7, -1, -1):
             if k == 7:
-                nbits = (self.__class__.MAX_LEVEL - 7 * LOOKUP_BITS)
+                nbits = self.__class__.MAX_LEVEL - 7 * LOOKUP_BITS
             else:
                 nbits = LOOKUP_BITS
 
             bits += (
-                self.id() >> (k * 2 * LOOKUP_BITS + 1) &
-                ((1 << (2 * nbits)) - 1)
+                self.id() >> (k * 2 * LOOKUP_BITS + 1) & ((1 << (2 * nbits)) - 1)
             ) << 2
             bits = LOOKUP_IJ[bits]
             i += (bits >> (LOOKUP_BITS + 2)) << (k * LOOKUP_BITS)
             j += ((bits >> 2) & ((1 << LOOKUP_BITS) - 1)) << (k * LOOKUP_BITS)
-            bits &= (SWAP_MASK | INVERT_MASK)
+            bits &= SWAP_MASK | INVERT_MASK
 
         assert 0 == POS_TO_ORIENTATION[2]
         assert SWAP_MASK == POS_TO_ORIENTATION[0]
@@ -1328,16 +1347,16 @@ class CellId(object):
         size = self.get_size_ij(level)
         face, i, j, orientation = self.to_face_ij_orientation()
 
-        return (self.from_face_ij_same(face, i, j - size, j - size >= 0)
-                .parent(level),
-                self.from_face_ij_same(face, i + size, j,
-                                       i + size < self.__class__.MAX_SIZE
-                                       ).parent(level),
-                self.from_face_ij_same(face, i, j + size,
-                                       j + size < self.__class__.MAX_SIZE
-                                       ).parent(level),
-                self.from_face_ij_same(face, i - size, j, i - size >= 0)
-                .parent(level))
+        return (
+            self.from_face_ij_same(face, i, j - size, j - size >= 0).parent(level),
+            self.from_face_ij_same(
+                face, i + size, j, i + size < self.__class__.MAX_SIZE
+            ).parent(level),
+            self.from_face_ij_same(
+                face, i, j + size, j + size < self.__class__.MAX_SIZE
+            ).parent(level),
+            self.from_face_ij_same(face, i - size, j, i - size >= 0).parent(level),
+        )
 
     def get_vertex_neighbors(self, level):
         """Return the neighbors of closest vertex to this cell.
@@ -1372,21 +1391,16 @@ class CellId(object):
         neighbors = []
         neighbors.append(self.parent(level))
         neighbors.append(
-            self.__class__
-            .from_face_ij_same(face, i + ioffset, j, isame)
-            .parent(level)
+            self.__class__.from_face_ij_same(face, i + ioffset, j, isame).parent(level)
         )
         neighbors.append(
-            self.__class__
-            .from_face_ij_same(face, i, j + joffset, jsame)
-            .parent(level)
+            self.__class__.from_face_ij_same(face, i, j + joffset, jsame).parent(level)
         )
         if isame or jsame:
             neighbors.append(
-                self.__class__
-                .from_face_ij_same(face, i + ioffset, j + joffset,
-                                   isame and jsame)
-                .parent(level)
+                self.__class__.from_face_ij_same(
+                    face, i + ioffset, j + joffset, isame and jsame
+                ).parent(level)
             )
 
         return neighbors
@@ -1409,30 +1423,36 @@ class CellId(object):
         k = -nbr_size
         while True:
             if k < 0:
-                same_face = (j + k >= 0)
+                same_face = j + k >= 0
             elif k >= size:
-                same_face = (j + k < self.__class__.MAX_SIZE)
+                same_face = j + k < self.__class__.MAX_SIZE
             else:
                 same_face = False
                 # North and South neighbors.
-                yield (self.__class__
-                       .from_face_ij_same(face, i + k, j - nbr_size,
-                                          j - size >= 0)
-                       .parent(nbr_level))
-                yield (self.__class__
-                       .from_face_ij_same(face, i + k, j + size,
-                                          j + size < self.__class__.MAX_SIZE)
-                       .parent(nbr_level))
+                yield (
+                    self.__class__.from_face_ij_same(
+                        face, i + k, j - nbr_size, j - size >= 0
+                    ).parent(nbr_level)
+                )
+                yield (
+                    self.__class__.from_face_ij_same(
+                        face, i + k, j + size, j + size < self.__class__.MAX_SIZE
+                    ).parent(nbr_level)
+                )
 
-            yield (self.__class__
-                   .from_face_ij_same(face, i - nbr_size, j + k,
-                                      same_face and i - size >= 0)
-                   .parent(nbr_level))
-            yield (self.__class__
-                   .from_face_ij_same(face, i + size, j + k,
-                                      same_face and
-                                      i + size < self.__class__.MAX_SIZE)
-                   .parent(nbr_level))
+            yield (
+                self.__class__.from_face_ij_same(
+                    face, i - nbr_size, j + k, same_face and i - size >= 0
+                ).parent(nbr_level)
+            )
+            yield (
+                self.__class__.from_face_ij_same(
+                    face,
+                    i + size,
+                    j + k,
+                    same_face and i + size < self.__class__.MAX_SIZE,
+                ).parent(nbr_level)
+            )
 
             if k >= size:
                 break
@@ -1451,7 +1471,7 @@ class CellId(object):
         This is a hex encoded version of the cell id with the right zeros
         stripped of.
         """
-        return format(self.id(), '016x').rstrip('0')
+        return format(self.id(), "016x").rstrip("0")
 
     @classmethod
     def from_token(cls, token):
@@ -1461,7 +1481,7 @@ class CellId(object):
             A hex representation of the cell id. If the input is shorter than
             16 characters, zeros are appended on the right.
         """
-        return cls(int(token.ljust(16, '0'), 16))
+        return cls(int(token.ljust(16, "0"), 16))
 
     @classmethod
     def st_to_uv(cls, s):
@@ -1476,7 +1496,7 @@ class CellId(object):
             else:
                 return (1.0 / 3.0) * (1 - 4 * (1 - s) * (1 - s))
         else:
-            raise ValueError('unknown projection type')
+            raise ValueError("unknown projection type")
 
     @classmethod
     def uv_to_st(cls, u):
@@ -1490,7 +1510,7 @@ class CellId(object):
             else:
                 return 1 - 0.5 * math.sqrt(1 - 3 * u)
         else:
-            raise ValueError('unknown projection type')
+            raise ValueError("unknown projection type")
 
     @classmethod
     def max_edge(cls):
@@ -1505,7 +1525,7 @@ class CellId(object):
         elif cls.PROJECTION == cls.QUADRATIC_PROJECTION:
             return LengthMetric(1.704897179199218452)
         else:
-            raise ValueError('unknown projection type')
+            raise ValueError("unknown projection type")
 
     @classmethod
     def max_diag(cls):
@@ -1516,7 +1536,7 @@ class CellId(object):
         elif cls.PROJECTION == cls.QUADRATIC_PROJECTION:
             return LengthMetric(2.438654594434021032)
         else:
-            raise ValueError('unknown projection type')
+            raise ValueError("unknown projection type")
 
     @classmethod
     def min_width(cls):
@@ -1527,7 +1547,7 @@ class CellId(object):
         elif cls.PROJECTION == cls.QUADRATIC_PROJECTION:
             return LengthMetric(2 * math.sqrt(2) / 3)
         else:
-            raise ValueError('unknown projection type')
+            raise ValueError("unknown projection type")
 
 
 class Metric(object):
@@ -1567,9 +1587,7 @@ class Metric(object):
             Depending on whether this is used in one or two dimensions, this is
             an angle in radians or a solid angle in steradians.
         """
-        return self.get_min_level(
-            (math.sqrt(2) if self.__dim == 1 else 2) * value
-        )
+        return self.get_min_level((math.sqrt(2) if self.__dim == 1 else 2) * value)
 
     def get_min_level(self, value):
         """Minimum cell level for given value.
@@ -1635,6 +1653,7 @@ class LengthMetric(Metric):
 
     see :cpp:class:`S2::LengthMetric`
     """
+
     def __init__(self, deriv):
         super(LengthMetric, self).__init__(deriv, 1)
 
@@ -1664,6 +1683,7 @@ class AreaMetric(Metric):
 
     See C++ docs at :cpp:class:`S2::AreaMetric`.
     """
+
     def __init__(self, deriv):
         super(AreaMetric, self).__init__(deriv, 2)
 
@@ -1932,13 +1952,17 @@ def area(a, b, c):
             if dmin < 2 * (0.1 * area):
                 return area
 
-    return 4 * math.atan(math.sqrt(
-        max(0.0,
-            math.tan(0.5 * s) *
-            math.tan(0.5 * (s - sa)) *
-            math.tan(0.5 * (s - sb)) *
-            math.tan(0.5 * (s - sc)))
-    ))
+    return 4 * math.atan(
+        math.sqrt(
+            max(
+                0.0,
+                math.tan(0.5 * s)
+                * math.tan(0.5 * (s - sa))
+                * math.tan(0.5 * (s - sb))
+                * math.tan(0.5 * (s - sc)),
+            )
+        )
+    )
 
 
 def simple_ccw(a, b, c):
@@ -1961,13 +1985,15 @@ def simple_ccw(a, b, c):
 
 class Interval(object):
     """Interval interface"""
+
     def __init__(self, lo, hi):
         # self.__bounds = [args[0], args[1]]
         self.__bounds = (lo, hi)
 
     def __repr__(self):
-        return '{}: ({}, {})'.format(
-            self.__class__.__name__, self.__bounds[0], self.__bounds[1])
+        return "{}: ({}, {})".format(
+            self.__class__.__name__, self.__bounds[0], self.__bounds[1]
+        )
 
     def lo(self):
         return self.__bounds[0]
@@ -1996,9 +2022,10 @@ class LineInterval(Interval):
         super(LineInterval, self).__init__(lo, hi)
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                ((self.lo() == other.lo() and self.hi() == other.hi()) or
-                (self.is_empty() and other.is_empty())))
+        return isinstance(other, self.__class__) and (
+            (self.lo() == other.lo() and self.hi() == other.hi())
+            or (self.is_empty() and other.is_empty())
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -2036,20 +2063,22 @@ class LineInterval(Interval):
             return self.lo() <= other.hi() and self.lo() <= self.hi()
 
     def interior_intersects(self, other):
-        return (other.lo() < self.hi() and self.lo() < other.hi() and
-                self.lo() < self.hi() and other.lo() <= other.hi())
+        return (
+            other.lo() < self.hi()
+            and self.lo() < other.hi()
+            and self.lo() < self.hi()
+            and other.lo() <= other.hi()
+        )
 
     def union(self, other):
         if self.is_empty():
             return other
         if other.is_empty():
             return self
-        return self.__class__(min(self.lo(), other.lo()),
-                              max(self.hi(), other.hi()))
+        return self.__class__(min(self.lo(), other.lo()), max(self.hi(), other.hi()))
 
     def intersection(self, other):
-        return self.__class__(max(self.lo(), other.lo()),
-                              min(self.hi(), other.hi()))
+        return self.__class__(max(self.lo(), other.lo()), min(self.hi(), other.hi()))
 
     def expanded(self, radius):
         assert radius >= 0
@@ -2071,8 +2100,10 @@ class LineInterval(Interval):
             return other.get_length() <= max_error
         if other.is_empty():
             return self.get_length() <= max_error
-        return (math.fabs(other.lo() - self.lo()) +
-                math.fabs(other.hi() - self.hi()) <= max_error)
+        return (
+            math.fabs(other.lo() - self.lo()) + math.fabs(other.hi() - self.hi())
+            <= max_error
+        )
 
 
 class SphereInterval(Interval):
@@ -2080,6 +2111,7 @@ class SphereInterval(Interval):
 
     see :cpp:class:`S1Interval`
     """
+
     def __init__(self, lo=math.pi, hi=-math.pi, args_checked=False):
         if args_checked:
             super(SphereInterval, self).__init__(lo, hi)
@@ -2094,8 +2126,11 @@ class SphereInterval(Interval):
         assert self.is_valid()
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                self.lo() == other.lo() and self.hi() == other.hi())
+        return (
+            isinstance(other, self.__class__)
+            and self.lo() == other.lo()
+            and self.hi() == other.hi()
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -2128,10 +2163,12 @@ class SphereInterval(Interval):
         return (self.hi() - self.lo()) == (2 * math.pi)
 
     def is_valid(self):
-        return (math.fabs(self.lo()) <= math.pi and
-                math.fabs(self.hi()) <= math.pi and
-                not (self.lo() == -math.pi and self.hi() != math.pi) and
-                not (self.hi() == -math.pi and self.lo() != math.pi))
+        return (
+            math.fabs(self.lo()) <= math.pi
+            and math.fabs(self.hi()) <= math.pi
+            and not (self.lo() == -math.pi and self.hi() != math.pi)
+            and not (self.hi() == -math.pi and self.lo() != math.pi)
+        )
 
     def is_inverted(self):
         return self.lo() > self.hi()
@@ -2152,7 +2189,7 @@ class SphereInterval(Interval):
         length = self.hi() - self.lo()
         if length >= 0:
             return length
-        length += (2 * math.pi)
+        length += 2 * math.pi
         if length > 0:
             return length
         else:
@@ -2175,14 +2212,14 @@ class SphereInterval(Interval):
             return other.get_length() <= max_error
         if other.is_empty():
             return self.get_length() <= max_error
-        return ((math.fabs(drem(other.lo() - self.lo(), 2 * math.pi)) +
-                 math.fabs(drem(other.hi() - self.hi(), 2 * math.pi))) <=
-                max_error)
+        return (
+            math.fabs(drem(other.lo() - self.lo(), 2 * math.pi))
+            + math.fabs(drem(other.hi() - self.hi(), 2 * math.pi))
+        ) <= max_error
 
     def fast_contains(self, other):
         if self.is_inverted():
-            return ((other >= self.lo() or other <= self.hi()) and
-                    not self.is_empty())
+            return (other >= self.lo() or other <= self.hi()) and not self.is_empty()
         else:
             return other >= self.lo() and other <= self.hi()
 
@@ -2192,9 +2229,8 @@ class SphereInterval(Interval):
                 if other.is_inverted():
                     return other.lo() >= self.lo() and other.hi() <= self.hi()
                 return (
-                    (other.lo() >= self.lo() or other.hi() <= self.hi()) and
-                    not self.is_empty()
-                )
+                    other.lo() >= self.lo() or other.hi() <= self.hi()
+                ) and not self.is_empty()
             else:
                 if other.is_inverted():
                     return self.is_full() or other.is_empty()
@@ -2210,13 +2246,15 @@ class SphereInterval(Interval):
             if self.is_inverted():
                 if not other.is_inverted():
                     return other.lo() > self.lo() or other.hi() < self.hi()
-                return ((other.lo() > self.lo() and other.hi() < self.hi()) or
-                        other.is_empty())
+                return (
+                    other.lo() > self.lo() and other.hi() < self.hi()
+                ) or other.is_empty()
             else:
                 if other.is_inverted():
                     return self.is_full() or other.is_empty()
-                return ((other.lo() > self.lo() and other.hi() < self.hi()) or
-                        self.is_full())
+                return (
+                    other.lo() > self.lo() and other.hi() < self.hi()
+                ) or self.is_full()
         else:
             assert math.fabs(other) <= math.pi
             if other == -math.pi:
@@ -2225,15 +2263,17 @@ class SphereInterval(Interval):
             if self.is_inverted():
                 return other > self.lo() or other < self.hi()
             else:
-                return ((other > self.lo() and other < self.hi()) or
-                        self.is_full())
+                return (other > self.lo() and other < self.hi()) or self.is_full()
 
     def intersects(self, other):
         if self.is_empty() or other.is_empty():
             return False
         if self.is_inverted():
-            return (other.is_inverted() or other.lo() <= self.hi() or
-                    other.hi() >= self.lo())
+            return (
+                other.is_inverted()
+                or other.lo() <= self.hi()
+                or other.hi() >= self.lo()
+            )
         else:
             if other.is_inverted():
                 return other.lo() <= self.hi() or other.hi() >= self.lo()
@@ -2243,13 +2283,13 @@ class SphereInterval(Interval):
         if self.is_empty() or other.is_empty() or self.lo() == self.hi():
             return False
         if self.is_inverted():
-            return (other.is_inverted() or other.lo() < self.hi() or
-                    other.hi() > self.lo())
+            return (
+                other.is_inverted() or other.lo() < self.hi() or other.hi() > self.lo()
+            )
         else:
             if other.is_inverted():
                 return other.lo() < self.hi() or other.hi() > self.lo()
-            return ((other.lo() < self.hi() and other.hi() > self.lo()) or
-                    self.is_full())
+            return (other.lo() < self.hi() and other.hi() > self.lo()) or self.is_full()
 
     def union(self, other):
         if other.is_empty():
@@ -2324,17 +2364,14 @@ class SphereInterval(Interval):
 
         other_complement_center = other.get_complement_center()
         if self.contains(other_complement_center):
-            return self.__class__.positive_distance(other.hi(),
-                                                    other_complement_center)
+            return self.__class__.positive_distance(other.hi(), other_complement_center)
         else:
-            if self.__class__(other.hi(), other_complement_center) \
-                    .contains(self.hi()):
+            if self.__class__(other.hi(), other_complement_center).contains(self.hi()):
                 hi_hi = self.__class__.positive_distance(other.hi(), self.hi())
             else:
                 hi_hi = 0
 
-            if self.__class__(other_complement_center, other.lo()) \
-                    .contains(self.lo()):
+            if self.__class__(other_complement_center, other.lo()).contains(self.lo()):
                 lo_lo = self.__class__.positive_distance(self.lo(), other.lo())
             else:
                 lo_lo = 0
@@ -2375,9 +2412,13 @@ class Cell(object):
         return cls(CellId.from_point(point))
 
     def __repr__(self):
-        return '{}: face {}, level {}, orientation {}, id {}'.format(
-            self.__class__.__name__, self.__face, self.__level,
-            self.orientation(), self.__cell_id.id())
+        return "{}: face {}, level {}, orientation {}, id {}".format(
+            self.__class__.__name__,
+            self.__face,
+            self.__level,
+            self.orientation(),
+            self.__cell_id.id(),
+        )
 
     @classmethod
     def from_face_pos_level(cls, face, pos, level):
@@ -2428,7 +2469,8 @@ class Cell(object):
     def get_vertex_raw(self, k):
         return face_uv_to_xyz(
             self.__face,
-            self.__uv[0][(k >> 1) ^ (k & 1)], self.__uv[1][k >> 1],
+            self.__uv[0][(k >> 1) ^ (k & 1)],
+            self.__uv[1][k >> 1],
         )
 
     def exact_area(self):
@@ -2457,12 +2499,16 @@ class Cell(object):
         if self.__level < 2:
             return self.average_area()
 
-        flat_area = (0.5 * (self.get_vertex(2) - self.get_vertex(0))
-                     .cross_prod(self.get_vertex(3) - self.get_vertex(1))
-                     .norm())
+        flat_area = (
+            0.5
+            * (self.get_vertex(2) - self.get_vertex(0))
+            .cross_prod(self.get_vertex(3) - self.get_vertex(1))
+            .norm()
+        )
 
-        return (flat_area * 2 /
-                (1 + math.sqrt(1 - min((1.0 / math.pi) * flat_area, 1.0))))
+        return (
+            flat_area * 2 / (1 + math.sqrt(1 - min((1.0 / math.pi) * flat_area, 1.0)))
+        )
 
     def subdivide(self):
         uv_mid = self.__cell_id.get_center_uv()
@@ -2500,8 +2546,12 @@ class Cell(object):
             valid, u, v = face_xyz_to_uv(self.__face, other)
             if not valid:
                 return False
-            return (u >= self.__uv[0][0] and u <= self.__uv[0][1] and
-                    v >= self.__uv[1][0] and v <= self.__uv[1][1])
+            return (
+                u >= self.__uv[0][0]
+                and u <= self.__uv[0][1]
+                and v >= self.__uv[1][0]
+                and v <= self.__uv[1][1]
+            )
 
     def may_intersect(self, cell):
         return self.__cell_id.intersects(cell.__cell_id)
@@ -2517,8 +2567,7 @@ class Cell(object):
     def get_cap_bound(self):
         u = 0.5 * (self.__uv[0][0] + self.__uv[0][1])
         v = 0.5 * (self.__uv[1][0] + self.__uv[1][1])
-        cap = Cap.from_axis_height(
-            face_uv_to_xyz(self.__face, u, v).normalize(), 0)
+        cap = Cap.from_axis_height(face_uv_to_xyz(self.__face, u, v).normalize(), 0)
         for k in range(4):
             cap.add_point(self.get_vertex(k))
         return cap
@@ -2538,15 +2587,17 @@ class Cell(object):
                 j = int(v > 0)
 
             max_error = 1.0 / (1 << 51)
-            lat = LineInterval.from_point_pair(self.get_latitude(i, j),
-                                               self.get_latitude(1 - i, 1 - j))
+            lat = LineInterval.from_point_pair(
+                self.get_latitude(i, j), self.get_latitude(1 - i, 1 - j)
+            )
             lat = lat.expanded(max_error).intersection(LatLngRect.full_lat())
 
             if lat.lo() == (-math.pi / 2.0) or lat.hi() == (math.pi / 2.0):
                 return LatLngRect(lat, SphereInterval.full())
 
-            lng = SphereInterval.from_point_pair(self.get_longitude(i, 1 - j),
-                                                 self.get_longitude(1 - i, j))
+            lng = SphereInterval.from_point_pair(
+                self.get_longitude(i, 1 - j), self.get_longitude(1 - i, j)
+            )
             return LatLngRect(lat, lng.expanded(max_error))
 
         pole_min_lat = math.asin(math.sqrt(1.0 / 3.0))
@@ -2554,27 +2605,33 @@ class Cell(object):
         if self.__face == 0:
             return LatLngRect(
                 LineInterval(-math.pi / 4.0, math.pi / 4.0),
-                SphereInterval(-math.pi / 4.0, math.pi / 4.0))
+                SphereInterval(-math.pi / 4.0, math.pi / 4.0),
+            )
         elif self.__face == 1:
             return LatLngRect(
                 LineInterval(-math.pi / 4.0, math.pi / 4.0),
-                SphereInterval(math.pi / 4.0, 3.0 * math.pi / 4.0))
+                SphereInterval(math.pi / 4.0, 3.0 * math.pi / 4.0),
+            )
         elif self.__face == 2:
             return LatLngRect(
                 LineInterval(pole_min_lat, math.pi / 2.0),
-                SphereInterval(-math.pi, math.pi))
+                SphereInterval(-math.pi, math.pi),
+            )
         elif self.__face == 3:
             return LatLngRect(
                 LineInterval(-math.pi / 4.0, math.pi / 4.0),
-                SphereInterval(3.0 * math.pi / 4.0, -3.0 * math.pi / 4.0))
+                SphereInterval(3.0 * math.pi / 4.0, -3.0 * math.pi / 4.0),
+            )
         elif self.__face == 4:
             return LatLngRect(
                 LineInterval(-math.pi / 4.0, math.pi / 4.0),
-                SphereInterval(-3.0 * math.pi / 4.0, -math.pi / 4.0))
+                SphereInterval(-3.0 * math.pi / 4.0, -math.pi / 4.0),
+            )
         else:
             return LatLngRect(
                 LineInterval(-math.pi / 2.0, -pole_min_lat),
-                SphereInterval(-math.pi, math.pi))
+                SphereInterval(-math.pi, math.pi),
+            )
 
 
 class CellUnion(object):
@@ -2587,16 +2644,15 @@ class CellUnion(object):
         if cell_ids is None:
             self.__cell_ids = []
         else:
-            self.__cell_ids = [cell_id
-                               if isinstance(cell_id, CellId)
-                               else CellId(cell_id)
-                               for cell_id in cell_ids]
+            self.__cell_ids = [
+                cell_id if isinstance(cell_id, CellId) else CellId(cell_id)
+                for cell_id in cell_ids
+            ]
             if raw:
                 self.normalize()
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and
-                self.__cell_ids == other.__cell_ids)
+        return isinstance(other, self.__class__) and self.__cell_ids == other.__cell_ids
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -2605,7 +2661,7 @@ class CellUnion(object):
         return hash(self.__cell_ids)
 
     def __repr__(self):
-        return '{}: {}'.format(self.__class__.__name__, self.__cell_ids)
+        return "{}: {}".format(self.__class__.__name__, self.__cell_ids)
 
     @classmethod
     def get_union(cls, x, y):
@@ -2613,24 +2669,23 @@ class CellUnion(object):
 
     @classmethod
     def get_intersection(cls, *args):
-        if len(args) == 2 and isinstance(args[0], cls) \
-                and isinstance(args[1], CellId):
+        if len(args) == 2 and isinstance(args[0], cls) and isinstance(args[1], CellId):
             cell_union, cell_id = args
             if cell_union.contains(cell_id):
                 return cls([cell_id])
             else:
-                index = bisect.bisect_left(cell_union.__cell_ids,
-                                           cell_id.range_min())
+                index = bisect.bisect_left(cell_union.__cell_ids, cell_id.range_min())
                 idmax = cell_id.range_max()
 
                 intersected_cell_ids = []
-                while index != len(cell_union.__cell_ids) \
-                        and cell_union.__cell_ids[index] <= idmax:
+                while (
+                    index != len(cell_union.__cell_ids)
+                    and cell_union.__cell_ids[index] <= idmax
+                ):
                     intersected_cell_ids.append(cell_union.__cell_ids[index])
                     index += 1
                 return cls(intersected_cell_ids)
-        elif len(args) == 2 and isinstance(args[0], cls) \
-                and isinstance(args[1], cls):
+        elif len(args) == 2 and isinstance(args[0], cls) and isinstance(args[1], cls):
             x, y = args
             i, j = 0, 0
             cell_ids = []
@@ -2662,8 +2717,10 @@ class CellUnion(object):
                         j += 1
 
             cell_union = cls(cell_ids)
-            assert all(cell_union.__cell_ids[i] <= cell_union.__cell_ids[i + 1]
-                       for i in range(cell_union.num_cells() - 1))
+            assert all(
+                cell_union.__cell_ids[i] <= cell_union.__cell_ids[i + 1]
+                for i in range(cell_union.num_cells() - 1)
+            )
             assert not cell_union.normalize()
 
             return cell_union
@@ -2686,16 +2743,16 @@ class CellUnion(object):
                 cell_id.append_all_neighbors(level, output)
                 i -= 1
             self.__cell_ids = output
-        elif len(args) == 2 and isinstance(args[0], Angle) \
-                and isinstance(args[1], int):
+        elif len(args) == 2 and isinstance(args[0], Angle) and isinstance(args[1], int):
             min_radius, max_level_diff = args
             min_level = CellId.MAX_LEVEL
             for cell_id in self.__cell_ids:
                 min_level = min(min_level, cell_id.level())
 
             radius_level = CellId.min_width().get_max_level(min_radius.radians)
-            if radius_level == 0 \
-                    and min_radius.radians > CellId.min_width().get_value(0):
+            if radius_level == 0 and min_radius.radians > CellId.min_width().get_value(
+                0
+            ):
                 self.expand(0)
             self.expand(min(min_level + max_level_diff, radius_level))
         else:
@@ -2708,8 +2765,10 @@ class CellUnion(object):
             cls.__get_difference(cell_id, y, cell_ids)
 
         cell_union = cls(cell_ids)
-        assert all(cell_union.__cell_ids[i] <= cell_union.__cell_ids[i + 1]
-                   for i in range(cell_union.num_cells() - 1))
+        assert all(
+            cell_union.__cell_ids[i] <= cell_union.__cell_ids[i + 1]
+            for i in range(cell_union.num_cells() - 1)
+        )
         assert not cell_union.normalize()
         return cell_union
 
@@ -2734,7 +2793,6 @@ class CellUnion(object):
         self.__cell_ids.sort()
         output = []
         for cell_id in self.__cell_ids:
-
             if output and output[-1].contains(cell_id):
                 continue
 
@@ -2742,17 +2800,20 @@ class CellUnion(object):
                 output.pop()
 
             while len(output) >= 3:
-                if (output[-3].id() ^ output[-2].id() ^ output[-1].id()) \
-                        != cell_id.id():
+                if (
+                    output[-3].id() ^ output[-2].id() ^ output[-1].id()
+                ) != cell_id.id():
                     break
 
                 mask = cell_id.lsb() << 1
                 mask = ~(mask + (mask << 1))
-                id_masked = (cell_id.id() & mask)
-                if (output[-3].id() & mask) != id_masked \
-                        or (output[-2].id() & mask) != id_masked \
-                        or (output[-1].id() & mask) != id_masked \
-                        or cell_id.is_face():
+                id_masked = cell_id.id() & mask
+                if (
+                    (output[-3].id() & mask) != id_masked
+                    or (output[-2].id() & mask) != id_masked
+                    or (output[-1].id() & mask) != id_masked
+                    or cell_id.is_face()
+                ):
                     break
 
                 output.pop()
@@ -2778,8 +2839,7 @@ class CellUnion(object):
             level = cell_id.level()
             new_level = max(min_level, level)
             if level_mod > 1:
-                new_level += ((CellId.MAX_LEVEL - (new_level - min_level)) %
-                              level_mod)
+                new_level += (CellId.MAX_LEVEL - (new_level - min_level)) % level_mod
                 new_level = min(CellId.MAX_LEVEL, new_level)
             if new_level == level:
                 cell_ids.append(cell_id)
@@ -2795,11 +2855,12 @@ class CellUnion(object):
         elif len(args) == 1 and isinstance(args[0], CellId):
             cell_id = args[0]
             index = bisect.bisect_left(self.__cell_ids, cell_id)
-            if index < len(self.__cell_ids) \
-                    and self.__cell_ids[index].range_min() <= cell_id:
+            if (
+                index < len(self.__cell_ids)
+                and self.__cell_ids[index].range_min() <= cell_id
+            ):
                 return True
-            return (index != 0 and
-                    self.__cell_ids[index - 1].range_max() >= cell_id)
+            return index != 0 and self.__cell_ids[index - 1].range_max() >= cell_id
         elif len(args) == 1 and isinstance(args[0], Point):
             return self.contains(CellId.from_point(args[0]))
         elif len(args) == 1 and isinstance(args[0], self.__class__):
@@ -2815,12 +2876,14 @@ class CellUnion(object):
         if len(args) == 1 and isinstance(args[0], CellId):
             cell_id = args[0]
             index = bisect.bisect_left(self.__cell_ids, cell_id)
-            if index != len(self.__cell_ids) and \
-               self.__cell_ids[index].range_min() <= cell_id.range_max():
+            if (
+                index != len(self.__cell_ids)
+                and self.__cell_ids[index].range_min() <= cell_id.range_max()
+            ):
                 return True
             return (
-                index != 0 and
-                self.__cell_ids[index - 1].range_max() >= cell_id.range_min()
+                index != 0
+                and self.__cell_ids[index - 1].range_max() >= cell_id.range_min()
             )
         elif len(args) == 1 and isinstance(args[0], CellUnion):
             cell_union = args[0]
@@ -2839,12 +2902,14 @@ class CellUnion(object):
         return bound
 
 
-FACE_CELLS = (Cell.from_face_pos_level(0, 0, 0),
-              Cell.from_face_pos_level(1, 0, 0),
-              Cell.from_face_pos_level(2, 0, 0),
-              Cell.from_face_pos_level(3, 0, 0),
-              Cell.from_face_pos_level(4, 0, 0),
-              Cell.from_face_pos_level(5, 0, 0))
+FACE_CELLS = (
+    Cell.from_face_pos_level(0, 0, 0),
+    Cell.from_face_pos_level(1, 0, 0),
+    Cell.from_face_pos_level(2, 0, 0),
+    Cell.from_face_pos_level(3, 0, 0),
+    Cell.from_face_pos_level(4, 0, 0),
+    Cell.from_face_pos_level(5, 0, 0),
+)
 
 
 class RegionCoverer(object):
@@ -2859,8 +2924,7 @@ class RegionCoverer(object):
             return len(self.children)
 
         def __lt__(self, other):
-            if not hasattr(self, 'cell') or \
-               not hasattr(other, 'cell'):
+            if not hasattr(self, "cell") or not hasattr(other, "cell"):
                 raise NotImplementedError()
             return self.cell.id() < other.cell.id()
 
@@ -2932,8 +2996,10 @@ class RegionCoverer(object):
                 elif cell.level() + self.__level_mod > self.__max_level:
                     return None
             else:
-                if cell.level() + self.__level_mod > self.__max_level \
-                        or self.__region.contains(cell):
+                if (
+                    cell.level() + self.__level_mod > self.__max_level
+                    or self.__region.contains(cell)
+                ):
                     is_terminal = True
 
         candidate = self.__class__.Candidate()
@@ -2952,7 +3018,8 @@ class RegionCoverer(object):
             if num_levels > 0:
                 if self.__region.may_intersect(child_cell):
                     num_terminals += self.__expand_children(
-                        candidate, child_cell, num_levels)
+                        candidate, child_cell, num_levels
+                    )
                 continue
             child = self.__new_candidate(child_cell)
             if child is not None:
@@ -2975,35 +3042,34 @@ class RegionCoverer(object):
         num_levels = self.__level_mod
         if candidate.cell.level() < self.__min_level:
             num_levels = 1
-        num_terminals = self.__expand_children(candidate,
-                                               candidate.cell,
-                                               num_levels)
+        num_terminals = self.__expand_children(candidate, candidate.cell, num_levels)
 
         if candidate.num_children == 0:
             """ Not needed due to GC """
-        elif not self.__interior_covering \
-                and num_terminals == 1 << self.__max_children_shift() \
-                and candidate.cell.level() >= self.__min_level:
+        elif (
+            not self.__interior_covering
+            and num_terminals == 1 << self.__max_children_shift()
+            and candidate.cell.level() >= self.__min_level
+        ):
             candidate.is_terminal = True
             self.__add_candidate(candidate)
         else:
             priority = (
                 (
-                    (
-                        (candidate.cell.level() <<
-                         self.__max_children_shift()
-                         ) + candidate.num_children
-                    ) << self.__max_children_shift()
-                ) + num_terminals
-            )
+                    (candidate.cell.level() << self.__max_children_shift())
+                    + candidate.num_children
+                )
+                << self.__max_children_shift()
+            ) + num_terminals
             heapq.heappush(self.__pq, (priority, candidate))
 
     def __get_initial_candidates(self):
         if self.__max_cells >= 4:
             cap = self.__region.get_cap_bound()
-            level = min(CellId.min_width().get_max_level(
-                        2 * cap.angle().radians),
-                        min(self.__max_level, CellId.MAX_LEVEL - 1))
+            level = min(
+                CellId.min_width().get_max_level(2 * cap.angle().radians),
+                min(self.__max_level, CellId.MAX_LEVEL - 1),
+            )
 
             if self.__level_mod > 1 and level > self.__min_level:
                 level -= (level - self.__min_level) % self.__level_mod
@@ -3024,20 +3090,21 @@ class RegionCoverer(object):
         self.__region = region
 
         self.__get_initial_candidates()
-        while (len(self.__pq) > 0 and
-               (not self.__interior_covering or
-                len(self.__result) < self.__max_cells)
-               ):
+        while len(self.__pq) > 0 and (
+            not self.__interior_covering or len(self.__result) < self.__max_cells
+        ):
             candidate = heapq.heappop(self.__pq)[1]
 
             if self.__interior_covering:
                 result_size = 0
             else:
                 result_size = len(self.__pq)
-            if candidate.cell.level() < self.__min_level \
-                or candidate.num_children == 1 \
-                or len(self.__result) + result_size + candidate.num_children \
-                    <= self.__max_cells:
+            if (
+                candidate.cell.level() < self.__min_level
+                or candidate.num_children == 1
+                or len(self.__result) + result_size + candidate.num_children
+                <= self.__max_cells
+            ):
                 for child in candidate.children:
                     self.__add_candidate(child)
             elif self.__interior_covering:

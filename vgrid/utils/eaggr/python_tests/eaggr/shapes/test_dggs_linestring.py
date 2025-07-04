@@ -24,11 +24,8 @@ from vgrid.utils.eaggr.shapes.dggs_linestring import DggsLinestring
 
 ## Unit tests for the DggsLinestring class.
 class TestDggsLinestring(unittest.TestCase):
-
     def test_getters(self):
-        orig_cells = [
-            DggsCell('0000'),
-            DggsCell('1111')]
+        orig_cells = [DggsCell("0000"), DggsCell("1111")]
         linestring = DggsLinestring()
         linestring.add_cell(orig_cells[0])
         linestring.add_cell(orig_cells[1])
@@ -39,5 +36,5 @@ class TestDggsLinestring(unittest.TestCase):
 
     def test_errors(self):
         linestring = DggsLinestring()
-        with self.assertRaises(ValueError) as cm:
-            linestring.add_cell('Not a DggsCell')
+        with self.assertRaises(ValueError):
+            linestring.add_cell("Not a DggsCell")

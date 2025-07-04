@@ -1,9 +1,8 @@
-################ 
+################
 # Created by Vgrid
 ################
 
 from vgrid.utils import mercantile
-import math
 from shapely.geometry import Polygon
 from shapely.ops import transform
 import pyproj
@@ -13,19 +12,25 @@ import string
 import re
 
 # Define the character set excluding 'z', 'x', and 'y'
-characters = string.digits + string.ascii_uppercase + string.ascii_lowercase.replace('z', '').replace('x', '').replace('y', '')
+characters = (
+    string.digits
+    + string.ascii_uppercase
+    + string.ascii_lowercase.replace("z", "").replace("x", "").replace("y", "")
+)
 base = len(characters)
+
 
 def tile_encode(num):
     if num == 0:
         return characters[0]
-    
+
     encoded = []
     while num > 0:
         num, remainder = divmod(num, base)
         encoded.append(characters[remainder])
-    
-    return ''.join(reversed(encoded))
+
+    return "".join(reversed(encoded))
+
 
 def tile_decode(encoded):
     num = 0
@@ -33,23 +38,29 @@ def tile_decode(encoded):
         num = num * base + characters.index(char)
     return num
 
+
 def tile_encode_cli():
-    parser = argparse.ArgumentParser(description='Encode a number using a custom base encoding (excluding z, x, y).')
-    parser.add_argument('number', type=int, help='The number to encode (0-9999999).')
+    parser = argparse.ArgumentParser(
+        description="Encode a number using a custom base encoding (excluding z, x, y)."
+    )
+    parser.add_argument("number", type=int, help="The number to encode (0-9999999).")
     args = parser.parse_args()
-    
+
     if args.number < 0 or args.number > 9999999:
         print("Error: The number must be between 0 and 9999999.")
         return
-    
+
     encoded_value = tile_encode(args.number)
     print(f"Encoded: {encoded_value}")
 
+
 def tile_decode_cli():
-    parser = argparse.ArgumentParser(description='Decode a custom base encoded string (excluding z, x, y).')
-    parser.add_argument('encoded', type=str, help='The encoded string to decode.')
+    parser = argparse.ArgumentParser(
+        description="Decode a custom base encoded string (excluding z, x, y)."
+    )
+    parser.add_argument("encoded", type=str, help="The encoded string to decode.")
     args = parser.parse_args()
-    
+
     try:
         decoded_value = tile_decode(args.encoded)
         print(f"Decoded: {decoded_value}")
@@ -69,7 +80,7 @@ def tilecode2bbox(tilecode_id):
         dict: A polygon geometry and tilecode_id as a property.
     """
     # Extract z, x, y from the tilecode_id using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode_id format. Expected format: 'zXxYyZ'")
 
@@ -87,7 +98,7 @@ def tilecode2bbox(tilecode_id):
         [bounds.east, bounds.south],  # Bottom-right
         [bounds.east, bounds.north],  # Top-right
         [bounds.west, bounds.north],  # Top-left
-        [bounds.west, bounds.south]   # Closing the polygon
+        [bounds.west, bounds.south],  # Closing the polygon
     ]
 
     return polygon_coords
@@ -105,7 +116,8 @@ def zxy2tilecode(z, x, y):
     Returns:
         str: A string formatted as 'zXxYyZ'.
     """
-    return f'z{z}x{x}y{y}'
+    return f"z{z}x{x}y{y}"
+
 
 def tilecode2zxy(tilecode_id):
     """
@@ -118,8 +130,8 @@ def tilecode2zxy(tilecode_id):
         tuple: A tuple containing (z, x, y) as integers.
     """
     # Regular expression to capture numbers after z, x, and y
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
-    
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
+
     if match:
         # Extract and convert matched groups to integers
         z = int(match.group(1))
@@ -129,6 +141,7 @@ def tilecode2zxy(tilecode_id):
     else:
         # Raise an error if the format does not match
         raise ValueError("Invalid format. Expected format: 'zXxYyZ'")
+
 
 def latlon2tilecode(lat, lon, zoom):
     """
@@ -144,33 +157,33 @@ def latlon2tilecode(lat, lon, zoom):
     """
     # Get the tile coordinates (x, y) for the given lat, lon, and zoom level
     tile = mercantile.tile(lon, lat, zoom)
-    
+
     # Format the tile coordinates into the tilecode_id string
     tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
-    
+
     return tilecode_id
 
-def latlon2quadkey(lat, lon, zoom):   
+
+def latlon2quadkey(lat, lon, zoom):
     tile = mercantile.tile(lon, lat, zoom)
-    quadkey = mercantile.quadkey(tile)   
+    quadkey = mercantile.quadkey(tile)
     return quadkey
 
 
-def quadkey2latlon(quadkey_id):   
-    tile = mercantile.quadkey_to_tile(quadkey_id)    
+def quadkey2latlon(quadkey_id):
+    tile = mercantile.quadkey_to_tile(quadkey_id)
     # Format as tilecode_id
     z = tile.z
     x = tile.x
     y = tile.y
     # Get the bounds of the tile in (west, south, east, north)
-    bounds = mercantile.bounds(x, y, z)      
+    bounds = mercantile.bounds(x, y, z)
     center_lat = (bounds.south + bounds.north) / 2
     center_lon = (bounds.west + bounds.east) / 2
 
     return center_lat, center_lon
 
-        
-   
+
 def tilecode2latlon(tilecode_id):
     """
     Calculates the center latitude and longitude of a tile given its tilecode_id.
@@ -182,7 +195,7 @@ def tilecode2latlon(tilecode_id):
         tuple: tile code centroid_lat, centroid_lon.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -200,6 +213,7 @@ def tilecode2latlon(tilecode_id):
 
     return center_lat, center_lon
 
+
 def tilecode2quadkey(tilecode_id):
     """
     Converts a tilecode_id (e.g., 'z23x6668288y3948543') to a quadkey using mercantile.
@@ -211,7 +225,7 @@ def tilecode2quadkey(tilecode_id):
         str: Quadkey corresponding to the tilecode.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -225,6 +239,7 @@ def tilecode2quadkey(tilecode_id):
 
     return quadkey_id
 
+
 def quadkey2tilecode(quadkey_id):
     """
     Converts a quadkey_id to a tilecode_id (e.g., 'z23x6668288y3948543') using mercantile.
@@ -237,11 +252,12 @@ def quadkey2tilecode(quadkey_id):
     """
     # Decode the quadkey to get the tile coordinates and zoom level
     tile = mercantile.quadkey_to_tile(quadkey_id)
-    
+
     # Format as tilecode
     tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
 
     return tilecode_id
+
 
 def tilecode_cell_area(tilecode_id):
     """
@@ -254,7 +270,7 @@ def tilecode_cell_area(tilecode_id):
         float: The area of the tile in square meters.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -272,18 +288,21 @@ def tilecode_cell_area(tilecode_id):
         [bounds.east, bounds.south],  # Bottom-right
         [bounds.east, bounds.north],  # Top-right
         [bounds.west, bounds.north],  # Top-left
-        [bounds.west, bounds.south]   # Closing the polygon
+        [bounds.west, bounds.south],  # Closing the polygon
     ]
     polygon = Polygon(polygon_coords)
 
     # Project the polygon to a metric CRS (e.g., EPSG:3857) to calculate area in square meters
-    project = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True).transform
+    project = pyproj.Transformer.from_crs(
+        "EPSG:4326", "EPSG:3857", always_xy=True
+    ).transform
     metric_polygon = transform(project, polygon)
 
     # Calculate the area in square meters
     area = metric_polygon.area
 
     return area
+
 
 def tilecode_cell_length(tilecode_id):
     """
@@ -296,7 +315,7 @@ def tilecode_cell_length(tilecode_id):
         float: The length of the edge of the tile in meters.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -314,18 +333,23 @@ def tilecode_cell_length(tilecode_id):
         [bounds.east, bounds.south],  # Bottom-right
         [bounds.east, bounds.north],  # Top-right
         [bounds.west, bounds.north],  # Top-left
-        [bounds.west, bounds.south]   # Closing the polygon
+        [bounds.west, bounds.south],  # Closing the polygon
     ]
     polygon = Polygon(polygon_coords)
 
     # Project the polygon to a metric CRS (e.g., EPSG:3857) to calculate edge length in meters
-    project = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True).transform
+    project = pyproj.Transformer.from_crs(
+        "EPSG:4326", "EPSG:3857", always_xy=True
+    ).transform
     metric_polygon = transform(project, polygon)
 
     # Calculate the length of the edge of the square
-    edge_length = metric_polygon.exterior.length / 4  # Divide by 4 for the length of one edge
+    edge_length = (
+        metric_polygon.exterior.length / 4
+    )  # Divide by 4 for the length of one edge
 
     return edge_length
+
 
 def tilecode2tilebound(tilecode_id):
     """
@@ -338,7 +362,7 @@ def tilecode2tilebound(tilecode_id):
         dict: Bounding box with 'west', 'south', 'east', 'north' coordinates.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode_id format. Expected format: 'zXxYyZ'")
 
@@ -352,13 +376,14 @@ def tilecode2tilebound(tilecode_id):
 
     # Convert bounds to a dictionary
     bounds_dict = {
-        'west': bounds[0],
-        'south': bounds[1],
-        'east': bounds[2],
-        'north': bounds[3]
+        "west": bounds[0],
+        "south": bounds[1],
+        "east": bounds[2],
+        "north": bounds[3],
     }
 
     return bounds_dict
+
 
 def tilecode2bound(tilecode_id):
     """
@@ -371,7 +396,7 @@ def tilecode2bound(tilecode_id):
         list: Bounding box in the format [left, bottom, right, top].
     """
     # Extract z, x, y from the tilecode_id using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode_id format. Expected format: 'zXxYyZ'")
 
@@ -385,6 +410,7 @@ def tilecode2bound(tilecode_id):
     # Return bounds as a list in [left, bottom, right, top] format
     return [bounds[0], bounds[1], bounds[2], bounds[3]]
 
+
 def tilecode2wktbound(tilecode_id):
     """
     Converts a tilecode_id (e.g., 'z23x6668288y3948543') to its bounding box in OGC WKT format using mercantile.
@@ -396,7 +422,7 @@ def tilecode2wktbound(tilecode_id):
         str: Bounding box in OGC WKT format.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -413,6 +439,7 @@ def tilecode2wktbound(tilecode_id):
 
     return wkt
 
+
 def tilecode_list(zoom):
     """
     Lists all tilecodes at a specific zoom level using mercantile.
@@ -424,7 +451,7 @@ def tilecode_list(zoom):
         list: A list of tilecodes for the specified zoom level.
     """
     # Get the maximum number of tiles at the given zoom level
-    num_tiles = 2 ** zoom
+    num_tiles = 2**zoom
 
     tilecode_ids = []
     for x in range(num_tiles):
@@ -434,11 +461,12 @@ def tilecode_list(zoom):
             # Convert tile to tilecode
             tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
             tilecode_ids.append(tilecode_id)
-    
+
     return tilecode_ids
 
-def tilecode_children(tilecode_id, resolution=None):   
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+
+def tilecode_children(tilecode_id, resolution=None):
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -447,13 +475,15 @@ def tilecode_children(tilecode_id, resolution=None):
     y = int(match.group(3))
 
     if not resolution:
-        resolution = z+1
-        
+        resolution = z + 1
+
     if resolution <= z:
-        raise ValueError("target_zoom must be greater than the tile's current resolution")
+        raise ValueError(
+            "target_zoom must be greater than the tile's current resolution"
+        )
 
     zoom_diff = resolution - z
-    factor = 2 ** zoom_diff
+    factor = 2**zoom_diff
 
     children = []
     for dx in range(factor):
@@ -464,12 +494,15 @@ def tilecode_children(tilecode_id, resolution=None):
 
     return children
 
-def quadkey_children(quadkey_id,resolution):
+
+def quadkey_children(quadkey_id, resolution):
     tile = mercantile.quadkey_to_tile(quadkey_id)
     current_zoom = tile.z
 
     if resolution <= current_zoom:
-        raise ValueError("Resolution must be greater than the tile's current zoom level")
+        raise ValueError(
+            "Resolution must be greater than the tile's current zoom level"
+        )
 
     tiles = [tile]
 
@@ -493,7 +526,7 @@ def tilecode_parent(tilecode):
         str: The tilecode of the parent tile.
     """
     # Extract z, x, y from the tilecode
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -536,7 +569,7 @@ def tilecode_siblings(tilecode_id):
         list: A list of tilecodes representing the sibling tiles, excluding the input tilecode.
     """
     # Extract z, x, y from the tilecode
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode_id format. Expected format: 'zXxYyZ'")
 
@@ -556,12 +589,13 @@ def tilecode_siblings(tilecode_id):
 
     # Get all children of the parent tile
     parent_tilecode = f"z{z_parent}x{x_parent}y{y_parent}"
-    children = tilecode_children(parent_tilecode,z)
+    children = tilecode_children(parent_tilecode, z)
 
     # Exclude the input tilecode from the list of siblings
     siblings = [child for child in children if child != tilecode_id]
 
     return siblings
+
 
 def tilecode_neighbors(tilecode_id):
     """
@@ -574,7 +608,7 @@ def tilecode_neighbors(tilecode_id):
         list: A list of neighboring tilecodes.
     """
     # Extract z, x, y from the tilecode using regex
-    match = re.match(r'z(\d+)x(\d+)y(\d+)', tilecode_id)
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
@@ -600,6 +634,7 @@ def tilecode_neighbors(tilecode_id):
 
     return neighbors
 
+
 def bbox_tilecodes(bbox, zoom):
     """
     Lists all tilecodes intersecting with the bounding box at a specific zoom level.
@@ -613,16 +648,17 @@ def bbox_tilecodes(bbox, zoom):
     """
     west, south, east, north = bbox
     bbox_geom = box(west, south, east, north)
-    
+
     intersecting_tilecodes = []
 
     for tile in mercantile.tiles(west, south, east, north, zoom):
         tile_geom = box(*mercantile.bounds(tile))
         if bbox_geom.intersects(tile_geom):
-            tilecode = f'z{zoom}x{tile.x}y{tile.y}'
+            tilecode = f"z{zoom}x{tile.x}y{tile.y}"
             intersecting_tilecodes.append(tilecode)
 
     return intersecting_tilecodes
+
 
 def feature_tilecodes(geometry, zoom):
     """
@@ -640,6 +676,6 @@ def feature_tilecodes(geometry, zoom):
     for tile in mercantile.tiles(*geometry.bounds, zoom):
         tile_geom = box(*mercantile.bounds(tile))
         if geometry.intersects(tile_geom):
-            tilecode = f'z{zoom}x{tile.x}y{tile.y}'
+            tilecode = f"z{zoom}x{tile.x}y{tile.y}"
             intersecting_tilecodes.append(tilecode)
     return intersecting_tilecodes

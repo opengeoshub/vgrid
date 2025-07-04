@@ -20,7 +20,6 @@ or can be found at <http://www.gnu.org/licenses/>.
 
 ## Different DGGS shape types.
 class DggsShapeType:
-
     CELL = 0
     LINESTRING = 1
     POLYGON = 2

@@ -22,13 +22,11 @@ or can be found at <http://www.gnu.org/licenses/>.
 #  @param value Input to check.
 #  @throw ValueError Thrown if the input is not a DGGS model type.
 def check_model(value):
-    if not (isinstance(value, int) and
-            value >= Model.ISEA4T and value <= Model.ISEA3H):
-        raise ValueError('DGGS model type must be one of the Model values')
+    if not (isinstance(value, int) and value >= Model.ISEA4T and value <= Model.ISEA3H):
+        raise ValueError("DGGS model type must be one of the Model values")
 
 
 ## Used to specify the model type to use for the DGGS.
 class Model:
-
     ISEA4T = 0
     ISEA3H = 1

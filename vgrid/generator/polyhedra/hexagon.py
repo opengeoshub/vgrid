@@ -12,21 +12,22 @@ import numpy as np
 ORIGIN = np.array([0, 0, 0], dtype=np.float64)
 
 # golden ratio
-PHI = (1 + math.sqrt(5))/2
+PHI = (1 + math.sqrt(5)) / 2
+
 
 def distance(v1, v2=ORIGIN):
     """
     return distance between two vectors
     """
-    return np.linalg.norm(v1-v2)
+    return np.linalg.norm(v1 - v2)
 
 
 def midpoint(v1, v2):
     """
     return midpoint between two vectors
     """
-    v = (v1 + v2)
-    mp = v/np.linalg.norm(v)
+    v = v1 + v2
+    mp = v / np.linalg.norm(v)
     return mp
 
 
@@ -58,10 +59,8 @@ class Vertice(object):
             vert.id = len(cls.vertices)
             return vert
 
-
     def distance(self, other):
         return distance(self.vertice, other.vertice)
-
 
     def latlon(self):
         """
@@ -69,9 +68,9 @@ class Vertice(object):
         """
         x, y, z = tuple(self.vertice.tolist())
         th = 25 * math.pi / 180
-        x1 = math.cos(th)*x - math.sin(th)*y
-        y1 = math.sin(th)*x + math.cos(th)*y
-        return [math.atan2(y1, x1)*180/math.pi, math.asin(z)*180/math.pi]
+        x1 = math.cos(th) * x - math.sin(th) * y
+        y1 = math.sin(th) * x + math.cos(th) * y
+        return [math.atan2(y1, x1) * 180 / math.pi, math.asin(z) * 180 / math.pi]
 
     @property
     def coordinates(self):
@@ -82,14 +81,13 @@ class Vertice(object):
         cls.vertices = {}
 
     def __repr__(self):
-        return 'Vertice(%d)' %(self.id)
+        return "Vertice(%d)" % (self.id)
+
 
 class Face(object):
-
     faces = {}
 
     def __init__(self, vertices, id):
-
         self.id = id
         self.vertices = [Vertice.make(vert, self) for vert in vertices]
         self.key = tuple(sorted([vert.key for vert in self.vertices]))
@@ -120,11 +118,13 @@ class Face(object):
 
         # normal can be computed using (v2 - v1) cross (v3 - v1)
         normal = np.cross(self.v2 - self.v1, self.v3 - self.v1)
-        self.normal = normal/np.linalg.norm(normal)
+        self.normal = normal / np.linalg.norm(normal)
 
         # plugging Eq 1. into Eq 2.
         # x' = x / (x . y)
-        self.vertex = self.normal/(sum([ np.dot(v, self.normal) for v in vertices ])/len(vertices))
+        self.vertex = self.normal / (
+            sum([np.dot(v, self.normal) for v in vertices]) / len(vertices)
+        )
         self.vertex = self.vertex / np.linalg.norm(self.vertex)
 
     @classmethod
@@ -167,7 +167,8 @@ class Face(object):
         return coordinates
 
     def __repr__(self):
-        return 'Face(%d)' %(self.id)
+        return "Face(%d)" % (self.id)
+
 
 def icosahedron_vertices():
     """
@@ -177,7 +178,7 @@ def icosahedron_vertices():
     point = np.array([0, 1, PHI], dtype=np.float64)
 
     # normalize
-    point = point/distance(point)
+    point = point / distance(point)
 
     # construct 12 vertices by cyclically permuting [0, +/-1, +/- PHI]
     pqueue = collections.deque(point)
@@ -191,14 +192,20 @@ def icosahedron_vertices():
                 for k in [-1, 1]:
                     Vertice.make(np.multiply(pqueue, [i, j, k]))
 
-def icosahedron_faces(): 
+
+def icosahedron_faces():
     """
     generate icosahedron faces
     """
     pairs = collections.defaultdict(set)
     for vert in Vertice.vertices.values():
-        min_dist = min([vert.distance(other_vert) \
-            for other_vert in Vertice.vertices.values() if vert.distance(other_vert) > 0])
+        min_dist = min(
+            [
+                vert.distance(other_vert)
+                for other_vert in Vertice.vertices.values()
+                if vert.distance(other_vert) > 0
+            ]
+        )
 
         for other_vert in Vertice.vertices.values():
             if vert.distance(other_vert) == min_dist:
@@ -215,7 +222,12 @@ def icosahedron_faces():
             for v2 in verts:
                 if v2 == vert or v2 == v1:
                     continue
-                if v2 in pairs[v1] and v1 in pairs[v2] and vert in pairs[v1] and vert in pairs[v2]:
+                if (
+                    v2 in pairs[v1]
+                    and v1 in pairs[v2]
+                    and vert in pairs[v1]
+                    and vert in pairs[v2]
+                ):
                     key = tuple(sorted([vert, v1, v2]))
 
                     face = Face.make([np.array(v, dtype=np.float64) for v in key])
@@ -223,6 +235,7 @@ def icosahedron_faces():
                     Vertice.vertices.get(vert).face = face
                     Vertice.vertices.get(v1).face = face
                     Vertice.vertices.get(v2).face = face
+
 
 def icosahedron_bisect(level):
     """
@@ -248,26 +261,25 @@ def icosahedron_bisect(level):
             Face.make([a, b, c])
             Face.make([b, face.v3, c])
 
+
 def icosahedron_geojson():
     """
     return geojson
     """
-    json = {'type': 'FeatureCollection', 'features': []}
+    json = {"type": "FeatureCollection", "features": []}
 
     for fkey, face in Face.faces.items():
         vert = face.vertex
-        json['features'].append(dict(
-            type='Feature',
-            geometry=dict(
-                type='Polygon',
-                coordinates=[face.coordinates]
-            ),
-            properties=dict(
-                x=vert[0], y=vert[1], z=vert[2]
+        json["features"].append(
+            dict(
+                type="Feature",
+                geometry=dict(type="Polygon", coordinates=[face.coordinates]),
+                properties=dict(x=vert[0], y=vert[1], z=vert[2]),
             )
-        ))
+        )
 
     return json
+
 
 def icosahedron_dual():
     """
@@ -281,7 +293,6 @@ def icosahedron_dual():
             vertFaces[vert.key].add(fkey)
 
     # store the vertices and faces
-    vertices = Vertice.vertices
     faces = Face.faces
 
     # clear the vertices and faces for the dual
@@ -298,13 +309,16 @@ def icosahedron_dual():
         # loop through the other faces
         # grabbing the nearest face (by its corresponding vertex)
         while len(_faces) <= l:
-            fkey = sorted(fkeys, key = lambda fkey: distance(face.vertex, faces[fkey].vertex))[0]
+            fkey = sorted(
+                fkeys, key=lambda fkey: distance(face.vertex, faces[fkey].vertex)
+            )[0]
             face = faces[fkey]
             fkeys.remove(fkey)
             _faces.append(faces[fkey])
 
         # build a new face from the plane -> vertices of the original faces
         Face.make([face.vertex for face in _faces])
+
 
 def main():
     """
@@ -314,14 +328,21 @@ def main():
 
     parser = OptionParser()
 
-    parser.add_option("--dual", dest="dual", action='store_true',
-                      default=True, help="Convert polyhedron to its dual")
+    parser.add_option(
+        "--dual",
+        dest="dual",
+        action="store_true",
+        default=True,
+        help="Convert polyhedron to its dual",
+    )
 
-    parser.add_option("--json", dest="json", action='store_true',
-                      help="Display GeoJSON to stdout")
+    parser.add_option(
+        "--json", dest="json", action="store_true", help="Display GeoJSON to stdout"
+    )
 
-    parser.add_option("--level", dest="level", type='int', default=1.0,
-                      help="Bifurcation level")
+    parser.add_option(
+        "--level", dest="level", type="int", default=1.0, help="Bifurcation level"
+    )
 
     options, args = parser.parse_args()
 
@@ -334,7 +355,8 @@ def main():
     icosahedron_dual()
 
     if options.json:
-        print (json.dumps(icosahedron_geojson()))
+        print(json.dumps(icosahedron_geojson()))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

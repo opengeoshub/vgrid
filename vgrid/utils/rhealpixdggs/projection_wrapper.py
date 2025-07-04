@@ -24,7 +24,7 @@ import pyproj
 import importlib
 
 # Import my modules.
-from vgrid.utils.rhealpixdggs.utils import my_round, wrap_longitude, wrap_latitude
+from vgrid.utils.rhealpixdggs.utils import wrap_longitude, wrap_latitude
 from vgrid.utils.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 
 

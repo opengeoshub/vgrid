@@ -1,6 +1,6 @@
 # from vgrid.utils.rhealpixdggs.dggs import WGS84_003
 
-from numpy import array, base_repr, pi  # pi is just for the doctests
+from numpy import array, base_repr  # pi is just for the doctests
 from scipy import integrate
 from itertools import product
 from random import uniform
@@ -154,9 +154,9 @@ class Cell(object):
             assert isinstance(suid, list) or isinstance(suid, tuple), (
                 "Cell suid must be a list or tuple. Got %s." % suid
             )
-            assert (len(suid) > 0) and (
-                len(suid) <= rdggs.max_resolution + 1
-            ), "Need 0 < len(suid) <= %s. Got %s." % (rdggs.max_resolution + 1, suid)
+            assert (len(suid) > 0) and (len(suid) <= rdggs.max_resolution + 1), (
+                "Need 0 < len(suid) <= %s. Got %s." % (rdggs.max_resolution + 1, suid)
+            )
             assert suid[0] in CELLS0, "suid[0] must lie in %s. Got %s." % (
                 CELLS0,
                 suid[0],

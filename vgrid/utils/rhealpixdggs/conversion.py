@@ -118,8 +118,10 @@ def compress_order_cells(cells: list[str]) -> list[str]:
     import re
 
     def alphanum_sort(lst: list[str]) -> list[str]:
-        convert = lambda text: int(text) if text.isdigit() else text
-        alphanum_key = lambda key: [convert(c) for c in re.split("([0-9]+)", key)]
+        def convert(text):
+            return int(text) if text.isdigit() else text
+        def alphanum_key(key):
+            return [convert(c) for c in re.split("([0-9]+)", key)]
         return sorted(lst, key=alphanum_key)
 
     cells = set(cells)

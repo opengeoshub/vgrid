@@ -43,6 +43,7 @@ def geo_to_rhp(lat: float, lng: float, resolution: int, plane: bool = True) -> s
     # Return the cell ID after converting int digits to str
     return str(cell)
 
+
 def rhp_to_geo(
     rhpindex: str, geo_json: bool = True, plane: bool = True
 ) -> tuple[float, float]:
@@ -102,7 +103,7 @@ def rhp_to_parent(rhpindex: str, res: int = None, verbose: bool = True) -> str:
     elif res > child_res:
         if verbose:
             print(
-                f"Warning: You requested a parent resolution that is higher than the cell resolution. Returning the cell address itself."
+                "Warning: You requested a parent resolution that is higher than the cell resolution. Returning the cell address itself."
             )
         return rhpindex
 
@@ -129,7 +130,7 @@ def rhp_to_center_child(rhpindex: str, res: int = None, verbose: bool = True) ->
     if res is not None and res < parent_res:
         if verbose:
             print(
-                f"Warning: You requested a child resolution that is lower than the cell resolution. Returning the cell address itself."
+                "Warning: You requested a child resolution that is lower than the cell resolution. Returning the cell address itself."
             )
         return rhpindex
 

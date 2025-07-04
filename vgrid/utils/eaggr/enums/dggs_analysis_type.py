@@ -20,14 +20,13 @@ or can be found at <http://www.gnu.org/licenses/>.
 
 ## Different DGGS analysis types.
 class DggsAnalysisType:
-
-    CONTAINS = 0 
+    CONTAINS = 0
     COVERED_BY = 1
     COVERS = 2
-    CROSSES = 3 
-    DISJOINT = 4 
+    CROSSES = 3
+    DISJOINT = 4
     EQUALS = 5
-    INTERSECTS = 6 
+    INTERSECTS = 6
     OVERLAPS = 7
-    TOUCHES = 8 
+    TOUCHES = 8
     WITHIN = 9

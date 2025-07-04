@@ -28,7 +28,7 @@ from vgrid.utils.rhealpixdggs.pj_healpix import (
     healpix_ellipsoid,
     healpix_ellipsoid_inverse,
 )
-from vgrid.utils.rhealpixdggs.utils import my_round, auth_rad
+from vgrid.utils.rhealpixdggs.utils import auth_rad
 
 # Matrix for anticlockwise rotation by pi/2:
 ROTATE1 = array([[0, -1], [1, 0]])

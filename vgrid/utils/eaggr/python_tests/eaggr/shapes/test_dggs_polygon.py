@@ -25,13 +25,9 @@ from vgrid.utils.eaggr.shapes.dggs_polygon import DggsPolygon
 
 ## Unit tests for the DggsPolygon class.
 class DggsPolygonTest(unittest.TestCase):
-
     def test_getters(self):
         # Create DggsPolygon object
-        orig_cells = [
-            DggsCell('0000'),
-            DggsCell('1111'),
-            DggsCell('2222')]
+        orig_cells = [DggsCell("0000"), DggsCell("1111"), DggsCell("2222")]
         linestring = DggsLinestring()
         linestring.add_cell(orig_cells[0])
         polygon = DggsPolygon(linestring)
@@ -53,9 +49,9 @@ class DggsPolygonTest(unittest.TestCase):
 
     def test_errors(self):
         # Error with outer ring
-        with self.assertRaises(ValueError) as cm:
-            DggsPolygon('Not a DggsLinestring')
+        with self.assertRaises(ValueError):
+            DggsPolygon("Not a DggsLinestring")
         # Error with inner ring
         polygon = DggsPolygon(DggsLinestring())
-        with self.assertRaises(ValueError) as cm:
-            polygon.add_inner_ring('Not a DggsLinestring')
+        with self.assertRaises(ValueError):
+            polygon.add_inner_ring("Not a DggsLinestring")

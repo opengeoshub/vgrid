@@ -23,14 +23,15 @@ from vgrid.utils.eaggr.shapes.lat_long_linestring import LatLongLinestring
 ## Defines a polygon made up of an outer ring and zero or more inner rings.
 #  The outer and inner rings are linestrings made up of WGS84 lat / long points.
 class LatLongPolygon(object):
-
     ## Sets the outer ring of the polygon. Initially the polygon has no inner rings.
     #  @note Call add_inner_ring() to add inner rings to the polygon.
     #  @param outer_ring LatLongLinestring defining the outer ring of the polygon.
     #  @throw ValueError Thrown if input argument is not a LatLongLinestring object.
     def __init__(self, outer_ring):
         if not isinstance(outer_ring, LatLongLinestring):
-            raise ValueError("Input argument to DggsPolygon() must be a LatLongLinestring")
+            raise ValueError(
+                "Input argument to DggsPolygon() must be a LatLongLinestring"
+            )
         self._outer_ring = outer_ring
         self._inner_rings = []
 
@@ -39,7 +40,9 @@ class LatLongPolygon(object):
     #  @throw ValueError Thrown if input argument is not a LatLongLinestring object.
     def add_inner_ring(self, inner_ring):
         if not isinstance(inner_ring, LatLongLinestring):
-            raise ValueError("Input argument to add_inner_ring() must be a LatLongLinestring")
+            raise ValueError(
+                "Input argument to add_inner_ring() must be a LatLongLinestring"
+            )
         self._inner_rings.append(inner_ring)
 
     ## @return LatLongLinestring defining the outer ring of the polygon.

@@ -22,7 +22,6 @@ from vgrid.utils.eaggr.shapes.dggs_cell import DggsCell
 
 ## Defines a linestring made up of DGGS cells.
 class DggsLinestring(object):
-
     ## Initially the linestring contains no cells.
     #  @note Call add_cell() to add cells to the linestring.
     def __init__(self):

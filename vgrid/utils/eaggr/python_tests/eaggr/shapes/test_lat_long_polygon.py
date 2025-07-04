@@ -25,13 +25,13 @@ from vgrid.utils.eaggr.shapes.lat_long_polygon import LatLongPolygon
 
 ## Unit tests for the LatLongPolygon class.
 class LatLongPolygonTest(unittest.TestCase):
-
     def test_getters(self):
         # Create LatLongPolygon object
         orig_points = [
             LatLongPoint(1.0, 2.0, 3.0),
             LatLongPoint(4.0, 5.0, 6.0),
-            LatLongPoint(7.0, 8.0, 9.0)]
+            LatLongPoint(7.0, 8.0, 9.0),
+        ]
         linestring = LatLongLinestring()
         linestring.add_point(orig_points[0])
         polygon = LatLongPolygon(linestring)
@@ -53,9 +53,9 @@ class LatLongPolygonTest(unittest.TestCase):
 
     def test_errors(self):
         # Error with outer ring
-        with self.assertRaises(ValueError) as cm:
-            LatLongPolygon('Not a LatLongLinestring')
+        with self.assertRaises(ValueError):
+            LatLongPolygon("Not a LatLongLinestring")
         # Error with inner ring
         polygon = LatLongPolygon(LatLongLinestring())
-        with self.assertRaises(ValueError) as cm:
-            polygon.add_inner_ring('Not a LatLongLinestring')
+        with self.assertRaises(ValueError):
+            polygon.add_inner_ring("Not a LatLongLinestring")
