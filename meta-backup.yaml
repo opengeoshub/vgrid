@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/vgrid-{{ version }}.tar.gz
-  sha256: 13A54602276BB9E8E551389F18410361DAA27421403ED1EC4C9593A152D2B634
+  sha256: 7CFA83DBDFD70C6E4D3111359954F5C53450AF29F71F0683EB1D8EB36FD41E3B
 
 build:
   number: 0
@@ -18,10 +18,9 @@ build:
 requirements:
   host:
     - pip
-    - python >=3.6
+    - python >=3.10
   run:
-    - python >=3.6
-    - typing-extensions
+    - python >=3.10
     - vgrid
 
 about:
