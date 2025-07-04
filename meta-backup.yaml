@@ -1,0 +1,37 @@
+{% set name = "vgrid" %}
+{% set version = "1.3.12" %}
+
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/vgrid-{{ version }}.tar.gz
+  sha256: 13A54602276BB9E8E551389F18410361DAA27421403ED1EC4C9593A152D2B634
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
+
+requirements:
+  host:
+    - pip
+    - python >=3.6
+  run:
+    - python >=3.6
+    - typing-extensions
+    - vgrid
+
+about:
+  home: https://vgrid.vn
+  summary: Vgrid DGGS
+  license: MIT
+  license_file: LICENSE
+  doc_url: https://vgrid.gishub.vn
+  dev_url: https://github.com/opengeospatial/vgrid
+
+extra:
+  recipe-maintainers:
+    - thangqd
