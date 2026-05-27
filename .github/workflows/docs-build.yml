@@ -48,6 +48,7 @@ jobs:
             #   run: |
             #       uv run pytest . --verbose
 
+
             - name: Install mkdocs
               run: |
                   uv pip install -r requirements_docs.txt
