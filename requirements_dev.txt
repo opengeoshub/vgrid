@@ -1,0 +1,20 @@
+tqdm>=4.67.1
+h3>=4.4.2
+pya5>=0.7.3
+dggal~=0.0.6
+dggrid4py>=0.5.3
+# rhealpixdggs>=0.5.13 
+shapely>=2.0.7
+ease-dggs>=0.1.0
+gars-field>=0.3.3
+geopandas
+fiona
+scipy
+future
+rasterio
+requests
+gdown
+pyarrow
+matplotlib
+healpy; sys_platform == 'linux'
+ruff

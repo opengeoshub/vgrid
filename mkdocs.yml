@@ -1,0 +1,135 @@
+site_name: Vgrid DGGS
+site_description: A Python package to work with popular geodesic DGGS and graticule-based DGGS 
+site_author: Thang Quach
+site_url: https://vgrid.gishub.vn
+
+repo_url: https://github.com/opengeoshub/vgrid
+
+copyright: "Copyright &copy; 2025 Thang Quach"
+
+theme:
+    palette:
+        - scheme: default
+          #   primary: blue
+          #   accent: indigo
+          toggle:
+              icon: material/toggle-switch-off-outline
+              name: Switch to dark mode
+        - scheme: slate
+          primary: indigo
+          accent: indigo
+          toggle:
+              icon: material/toggle-switch
+              name: Switch to light mode
+    name: material
+    icon:
+        repo: fontawesome/brands/github
+    logo: assets/logo.png
+    favicon: assets/favicon.ico
+    features:
+        - navigation.instant
+        - navigation.tracking
+        - navigation.top
+        - search.highlight
+        - search.share
+    custom_dir: "docs/overrides"
+    font:
+        text: Google Sans
+        code: Regular
+
+plugins:
+    - search
+    - mkdocstrings:
+          handlers:
+              python:
+                  options:
+                      docstring_style: google
+    # - git-revision-date
+    # - git-revision-date-localized:
+    #       enable_creation_date: true
+    #       type: timeago
+    #       fallback_to_build_date: true  
+    # - pdf-export
+    - mkdocs-jupyter:
+          include_source: True
+          ignore_h1_titles: True
+          execute: False
+          allow_errors: false
+          execute_ignore:
+              [
+                  "changelog_update.py",
+              ]
+          # Uncomment and modify the line below to execute only specific notebooks
+          # execute_include: ["notebooks/00_intro.ipynb", "notebooks/01_h3.ipynb"]
+
+markdown_extensions:
+    - admonition
+    - abbr
+    - attr_list
+    - def_list
+    - footnotes
+    - meta
+    - md_in_html
+    - pymdownx.superfences
+    - pymdownx.highlight:
+          linenums: true
+    - pymdownx.arithmatex:
+          generic: true
+          block_tag: div
+          inline_tag: span
+    - toc:
+          permalink: true
+
+extra:
+    analytics:
+        provider: google
+        property: G-B1C88N45QG
+
+extra_css:
+    - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css
+
+extra_javascript:
+    - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js
+    - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js
+    - javascripts/katex.js
+
+nav:
+    - Home: index.md
+    - Installation: installation.md
+    - Introduction: notebooks/00_intro.ipynb
+    - Notebooks:
+          - notebooks/00_intro.ipynb
+          - notebooks/01_h3.ipynb
+          - notebooks/02_s2.ipynb
+          - notebooks/03_a5.ipynb
+          - notebooks/04_rhealpix.ipynb
+          - notebooks/05_dggal.ipynb
+          - notebooks/06_dggrid.ipynb
+          - notebooks/07_isea4t.ipynb
+          - notebooks/08_isea3h.ipynb
+          - notebooks/09_ease.ipynb
+          - notebooks/10_qtm.ipynb
+          - notebooks/11_olc.ipynb
+          - notebooks/12_geohash.ipynb
+          - notebooks/13_georef.ipynb
+          - notebooks/14_mgrs.ipynb
+          - notebooks/15_tilecode.ipynb
+          - notebooks/16_quadkey.ipynb
+          - notebooks/17_maidenhead.ipynb
+          - notebooks/18_gars.ipynb
+          - notebooks/19_digipin.ipynb
+
+    - API Reference:
+          - DGGS Conversion:
+              - Latlon to DGGS: api/conversion/latlon2dggs.md
+              - DGGS to Geo: api/conversion/dggs2geo.md
+              - Vector to DGGS: api/conversion/vector2dggs.md
+              - Raster to DGGS: api/conversion/raster2dggs.md
+              - DGGS Resample: api/conversion/resampling.md
+          - DGGS Binning: api/binning.md
+          - DGGS Generator: api/generator.md
+          - DGGS Statistics: api/stats.md
+   
+    - Contributing: contributing.md
+    - Report Issues: https://github.com/opengeoshub/vgrid/issues
+    - Changelog: changelog.md

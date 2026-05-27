@@ -1,0 +1,17 @@
+::: vgrid.conversion.raster2dggs
+::: vgrid.conversion.raster2dggs.raster2h3
+::: vgrid.conversion.raster2dggs.raster2s2
+::: vgrid.conversion.raster2dggs.raster2a5
+::: vgrid.conversion.raster2dggs.raster2rhealpix
+::: vgrid.conversion.raster2dggs.raster2dggal
+::: vgrid.conversion.raster2dggs.raster2dggrid
+::: vgrid.conversion.raster2dggs.raster2isea4t
+::: vgrid.conversion.raster2dggs.raster2qtm
+::: vgrid.conversion.raster2dggs.raster2olc
+::: vgrid.conversion.raster2dggs.raster2geohash
+::: vgrid.conversion.raster2dggs.raster2georef
+::: vgrid.conversion.raster2dggs.raster2tilecode
+::: vgrid.conversion.raster2dggs.raster2quadkey
+::: vgrid.conversion.raster2dggs.raster2maidenhead
+::: vgrid.conversion.raster2dggs.raster2gars
+::: vgrid.conversion.raster2dggs.raster2digipin

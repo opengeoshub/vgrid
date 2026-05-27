@@ -1,0 +1,326 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vgrid"
+version = "1.4.22"
+description = "Vgrid - A unified framework for working with DGGS"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["Vgrid", "DGGS"]
+authors = [
+    {name = "Thang Quach", email = "quachdongthang@gmail.com"}
+]
+urls = {Homepage = "https://github.com/opengeoshub/vgrid"}
+dependencies = [
+    "tqdm>=4.67.1",
+    "h3>=4.4.2",
+    "pya5>=0.8.0",
+    "dggal~=0.0.6",
+    "dggrid4py>=0.5.3",
+    # "rhealpixdggs>=0.5.13", # To avoid conflicts between dggrid4py and rhealpixdggs
+    "ease-dggs>=0.1.0",
+    "gars-field>=0.3.3",
+    "geopandas",
+    "fiona",
+    "scipy",
+    "future",
+    "rasterio",
+    "requests",
+    "gdown",
+    "pyarrow",
+    "matplotlib",
+    "shapely>=2.0.7" ,# To avoid conflicts between dggrid4py and rhealpixdggs
+    "seaborn>=0.13.2",
+]
+
+[project.scripts]
+# Latlon to DGGS Cell
+latlon2h3 = "vgrid.conversion.latlon2dggs:latlon2h3_cli"
+latlon2s2 = "vgrid.conversion.latlon2dggs:latlon2s2_cli"
+latlon2a5 = "vgrid.conversion.latlon2dggs:latlon2a5_cli"
+# latlon2healpix = "vgrid.conversion.latlon2dggs:latlon2healpix_cli"
+latlon2rhealpix = "vgrid.conversion.latlon2dggs:latlon2rhealpix_cli"
+latlon2isea4t = "vgrid.conversion.latlon2dggs:latlon2isea4t_cli"
+latlon2isea3h = "vgrid.conversion.latlon2dggs:latlon2isea3h_cli"
+latlon2ease = "vgrid.conversion.latlon2dggs:latlon2ease_cli"
+
+latlon2dggal = "vgrid.conversion.latlon2dggs:latlon2dggal_cli"
+latlon2dggrid = "vgrid.conversion.latlon2dggs:latlon2dggrid_cli"
+
+latlon2qtm = "vgrid.conversion.latlon2dggs:latlon2qtm_cli"
+
+latlon2olc = "vgrid.conversion.latlon2dggs:latlon2olc_cli"
+latlon2geohash = "vgrid.conversion.latlon2dggs:latlon2geohash_cli"
+latlon2georef = "vgrid.conversion.latlon2dggs:latlon2georef_cli"
+latlon2mgrs = "vgrid.conversion.latlon2dggs:latlon2mgrs_cli"
+latlon2tilecode = "vgrid.conversion.latlon2dggs:latlon2tilecode_cli"
+latlon2quadkey = "vgrid.conversion.latlon2dggs:latlon2quadkey_cli"
+latlon2maidenhead = "vgrid.conversion.latlon2dggs:latlon2maidenhead_cli"
+latlon2gars = "vgrid.conversion.latlon2dggs:latlon2gars_cli"
+latlon2digipin = "vgrid.conversion.latlon2dggs:latlon2digipin_cli"
+
+# DGGS IDs to Shapely geometry
+h32geo = "vgrid.conversion.dggs2geo.h32geo:h32geo_cli"
+s22geo = "vgrid.conversion.dggs2geo.s22geo:s22geo_cli"
+a52geo = "vgrid.conversion.dggs2geo.a52geo:a52geo_cli"
+# healpix2geo = "vgrid.conversion.dggs2geo.healpix2geo:healpix2geo_cli"
+rhealpix2geo = "vgrid.conversion.dggs2geo.rhealpix2geo:rhealpix2geo_cli"
+isea4t2geo = "vgrid.conversion.dggs2geo.isea4t2geo:isea4t2geo_cli"
+isea3h2geo = "vgrid.conversion.dggs2geo.isea3h2geo:isea3h2geo_cli"
+ease2geo = "vgrid.conversion.dggs2geo.ease2geo:ease2geo_cli"
+
+dggal2geo = "vgrid.conversion.dggs2geo.dggal2geo:dggal2geo_cli"
+dggrid2geo = "vgrid.conversion.dggs2geo.dggrid2geo:dggrid2geo_cli"
+
+qtm2geo = "vgrid.conversion.dggs2geo.qtm2geo:qtm2geo_cli"
+
+olc2geo = "vgrid.conversion.dggs2geo.olc2geo:olc2geo_cli"
+geohash2geo = "vgrid.conversion.dggs2geo.geohash2geo:geohash2geo_cli"
+georef2geo = "vgrid.conversion.dggs2geo:georef2geo_cli"
+mgrs2geo = "vgrid.conversion.dggs2geo:mgrs2geo_cli"
+tilecode2geo = "vgrid.conversion.dggs2geo:tilecode2geo_cli"
+quadkey2geo = "vgrid.conversion.dggs2geo:quadkey2geo_cli"
+maidenhead2geo = "vgrid.conversion.dggs2geo:maidenhead2geo_cli"
+gars2geo = "vgrid.conversion.dggs2geo:gars2geo_cli"
+digipin2geo = "vgrid.conversion.dggs2geo.digipin2geo:digipin2geo_cli"
+
+# DGGS IDs to GeoJSON
+h32geojson = "vgrid.conversion.dggs2geo.h32geo:h32geojson_cli"
+s22geojson = "vgrid.conversion.dggs2geo.s22geo:s22geojson_cli"
+a52geojson = "vgrid.conversion.dggs2geo.a52geo:a52geojson_cli"
+# healpix2geojson = "vgrid.conversion.dggs2geo.healpix2geo:healpix2geojson_cli"
+rhealpix2geojson = "vgrid.conversion.dggs2geo.rhealpix2geo:rhealpix2geojson_cli"
+isea4t2geojson = "vgrid.conversion.dggs2geo.isea4t2geo:isea4t2geojson_cli"
+isea3h2geojson = "vgrid.conversion.dggs2geo.isea3h2geo:isea3h2geojson_cli"
+ease2geojson = "vgrid.conversion.dggs2geo.ease2geo:ease2geojson_cli"
+
+dggal2geojson = "vgrid.conversion.dggs2geo.dggal2geo:dggal2geojson_cli"
+dggrid2geojson = "vgrid.conversion.dggs2geo.dggrid2geo:dggrid2geojson_cli"
+
+qtm2geojson = "vgrid.conversion.dggs2geo.qtm2geo:qtm2geojson_cli"
+
+olc2geojson = "vgrid.conversion.dggs2geo.olc2geo:olc2geojson_cli"
+geohash2geojson = "vgrid.conversion.dggs2geo.geohash2geo:geohash2geojson_cli"
+georef2geojson = "vgrid.conversion.dggs2geo.georef2geo:georef2geojson_cli"
+mgrs2geojson = "vgrid.conversion.dggs2geo.mgrs2geo:mgrs2geojson_cli"
+tilecode2geojson = "vgrid.conversion.dggs2geo.tilecode2geo:tilecode2geojson_cli"
+quadkey2geojson = "vgrid.conversion.dggs2geo.quadkey2geo:quadkey2geojson_cli"
+maidenhead2geojson = "vgrid.conversion.dggs2geo.maidenhead2geo:maidenhead2geojson_cli"
+gars2geojson = "vgrid.conversion.dggs2geo.gars2geo:gars2geojson_cli"
+digipin2geojson = "vgrid.conversion.dggs2geo.digipin2geo:digipin2geojson_cli"
+
+
+# Vector to DGGS
+vector2h3 = "vgrid.conversion.vector2dggs.vector2h3:vector2h3_cli"
+vector2s2 = "vgrid.conversion.vector2dggs.vector2s2:vector2s2_cli"
+vector2a5 = "vgrid.conversion.vector2dggs.vector2a5:vector2a5_cli"
+vector2rhealpix = "vgrid.conversion.vector2dggs.vector2rhealpix:vector2rhealpix_cli"
+vector2isea4t = "vgrid.conversion.vector2dggs.vector2isea4t:vector2isea4t_cli"
+vector2isea3h = "vgrid.conversion.vector2dggs.vector2isea3h:vector2isea3h_cli"
+vector2ease = "vgrid.conversion.vector2dggs.vector2ease:vector2ease_cli"
+
+vector2dggal = "vgrid.conversion.vector2dggs.vector2dggal:vector2dggal_cli"
+vector2dggrid = "vgrid.conversion.vector2dggs.vector2dggrid:vector2dggrid_cli"      
+
+vector2qtm = "vgrid.conversion.vector2dggs.vector2qtm:vector2qtm_cli"
+
+vector2olc = "vgrid.conversion.vector2dggs.vector2olc:vector2olc_cli"
+vector2geohash = "vgrid.conversion.vector2dggs.vector2geohash:vector2geohash_cli"
+vector2georef = "vgrid.conversion.vector2dggs.vector2georef:vector2georef_cli"
+vector2gars = "vgrid.conversion.vector2dggs.vector2gars:vector2gars_cli"
+vector2maidenhead = "vgrid.conversion.vector2dggs.vector2maidenhead:vector2maidenhead_cli"
+vector2tilecode = "vgrid.conversion.vector2dggs.vector2tilecode:vector2tilecode_cli"
+vector2quadkey = "vgrid.conversion.vector2dggs.vector2quadkey:vector2quadkey_cli"
+vector2digipin = "vgrid.conversion.vector2dggs.vector2digipin:vector2digipin_cli"
+    
+# DGGS compact/expand
+h3compact = "vgrid.conversion.dggscompact.h3compact:h3compact_cli"
+h3expand = "vgrid.conversion.dggscompact.h3compact:h3expand_cli"
+s2compact = "vgrid.conversion.dggscompact.s2compact:s2compact_cli"
+s2expand = "vgrid.conversion.dggscompact.s2compact:s2expand_cli"
+a5compact = "vgrid.conversion.dggscompact.a5compact:a5compact_cli"
+a5expand = "vgrid.conversion.dggscompact.a5compact:a5expand_cli"
+rhealpixcompact = "vgrid.conversion.dggscompact.rhealpixcompact:rhealpixcompact_cli"
+rhealpixexpand = "vgrid.conversion.dggscompact.rhealpixcompact:rhealpixexpand_cli"
+isea4tcompact = "vgrid.conversion.dggscompact.isea4tcompact:isea4tcompact_cli"
+isea4texpand = "vgrid.conversion.dggscompact.isea4tcompact:isea4texpand_cli"
+isea3hcompact = "vgrid.conversion.dggscompact.isea3hcompact:isea3hcompact_cli"
+isea3hexpand = "vgrid.conversion.dggscompact.isea3hcompact:isea3hexpand_cli"
+easecompact = "vgrid.conversion.dggscompact.easecompact:easecompact_cli"
+easeexpand = "vgrid.conversion.dggscompact.easecompact:easeexpand_cli"
+
+dggalcompact = "vgrid.conversion.dggscompact.dggalcompact:dggalcompact_cli"
+dggalexpand = "vgrid.conversion.dggscompact.dggalcompact:dggalexpand_cli"
+
+qtmcompact = "vgrid.conversion.dggscompact.qtmcompact:qtmcompact_cli"
+qtmexpand = "vgrid.conversion.dggscompact.qtmcompact:qtmexpand_cli" 
+
+olccompact = "vgrid.conversion.dggscompact.olccompact:olccompact_cli"
+olcexpand = "vgrid.conversion.dggscompact.olccompact:olcexpand_cli"
+geohashcompact = "vgrid.conversion.dggscompact.geohashcompact:geohashcompact_cli"
+geohashexpand = "vgrid.conversion.dggscompact.geohashcompact:geohashexpand_cli"
+tilecodecompact = "vgrid.conversion.dggscompact.tilecodecompact:tilecodecompact_cli"
+tilecodeexpand = "vgrid.conversion.dggscompact.tilecodecompact:tilecodeexpand_cli"
+quadkeycompact = "vgrid.conversion.dggscompact.quadkeycompact:quadkeycompact_cli"
+quadkeyexpand = "vgrid.conversion.dggscompact.quadkeycompact:quadkeyexpand_cli"
+
+digipincompact = "vgrid.conversion.dggscompact.digipincompact:digipincompact_cli"
+digipinexpand = "vgrid.conversion.dggscompact.digipincompact:digipinexpand_cli"
+
+# DGGS resampling
+dggsresample = "vgrid.conversion.dggsresample.dggsresample:dggsresample_cli"
+
+# Data binning
+h3bin = "vgrid.binning.h3bin:h3bin_cli"
+s2bin = "vgrid.binning.s2bin:s2bin_cli"
+a5bin = "vgrid.binning.a5bin:a5bin_cli"
+rhealpixbin = "vgrid.binning.rhealpixbin:rhealpixbin_cli"
+isea4tbin = "vgrid.binning.isea4tbin:isea4tbin_cli"
+easebin = "vgrid.binning.easebin:easebin_cli"
+
+dggalbin = "vgrid.binning.dggalbin:dggalbin_cli"
+
+qtmbin = "vgrid.binning.qtmbin:qtmbin_cli"
+
+olcbin = "vgrid.binning.olcbin:olcbin_cli"
+geohashbin = "vgrid.binning.geohashbin:geohashbin_cli"
+georefbin = "vgrid.binning.georefbin:georefbin_cli"
+garsbin = "vgrid.binning.garsbin:garsbin_cli"
+maidenheadbin = "vgrid.binning.maidenheadbin:maidenheadbin_cli"
+tilecodebin = "vgrid.binning.tilecodebin:tilecodebin_cli"
+quadkeybin = "vgrid.binning.quadkeybin:quadkeybin_cli"
+polygonbin = "vgrid.binning.polygonbin:polygonbin_cli"
+
+# Raster to DGGS
+raster2h3 = "vgrid.conversion.raster2dggs.raster2h3:raster2h3_cli"
+raster2s2 = "vgrid.conversion.raster2dggs.raster2s2:raster2s2_cli"
+raster2a5 = "vgrid.conversion.raster2dggs.raster2a5:raster2a5_cli"
+raster2rhealpix = "vgrid.conversion.raster2dggs.raster2rhealpix:raster2rhealpix_cli"
+raster2isea4t = "vgrid.conversion.raster2dggs.raster2isea4t:raster2isea4t_cli"
+raster2qtm = "vgrid.conversion.raster2dggs.raster2qtm:raster2qtm_cli" 
+raster2olc = "vgrid.conversion.raster2dggs.raster2olc:raster2olc_cli"
+raster2geohash = "vgrid.conversion.raster2dggs.raster2geohash:raster2geohash_cli"
+raster2georef = "vgrid.conversion.raster2dggs.raster2georef:raster2georef_cli"
+raster2gars = "vgrid.conversion.raster2dggs.raster2gars:raster2gars_cli"
+raster2maidenhead = "vgrid.conversion.raster2dggs.raster2maidenhead:raster2maidenhead_cli"
+raster2tilecode = "vgrid.conversion.raster2dggs.raster2tilecode:raster2tilecode_cli"
+raster2quadkey = "vgrid.conversion.raster2dggs.raster2quadkey:raster2quadkey_cli"
+raster2dggal = "vgrid.conversion.raster2dggs.raster2dggal:raster2dggal_cli"
+raster2dggrid = "vgrid.conversion.raster2dggs.raster2dggrid:raster2dggrid_cli"
+raster2digipin = "vgrid.conversion.raster2dggs.raster2digipin:raster2digipin_cli"
+
+# DGGS Generator
+h3grid = "vgrid.generator.h3grid:h3grid_cli"
+s2grid = "vgrid.generator.s2grid:s2grid_cli"
+a5grid = "vgrid.generator.a5grid:a5grid_cli"
+rhealpixgrid = "vgrid.generator.rhealpixgrid:rhealpixgrid_cli"
+isea4tgrid = "vgrid.generator.isea4tgrid:isea4tgrid_cli"
+isea3hgrid = "vgrid.generator.isea3hgrid:isea3hgrid_cli"
+easegrid = "vgrid.generator.easegrid:easegrid_cli"
+
+dggalgen = "vgrid.generator.dggalgen:dggalgen_cli"
+dggridgen = "vgrid.generator.dggridgen:dggridgen_cli"
+
+qtmgrid = "vgrid.generator.qtmgrid:qtmgrid_cli"
+olcgrid = "vgrid.generator.olcgrid:olcgrid_cli"
+geohashgrid = "vgrid.generator.geohashgrid:geohashgrid_cli"
+georefgrid = "vgrid.generator.georefgrid:georefgrid_cli"
+gzd = "vgrid.generator.gzd:gzd_cli"
+mgrsgrid = "vgrid.generator.mgrsgrid:mgrsgrid_cli"
+tilecodegrid = "vgrid.generator.tilecodegrid:tilecodegrid_cli"
+quadkeygrid = "vgrid.generator.quadkeygrid:quadkeygrid_cli"
+maidenheadgrid = "vgrid.generator.maidenheadgrid:maidenheadgrid_cli"
+garsgrid = "vgrid.generator.garsgrid:garsgrid_cli"
+digipingrid = "vgrid.generator.digipingrid:digipingrid_cli"
+vgridgen = "vgrid.generator.vgridgen:vgridgen_cli"
+
+# DGGS Inspect
+h3inspect = "vgrid.stats.h3stats:h3inspect_cli"
+s2inspect = "vgrid.stats.s2stats:s2inspect_cli"
+a5inspect = "vgrid.stats.a5stats:a5inspect_cli"
+rhealpixinspect = "vgrid.stats.rhealpixstats:rhealpixinspect_cli"
+isea4tinspect = "vgrid.stats.isea4tstats:isea4tinspect_cli"
+isea3hinspect = "vgrid.stats.isea3hstats:isea3hinspect_cli" 
+easeinspect = "vgrid.stats.easestats:easeinspect_cli"
+
+dggalinspect = "vgrid.stats.dggalstats:dggalinspect_cli"
+dggridinspect = "vgrid.stats.dggridstats:dggridinspect_cli"
+
+qtminspect = "vgrid.stats.qtmstats:qtminspect_cli"
+
+olcinspect = "vgrid.stats.olcstats:olcinspect_cli"
+geohashinspect = "vgrid.stats.geohashstats:geohashinspect_cli"
+georefinspect = "vgrid.stats.georefstats:georefinspect_cli"
+tilecodeinspect = "vgrid.stats.tilecodestats:tilecodeinspect_cli"
+quadkeyinspect = "vgrid.stats.quadkeystats:quadkeyinspect_cli"
+maidenheadinspect = "vgrid.stats.maidenheadstats:maidenheadinspect_cli"
+garsinspect = "vgrid.stats.garsstats:garsinspect_cli"
+digipininspect = "vgrid.stats.digipinstats:digipininspect_cli"
+
+dggsinspect = "vgrid.stats.dggsstats:dggsinspect_cli"
+dggsboxplot = "vgrid.stats.dggsstats:dggsboxplot_cli"
+
+# DGGS Stats
+h3stats = "vgrid.stats.h3stats:h3stats_cli"
+s2stats = "vgrid.stats.s2stats:s2stats_cli"
+a5stats = "vgrid.stats.a5stats:a5stats_cli"
+rhealpixstats = "vgrid.stats.rhealpixstats:rhealpixstats_cli"
+isea4tstats = "vgrid.stats.isea4tstats:isea4tstats_cli"
+isea3hstats = "vgrid.stats.isea3hstats:isea3hstats_cli"
+easestats = "vgrid.stats.easestats:easestats_cli"
+
+dggridstats = "vgrid.stats.dggridstats:dggridstats_cli"
+
+dggalinfo = "vgrid.stats.dggalstats:dggalinfo_cli"
+dggalstats = "vgrid.stats.dggalstats:dggalstats_cli"
+
+
+
+qtmstats = "vgrid.stats.qtmstats:qtmstats_cli"  
+
+olcstats = "vgrid.stats.olcstats:olcstats_cli"   
+geohashstats = "vgrid.stats.geohashstats:geohashstats_cli"
+georefstats = "vgrid.stats.georefstats:georefstats_cli"
+mgrsstats = "vgrid.stats.mgrsstats:mgrsstats_cli"
+tilecodestats = "vgrid.stats.tilecodestats:tilecodestats_cli"
+quadkeystats = "vgrid.stats.quadkeystats:quadkeystats_cli"
+maidenheadstats = "vgrid.stats.maidenheadstats:maidenheadstats_cli"
+garsstats = "vgrid.stats.garsstats:garsstats_cli"
+digipinstats = "vgrid.stats.digipinstats:digipinstats_cli"
+
+# Polyhedra Generator
+tetrahedron = "vgrid.generator.polyhedra.tetrahedron:tetrahedron_cli"
+cube = "vgrid.generator.polyhedra.cube:cube_cli"
+octahedron = "vgrid.generator.polyhedra.octahedron:octahedron_cli"
+dodecahedron = "vgrid.generator.polyhedra.dodecahedron:dodecahedron_cli"
+fuller_icosahedron = "vgrid.generator.polyhedra.fuller_icosahedron:fuller_icosahedron_cli"
+rhombic_icosahedron = "vgrid.generator.polyhedra.rhombic_icosahedron:rhombic_icosahedron_cli"
+
+# Space Filling Curves
+# morton = "vgrid.utils.space_filling.morton:morton_cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vgrid"]
+include-package-data = true
+only-include = ["vgrid"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/vgrid",
+    "/README.md",
+    "/pyproject.toml"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

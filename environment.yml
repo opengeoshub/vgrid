@@ -1,0 +1,21 @@
+channels: 
+  - conda-forge
+dependencies:
+  # Required
+  - python>=3.10
+  # Notebooks
+  - matplotlib
+  # Pip
+  - pip
+  - pip:
+    - tqdm>=4.67.1
+    - h3>=4.1.1
+    - pya5>=0.4.1
+    - geopandas
+    - fiona
+    - scipy
+    - future
+    - rasterio
+    - requests
+    - gdown
+    - pyarrow

@@ -1,0 +1,4 @@
+include vgrid/generator/gzd.geojson
+recursive-include vgrid/dggs/eaggr/dlls/win32-x86 *.dll
+recursive-include vgrid/dggs/eaggr/dlls/win32-x86-64 *.dll
+recursive-include vgrid/dggs/eaggr/dlls/linux-x86-64 *.so*

@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+**/.DS_Store
+
+# Ignore environment-specific settings
+.env
+.venv
+.linuxvenv
+# Ignore editor-specific files
+.vscode/
+.cursor/
+.ruff_cache/
+.pytest_cache/
+# Ignore build, dist folder
+build/
+site/
+*.egg-info/
+*.egg
+.pypirc
+
+.ipynb_checkpoints
+examples/notebooks/cache/
+docs/notebooks/*.html
+docs/cache/
+docs/changelog_update.md
+docs/changelog_update.py
+
+*.geojson
+*.db
+*.log
+*.parquet
+docs/notebooks/*.exe
+docs/notebooks/*.txt
+docs/notebooks/metafile_*
+docs/notebooks/temp_*
+dggrid-linux-x64
+dggrid-windows-x64.exe
+*.tif
+data/
+docs/notebooks/gebco.tiff
+dggrid-windows.exe
