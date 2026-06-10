@@ -20,7 +20,7 @@ from collections import deque
 from tqdm import tqdm
 from pyproj import Geod
 import geopandas as gpd
-from shapely.geometry import MultiPoint, box
+from shapely.geometry import MultiPoint
 import a5
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.geometry import (
@@ -237,10 +237,9 @@ def polygon2a5(
     """
     Convert a polygon geometry to A5 grid cells.
 
-    Discovery phase mirrors `vgrid.generator.a5grid.a5_grid`:
-    pick a seed cell from the polygon's bbox centroid, then BFS outward
-    (grid disk radius 1) while cells intersect the bbox. Candidate cells
-    are finally filtered by `predicate` against the input polygon.
+    Discovery phase: pick a seed cell from the polygon's representative point,
+    then BFS outward (grid disk radius 1) while cells intersect the polygon.
+    Candidate cells are finally filtered by `predicate` against the input polygon.
     """
     a5_rows = []
     if feature.geom_type in ("Polygon",):
@@ -254,20 +253,15 @@ def polygon2a5(
         if polygon is None or polygon.is_empty:
             continue
 
-        min_lng, min_lat, max_lng, max_lat = polygon.bounds
-        bbox_polygon = box(min_lng, min_lat, max_lng, max_lat)
-
-        # Seed cell from bbox centroid (same idea as a5_grid)
-        bbox_center_lon = bbox_polygon.centroid.x
-        bbox_center_lat = bbox_polygon.centroid.y
-        seed_cell_id = a5.lonlat_to_cell((bbox_center_lon, bbox_center_lat), resolution)
+        rep_pt = polygon.representative_point()
+        seed_cell_id = a5.lonlat_to_cell((rep_pt.x, rep_pt.y), resolution)
         seed_cell_resolution = a5.get_resolution(seed_cell_id)
         seed_cell_polygon = a52geo_u64(
             seed_cell_id,
             options=options,
             split_antimeridian=split_antimeridian,
         )
-        if seed_cell_polygon.contains(bbox_polygon):
+        if seed_cell_polygon.contains(polygon):
             num_edges = 5
             if seed_cell_resolution == 1:
                 num_edges = 3   
@@ -297,8 +291,7 @@ def polygon2a5(
                 if cell_polygon is None or cell_polygon.is_empty:
                     continue
 
-                # BFS expansion condition: intersect the bbox (mirrors a5_grid)
-                if cell_polygon.intersects(bbox_polygon):
+                if cell_polygon.intersects(polygon):
                     intersecting_cells[current_cell_id] = cell_polygon
                     neighbors = a5.uncompact(
                         a5.grid_disk_vertex(current_cell_id, 1), resolution
@@ -571,6 +564,7 @@ def geodataframe2a5(
                     split_antimeridian=split_antimeridian,
                 )
             )
+            # polygon2a5_new only supports predicate "centroid_within"
     return gpd.GeoDataFrame(a5_rows, geometry="geometry", crs="EPSG:4326")
 
 

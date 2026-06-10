@@ -61,7 +61,7 @@ jobs:
                   accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
                   projectName: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
                   directory: ./site
-                  gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+                  gitHubToken: ${{ secrets.GITHUB_TOKEN }}  
             - name: Cleanup
               if: always()
               run: |

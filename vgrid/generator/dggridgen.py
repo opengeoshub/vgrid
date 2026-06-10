@@ -47,6 +47,7 @@ def generate_grid(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    compact=False,
 ):
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, resolution)
@@ -93,6 +94,29 @@ def generate_grid(
             dggrid_gdf = dggrid_gdf.dissolve(by="global_id", as_index=False)
             dggrid_gdf = _ensure_active_geometry(dggrid_gdf)
 
+    if compact and not dggrid_gdf.empty:
+        from vgrid.conversion.dggscompact.dggridcompact import (
+            dggrid_compact,
+            _cells_to_gdf,
+        )
+
+        cell_ids = dggrid_gdf["global_id"].tolist()
+        compact_ids = dggrid_compact(
+            dggrid_instance, dggs_type, cell_ids, resolution
+        )
+        dggrid_gdf = _cells_to_gdf(
+            dggrid_instance,
+            dggs_type,
+            compact_ids,
+            resolution=resolution,
+            split_antimeridian=split_antimeridian,
+            aggregate=aggregate,
+            options=options,
+        )
+        id_col = f"dggrid_{dggs_type.lower()}"
+        if id_col in dggrid_gdf.columns:
+            dggrid_gdf = dggrid_gdf.rename(columns={id_col: "global_id"})
+
     return dggrid_gdf
 
 
@@ -106,6 +130,7 @@ def dggridgen(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    compact=False,
 ):
     """
     Generate DGGRID grid for pure Python usage.
@@ -123,6 +148,7 @@ def dggridgen(
         options (dict, optional): Options to pass to grid_cell_polygons_for_extent. 
             For example: {"densification": 2} to add densification points.
             Defaults to None.
+        compact (bool, optional): Enable DGGRID compact mode to reduce cell count.
 
     Returns:
         Delegated to convert_to_output_format
@@ -136,6 +162,7 @@ def dggridgen(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        compact=compact,
     )
     output_name = f"dggrid_{dggs_type}_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -195,6 +222,12 @@ def dggridgen_cli():
         help="JSON string of options to pass to grid_cell_polygons_for_extent. "
              "Example: '{\"densification\": 2}'",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable DGGRID compact mode to reduce cell count",
+    )
     args = parser.parse_args()
 
     dggrid_instance = create_dggrid_instance()
@@ -224,6 +257,7 @@ def dggridgen_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             options=options,
+            compact=args.compact,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

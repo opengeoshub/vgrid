@@ -11,76 +11,69 @@ Key Functions:
 """
 
 import argparse
-from shapely.geometry import shape, Polygon
 import geopandas as gpd
 from tqdm import tqdm
-from shapely.ops import unary_union
 from vgrid.dggs import mercantile
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.utils.io import validate_bbox, validate_tilecode_resolution, convert_to_output_format
+from vgrid.conversion.dggscompact.tilecodecompact import tilecode_compact
+from vgrid.dggs.tilecode import tilecode_resolution
+from vgrid.conversion.dggs2geo.tilecode2geo import tilecode2geo
 
 
-def tilecode_grid(resolution, bbox):
-    resolution = validate_tilecode_resolution(resolution)
-    tilecode_records = []
+def _tilecode_ids_for_bbox(resolution, bbox):
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
-    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-    for tile in tqdm(tiles, desc="Generating Tilecode DGGS", unit=" cells"):
-        z, x, y = tile.z, tile.x, tile.y
-        tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
-        bounds = mercantile.bounds(x, y, z)
-        if bounds:
-            # Create the bounding box coordinates for the polygon
-            min_lat, min_lon = bounds.south, bounds.west
-            max_lat, max_lon = bounds.north, bounds.east
+    return [
+        f"z{tile.z}x{tile.x}y{tile.y}"
+        for tile in mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
+    ]
 
-            cell_polygon = Polygon(
-                [
-                    [min_lon, min_lat],  # Bottom-left corner
-                    [max_lon, min_lat],  # Bottom-right corner
-                    [max_lon, max_lat],  # Top-right corner
-                    [min_lon, max_lat],  # Top-left corner
-                    [min_lon, min_lat],  # Closing the polygon (same as the first point)
-                ]
-            )
-            tilecode_record = graticule_dggs_to_geoseries(
-                "tilecode", tilecode_id, resolution, cell_polygon
-            )
-            tilecode_records.append(tilecode_record)
+
+def tilecode_grid(resolution, bbox, compact=False):
+    resolution = validate_tilecode_resolution(resolution)
+    tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
+    if compact:
+        tilecode_ids = tilecode_compact(tilecode_ids)
+
+    tilecode_records = []
+    for tilecode_id in tqdm(tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells"):
+        cell_polygon = tilecode2geo(tilecode_id)
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
+        cell_resolution = tilecode_resolution(tilecode_id)
+        tilecode_record = graticule_dggs_to_geoseries(
+            "tilecode", tilecode_id, cell_resolution, cell_polygon
+        )
+        tilecode_records.append(tilecode_record)
 
     return gpd.GeoDataFrame(tilecode_records, geometry="geometry", crs="EPSG:4326")
 
 
-def tilecode_grid_ids(resolution):
+def tilecode_grid_ids(resolution, compact=False):
     """
     Return a list of Tilecode IDs for the whole world at the given resolution.
     """
     resolution = validate_tilecode_resolution(resolution)
-    min_lon, min_lat, max_lon, max_lat = [-180.0, -85.05112878, 180.0, 85.05112878]
-    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-    ids = []
-    for tile in tqdm(tiles, desc="Generating Tilecode IDs", unit=" cells"):
-        z, x, y = tile.z, tile.x, tile.y
-        ids.append(f"z{z}x{x}y{y}")
-    return ids
+    bbox = [-180.0, -85.05112878, 180.0, 85.05112878]
+    tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
+    if compact:
+        tilecode_ids = tilecode_compact(tilecode_ids)
+    return tilecode_ids
 
 
-def tilecode_grid_within_bbox_ids(resolution, bbox):
+def tilecode_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of Tilecode IDs intersecting the given bounding box at the given resolution.
     """
     resolution = validate_tilecode_resolution(resolution)
-    min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
-    tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-    ids = []
-    for tile in tqdm(tiles, desc="Generating Tilecode IDs", unit=" cells"):
-        z, x, y = tile.z, tile.x, tile.y
-        ids.append(f"z{z}x{x}y{y}")
-    return ids
+    tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
+    if compact:
+        tilecode_ids = tilecode_compact(tilecode_ids)
+    return tilecode_ids
 
 
-def tilecodegrid(resolution, bbox=None, output_format="gpd"):
+def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False):
     """
     Generate Tilecode grid for pure Python usage.
 
@@ -88,6 +81,7 @@ def tilecodegrid(resolution, bbox=None, output_format="gpd"):
         resolution (int): Tilecode resolution [0..26]
         bbox (list, optional): Bounding box [min_lon, min_lat, max_lon, max_lat]. Defaults to None (whole world).
         output_format (str, optional): Output format ('geojson', 'csv', etc.). Defaults to None (list of Tilecode IDs).
+        compact (bool, optional): Enable Tilecode compact mode to reduce cell count.
 
     Returns:
         dict, list, or str: Output depending on output_format
@@ -99,9 +93,8 @@ def tilecodegrid(resolution, bbox=None, output_format="gpd"):
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = tilecode_grid(resolution, bbox)
-    else:
-        gdf = tilecode_grid(resolution, bbox)
+
+    gdf = tilecode_grid(resolution, bbox, compact=compact)
 
     output_name = f"tilecode_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -126,6 +119,12 @@ def tilecodegrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable Tilecode compact mode to reduce cell count",
+    )
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180.0, -85.05112878, 180.0, 85.05112878]
@@ -140,7 +139,7 @@ def tilecodegrid_cli():
             print("Please select a smaller resolution and try again.")
             return
     try:
-        result = tilecodegrid(resolution, bbox, args.output_format)
+        result = tilecodegrid(resolution, bbox, args.output_format, compact=args.compact)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

@@ -17,10 +17,11 @@ import os
 import argparse
 import math
 from collections import deque
-from shapely.geometry import box, MultiPoint
+from shapely.geometry import MultiPoint
 import geopandas as gpd
 from tqdm import tqdm
 from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
+from vgrid.dggs.rhealpixdggs.rhp_wrappers import linetrace
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.conversion.dggscompact.rhealpixcompact import rhealpix_compact
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
@@ -128,6 +129,38 @@ def point2rhealpix(
     return rhealpix_rows
 
 
+def _rhealpix_cell_from_id(cell_id):
+    """Return an rHEALPix Cell from its string id (e.g. ``N45``)."""
+    rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
+    return rhealpix_dggs.cell(rhealpix_uids)
+
+
+def _rhealpix_rows_from_cell_ids(
+    cell_ids,
+    resolution,
+    feature_properties,
+    include_properties,
+    fix_antimeridian,
+):
+    """Build geoseries rows from rHEALPix cell id strings (polyline / linetrace)."""
+    rows = []
+    for cell_id in cell_ids:
+        cell_polygon = rhealpix2geo(cell_id, fix_antimeridian=fix_antimeridian)
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
+        cell = _rhealpix_cell_from_id(cell_id)
+        num_edges = 4
+        if cell.ellipsoidal_shape() == "dart":
+            num_edges = 3
+        row = geodesic_dggs_to_geoseries(
+            "rhealpix", cell_id, resolution, cell_polygon, num_edges
+        )
+        if include_properties and feature_properties:
+            row.update(feature_properties)
+        rows.append(row)
+    return rows
+
+
 def polyline2rhealpix(
     feature,
     resolution,
@@ -139,110 +172,71 @@ def polyline2rhealpix(
     fix_antimeridian=None,
 ):
     """
-    Convert a polyline geometry to rHEALPix grid cells.
+    Convert a polyline geometry to rHEALPix grid cells using ``linetrace``.
 
-    Args:
-        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Polyline geometry to convert
-        resolution (int): rHEALPix resolution level [0..30]
-        feature_properties (dict, optional): Properties to include in output features
-        predicate (str, optional): Spatial predicate to apply (not used for polylines)
-        compact (bool, optional): Enable rHEALPix compact mode (not used for polylines)
-        topology (bool, optional): Enable topology preserving mode (handled by geodataframe2rhealpix)
-        include_properties (bool, optional): Whether to include properties in output
-        fix_antimeridian (str, optional): Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
-        Defaults to None when omitted.
+    Cells are those touched by the line at the requested resolution
+    (see ``rhp_wrappers.linetrace``).
 
-    Returns:
-        list: List of dictionaries representing rHEALPix cells intersecting the polyline
+    Parameters
+    ----------
+    feature : shapely.geometry.LineString or shapely.geometry.MultiLineString
+        Polyline geometry to convert.
+    resolution : int
+        rHEALPix resolution level [0..15].
+    feature_properties : dict, optional
+        Properties to include in output features.
+    predicate : str, optional
+        Not used for polylines (kept for API compatibility).
+    compact : bool, optional
+        Not used for polylines (kept for API compatibility).
+    topology : bool, optional
+        Handled by geodataframe2rhealpix.
+    include_properties : bool, optional
+        Whether to include properties in output.
+    fix_antimeridian : str, optional
+        Antimeridian fixing method.
 
-    Example:
-        >>> from shapely.geometry import LineString
-        >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
-        >>> cells = polyline2rhealpix(line, 10, {"name": "route"})
-        >>> len(cells) > 0
-        True
+    Returns
+    -------
+    list of dict
+        rHEALPix cell rows along the polyline.
+
+    Examples
+    --------
+    >>> from shapely.geometry import LineString
+    >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
+    >>> cells = polyline2rhealpix(line, 10, {"name": "route"})
+    >>> len(cells) > 0
+    True
     """
-    rhealpix_rows = []
-    polylines = []
-    if feature.geom_type in ("LineString"):
+    if feature.geom_type == "LineString":
         polylines = [feature]
-    elif feature.geom_type in ("MultiLineString"):
+    elif feature.geom_type == "MultiLineString":
         polylines = list(feature.geoms)
+    else:
+        return []
 
+    seen_ids = set()
+    ordered_cell_ids = []
     for polyline in polylines:
-        minx, miny, maxx, maxy = polyline.bounds
-        bbox_polygon = box(minx, miny, maxx, maxy)
-        bbox_center_lon = bbox_polygon.centroid.x
-        bbox_center_lat = bbox_polygon.centroid.y
-        seed_point = (bbox_center_lon, bbox_center_lat)
-        seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
-        seed_cell_id = str(seed_cell)
-        seed_cell_polygon = rhealpix2geo(
-            seed_cell_id, fix_antimeridian=fix_antimeridian
-        )
-        if seed_cell_polygon.contains(bbox_polygon):
-            num_edges = 4
-            if seed_cell.ellipsoidal_shape() == "dart":
-                num_edges = 3
-            cell_resolution = resolution
-            row = geodesic_dggs_to_geoseries(
-                "rhealpix", seed_cell_id, cell_resolution, seed_cell_polygon, num_edges
-            )
-            if include_properties and feature_properties:
-                row.update(feature_properties)
-            rhealpix_rows.append(row)
-            return rhealpix_rows
-        else:
-            # Store intersecting cells with their polygons and cell objects
-            intersecting_cells = {}  # {cell_id: (cell, polygon)}
-            covered_cells = set()
-            queue = deque([seed_cell])  # Use deque for BFS
+        if polyline.is_empty or polyline.length == 0:
+            continue
+        traced = linetrace(polyline, resolution, plane=False, dggs=rhealpix_dggs)
+        if not traced:
+            continue
+        for cell_id in traced:
+            if cell_id in seen_ids:
+                continue
+            seen_ids.add(cell_id)
+            ordered_cell_ids.append(cell_id)
 
-            while queue:
-                current_cell = queue.popleft()  # BFS: FIFO
-                current_cell_id = str(current_cell)
-                if current_cell_id in covered_cells:
-                    continue
-                covered_cells.add(current_cell_id)
-
-                # Convert polygon once
-                cell_polygon = rhealpix2geo(
-                    current_cell_id, fix_antimeridian=fix_antimeridian
-                )
-
-                # Only process if intersects bbox
-                if cell_polygon.intersects(bbox_polygon):
-                    # Store for later processing
-                    intersecting_cells[current_cell_id] = (current_cell, cell_polygon)
-
-                    # Add neighbors to queue
-                    neighbors = current_cell.neighbors(plane=False)
-                    for _, neighbor in neighbors.items():
-                        neighbor_id = str(neighbor)
-                        if neighbor_id not in covered_cells:
-                            queue.append(neighbor)
-
-            # Process only intersecting cells (no double conversion)
-            # Note: fix_antimeridian already applied when creating polygon in BFS loop
-            for cell_id, (cell, cell_polygon) in intersecting_cells.items():
-                # Check if cell intersects polyline (not just bbox)
-                if not cell_polygon.intersects(polyline):
-                    continue
-
-                cell_resolution = cell.resolution
-                num_edges = 4
-                if (
-                    cell.ellipsoidal_shape() == "dart"
-                ):  # FIX: Use current cell, not seed
-                    num_edges = 3
-                row = geodesic_dggs_to_geoseries(
-                    "rhealpix", cell_id, cell_resolution, cell_polygon, num_edges
-                )
-                if include_properties and feature_properties:
-                    row.update(feature_properties)
-                rhealpix_rows.append(row)
-
-    return rhealpix_rows
+    return _rhealpix_rows_from_cell_ids(
+        ordered_cell_ids,
+        resolution,
+        feature_properties,
+        include_properties,
+        fix_antimeridian,
+    )
 
 
 def polygon2rhealpix(
@@ -287,17 +281,14 @@ def polygon2rhealpix(
         polygons = list(feature.geoms)
 
     for polygon in polygons:
-        minx, miny, maxx, maxy = polygon.bounds
-        bbox_polygon = box(minx, miny, maxx, maxy)
-        bbox_center_lon = bbox_polygon.centroid.x
-        bbox_center_lat = bbox_polygon.centroid.y
-        seed_point = (bbox_center_lon, bbox_center_lat)
+        rep_pt = polygon.representative_point()
+        seed_point = (rep_pt.x, rep_pt.y)
         seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
         seed_cell_id = str(seed_cell)
         seed_cell_polygon = rhealpix2geo(
             seed_cell_id, fix_antimeridian=fix_antimeridian
         )
-        if seed_cell_polygon.contains(bbox_polygon):
+        if seed_cell_polygon.contains(polygon):
             num_edges = 4
             if seed_cell.ellipsoidal_shape() == "dart":
                 num_edges = 3
@@ -324,7 +315,7 @@ def polygon2rhealpix(
                     current_cell_id, fix_antimeridian=fix_antimeridian
                 )
 
-                if not cell_polygon.intersects(bbox_polygon):
+                if not cell_polygon.intersects(polygon):
                     continue
 
                 neighbors = current_cell.neighbors(plane=False)
@@ -366,11 +357,7 @@ def polygon2rhealpix(
                     )
                     rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
                     rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
-                    cell_resolution = rhealpix_cell.resolution
-
-                    # No need to re-check predicate for parent cells from compact mode
-                    # if not check_predicate(cell_polygon, polygon, predicate):
-                    #     continue
+                    cell_resolution = rhealpix_cell.resolution               
 
                     num_edges = 4
                     if rhealpix_cell.ellipsoidal_shape() == "dart":
@@ -507,6 +494,7 @@ def geodataframe2rhealpix(
                     fix_antimeridian=fix_antimeridian,
                 )
             )
+            #   void using native rhp polyfill because it only supports "within" predicate
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 

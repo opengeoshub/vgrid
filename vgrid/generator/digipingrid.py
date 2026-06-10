@@ -27,9 +27,21 @@ from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin
 from vgrid.conversion.dggs2geo.digipin2geo import digipin2geo
 from vgrid.utils.io import validate_bbox, validate_digipin_resolution, convert_to_output_format
+from vgrid.conversion.dggscompact.digipincompact import digipin_compact
+from vgrid.dggs.digipin import digipin_resolution
 
 
-def digipin_grid(resolution, bbox=None):
+def _digipin_row_from_id(digipin_code):
+    cell_polygon = digipin2geo(digipin_code)
+    if isinstance(cell_polygon, str):
+        raise ValueError(f"Invalid DIGIPIN cell: {digipin_code}")
+    cell_resolution = digipin_resolution(digipin_code)
+    return graticule_dggs_to_geoseries(
+        "digipin", digipin_code, cell_resolution, cell_polygon
+    )
+
+
+def digipin_grid(resolution, bbox=None, compact=False):
     """
     Generate DIGIPIN grid at the given resolution.
 
@@ -40,77 +52,29 @@ def digipin_grid(resolution, bbox=None):
     bbox : list, optional
         Bounding box [min_lon, min_lat, max_lon, max_lat].
         If None, defaults to entire India region.
+    compact : bool, optional
+        Enable DIGIPIN compact mode to reduce cell count.
 
     Returns
     -------
     gpd.GeoDataFrame
         GeoDataFrame containing DIGIPIN cells with geometries and metadata
     """
-    resolution = validate_digipin_resolution(resolution)
+    digipin_ids = digipin_grid_ids(resolution, bbox=bbox)
+    if compact:
+        digipin_ids = digipin_compact(digipin_ids)
 
-    # Default to India bounds if no bbox provided
-    if bbox is None:
-        bbox = [BOUNDS["minLon"], BOUNDS["minLat"], BOUNDS["maxLon"], BOUNDS["maxLat"]]
-
-    min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
-
-    # Constrain to DIGIPIN bounds (India region)
-    min_lat = max(min_lat, BOUNDS["minLat"])
-    min_lon = max(min_lon, BOUNDS["minLon"])
-    max_lat = min(max_lat, BOUNDS["maxLat"])
-    max_lon = min(max_lon, BOUNDS["maxLon"])
-
-    # Calculate sampling density based on resolution
-    # Each level divides the cell by 4 (2x2 grid)
-    base_width = 9.0  # degrees at resolution 1
-    factor = 0.25 ** (resolution - 1)  # each level divides by 4
-    sample_width = base_width * factor
-
-    seen_cells = set()
     digipin_records = []
-
-    # Sample points across the bounding box
-    lon = min_lon
-    while lon <= max_lon:
-        lat = min_lat
-        while lat <= max_lat:
-            try:
-                # Get DIGIPIN code for this point at the specified resolution
-                digipin_code = latlon2digipin(lat, lon, resolution)
-
-                if digipin_code == "Out of Bound":
-                    lat += sample_width
-                    continue
-
-                if digipin_code in seen_cells:
-                    lat += sample_width
-                    continue
-
-                seen_cells.add(digipin_code)
-
-                # Get the bounds for this DIGIPIN cell
-                cell_polygon = digipin2geo(digipin_code)
-
-                if isinstance(cell_polygon, str):  # Error like 'Invalid DIGIPIN'
-                    lat += sample_width
-                    continue
-
-                digipin_record = graticule_dggs_to_geoseries(
-                    "digipin", digipin_code, resolution, cell_polygon
-                )
-                digipin_records.append(digipin_record)
-
-            except Exception:
-                # Skip cells with errors
-                pass
-
-            lat += sample_width
-        lon += sample_width
+    for digipin_code in tqdm(digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells"):
+        try:
+            digipin_records.append(_digipin_row_from_id(digipin_code))
+        except Exception:
+            continue
 
     return gpd.GeoDataFrame(digipin_records, geometry="geometry", crs="EPSG:4326")
 
 
-def digipin_grid_ids(resolution, bbox=None):
+def digipin_grid_ids(resolution, bbox=None, compact=False):
     """
     Return a list of DIGIPIN IDs at the given resolution.
 
@@ -121,6 +85,8 @@ def digipin_grid_ids(resolution, bbox=None):
     bbox : list, optional
         Bounding box [min_lon, min_lat, max_lon, max_lat].
         If None, defaults to entire India region.
+    compact : bool, optional
+        Enable DIGIPIN compact mode to reduce cell count.
 
     Returns
     -------
@@ -173,10 +139,12 @@ def digipin_grid_ids(resolution, bbox=None):
             lat += sample_width
         lon += sample_width
 
+    if compact:
+        ids = digipin_compact(ids)
     return ids
 
 
-def digipingrid(resolution, bbox=None, output_format="gpd"):
+def digipingrid(resolution, bbox=None, output_format="gpd", compact=False):
     """
     Generate DIGIPIN grid for pure Python usage.
 
@@ -190,6 +158,8 @@ def digipingrid(resolution, bbox=None, output_format="gpd"):
     output_format : str, optional
         Output format ('geojson', 'csv', 'gpd', 'shapefile', 'gpkg', 'parquet',
         or None for list of DIGIPIN IDs). Defaults to 'gpd'.
+    compact : bool, optional
+        Enable DIGIPIN compact mode to reduce cell count.
 
     Returns
     -------
@@ -219,7 +189,7 @@ def digipingrid(resolution, bbox=None, output_format="gpd"):
                 f"which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = digipin_grid(resolution, bbox=bbox)
+    gdf = digipin_grid(resolution, bbox=bbox, compact=compact)
 
     output_name = f"digipin_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -249,10 +219,18 @@ def digipingrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable DIGIPIN compact mode to reduce cell count",
+    )
     args = parser.parse_args()
 
     try:
-        result = digipingrid(args.resolution, args.bbox, args.output_format)
+        result = digipingrid(
+            args.resolution, args.bbox, args.output_format, compact=args.compact
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

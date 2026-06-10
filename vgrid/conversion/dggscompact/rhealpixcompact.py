@@ -48,7 +48,7 @@ def rhealpix_compact(rhealpix_ids):
     >>> compacted = rhealpix_compact(rhealpix_ids)
     >>> print(f"Compacted {len(rhealpix_ids)} cells to {len(compacted)} cells")
     """
-    rhealpix_ids = set(rhealpix_ids)  # Remove duplicates
+    rhealpix_ids = sorted(set(rhealpix_ids))  # dedupe, stable order
 
     # Main loop for compaction
     while True:
@@ -193,7 +193,7 @@ def rhealpixcompact(
     >>> print(f"Saved to: {result}")
     """
     gdf = process_input_data_compact(input_data, rhealpix_id)
-    rhealpix_ids = gdf[rhealpix_id].drop_duplicates().tolist()
+    rhealpix_ids = sorted(gdf[rhealpix_id].drop_duplicates().tolist())
     if not rhealpix_ids:
         print(f"No rHEALPix tokens found in <{rhealpix_id}> field.")
         return
@@ -346,7 +346,7 @@ def rhealpixexpand(
     """
     resolution = validate_rhealpix_resolution(resolution)
     gdf = process_input_data_compact(input_data, rhealpix_id)
-    rhealpix_ids = gdf[rhealpix_id].drop_duplicates().tolist()
+    rhealpix_ids = sorted(gdf[rhealpix_id].drop_duplicates().tolist())
     if not rhealpix_ids:
         print(f"No rHEALPix tokens found in <{rhealpix_id}> field.")
         return

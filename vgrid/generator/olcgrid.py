@@ -24,9 +24,24 @@ from vgrid.utils.io import (
     validate_olc_resolution,
     convert_to_output_format,
 )
+from vgrid.conversion.dggscompact.olccompact import olc_compact, get_olc_resolution
+from vgrid.conversion.dggs2geo.olc2geo import olc2geo
 
 
-def olc_grid(resolution, verbose=True):
+def _olc_row_from_id(olc_id):
+    cell_polygon = olc2geo(olc_id)
+    cell_resolution = get_olc_resolution(olc_id)
+    return graticule_dggs_to_geoseries(
+        "olc", olc_id, cell_resolution, cell_polygon
+    )
+
+
+def _olc_gdf_from_ids(olc_ids):
+    rows = [_olc_row_from_id(olc_id) for olc_id in olc_ids]
+    return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
+
+
+def olc_grid(resolution, verbose=True, compact=False):
     resolution = validate_olc_resolution(resolution)
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
@@ -80,18 +95,21 @@ def olc_grid(resolution, verbose=True):
                 pbar.update(1)  # Update progress bar
             lat += lat_step
 
-    # Return the feature collection
+    if compact:
+        olc_ids = olc_compact([record["olc"] for record in olc_records])
+        return _olc_gdf_from_ids(olc_ids)
+
     return gpd.GeoDataFrame(olc_records, geometry="geometry", crs="EPSG:4326")
 
 
-def olc_grid_within_bbox(resolution, bbox):
+def olc_grid_within_bbox(resolution, bbox, compact=False):
     """
     Generate a grid of Open Location Codes (Plus Codes) within the specified bounding box.
     """
     resolution = validate_olc_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return olc_grid(resolution)
+        return olc_grid(resolution, compact=compact)
 
     bbox_poly = box(*bbox)
 
@@ -125,6 +143,10 @@ def olc_grid_within_bbox(resolution, bbox):
     gdf = gpd.GeoDataFrame(refined_records, geometry="geometry", crs="EPSG:4326")
     gdf = gdf[gdf["resolution"] == resolution]
     gdf = gdf.drop_duplicates(subset=["olc"])
+
+    if compact:
+        olc_ids = olc_compact(gdf["olc"].tolist())
+        return _olc_gdf_from_ids(olc_ids)
 
     return gdf
 
@@ -192,7 +214,7 @@ def olc_refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
     return olc_records
 
 
-def olc_grid_ids(resolution):
+def olc_grid_ids(resolution, compact=False):
     """
     Return a list of OLC (Plus Code) IDs for the whole world at the given resolution.
     """
@@ -222,25 +244,27 @@ def olc_grid_ids(resolution):
                 pbar.update(1)
             lat += lat_step
 
+    if compact:
+        ids = olc_compact(ids)
     return ids
 
 
-def olc_grid_within_bbox_ids(resolution, bbox):
+def olc_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of OLC (Plus Code) IDs within a bounding box at the given resolution.
     """
     resolution = validate_olc_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return olc_grid_ids(resolution)
+        return olc_grid_ids(resolution, compact=compact)
 
-    gdf = olc_grid_within_bbox(resolution, bbox)
+    gdf = olc_grid_within_bbox(resolution, bbox, compact=compact)
     if gdf is None or gdf.empty:
         return []
     return list(gdf["olc"].drop_duplicates())
 
 
-def olcgrid(resolution, bbox=None, output_format="gpd"):
+def olcgrid(resolution, bbox=None, output_format="gpd", compact=False):
     """
     Generate OLC grid for pure Python usage.
 
@@ -248,15 +272,16 @@ def olcgrid(resolution, bbox=None, output_format="gpd"):
         resolution (int): OLC resolution [2..15]
         bbox (list, optional): Bounding box [min_lon, min_lat, max_lon, max_lat]. Defaults to None (whole world).
         output_format (str, optional): Output format ('geojson', 'csv', 'geo', 'gpd', 'shapefile', 'gpkg', 'parquet', or None for list of OLC IDs).
+        compact (bool, optional): Enable OLC compact mode to reduce cell count.
 
     Returns:
         dict, list, or str: Output in the requested format or file path.
     """
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-        gdf = olc_grid(resolution)
+        gdf = olc_grid(resolution, compact=compact)
     else:
-        gdf = olc_grid_within_bbox(resolution, bbox)
+        gdf = olc_grid_within_bbox(resolution, bbox, compact=compact)
 
     output_name = f"olc_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -281,12 +306,18 @@ def olcgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable OLC compact mode to reduce cell count",
+    )
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
 
     try:
-        result = olcgrid(resolution, bbox, args.output_format)
+        result = olcgrid(resolution, bbox, args.output_format, compact=args.compact)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

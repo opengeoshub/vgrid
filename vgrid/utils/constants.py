@@ -247,7 +247,7 @@ DGGS_INSPECT = {
         "max_res": 5,
     },  
     "dggrid_igeo7": {
-        "min_res": 5,
+        "min_res": 2,
         "max_res": 5,
     },  
     "dggal_ivea3h": {"min_res": 2, "max_res": 9},
