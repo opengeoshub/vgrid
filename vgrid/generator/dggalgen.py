@@ -152,7 +152,7 @@ def dggalgen_cli():
         dest="compact",
         required=False,
         action="store_true",
-        help="Compact zones",
+        help="Enable DGGAL compact mode to reduce cell count",
     )
     parser.add_argument(
         "-bbox",

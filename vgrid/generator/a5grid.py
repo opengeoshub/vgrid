@@ -12,140 +12,51 @@ Key Functions:
 
 import argparse
 import json
-from typing import Optional
+from collections import deque
 
 import geopandas as gpd
 from tqdm import tqdm
+from shapely.geometry import box
+import a5
+from a5.core.cell_info import get_num_cells
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import validate_a5_resolution, validate_bbox, convert_to_output_format
-from a5.core.cell_info import get_num_cells
-from vgrid.conversion.latlon2dggs import latlon2a5
-from vgrid.conversion.dggs2geo.a52geo import a52geo, a52geo_u64
-import a5
-from collections import deque
-from pyproj import Geod
-geod = Geod(ellps="WGS84")
-from shapely.geometry import box
-from shapely.ops import unary_union
+from vgrid.conversion.dggs2geo.a52geo import a52geo_u64
 
-# def a5_grid_old(resolution, bbox, options=None, split_antimeridian=False):
-#     resolution = validate_a5_resolution(resolution)
-#     """
-#     Generate an A5 DGGS grid for a given resolution and bounding box.
-#     Based on JavaScript logic that creates a regular grid and converts centroids to A5 cells.
-    
-#     Args:
-#         resolution (int): A5 resolution [0..29]
-#         bbox (list): Bounding box [min_lon, min_lat, max_lon, max_lat]
-#         compact (bool, optional): When True, compact the cells.
-#         options (dict, optional): Options for a52geo.
-#         split_antimeridian (bool, optional): When True, apply antimeridian fixing to the resulting polygons.
-#     Returns:
-#         GeoDataFrame: A5 grid cells within the bounding box
-#     """
-#     min_lng, min_lat, max_lng, max_lat = bbox
 
-#     # Calculate longitude and latitude width based on resolution
-#     if resolution == 0:
-#         lon_width = 35
-#         lat_width = 35
-#     elif resolution == 1:
-#         lon_width = 18
-#         lat_width = 18
-#     elif resolution == 2:
-#         lon_width = 10
-#         lat_width = 10
-#     elif resolution == 3:
-#         lon_width = 5
-#         lat_width = 5
-#     elif resolution > 3:
-#         base_width = 5  # at resolution 3
-#         factor = 0.5 ** (resolution - 3)
-#         lon_width = base_width * factor
-#         lat_width = base_width * factor
+def _a5_compact_cell_ids(cell_ids):
+    """Compact cell IDs, capping before invalid pre-resolution-0 parents."""
+    if not cell_ids:
+        return []
 
-#     # Generate longitude and latitude arrays
-#     longitudes = []
-#     latitudes = []
+    try:
+        compacted = list(a5.compact(cell_ids))
+    except Exception:
+        return list(cell_ids)
 
-#     lon = min_lng
-#     while lon < max_lng:
-#         longitudes.append(lon)
-#         lon += lon_width
+    valid = [cell_id for cell_id in compacted if a5.get_resolution(cell_id) >= 0]
+    if valid:
+        return valid
 
-#     lat = min_lat
-#     while lat < max_lat:
-#         latitudes.append(lat)
-#         lat += lat_width
+    # a5.compact can overshoot to the invalid world parent (resolution -1).
+    return list(a5.get_res0_cells())
 
-#     a5_rows = []
-#     seen_a5_hex = set()  # Track unique A5 hex codes
 
-#     # Generate features for each grid cell
-#     total_cells = len(longitudes) * len(latitudes)
-#     with tqdm(total=total_cells, desc="Generating A5 DGGS", unit=" cells") as pbar:
-#         for lon in longitudes:
-#             for lat in latitudes:
-#                 min_lon = lon
-#                 min_lat = lat
-#                 max_lon = lon + lon_width
-#                 max_lat = lat + lat_width
-
-#                 # Calculate centroid
-#                 centroid_lat = (min_lat + max_lat) / 2
-#                 centroid_lon = (min_lon + max_lon) / 2
-
-#                 try:
-#                     # Convert centroid to A5 cell ID using direct A5 functions
-#                     a5_hex = latlon2a5(centroid_lat, centroid_lon, resolution)
-#                     cell_polygon = a52geo(
-#                         a5_hex, options, split_antimeridian=split_antimeridian
-#                     )
-
-#                     if cell_polygon is not None:
-#                         # Only add if this A5 hex code hasn't been seen before
-#                         if a5_hex not in seen_a5_hex:
-#                             seen_a5_hex.add(a5_hex)
-#                             num_edges = 5
-#                             if resolution == 1:
-#                                 num_edges = 3   
-#                             # Create row data
-#                             row = geodesic_dggs_to_geoseries(
-#                                 "a5", a5_hex, resolution, cell_polygon, num_edges
-#                             )
-#                             a5_rows.append(row)
-
-#                 except Exception as e:
-#                     # Skip cells that can't be processed
-#                     print(
-#                         f"Error processing cell at ({centroid_lon}, {centroid_lat}): {e}"
-#                     )
-#                 finally:
-#                     pbar.update(1)
-
-#     if not a5_rows:
-#         raise ValueError(
-#             "No A5 cells were generated. Check the input parameters and A5 library functions."
-#         )
-  
-#     return gpd.GeoDataFrame(a5_rows, geometry="geometry", crs="EPSG:4326")
-
-def a5_grid(resolution, bbox, options=None, split_antimeridian=False):
+def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False):
     resolution = validate_a5_resolution(resolution)
     """
     Generate an A5 DGGS grid for a given resolution and bounding box.
-    Based on JavaScript logic that creates a regular grid and converts centroids to A5 cells.
-    
+
     Args:
         resolution (int): A5 resolution [0..30]
         bbox (list): Bounding box [min_lon, min_lat, max_lon, max_lat]
         options (dict, optional): Options for a52geo.
         split_antimeridian (bool, optional): When True, apply antimeridian fixing to the resulting polygons.
+        compact (bool, optional): Enable A5 compact mode to reduce cell count.
     Returns:
         GeoDataFrame: A5 grid cells within the bounding box
     """
-    a5_rows = []    
     if bbox is None:
         min_lon, min_lat, max_lon, max_lat = -180, -90, 180, 90
     else:
@@ -154,63 +65,77 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False):
     bbox_polygon = box(min_lon, min_lat, max_lon, max_lat)
     bbox_center_lon = bbox_polygon.centroid.x
     bbox_center_lat = bbox_polygon.centroid.y
-    a5_rows = []
     seed_cell_id = a5.lonlat_to_cell((bbox_center_lon, bbox_center_lat), resolution)
-    seed_cell_polygon = a52geo_u64(seed_cell_id, options=options, split_antimeridian=split_antimeridian)
-    cell_resolution = a5.get_resolution(seed_cell_id)      
+    seed_cell_polygon = a52geo_u64(
+        seed_cell_id, options=options, split_antimeridian=split_antimeridian
+    )
     if seed_cell_polygon.contains(bbox_polygon):
-        num_edges = 5  
+        cell_resolution = a5.get_resolution(seed_cell_id)
+        num_edges = 5
         if cell_resolution == 1:
             num_edges = 3
         row = geodesic_dggs_to_geoseries(
-            "a5", seed_cell_id, cell_resolution, seed_cell_polygon, num_edges
+            "a5",
+            a5.u64_to_hex(seed_cell_id),
+            cell_resolution,
+            seed_cell_polygon,
+            num_edges,
         )
-        a5_rows.append(row)
-        return gpd.GeoDataFrame(a5_rows, geometry="geometry", crs="EPSG:4326")
+        return gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:4326")
 
-    # Store intersecting cells with their polygons
-    intersecting_cells = {}  # {cell_id: (cell, polygon)}
+    intersecting_cells = {}
     covered_cells = set()
-    queue = deque([seed_cell_id])  # Use deque for BFS
+    queue = deque([seed_cell_id])
 
     while queue:
-        current_cell_id = queue.popleft()  # BFS: FIFO
+        current_cell_id = queue.popleft()
         if current_cell_id in covered_cells:
             continue
         covered_cells.add(current_cell_id)
 
-        # Convert polygon once
-        cell_polygon = a52geo_u64(current_cell_id, options=options, split_antimeridian=split_antimeridian)
+        cell_polygon = a52geo_u64(
+            current_cell_id, options=options, split_antimeridian=split_antimeridian
+        )
 
-        # Only process if intersects
         if cell_polygon.intersects(bbox_polygon):
-            # Store for later processing
-            intersecting_cells[current_cell_id] = (cell_polygon)
-            # Add neighbors to queue
-            neighbors = a5.uncompact(a5.grid_disk_vertex(current_cell_id, 1), resolution)
+            intersecting_cells[current_cell_id] = cell_polygon
+            neighbors = a5.uncompact(
+                a5.grid_disk_vertex(current_cell_id, 1), resolution
+            )
             for neighbor_id in neighbors:
                 if neighbor_id not in covered_cells:
                     queue.append(neighbor_id)
 
-    # Process only intersecting cells (no double conversion)
-    # Note: fix_antimeridian already applied when creating polygon in BFS loop    
-    for cell_id, cell_polygon in tqdm(
-        intersecting_cells.items(), desc="Generating A5 cells", unit=" cells"
-    ):
+    cell_ids = list(intersecting_cells.keys())
+    if compact:
+        cell_ids = _a5_compact_cell_ids(cell_ids)
+
+    a5_rows = []
+    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells"):
+        cell_polygon = intersecting_cells.get(cell_id)
+        if cell_polygon is None or cell_polygon.is_empty:
+            cell_polygon = a52geo_u64(
+                cell_id, options=options, split_antimeridian=split_antimeridian
+            )
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
         cell_resolution = a5.get_resolution(cell_id)
+        if cell_resolution < 0:
+            continue
         num_edges = 5
         if cell_resolution == 1:
-            num_edges = 3       
+            num_edges = 3
         row = geodesic_dggs_to_geoseries(
-            "a5", a5.u64_to_hex(cell_id), resolution, cell_polygon, num_edges
+            "a5", a5.u64_to_hex(cell_id), cell_resolution, cell_polygon, num_edges
         )
         a5_rows.append(row)
-
 
     return gpd.GeoDataFrame(a5_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def a5_grid_ids(resolution, bbox=None, options=None, split_antimeridian=False):
+def a5_grid_ids(
+    resolution, bbox=None, options=None, split_antimeridian=False, compact=False
+):
     """
     Return A5 cell IDs (hex strings) for the same cells as `a5_grid`.
 
@@ -222,6 +147,7 @@ def a5_grid_ids(resolution, bbox=None, options=None, split_antimeridian=False):
         bbox (list, optional): [min_lon, min_lat, max_lon, max_lat]. Defaults to world.
         options (dict, optional): Options for a52geo_u64.
         split_antimeridian (bool, optional): Passed to a52geo_u64.
+        compact (bool, optional): Enable A5 compact mode to reduce cell count.
 
     Returns:
         list[str]: A5 cell IDs in hex form, in discovery order. Does not enforce MAX_CELLS.
@@ -266,86 +192,23 @@ def a5_grid_ids(resolution, bbox=None, options=None, split_antimeridian=False):
                 if neighbor_id not in covered_cells:
                     queue.append(neighbor_id)
 
-    return [a5.u64_to_hex(cid) for cid in intersecting_cells.keys()]
-
-
-def a5_grid_ids_old(resolution, bbox):
-    """
-    Generate a list of unique A5 cell IDs intersecting the given bounding box.
-
-    Note: Intentionally does not enforce MAX_CELLS limit for ID generation.
-
-    Args:
-        resolution (int): A5 resolution [0..29]
-        bbox (list): [min_lon, min_lat, max_lon, max_lat]
-
-    Returns:
-        list[str]: List of A5 cell IDs
-    """
-    resolution = validate_a5_resolution(resolution)
-
-    min_lng, min_lat, max_lng, max_lat = bbox
-
-    if resolution == 0:
-        lon_width = 35
-        lat_width = 35
-    elif resolution == 1:
-        lon_width = 18
-        lat_width = 18
-    elif resolution == 2:
-        lon_width = 10
-        lat_width = 10
-    elif resolution == 3:
-        lon_width = 5
-        lat_width = 5
-    elif resolution > 3:
-        base_width = 5
-        factor = 0.5 ** (resolution - 3)
-        lon_width = base_width * factor
-        lat_width = base_width * factor
-
-    longitudes = []
-    latitudes = []
-
-    lon = min_lng
-    while lon < max_lng:
-        longitudes.append(lon)
-        lon += lon_width
-
-    lat = min_lat
-    while lat < max_lat:
-        latitudes.append(lat)
-        lat += lat_width
-
-    seen_ids = set()
-    ids = []
-    total_cells = len(longitudes) * len(latitudes)
-    with tqdm(total=total_cells, desc="Generating A5 IDs", unit=" cells") as pbar:
-        for lon in longitudes:
-            for lat in latitudes:
-                min_lon = lon
-                min_lat = lat
-                max_lon = lon + lon_width
-                max_lat = lat + lat_width
-
-                centroid_lat = (min_lat + max_lat) / 2
-                centroid_lon = (min_lon + max_lon) / 2
-
-                try:
-                    a5_hex = latlon2a5(centroid_lat, centroid_lon, resolution)
-                    if a5_hex and a5_hex not in seen_ids:
-                        seen_ids.add(a5_hex)
-                        ids.append(a5_hex)
-                except Exception:
-                    pass
-                finally:
-                    pbar.update(1)
-
-    return ids
+    cell_ids = list(intersecting_cells.keys())
+    if compact:
+        cell_ids = _a5_compact_cell_ids(cell_ids)
+    return [
+        a5.u64_to_hex(cell_id)
+        for cell_id in cell_ids
+        if a5.get_resolution(cell_id) >= 0
+    ]
 
 
 def a5grid(
-    resolution, bbox=None, output_format="gpd", options=None, split_antimeridian=False
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    options=None,
+    split_antimeridian=False,
+    compact=False,
 ):
     """
     Generate A5 grid for pure Python usage.
@@ -353,9 +216,10 @@ def a5grid(
     Args:
         resolution (int): A5 resolution [0..30]
         bbox (list, optional): Bounding box [min_lon, min_lat, max_lon, max_lat]. Defaults to None (whole world).
-        output_format (str, optional): Output format (gpd, gdf, geojson_dict/json_dict, geojson/json, csv, shp/shapefile, gpkg/geopackage, parquet/geoparquet, or None)     
+        output_format (str, optional): Output format (gpd, gdf, geojson_dict/json_dict, geojson/json, csv, shp/shapefile, gpkg/geopackage, parquet/geoparquet, or None)
         options (dict, optional): Options for a52geo.
         split_antimeridian (bool, optional): When True, apply antimeridian fixing to the resulting polygons.
+        compact (bool, optional): Enable A5 compact mode to reduce cell count.
     Returns:
         Depends on output_format. If None, returns a GeoDataFrame (gpd)
     """
@@ -366,9 +230,14 @@ def a5grid(
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-    
-    a5_gdf = a5_grid(resolution, bbox, options=options, split_antimeridian=split_antimeridian)
 
+    a5_gdf = a5_grid(
+        resolution,
+        bbox,
+        options=options,
+        split_antimeridian=split_antimeridian,
+        compact=compact,
+    )
 
     output_name = f"a5_grid_{resolution}"
     return convert_to_output_format(a5_gdf, output_format, output_name)
@@ -380,7 +249,7 @@ def a5grid_cli():
     parser.add_argument(
         "-r", "--resolution", type=int, required=True, help="Resolution [0..29]"
     )
-  
+
     parser.add_argument(
         "-b",
         "--bbox",
@@ -395,7 +264,7 @@ def a5grid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
-    parser.add_argument(                
+    parser.add_argument(
         "-split",
         "--split_antimeridian",
         action="store_true",
@@ -403,16 +272,21 @@ def a5grid_cli():
         help="Apply antimeridian fixing to the resulting polygons",
     )
     parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable A5 compact mode to reduce cell count",
+    )
+    parser.add_argument(
         "-options",
         "--options",
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        'Example: \'{"segments": 1000}\'',
     )
     args = parser.parse_args()
-    
-    # Parse options JSON if provided
+
     options = None
     if args.options:
         try:
@@ -420,14 +294,15 @@ def a5grid_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     try:
         result = a5grid(
-            resolution=args.resolution, 
-            bbox=args.bbox, 
-            output_format=args.output_format, 
+            resolution=args.resolution,
+            bbox=args.bbox,
+            output_format=args.output_format,
             options=options,
-            split_antimeridian=args.split_antimeridian
+            split_antimeridian=args.split_antimeridian,
+            compact=args.compact,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

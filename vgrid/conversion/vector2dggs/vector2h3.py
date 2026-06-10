@@ -38,6 +38,23 @@ min_res = DGGS_TYPES["h3"]["min_res"]
 max_res = DGGS_TYPES["h3"]["max_res"]
 
 
+def _empty_h3_gdf():
+    return gpd.GeoDataFrame(
+        columns=[
+            "h3",
+            "resolution",
+            "center_lat",
+            "center_lon",
+            "avg_edge_len",
+            "cell_area",
+            "cell_perimeter",
+            "geometry",
+        ],
+        geometry="geometry",
+        crs="EPSG:4326",
+    )
+
+
 # Function to generate grid for Point
 # --- Replace geojson feature output with geoseries dict output ---
 def point2h3(
@@ -239,6 +256,8 @@ def polygon2h3(
     for polygon in polygons:
         bbox = box(*polygon.bounds)
         bbox_cells = h3.geo_to_cells(bbox, resolution)
+        if not bbox_cells:
+            continue
 
         # First collect cells that pass the predicate check
         filtered_cells = []
@@ -391,6 +410,8 @@ def geodataframe2h3(
                     fix_antimeridian=fix_antimeridian,
                 )
             )
+    if not h3_rows:
+        return _empty_h3_gdf()
     return gpd.GeoDataFrame(h3_rows, geometry="geometry", crs="EPSG:4326")
 
 

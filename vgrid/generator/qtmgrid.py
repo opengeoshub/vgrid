@@ -19,6 +19,17 @@ from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import convert_to_output_format, validate_bbox, validate_qtm_resolution
+from vgrid.conversion.dggscompact.qtmcompact import qtm_compact
+from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
+
+
+def _qtm_row_from_id(qtm_id):
+    cell_polygon = qtm2geo(qtm_id)
+    cell_resolution = len(qtm_id)
+    return geodesic_dggs_to_geoseries(
+        "qtm", qtm_id, cell_resolution, cell_polygon, 3
+    )
+
 
 p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (
     (90.0, -180.0),
@@ -53,27 +64,20 @@ initial_facets = [
                 [n90_p90, n90_p180, p0_p180, p0_p90, n90_p90, False],
             ]
 
-def qtm_grid(resolution):
+def qtm_grid(resolution, compact=False):
     resolution = validate_qtm_resolution(resolution)
     levelFacets = {}
     QTMID = {}
-    qtm_rows = []
+    qtm_ids = []
     for lvl in tqdm(range(resolution), desc="Generating QTM DGGS"):
         levelFacets[lvl] = []
         QTMID[lvl] = []
-        if lvl == 0:           
+        if lvl == 0:
             for i, facet in enumerate(initial_facets):
                 QTMID[0].append(str(i + 1))
                 levelFacets[0].append(facet)
                 if lvl == resolution - 1:
-                    facet_geom = qtm.constructGeometry(facet)
-                    
-                    qtm_id = QTMID[0][i]
-                    num_edges = 3
-                    row = geodesic_dggs_to_geoseries(
-                        "qtm", qtm_id, resolution, facet_geom, num_edges
-                    )
-                    qtm_rows.append(row)
+                    qtm_ids.append(QTMID[0][i])
         else:
             for i, pf in enumerate(levelFacets[lvl - 1]):
                 subdivided_facets = qtm.divideFacet(pf)
@@ -82,22 +86,23 @@ def qtm_grid(resolution):
                     QTMID[lvl].append(new_id)
                     levelFacets[lvl].append(subfacet)
                     if lvl == resolution - 1:
-                        subfacet_geom = qtm.constructGeometry(subfacet)
-                        qtm_id = new_id
-                        num_edges = 3
-                        row = geodesic_dggs_to_geoseries(
-                            "qtm", qtm_id, resolution, subfacet_geom, num_edges
-                        )
-                        qtm_rows.append(row)
+                        qtm_ids.append(new_id)
+
+    if compact:
+        qtm_ids = qtm_compact(qtm_ids)
+
+    qtm_rows = []
+    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells"):
+        qtm_rows.append(_qtm_row_from_id(qtm_id))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def qtm_grid_within_bbox(resolution, bbox):
+def qtm_grid_within_bbox(resolution, bbox, compact=False):
     resolution = validate_qtm_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     levelFacets = {}
     QTMID = {}
-    qtm_rows = []
+    qtm_ids = []
     bbox_poly = Polygon(
         [
             (min_lon, min_lat),
@@ -126,12 +131,7 @@ def qtm_grid_within_bbox(resolution, bbox):
                 facet_geom = qtm.constructGeometry(facet)
                 levelFacets[0].append(facet)
                 if shape(facet_geom).intersects(bbox_poly) and resolution == 1:
-                    qtm_id = QTMID[0][i]
-                    num_edges = 3
-                    row = geodesic_dggs_to_geoseries(
-                        "qtm", qtm_id, resolution, facet_geom, num_edges
-                    )
-                    qtm_rows.append(row)
+                    qtm_ids.append(QTMID[0][i])
         else:
             for i, pf in enumerate(levelFacets[lvl - 1]):
                 subdivided_facets = qtm.divideFacet(pf)
@@ -142,16 +142,18 @@ def qtm_grid_within_bbox(resolution, bbox):
                         QTMID[lvl].append(new_id)
                         levelFacets[lvl].append(subfacet)
                         if lvl == resolution - 1:
-                            qtm_id = new_id
-                            num_edges = 3
-                            row = geodesic_dggs_to_geoseries(
-                                "qtm", qtm_id, resolution, subfacet_geom, num_edges
-                            )
-                            qtm_rows.append(row)
+                            qtm_ids.append(new_id)
+
+    if compact:
+        qtm_ids = qtm_compact(qtm_ids)
+
+    qtm_rows = []
+    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells"):
+        qtm_rows.append(_qtm_row_from_id(qtm_id))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def qtm_grid_ids(resolution):
+def qtm_grid_ids(resolution, compact=False):
     resolution = validate_qtm_resolution(resolution)
     levelFacets = {}
     QTMID = {}
@@ -184,10 +186,12 @@ def qtm_grid_ids(resolution):
                     levelFacets[lvl].append(subfacet)
                     if lvl == resolution - 1:
                         ids.append(new_id)
+    if compact:
+        ids = qtm_compact(ids)
     return ids
 
 
-def qtm_grid_within_bbox_ids(resolution, bbox):
+def qtm_grid_within_bbox_ids(resolution, bbox, compact=False):
     resolution = validate_qtm_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     levelFacets = {}
@@ -233,20 +237,22 @@ def qtm_grid_within_bbox_ids(resolution, bbox):
                         levelFacets[lvl].append(subfacet)
                         if lvl == resolution - 1:
                             ids.append(new_id)
+    if compact:
+        ids = qtm_compact(ids)
     return ids
 
 
-def qtmgrid(resolution, bbox=None, output_format="gpd"):
+def qtmgrid(resolution, bbox=None, output_format="gpd", compact=False):
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-        gdf = qtm_grid(resolution)
+        gdf = qtm_grid(resolution, compact=compact)
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
     else:
-        gdf = qtm_grid_within_bbox(resolution, bbox)
+        gdf = qtm_grid_within_bbox(resolution, bbox, compact=compact)
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
@@ -275,13 +281,19 @@ def qtmgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable QTM compact mode to reduce cell count",
+    )
     args = parser.parse_args()
 
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
 
     try:
-        result = qtmgrid(resolution, bbox, args.output_format)
+        result = qtmgrid(resolution, bbox, args.output_format, compact=args.compact)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

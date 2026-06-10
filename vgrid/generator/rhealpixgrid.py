@@ -18,11 +18,13 @@ from shapely.ops import unary_union
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
+    is_full_world_bbox,
     validate_bbox,
     validate_rhealpix_resolution,
     convert_to_output_format,
 )
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
+from vgrid.conversion.dggscompact.rhealpixcompact import rhealpix_compact
 from collections import deque
 
 from pyproj import Geod
@@ -32,29 +34,34 @@ geod = Geod(ellps="WGS84")
 rhealpix_dggs = RHEALPixDGGS()
 
 
-def rhealpix_grid(resolution, fix_antimeridian=None):
+def _rhealpix_row_from_cell_id(cell_id, fix_antimeridian=None):
+    cell_polygon = rhealpix2geo(cell_id, fix_antimeridian=fix_antimeridian)
+    rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
+    rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+    cell_resolution = rhealpix_cell.resolution
+    num_edges = 4
+    if rhealpix_cell.ellipsoidal_shape() == "dart":
+        num_edges = 3
+    return geodesic_dggs_to_geoseries(
+        "rhealpix", cell_id, cell_resolution, cell_polygon, num_edges
+    )
+
+
+def rhealpix_grid(resolution, fix_antimeridian=None, compact=False):
     resolution = validate_rhealpix_resolution(resolution)
+    cell_ids = [str(rhealpix_cell) for rhealpix_cell in rhealpix_dggs.grid(resolution)]
+    if compact:
+        cell_ids = rhealpix_compact(cell_ids)
+
     rhealpix_rows = []
-    total_cells = rhealpix_dggs.num_cells(resolution)
-    rhealpix_grid = rhealpix_dggs.grid(resolution)
-    with tqdm(
-        total=total_cells, desc="Generating rHEALPix DGGS", unit=" cells"
-    ) as pbar:
-        for rhealpix_cell in rhealpix_grid:
-            rhealpix_id = str(rhealpix_cell)
-            cell_polygon = rhealpix2geo(rhealpix_id, fix_antimeridian=fix_antimeridian)
-            num_edges = 4
-            if rhealpix_cell.ellipsoidal_shape() == "dart":
-                num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "rhealpix", rhealpix_id, resolution, cell_polygon, num_edges
-            )
-            rhealpix_rows.append(row)
-            pbar.update(1)
+    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells"):
+        rhealpix_rows.append(_rhealpix_row_from_cell_id(cell_id, fix_antimeridian))
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None):
+def rhealpix_grid_within_bbox(
+    resolution, bbox, fix_antimeridian=None, compact=False
+):
     resolution = validate_rhealpix_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     bbox_polygon = box(min_lon, min_lat, max_lon, max_lat)
@@ -102,87 +109,49 @@ def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None):
                 if neighbor_id not in covered_cells:
                     queue.append(neighbor)
 
-    # Process only intersecting cells (no double conversion)
-    # Note: fix_antimeridian already applied when creating polygon in BFS loop
-    for cell_id, (cell, cell_polygon) in tqdm(
-        intersecting_cells.items(), desc="Generating rHEALPix DGGS", unit=" cells"
-    ):
-        num_edges = 4
-        if cell.ellipsoidal_shape() == "dart":  # FIX: Use current cell, not seed
-            num_edges = 3
-        row = geodesic_dggs_to_geoseries(
-            "rhealpix", cell_id, resolution, cell_polygon, num_edges
-        )
-        rhealpix_rows.append(row)
+    cell_ids = list(intersecting_cells.keys())
+    if compact:
+        cell_ids = rhealpix_compact(cell_ids)
+
+    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells"):
+        rhealpix_rows.append(_rhealpix_row_from_cell_id(cell_id, fix_antimeridian))
 
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def rhealpix_grid_ids(resolution):
+def rhealpix_grid_ids(resolution, compact=False):
     """
     Return a list of rHEALPix cell IDs for the whole world at a given resolution.
     """
     resolution = validate_rhealpix_resolution(resolution)
-    ids = []
-    total_cells = rhealpix_dggs.num_cells(resolution)
-    for rhealpix_cell in tqdm(
-        rhealpix_dggs.grid(resolution),
-        total=total_cells,
-        desc="Generating rHEALPix IDs",
-        unit=" cells",
-    ):
-        ids.append(str(rhealpix_cell))
-    return ids
+    cell_ids = [str(rhealpix_cell) for rhealpix_cell in rhealpix_dggs.grid(resolution)]
+    if compact:
+        cell_ids = rhealpix_compact(cell_ids)
+    return cell_ids
 
 
-def rhealpix_grid_within_bbox_ids(resolution, bbox):
+def rhealpix_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of rHEALPix cell IDs intersecting the given bounding box at a given resolution.
     """
-    resolution = validate_rhealpix_resolution(resolution)
-    min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
-    bbox_polygon = box(min_lon, min_lat, max_lon, max_lat)
-    bbox_center_lon = bbox_polygon.centroid.x
-    bbox_center_lat = bbox_polygon.centroid.y
-    seed_point = (bbox_center_lon, bbox_center_lat)
-    seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
-    seed_cell_id = str(seed_cell)
-    seed_cell_polygon = rhealpix2geo(seed_cell_id)
-    if seed_cell_polygon.contains(bbox_polygon):
-        return [seed_cell_id]
-
-    # Store only intersecting cell IDs (avoid double processing)
-    intersecting_ids = []
-    covered_cells = set()
-    queue = deque([seed_cell])  # Use deque for BFS
-
-    while queue:
-        current_cell = queue.popleft()  # BFS: FIFO
-        current_cell_id = str(current_cell)
-        if current_cell_id in covered_cells:
-            continue
-        covered_cells.add(current_cell_id)
-
-        # Convert polygon once and check intersection
-        cell_polygon = rhealpix2geo(current_cell_id)
-        if cell_polygon.intersects(bbox_polygon):
-            # Add to results immediately (no need to reconstruct later)
-            intersecting_ids.append(current_cell_id)
-
-            # Add neighbors to queue
-            neighbors = current_cell.neighbors(plane=False)
-            for _, neighbor in neighbors.items():
-                neighbor_id = str(neighbor)
-                if neighbor_id not in covered_cells:
-                    queue.append(neighbor)
-
-    return intersecting_ids
+    gdf = rhealpix_grid_within_bbox(
+        resolution, bbox, compact=compact
+    )
+    if gdf.empty:
+        return []
+    return gdf["rhealpix"].tolist()
 
 
 # Remove convert_rhealpixgrid_output_format and handle output logic in rhealpixgrid
 
 
-def rhealpixgrid(resolution, bbox=None, output_format="gpd", fix_antimeridian=None):
+def rhealpixgrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    fix_antimeridian=None,
+    compact=False,
+):
     """
     Generate rHEALPix grid for pure Python usage.
 
@@ -192,6 +161,7 @@ def rhealpixgrid(resolution, bbox=None, output_format="gpd", fix_antimeridian=No
         output_format (str, optional): Output output_format ('geojson', 'csv', 'geo', 'gpd', 'shapefile', 'gpkg', 'parquet', or None for list of rHEALPix IDs). Defaults to None.
         fix_antimeridian (Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none, optional): When True, apply antimeridian fixing to the resulting polygons.
             Defaults to False when None or omitted.
+        compact (bool, optional): Enable rHEALPix compact mode to reduce cell count.
 
     Returns:
         dict, list, or str: Output in the requested output_format (GeoJSON FeatureCollection, list of IDs, file path, etc.)
@@ -203,10 +173,15 @@ def rhealpixgrid(resolution, bbox=None, output_format="gpd", fix_antimeridian=No
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = rhealpix_grid(resolution, fix_antimeridian=fix_antimeridian)
+        gdf = rhealpix_grid(
+            resolution, fix_antimeridian=fix_antimeridian, compact=compact
+        )
     else:
         gdf = rhealpix_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
         )
     output_name = f"rhealpix_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -233,6 +208,12 @@ def rhealpixgrid_cli():
         default="gpd",
     )
     parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable rHEALPix compact mode to reduce cell count",
+    )
+    parser.add_argument(
         "-fix",
         "--fix_antimeridian",
         type=str,
@@ -255,7 +236,11 @@ def rhealpixgrid_cli():
     fix_antimeridian = args.fix_antimeridian
     try:
         result = rhealpixgrid(
-            resolution, bbox, output_format, fix_antimeridian=fix_antimeridian
+            resolution,
+            bbox,
+            output_format,
+            fix_antimeridian=fix_antimeridian,
+            compact=args.compact,
         )
         if output_format in STRUCTURED_FORMATS:
             print(result)

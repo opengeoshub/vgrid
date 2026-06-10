@@ -26,6 +26,18 @@ from vgrid.utils.geometry import graticule_dggs_to_geoseries
 import geopandas as gpd
 from vgrid.conversion.dggs2geo.geohash2geo import geohash2geo
 from vgrid.utils.io import validate_bbox, validate_geohash_resolution, convert_to_output_format
+from vgrid.conversion.dggscompact.geohashcompact import (
+    geohash_compact,
+    get_geohash_resolution,
+)
+
+
+def _geohash_row_from_id(geohash_id):
+    cell_polygon = geohash2geo(geohash_id)
+    cell_resolution = get_geohash_resolution(geohash_id)
+    return graticule_dggs_to_geoseries(
+        "geohash", geohash_id, cell_resolution, cell_polygon
+    )
 
 
 def expand_geohash(gh, target_length, geohashes):
@@ -36,20 +48,20 @@ def expand_geohash(gh, target_length, geohashes):
         expand_geohash(gh + char, target_length, geohashes)
 
 
-def geohash_grid(resolution):
+def geohash_grid(resolution, compact=False):
     """Generate GeoJSON for the entire world at the given geohash resolution."""
     resolution = validate_geohash_resolution(resolution)
     geohashes = set()
     for gh in INITIAL_GEOHASHES:
         expand_geohash(gh, resolution, geohashes)
 
+    geohash_ids = list(geohashes)
+    if compact:
+        geohash_ids = geohash_compact(geohash_ids)
+
     geohash_records = []
-    for gh in tqdm(geohashes, desc="Generating Geohash DGGS", unit=" cells"):
-        cell_polygon = geohash2geo(gh)
-        geohash_record = graticule_dggs_to_geoseries(
-            "geohash", gh, resolution, cell_polygon
-        )
-        geohash_records.append(geohash_record)
+    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells"):
+        geohash_records.append(_geohash_row_from_id(gh))
     return gpd.GeoDataFrame(geohash_records, geometry="geometry", crs="EPSG:4326")
 
 
@@ -67,7 +79,7 @@ def expand_geohash_bbox(gh, target_length, geohashes, bbox_polygon):
         expand_geohash_bbox(gh + char, target_length, geohashes, bbox_polygon)
 
 
-def geohash_grid_within_bbox(resolution, bbox):
+def geohash_grid_within_bbox(resolution, bbox, compact=False):
     """Generate GeoJSON for geohashes within a bounding box at the given resolution."""
     resolution = validate_geohash_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
@@ -79,15 +91,15 @@ def geohash_grid_within_bbox(resolution, bbox):
     geohashes_bbox = set()
     for gh in intersected_geohashes:
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
-    for gh in tqdm(geohashes_bbox, desc="Generating Geohash DGGS", unit=" cells"):
-        geohash_record = graticule_dggs_to_geoseries(
-            "geohash", gh, resolution, geohash2geo(gh)
-        )
-        geohash_records.append(geohash_record)
+    geohash_ids = list(geohashes_bbox)
+    if compact:
+        geohash_ids = geohash_compact(geohash_ids)
+    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells"):
+        geohash_records.append(_geohash_row_from_id(gh))
     return gpd.GeoDataFrame(geohash_records, geometry="geometry", crs="EPSG:4326")
 
 
-def geohash_grid_ids(resolution):
+def geohash_grid_ids(resolution, compact=False):
     """
     Return a list of Geohash IDs for the whole world at the given resolution.
     """
@@ -95,10 +107,13 @@ def geohash_grid_ids(resolution):
     geohashes = set()
     for gh in INITIAL_GEOHASHES:
         expand_geohash(gh, resolution, geohashes)
-    return list(geohashes)
+    geohash_ids = list(geohashes)
+    if compact:
+        geohash_ids = geohash_compact(geohash_ids)
+    return geohash_ids
 
 
-def geohash_grid_within_bbox_ids(resolution, bbox):
+def geohash_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of Geohash IDs intersecting the given bounding box at the given resolution.
     """
@@ -111,10 +126,13 @@ def geohash_grid_within_bbox_ids(resolution, bbox):
     geohashes_bbox = set()
     for gh in intersected_geohashes:
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
-    return list(geohashes_bbox)
+    geohash_ids = list(geohashes_bbox)
+    if compact:
+        geohash_ids = geohash_compact(geohash_ids)
+    return geohash_ids
 
 
-def geohashgrid(resolution, bbox=None, output_format="gpd"):
+def geohashgrid(resolution, bbox=None, output_format="gpd", compact=False):
     """
     Generate Geohash grid for pure Python usage.
 
@@ -122,6 +140,7 @@ def geohashgrid(resolution, bbox=None, output_format="gpd"):
         resolution (int): Geohash resolution [1..10]
         bbox (list, optional): Bounding box [min_lon, min_lat, max_lon, max_lat]. Defaults to None (whole world).
         output_format (str, optional): Output format ('geojson', 'csv', 'gpd', 'shapefile', 'gpkg', 'parquet', or None for list of Geohash IDs).
+        compact (bool, optional): Enable Geohash compact mode to reduce cell count.
 
     Returns:
         dict, list, or str: Output in the requested format or file path.
@@ -133,9 +152,9 @@ def geohashgrid(resolution, bbox=None, output_format="gpd"):
             raise ValueError(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = geohash_grid(resolution)
+        gdf = geohash_grid(resolution, compact=compact)
     else:
-        gdf = geohash_grid_within_bbox(resolution, bbox)
+        gdf = geohash_grid_within_bbox(resolution, bbox, compact=compact)
     output_name = f"geohash_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -159,9 +178,17 @@ def geohashgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable Geohash compact mode to reduce cell count",
+    )
     args = parser.parse_args()
     try:
-        result = geohashgrid(args.resolution, args.bbox, args.output_format)
+        result = geohashgrid(
+            args.resolution, args.bbox, args.output_format, compact=args.compact
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

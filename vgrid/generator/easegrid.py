@@ -12,16 +12,15 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
-from shapely.geometry import Polygon, box
+from shapely.geometry import box
 from tqdm import tqdm
 from ease_dggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
-from ease_dggs.dggs.grid_addressing import (
-    grid_ids_to_geos,
-    geo_polygon_to_grid_ids,
-)
+from ease_dggs.dggs.grid_addressing import geo_polygon_to_grid_ids
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import geodesic_dggs_to_geoseries, get_ease_resolution
 from vgrid.utils.io import validate_bbox, validate_ease_resolution, convert_to_output_format
+from vgrid.conversion.dggscompact.easecompact import ease_compact
+from vgrid.conversion.dggs2geo.ease2geo import ease2geo
 # Initialize the geodetic model
 
 geo_bounds = grid_spec["geo"]
@@ -74,7 +73,15 @@ def get_ease_cells_bbox(resolution, bbox):
     return cells_bbox
 
 
-def ease_grid_ids(resolution):
+def _ease_row_from_id(cell_id):
+    cell_polygon = ease2geo(cell_id)
+    cell_resolution = get_ease_resolution(cell_id)
+    return geodesic_dggs_to_geoseries(
+        "ease", str(cell_id), cell_resolution, cell_polygon, 4
+    )
+
+
+def ease_grid_ids(resolution, compact=False):
     """
     Return a list of EASE-DGGS cell IDs for the whole world at a given resolution.
 
@@ -85,10 +92,13 @@ def ease_grid_ids(resolution):
         list[str]: List of EASE cell IDs
     """
     resolution = validate_ease_resolution(resolution)
-    return get_ease_cells(resolution)
+    cell_ids = get_ease_cells(resolution)
+    if compact:
+        cell_ids = ease_compact(cell_ids)
+    return cell_ids
 
 
-def ease_grid_within_bbox_ids(resolution, bbox):
+def ease_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of EASE-DGGS cell IDs that intersect a bounding box.
 
@@ -102,77 +112,32 @@ def ease_grid_within_bbox_ids(resolution, bbox):
     resolution = validate_ease_resolution(resolution)
     cells_result = get_ease_cells_bbox(resolution, validate_bbox(bbox))
     cells = (cells_result or {}).get("result", {}).get("data", [])
+    if compact:
+        cells = ease_compact(cells)
     return cells
 
 
-def ease_grid(resolution):
+def ease_grid(resolution, compact=False):
     resolution = validate_ease_resolution(resolution)
+    cell_ids = ease_grid_ids(resolution, compact=compact)
     ease_rows = []
-    level_spec = levels_specs[resolution]
-    n_row = level_spec["n_row"]
-    n_col = level_spec["n_col"]
-    cells = get_ease_cells(resolution)
-    for cell in tqdm(
-        cells, total=len(cells), desc="Generating EASE DGGS", unit=" cells"
+    for cell_id in tqdm(
+        cell_ids, total=len(cell_ids), desc="Generating EASE DGGS", unit=" cells"
     ):
-        geo = grid_ids_to_geos([cell])
-        center_lon, center_lat = geo["result"]["data"][0]
-        cell_min_lat = center_lat - (180 / (2 * n_row))
-        cell_max_lat = center_lat + (180 / (2 * n_row))
-        cell_min_lon = center_lon - (360 / (2 * n_col))
-        cell_max_lon = center_lon + (360 / (2 * n_col))
-        cell_polygon = Polygon(
-            [
-                [cell_min_lon, cell_min_lat],
-                [cell_max_lon, cell_min_lat],
-                [cell_max_lon, cell_max_lat],
-                [cell_min_lon, cell_max_lat],
-                [cell_min_lon, cell_min_lat],
-            ]
-        )
-        if cell_polygon:
-            num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "ease", str(cell), resolution, cell_polygon, num_edges
-            )
-            ease_rows.append(row)
+        ease_rows.append(_ease_row_from_id(cell_id))
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def ease_grid_within_bbox(resolution, bbox):
+def ease_grid_within_bbox(resolution, bbox, compact=False):
     resolution = validate_ease_resolution(resolution)
+    cell_ids = ease_grid_within_bbox_ids(resolution, bbox, compact=compact)
     ease_rows = []
-    level_spec = levels_specs[resolution]
-    n_row = level_spec["n_row"]
-    n_col = level_spec["n_col"]
-    cells = get_ease_cells_bbox(resolution, bbox)["result"]["data"]
-    if cells:
-        for cell in tqdm(cells, desc="Generating EASE DGGS", unit=" cells"):
-            geo = grid_ids_to_geos([cell])
-            if geo:
-                center_lon, center_lat = geo["result"]["data"][0]
-                cell_min_lat = center_lat - (180 / (2 * n_row))
-                cell_max_lat = center_lat + (180 / (2 * n_row))
-                cell_min_lon = center_lon - (360 / (2 * n_col))
-                cell_max_lon = center_lon + (360 / (2 * n_col))
-                cell_polygon = Polygon(
-                    [
-                        [cell_min_lon, cell_min_lat],
-                        [cell_max_lon, cell_min_lat],
-                        [cell_max_lon, cell_max_lat],
-                        [cell_min_lon, cell_max_lat],
-                        [cell_min_lon, cell_min_lat],
-                    ]
-                )
-                num_edges = 4
-                row = geodesic_dggs_to_geoseries(
-                    "ease", str(cell), resolution, cell_polygon, num_edges
-                )
-                ease_rows.append(row)
+    for cell_id in tqdm(cell_ids, desc="Generating EASE DGGS", unit=" cells"):
+        ease_rows.append(_ease_row_from_id(cell_id))
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def easegrid(resolution, bbox=None, output_format="gpd"):
+def easegrid(resolution, bbox=None, output_format="gpd", compact=False):
     if bbox is None:
         bbox = [min_longitude, min_lattitude, max_longitude, max_latitude]
         level_spec = levels_specs[resolution]
@@ -183,9 +148,9 @@ def easegrid(resolution, bbox=None, output_format="gpd"):
             raise ValueError(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = ease_grid(resolution)
+        gdf = ease_grid(resolution, compact=compact)
     else:
-        gdf = ease_grid_within_bbox(resolution, bbox)
+        gdf = ease_grid_within_bbox(resolution, bbox, compact=compact)
     output_name = f"ease_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -209,6 +174,12 @@ def easegrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    parser.add_argument(
+        "-c",
+        "--compact",
+        action="store_true",
+        help="Enable EASE compact mode to reduce cell count",
+    )
     args = parser.parse_args()
     resolution = args.resolution
     bbox = (
@@ -217,7 +188,7 @@ def easegrid_cli():
         else [min_longitude, min_lattitude, max_longitude, max_latitude]
     )
     try:
-        result = easegrid(resolution, bbox, args.output_format)
+        result = easegrid(resolution, bbox, args.output_format, compact=args.compact)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:
