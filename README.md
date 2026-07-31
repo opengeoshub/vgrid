@@ -43,6 +43,7 @@
 [![image](https://studiolab.sagemaker.aws/studiolab.svg)](https://studiolab.sagemaker.aws/import/github/opengeoshub/vgrid/blob/main/docs/notebooks/00_intro.ipynb)
 [![image](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://jupyterlite.gishub.vn/lab/index.html?path=notebooks/vgrid/00_intro.ipynb)[![PyPI version](https://badge.fury.io/py/vgrid.svg)](https://badge.fury.io/py/vgrid)
 [![image](https://static.pepy.tech/badge/vgrid)](https://pepy.tech/project/vgrid)
+[![DOI](https://zenodo.org/badge/1251638045.svg)](https://doi.org/10.5281/zenodo.21717224)
 [![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Vgrid Introduction
@@ -63,7 +64,15 @@ To visualize DGGS in Maplibre GL JS, try the [vgrid-maplibre](https://www.npmjs.
 
 For an interactive demo, visit the [Vgrid Homepage](https://vgridhome.gishub.vn).
 
-### References:
+## Citation
+
+If you use Vgrid DGGS in your work, please cite it. Vgrid is archived on [Zenodo](https://zenodo.org/)
+
+[![DOI](https://zenodo.org/badge/1251638045.svg)](https://doi.org/10.5281/zenodo.21717224)
+
+### Acknowledgements
+Vgrid is built upon free and open-source software and would like to acknowledge the maintainers and contributors of the following projects, together with the many transitive dependencies that make them possible.
+
 - [h3-py](https://github.com/uber/h3-py) by [Uber](https://github.com/uber).
 - [s2sphere](https://github.com/sidewalklabs/s2sphere) by [Sidewalk Labs](https://github.com/sidewalklabs).
 - [a5-py](https://github.com/felixpalmer/a5-py) by [Felix Palmer](https://github.com/felixpalmer) and [Thang Quach](https://github.com/thangqd).

@@ -131,4 +131,6 @@ nav:
           - DGGS Statistics: api/stats.md
    
     - Contributing: contributing.md
+    - Citation: citation.md
+    - Acknowledgements: acknowledgements.md
     - Report Issues: https://github.com/opengeoshub/vgrid/issues

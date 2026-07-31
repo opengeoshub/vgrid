@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+title: Vgrid
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+abstract: "Vgrid - A unified framework for working with DGGS."
+authors:
+  - given-names: Thang
+    family-names: Quach
+    email: quachdongthang@gmail.com
+    affiliation: "HCMC University of Technology, Vietnam"
+    orcid: "https://orcid.org/0000-0002-3250-0638"
+version: 1.4.23
+date-released: 2026-07-31
+doi: "10.5281/zenodo.21717224"
+repository-code: "https://github.com/opengeoshub/Vgrid"
+url: "https://vgrid.gishub.vn"
+license: MIT
+keywords:
+  - DGGS
+  - Vgrid
+  - H3
+  - S2
+  - A5
+  - rHEALPix
+  - DGGAL
+  - DGGRID
+  - ISEA4T
+  - ISEA3H
+  - EASE
+  - QTM
+  - OLC
+  - Geohash
+  - GEOREF
+  - MGRS
+  - Tilecode
+  - Quadkey
+  - Maidenhead
+  - GARS
+  - DIGIPIN
