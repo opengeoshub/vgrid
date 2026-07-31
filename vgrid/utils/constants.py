@@ -168,9 +168,9 @@ DGGRID_TYPES = {
     },  # error when calling dggrid_instance.grid_stats_table
     "PLANETRISK": {"min_res": 0, "max_res": 22, "default_res": 13},
     "ISEA3H": {"min_res": 0, "max_res": 35, "default_res": 20},
-    "ISEA4H": {"min_res": 0, "max_res": 30, "default_res": 16},
+    "ISEA4H": {"min_res": 0, "max_res": 29, "default_res": 16},
     "ISEA4T": {"min_res": 0, "max_res": 29, "default_res": 15},
-    "ISEA4D": {"min_res": 0, "max_res": 30, "default_res": 16},
+    "ISEA4D": {"min_res": 0, "max_res": 29, "default_res": 16},
     "ISEA43H": {"min_res": 0, "max_res": 18, "default_res": 10},
     "ISEA7H": {"min_res": 0, "max_res": 21, "default_res": 11},
     "IGEO7": {
