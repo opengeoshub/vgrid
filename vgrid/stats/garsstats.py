@@ -32,7 +32,9 @@ min_res = DGGS_TYPES["gars"]["min_res"]
 max_res = DGGS_TYPES["gars"]["max_res"]
 
 
-def gars_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+def gars_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for GARS DGGS cells.
 
@@ -160,7 +162,7 @@ def garsinspect(resolution: int):  # length unit is km, area unit is km2
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    gars_gdf = garsgrid(resolution, output_format="gpd")        
+    gars_gdf = garsgrid(resolution, output_format="gpd")
     gars_gdf["crossed"] = gars_gdf["geometry"].apply(check_crossing_geom)
     mean_area = gars_gdf["cell_area"].mean()
     # Calculate normalized area
@@ -185,7 +187,7 @@ def garsinspect(resolution: int):  # length unit is km, area unit is km2
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    gars_gdf_lambert = get_cells_area(gars_gdf.copy(), 'LAEA')
+    gars_gdf_lambert = get_cells_area(gars_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     gars_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

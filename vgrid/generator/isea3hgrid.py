@@ -25,7 +25,11 @@ if platform.system() == "Windows":
     isea3h_dggs = Eaggr(Model.ISEA3H)
 
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
-from vgrid.utils.io import validate_bbox, validate_isea3h_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_isea3h_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
 
 if platform.system() == "Windows":

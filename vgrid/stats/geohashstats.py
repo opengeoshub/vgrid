@@ -181,7 +181,7 @@ def geohashinspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    geohash_gdf_lambert = get_cells_area(geohash_gdf.copy(), 'LAEA')
+    geohash_gdf_lambert = get_cells_area(geohash_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     geohash_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

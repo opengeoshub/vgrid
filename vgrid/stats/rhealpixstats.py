@@ -31,7 +31,9 @@ min_res = DGGS_TYPES["rhealpix"]["min_res"]
 max_res = DGGS_TYPES["rhealpix"]["max_res"]
 
 
-def rhealpix_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+def rhealpix_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for rHEALPix DGGS cells at a given resolution.
 
@@ -164,7 +166,9 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
         resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
     )  # type: ignore
     rhealpix_gdf["crossed"] = rhealpix_gdf["geometry"].apply(check_crossing_geom)
-    rhealpix_gdf = rhealpix_gdf[~rhealpix_gdf["crossed"]]  # remove cells that cross the Antimeridian
+    rhealpix_gdf = rhealpix_gdf[
+        ~rhealpix_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
     mean_area = rhealpix_gdf["cell_area"].mean()
     # Calculate normalized area
     rhealpix_gdf["norm_area"] = rhealpix_gdf["cell_area"] / mean_area
@@ -187,7 +191,7 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    rhealpix_gdf_lambert = get_cells_area(rhealpix_gdf.copy(), 'LAEA')
+    rhealpix_gdf_lambert = get_cells_area(rhealpix_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     rhealpix_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

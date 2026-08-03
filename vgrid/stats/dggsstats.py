@@ -91,7 +91,7 @@ def dggsinspect():
         #     "inspect_func": dggalinspect,
         #     "cell_id_col": "dggal_ivea3h",
         #     "dggs_type": "ivea3h",
-        # },  
+        # },
         #   "dggal_ivea4r": {
         #     "inspect_func": dggalinspect,
         #     "cell_id_col": "dggal_ivea4r",
@@ -167,7 +167,7 @@ def dggsinspect():
                     "norm_area",
                     "ipq",
                     "zsc",
-                    "cvh"
+                    "cvh",
                 ]
 
                 for col in expected_columns:

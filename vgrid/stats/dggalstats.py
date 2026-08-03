@@ -180,7 +180,7 @@ def dggal_metrics(
     elif dggs_type in ["healpix"]:
         num_cells = 12 * (4**resolution)
     elif dggs_type in ["rhealpix"]:
-        num_cells = 6 * (9**resolution) 
+        num_cells = 6 * (9**resolution)
 
     avg_cell_area = AUTHALIC_AREA / num_cells  # area in m2
 
@@ -322,7 +322,9 @@ def dggalinspect(
         dggal_gdf["cell_perimeter"] = dggal_gdf.geometry.length
         dggal_gdf["crossed"] = False
 
-    dggal_gdf = dggal_gdf[~dggal_gdf["crossed"]]  # remove cells that cross the Antimeridian
+    dggal_gdf = dggal_gdf[
+        ~dggal_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
     mean_area = dggal_gdf["cell_area"].mean()
     dggal_gdf["norm_area"] = (
         dggal_gdf["cell_area"] / mean_area if mean_area and mean_area != 0 else np.nan
@@ -347,7 +349,7 @@ def dggalinspect(
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    dggal_gdf_lambert = get_cells_area(dggal_gdf.copy(), 'LAEA')
+    dggal_gdf_lambert = get_cells_area(dggal_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     dggal_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),
@@ -695,9 +697,7 @@ def dggalinspect_cli():
     dggs_type = args.dggs_type
     resolution = args.resolution
     print(
-        dggalinspect(
-            dggs_type, resolution, split_antimeridian=args.split_antimeridian
-        )
+        dggalinspect(dggs_type, resolution, split_antimeridian=args.split_antimeridian)
     )
 
 

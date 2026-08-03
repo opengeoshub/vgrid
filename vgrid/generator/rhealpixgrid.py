@@ -59,9 +59,7 @@ def rhealpix_grid(resolution, fix_antimeridian=None, compact=False):
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def rhealpix_grid_within_bbox(
-    resolution, bbox, fix_antimeridian=None, compact=False
-):
+def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
     resolution = validate_rhealpix_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     bbox_polygon = box(min_lon, min_lat, max_lon, max_lat)
@@ -134,9 +132,7 @@ def rhealpix_grid_within_bbox_ids(resolution, bbox, compact=False):
     """
     Return a list of rHEALPix cell IDs intersecting the given bounding box at a given resolution.
     """
-    gdf = rhealpix_grid_within_bbox(
-        resolution, bbox, compact=compact
-    )
+    gdf = rhealpix_grid_within_bbox(resolution, bbox, compact=compact)
     if gdf.empty:
         return []
     return gdf["rhealpix"].tolist()

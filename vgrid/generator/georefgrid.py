@@ -17,10 +17,15 @@ from vgrid.dggs import georef
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 import geopandas as gpd
-from vgrid.utils.io import validate_bbox, validate_georef_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_georef_resolution,
+    convert_to_output_format,
+)
 from vgrid.utils.constants import GEOREF_RESOLUTION_DEGREES
 from vgrid.conversion.latlon2dggs import latlon2georef
 from vgrid.conversion.dggs2geo.georef2geo import georef2geo
+
 
 def georef_grid(resolution, bbox=None):
     resolution = validate_georef_resolution(resolution)

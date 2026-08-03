@@ -31,7 +31,9 @@ min_res = DGGS_TYPES["qtm"]["min_res"]
 max_res = DGGS_TYPES["qtm"]["max_res"]
 
 
-def qtm_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+def qtm_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for QTM DGGS cells.
 
@@ -176,7 +178,7 @@ def qtminspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    qtm_gdf_lambert = get_cells_area(qtm_gdf.copy(), 'LAEA')
+    qtm_gdf_lambert = get_cells_area(qtm_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     qtm_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

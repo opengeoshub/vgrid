@@ -114,9 +114,9 @@ def point2a5(
         a5_hex = latlon2a5(point.y, point.x, resolution)
         cell_polygon = a52geo(a5_hex, options, split_antimeridian=split_antimeridian)
         cell_resolution = a5.get_resolution(a5.hex_to_u64(a5_hex))
-        num_edges = 5   
+        num_edges = 5
         if cell_resolution == 1:
-            num_edges = 3   
+            num_edges = 3
         row = geodesic_dggs_to_geoseries(
             "a5", a5_hex, cell_resolution, cell_polygon, num_edges
         )
@@ -264,7 +264,7 @@ def polygon2a5(
         if seed_cell_polygon.contains(polygon):
             num_edges = 5
             if seed_cell_resolution == 1:
-                num_edges = 3   
+                num_edges = 3
             row = geodesic_dggs_to_geoseries(
                 "a5", seed_cell_id, seed_cell_resolution, seed_cell_polygon, num_edges
             )
@@ -308,7 +308,7 @@ def polygon2a5(
                     cell_resolution = a5.get_resolution(cell_id)
                     num_edges = 5
                     if cell_resolution == 1:
-                        num_edges = 3   
+                        num_edges = 3
                     row = geodesic_dggs_to_geoseries(
                         "a5", cell_hex, cell_resolution, cell_polygon, num_edges
                     )
@@ -318,12 +318,14 @@ def polygon2a5(
 
             # Apply compact mode if enabled
             if compact and a5_rows:
-                temp_gdf = gpd.GeoDataFrame(a5_rows, geometry="geometry", crs="EPSG:4326")
+                temp_gdf = gpd.GeoDataFrame(
+                    a5_rows, geometry="geometry", crs="EPSG:4326"
+                )
                 compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd")
                 if compacted_gdf is not None:
                     a5_rows = compacted_gdf.to_dict("records")
 
-    return a5_rows      
+    return a5_rows
 
 
 def polygon2a5_new(
@@ -700,7 +702,7 @@ def vector2a5_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
 
     args = parser.parse_args()

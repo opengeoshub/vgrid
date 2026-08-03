@@ -11,7 +11,11 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
-from vgrid.utils.io import process_input_data_bin, convert_to_output_format, aggregate_joined
+from vgrid.utils.io import (
+    process_input_data_bin,
+    convert_to_output_format,
+    aggregate_joined,
+)
 from vgrid.utils.constants import (
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
@@ -76,7 +80,9 @@ def rhealpix_bin(
     out = grid_gdf.merge(grouped, on=id_col, how="inner")
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 
@@ -97,9 +103,7 @@ def rhealpixbin(
     if resolution < 0 or resolution > 15:
         raise ValueError(f"Resolution must be in range [0..15], got {resolution}")
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = rhealpix_bin(
         data,
         resolution,

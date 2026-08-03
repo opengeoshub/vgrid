@@ -25,7 +25,11 @@ from vgrid.utils.constants import (
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 import geopandas as gpd
 from vgrid.conversion.dggs2geo.geohash2geo import geohash2geo
-from vgrid.utils.io import validate_bbox, validate_geohash_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_geohash_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggscompact.geohashcompact import (
     geohash_compact,
     get_geohash_resolution,

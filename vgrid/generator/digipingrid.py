@@ -26,7 +26,11 @@ import geopandas as gpd
 from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin
 from vgrid.conversion.dggs2geo.digipin2geo import digipin2geo
-from vgrid.utils.io import validate_bbox, validate_digipin_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_digipin_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggscompact.digipincompact import digipin_compact
 from vgrid.dggs.digipin import digipin_resolution
 
@@ -65,7 +69,9 @@ def digipin_grid(resolution, bbox=None, compact=False):
         digipin_ids = digipin_compact(digipin_ids)
 
     digipin_records = []
-    for digipin_code in tqdm(digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells"):
+    for digipin_code in tqdm(
+        digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells"
+    ):
         try:
             digipin_records.append(_digipin_row_from_id(digipin_code))
         except Exception:

@@ -102,9 +102,7 @@ def h3bin(
 ):
     resolution = validate_h3_resolution(resolution)
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = h3_bin(
         data,
         resolution,

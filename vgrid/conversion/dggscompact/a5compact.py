@@ -160,7 +160,7 @@ def a5compact(
             cell_resolution = a5.get_resolution(a5.hex_to_u64(a5_hex_compact))
             num_edges = 5  # A5 cells are pentagons
             if cell_resolution == 1:
-                num_edges = 3   
+                num_edges = 3
             row = geodesic_dggs_to_geoseries(
                 "a5", a5_hex_compact, cell_resolution, cell_polygon, num_edges
             )
@@ -207,14 +207,14 @@ def a5compact_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
     output_format = args.output_format
     split_antimeridian = args.split_antimeridian
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -223,7 +223,7 @@ def a5compact_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     result = a5compact(
         input_data,
         a5_hex=cellid,
@@ -323,7 +323,7 @@ def a5expand(
             cell_resolution = resolution
             num_edges = 5  # A5 cells are pentagons
             if cell_resolution == 1:
-                num_edges = 3   
+                num_edges = 3
             row = geodesic_dggs_to_geoseries(
                 "a5", a5_hex_expand, cell_resolution, cell_polygon, num_edges
             )
@@ -382,7 +382,7 @@ def a5expand_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
     input_data = args.input
@@ -390,7 +390,7 @@ def a5expand_cli():
     cellid = args.cellid
     output_format = args.output_format
     split_antimeridian = args.split_antimeridian
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -399,7 +399,7 @@ def a5expand_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     result = a5expand(
         input_data,
         resolution,

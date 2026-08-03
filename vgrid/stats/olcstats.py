@@ -22,7 +22,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
 from vgrid.utils.io import olc_resolutions
 
-def olc_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+
+def olc_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for OLC DGGS cells.
 
@@ -156,7 +159,7 @@ def olcinspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    olc_gdf = olcgrid(resolution, output_format="gpd")          
+    olc_gdf = olcgrid(resolution, output_format="gpd")
     olc_gdf["crossed"] = olc_gdf["geometry"].apply(check_crossing_geom)
     mean_area = olc_gdf["cell_area"].mean()
     # Calculate normalized area
@@ -179,7 +182,7 @@ def olcinspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    olc_gdf_lambert = get_cells_area(olc_gdf.copy(), 'LAEA')
+    olc_gdf_lambert = get_cells_area(olc_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     olc_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

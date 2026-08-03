@@ -101,9 +101,7 @@ def generate_grid(
         )
 
         cell_ids = dggrid_gdf["global_id"].tolist()
-        compact_ids = dggrid_compact(
-            dggrid_instance, dggs_type, cell_ids, resolution
-        )
+        compact_ids = dggrid_compact(dggrid_instance, dggs_type, cell_ids, resolution)
         dggrid_gdf = _cells_to_gdf(
             dggrid_instance,
             dggs_type,
@@ -145,7 +143,7 @@ def dggridgen(
         output_format (str, optional): Output format handled entirely by convert_to_output_format
         split_antimeridian (bool, optional): When True, apply antimeridian fixing to the resulting polygons.
             Defaults to False when None or omitted.
-        options (dict, optional): Options to pass to grid_cell_polygons_for_extent. 
+        options (dict, optional): Options to pass to grid_cell_polygons_for_extent.
             For example: {"densification": 2} to add densification points.
             Defaults to None.
         compact (bool, optional): Enable DGGRID compact mode to reduce cell count.
@@ -220,7 +218,7 @@ def dggridgen_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_for_extent. "
-             "Example: '{\"densification\": 2}'",
+        "Example: '{\"densification\": 2}'",
     )
     parser.add_argument(
         "-c",
@@ -236,7 +234,7 @@ def dggridgen_cli():
     dggs_type = args.dggs_type
     bbox = args.bbox
     output_address_type = args.output_address_type
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:

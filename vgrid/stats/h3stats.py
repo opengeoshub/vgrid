@@ -78,7 +78,8 @@ def h3_metrics(resolution: int, unit: str = "m"):
 
     # Largest hex area among center children of base hex cells
     center_children = [
-        idx if resolution == 0 else h3.cell_to_center_child(idx, resolution) for idx in base_hex_cells
+        idx if resolution == 0 else h3.cell_to_center_child(idx, resolution)
+        for idx in base_hex_cells
     ]
     max_hex_area = max(
         (h3.cell_area(idx, unit=area_unit) for idx in center_children),
@@ -252,7 +253,7 @@ def h3inspect(resolution: int, fix_antimeridian: None = None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    h3_gdf_lambert = get_cells_area(h3_gdf.copy(), 'LAEA')
+    h3_gdf_lambert = get_cells_area(h3_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     h3_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

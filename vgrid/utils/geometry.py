@@ -18,7 +18,12 @@ from vgrid.dggs.rhealpixdggs.utils import my_round
 from vgrid.dggs.eaggr.enums.shape_string_format import ShapeStringFormat
 from vgrid.dggs.eaggr.eaggr import Eaggr
 from vgrid.dggs.eaggr.enums.model import Model
-from vgrid.utils.constants import DGGAL_TYPES, AUTHALIC_RADIUS, ICOSA_EDGE_M, STANDARD_METERS_PER_PIXEL
+from vgrid.utils.constants import (
+    DGGAL_TYPES,
+    AUTHALIC_RADIUS,
+    ICOSA_EDGE_M,
+    STANDARD_METERS_PER_PIXEL,
+)
 import platform
 import math
 from dggal import *
@@ -207,9 +212,12 @@ def shift_balanced(geom, threshold_west=-130, threshold_east=146):
 
     if hasattr(geom, "geoms"):
         # MultiPolygon - process each sub-geometry
-        shifted_geoms = [shift_balanced(sub_geom, threshold_west, threshold_east) for sub_geom in geom.geoms]
+        shifted_geoms = [
+            shift_balanced(sub_geom, threshold_west, threshold_east)
+            for sub_geom in geom.geoms
+        ]
         return MultiPolygon(shifted_geoms)
-        
+
     # Get centroid longitude
     centroid = geom.centroid
     centroid_lon = centroid.x
@@ -446,9 +454,7 @@ def read_pixel_centroids(raster_path: str):
                 rec = {"geometry": shapely.geometry.Point(float(lon), float(lat))}
                 for bi in range(band_count):
                     v = pixel_vals[bi]
-                    rec[f"band_{bi + 1}"] = (
-                        None if np.ma.is_masked(v) else float(v)
-                    )
+                    rec[f"band_{bi + 1}"] = None if np.ma.is_masked(v) else float(v)
                 records.append(rec)
 
     if not records:
@@ -461,9 +467,7 @@ def _laea_crs_from_bounds(minx, miny, maxx, maxy) -> PyprojCRS:
     """Local LAEA CRS (metres) for a bounding box in degrees."""
     lon_0 = (minx + maxx) / 2.0
     lat_0 = max(-89.9, min(89.9, (miny + maxy) / 2.0))
-    proj4 = (
-        f"+proj=laea +lat_0={lat_0} +lon_0={lon_0} +datum=WGS84 +units=m +no_defs"
-    )
+    proj4 = f"+proj=laea +lat_0={lat_0} +lon_0={lon_0} +datum=WGS84 +units=m +no_defs"
     # pyproj 2.x / 3.x / OSGeo4W builds expose different factory methods
     for factory in (
         lambda: PyprojCRS.from_user_input(proj4),
@@ -545,7 +549,11 @@ def nearest_neighbour_from_grid(raster_path: str, grid_gdf):
         raise ValueError("No valid raster pixels found.")
 
     metric_crs = _metric_crs(grid_gdf)
-    if metric_crs is not None and grid_gdf.crs is not None and grid_gdf.crs.is_geographic:
+    if (
+        metric_crs is not None
+        and grid_gdf.crs is not None
+        and grid_gdf.crs.is_geographic
+    ):
         grid_metric = grid_gdf.to_crs(metric_crs)
         pixel_metric = pixel_gdf.to_crs(metric_crs)
     else:
@@ -1186,13 +1194,15 @@ def dggrid_num_edges(dggs_type: str) -> int:
 
 
 def get_area_perimeter_from_lambert(geom):
-    '''Area from cell's lambert azimutal projection'''
+    """Area from cell's lambert azimutal projection"""
     perimeter = np.nan
     area = np.nan
     try:
         if (-180 <= geom.centroid.x <= 180) and (-90 <= geom.centroid.y <= 90):
             proj_str = f"+proj=laea +lat_0={geom.centroid.y} +lon_0={geom.centroid.x}"
-            project = pyproj.Transformer.from_crs('EPSG:4236', proj_str, always_xy=True).transform
+            project = pyproj.Transformer.from_crs(
+                "EPSG:4236", proj_str, always_xy=True
+            ).transform
             perimeter = transform(project, geom).length
             area = transform(project, geom).area
         # else:
@@ -1207,63 +1217,67 @@ def get_area_perimeter_from_lambert(geom):
 def convexhull_from_lambert(geom):
     """
     Compute the convex hull of a geometry using Lambert Azimuthal Equal Area projection.
-    
+
     The geometry is projected to LAEA centered at its centroid, the convex hull is computed
     in the projected space, and then transformed back to WGS84 (EPSG:4326).
-    
+
     Args:
         geom: Shapely geometry (Polygon, MultiPolygon, Point, etc.)
-    
+
     Returns:
         Shapely Polygon: Convex hull in WGS84 coordinates, or None if invalid
     """
     try:
         if geom is None or geom.is_empty:
             return None
-        
+
         # Validate centroid coordinates
         if not (-180 <= geom.centroid.x <= 180) or not (-90 <= geom.centroid.y <= 90):
             # print(f'invalid centroid {geom.centroid}')
             return None
-        
+
         # Create LAEA projection centered at geometry centroid
         proj_str = f"+proj=laea +lat_0={geom.centroid.y} +lon_0={geom.centroid.x}"
-        
+
         # Create transformers: WGS84 -> LAEA and LAEA -> WGS84
-        to_lambert = pyproj.Transformer.from_crs('EPSG:4326', proj_str, always_xy=True).transform
-        from_lambert = pyproj.Transformer.from_crs(proj_str, 'EPSG:4326', always_xy=True).transform
-        
+        to_lambert = pyproj.Transformer.from_crs(
+            "EPSG:4326", proj_str, always_xy=True
+        ).transform
+        from_lambert = pyproj.Transformer.from_crs(
+            proj_str, "EPSG:4326", always_xy=True
+        ).transform
+
         # Transform geometry to LAEA
         geom_lambert = transform(to_lambert, geom)
-        
+
         # Compute convex hull in LAEA space
         hull_lambert = geom_lambert.convex_hull
-        
+
         # Transform convex hull back to WGS84
         hull_wgs84 = transform(from_lambert, hull_lambert)
-        
+
         return hull_wgs84
-        
+
     except Exception as ex:
-        print(f'Error computing convex hull from Lambert: {ex}')
+        print(f"Error computing convex hull from Lambert: {ex}")
         return None
 
 
 def compactness_calculation_np(df, spherical=False):
-    np_area = df['area'].values
-    np_peri = df['perimeter'].values
+    np_area = df["area"].values
+    np_peri = df["perimeter"].values
 
     if not spherical:
-        top = 4*np.pi*np_area
+        top = 4 * np.pi * np_area
         bottom = np.square(np_peri)
         c_orig = top / bottom
 
         return c_orig
     else:
-        t1 = 4*np.pi*np_area
+        t1 = 4 * np.pi * np_area
         t2 = np.square(np_area)
         t3 = np.square(6378137.0)
-        top = np.sqrt( t1 - t2/t3 )
+        top = np.sqrt(t1 - t2 / t3)
         bottom = np_peri
         zsc_np = top / bottom
 
@@ -1277,20 +1291,20 @@ def compactness_calculation_np(df, spherical=False):
 
 
 def zsc_calculation_np(df, spherical=False):
-    np_area = df['area'].values
-    np_peri = df['perimeter'].values
+    np_area = df["area"].values
+    np_peri = df["perimeter"].values
 
     if not spherical:
-        top = 4*np.pi*np_area
+        top = 4 * np.pi * np_area
         bottom = np.square(np_peri)
         c_orig = top / bottom
 
         return c_orig
     else:
-        t1 = 4*np.pi*np_area
+        t1 = 4 * np.pi * np_area
         t2 = np.square(np_area)
         t3 = np.square(6378137.0)
-        top = np.sqrt( t1 - t2/t3 )
+        top = np.sqrt(t1 - t2 / t3)
         bottom = np_peri
         zsc_np = top / bottom
 
@@ -1302,58 +1316,86 @@ def zsc_calculation_np(df, spherical=False):
 
         return zsc_np
 
-def get_cells_area(gdf,crs):
-    '''Get cells area for crs'''
 
-    if crs =='LAEA':
+def get_cells_area(gdf, crs):
+    """Get cells area for crs"""
+
+    if crs == "LAEA":
         # gdf['area'],gdf['perimeter'] = zip(*gdf['geometry'].apply(get_area_perimeter_from_lambert))
-        gdf[['area','perimeter']] = gdf['geometry'].apply(get_area_perimeter_from_lambert)
+        gdf[["area", "perimeter"]] = gdf["geometry"].apply(
+            get_area_perimeter_from_lambert
+        )
 
     else:
         gdf = gdf.to_crs(crs)
-        gdf['area'] = gdf['geometry'].area
+        gdf["area"] = gdf["geometry"].area
     return gdf
+
 
 def get_a5_resolution_from_area(meters_squared, relative_depth=8):
     min_res = DGGS_TYPES["a5"]["min_res"]
-    max_res = DGGS_TYPES["a5"]["max_res"] + relative_depth # https://dggal.org/docs/html/dggal/Classes/DGGRS/Methods/get64KDepth.html
+    max_res = (
+        DGGS_TYPES["a5"]["max_res"] + relative_depth
+    )  # https://dggal.org/docs/html/dggal/Classes/DGGRS/Methods/get64KDepth.html
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     cell_count = 12
     for res in range(min_res, max_res + 1):
-        # cell_count = a5.get_num_cells(res)        
+        # cell_count = a5.get_num_cells(res)
         if res >= 1:
-            cell_count = 15*4**(res)
+            cell_count = 15 * 4 ** (res)
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_a5_resolution_from_scale_denominator(scale_denominator, relative_depth=8, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_a5_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=8, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_a5_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell, relative_depth) - relative_depth)
+    return max(
+        0,
+        get_a5_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_h3_resolution_from_area(meters_squared, relative_depth=6):
     min_res = DGGS_TYPES["h3"]["min_res"]
-    max_res = DGGS_TYPES["h3"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["h3"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
-        cell_count = 2 + 120*7 ** (res)
+        cell_count = 2 + 120 * 7 ** (res)
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_h3_resolution_from_scale_denominator(scale_denominator, relative_depth=6, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_h3_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=6, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_h3_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_h3_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_s2_resolution_from_area(meters_squared, relative_depth=8):
     min_res = DGGS_TYPES["s2"]["min_res"]
-    max_res = DGGS_TYPES["s2"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["s2"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
@@ -1362,15 +1404,26 @@ def get_s2_resolution_from_area(meters_squared, relative_depth=8):
             return res
     return res
 
-def get_s2_resolution_from_scale_denominator(scale_denominator, relative_depth=8, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_s2_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=8, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_s2_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_s2_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_rhealpix_resolution_from_area(meters_squared, relative_depth=5):
     min_res = DGGS_TYPES["rhealpix"]["min_res"]
-    max_res = DGGS_TYPES["rhealpix"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["rhealpix"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
@@ -1379,15 +1432,26 @@ def get_rhealpix_resolution_from_area(meters_squared, relative_depth=5):
             return res
     return res
 
-def get_rhealpix_resolution_from_scale_denominator(scale_denominator, relative_depth=5, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_rhealpix_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=5, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_rhealpix_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_rhealpix_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_isea4t_resolution_from_area(meters_squared, relative_depth=8):
     min_res = DGGS_TYPES["isea4t"]["min_res"]
-    max_res = DGGS_TYPES["isea4t"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["isea4t"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
@@ -1396,71 +1460,117 @@ def get_isea4t_resolution_from_area(meters_squared, relative_depth=8):
             return res
     return res
 
-def get_isea4t_resolution_from_scale_denominator(scale_denominator, relative_depth=8, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_isea4t_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=8, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_isea4t_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_isea4t_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_isea3h_resolution_from_area(meters_squared, relative_depth=10):
     min_res = DGGS_TYPES["isea3h"]["min_res"]
-    max_res = DGGS_TYPES["isea3h"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["isea3h"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
-        cell_count =  10 * (3**res) + 2
+        cell_count = 10 * (3**res) + 2
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_isea3h_resolution_from_scale_denominator(scale_denominator, relative_depth=10, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_isea3h_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=10, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_isea3h_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_isea3h_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_geohash_resolution_from_area(meters_squared, relative_depth=3):
     min_res = DGGS_TYPES["geohash"]["min_res"]
-    max_res = DGGS_TYPES["geohash"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["geohash"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
     for res in range(min_res, max_res + 1):
-        cell_count =  32**res
+        cell_count = 32**res
         if cell_count >= target_cell_count:
             return res
     return res
+
 
 def get_qtm_resolution_from_area(meters_squared, relative_depth=8):
     min_res = DGGS_TYPES["qtm"]["min_res"]
-    max_res = DGGS_TYPES["qtm"]["max_res"]+ relative_depth
+    max_res = DGGS_TYPES["qtm"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
     res = 1
     for res in range(min_res, max_res + 1):
-        cell_count =  8 * 4 ** (res - 1)
+        cell_count = 8 * 4 ** (res - 1)
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_qtm_resolution_from_scale_denominator(scale_denominator, relative_depth=8, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_qtm_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=8, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_qtm_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_qtm_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
-def get_geohash_resolution_from_scale_denominator(scale_denominator, relative_depth=3, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+def get_geohash_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=3, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(1, get_geohash_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        1,
+        get_geohash_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_georef_resolution_from_area(meters_squared, relative_depth=2):
     min_res = DGGS_TYPES["georef"]["min_res"]
-    max_res = DGGS_TYPES["georef"]["max_res"]+ relative_depth
-    target_cell_count = AUTHALIC_AREA / meters_squared      
+    max_res = DGGS_TYPES["georef"]["max_res"] + relative_depth
+    target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
 
     for res in range(min_res, max_res + 1):
-        grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(res)        # Number of cells across longitude and latitude
+        grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(
+            res
+        )  # Number of cells across longitude and latitude
         num_lon = int(round(360.0 / grid_size_deg))
         num_lat = int(round(180.0 / grid_size_deg))
         cell_count = num_lon * num_lat
@@ -1468,43 +1578,76 @@ def get_georef_resolution_from_area(meters_squared, relative_depth=2):
             return res
     return res
 
-def get_georef_resolution_from_scale_denominator(scale_denominator, relative_depth=2, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_georef_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=2, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_georef_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_georef_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_tilecode_resolution_from_area(meters_squared, relative_depth=8):
     min_res = DGGS_TYPES["tilecode"]["min_res"]
-    max_res = DGGS_TYPES["tilecode"]["max_res"]+ relative_depth
-    target_cell_count = AUTHALIC_AREA / meters_squared      
+    max_res = DGGS_TYPES["tilecode"]["max_res"] + relative_depth
+    target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
 
-    for res in range(min_res, max_res + 1):       
+    for res in range(min_res, max_res + 1):
         cell_count = 4**res
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_tilecode_resolution_from_scale_denominator(scale_denominator, relative_depth=8, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_tilecode_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=8, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(0, get_tilecode_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        0,
+        get_tilecode_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )
 
 
 def get_maidenhead_resolution_from_area(meters_squared, relative_depth=2):
     min_res = DGGS_TYPES["maidenhead"]["min_res"]
-    max_res = DGGS_TYPES["maidenhead"]["max_res"]+ relative_depth
-    target_cell_count = AUTHALIC_AREA / meters_squared      
+    max_res = DGGS_TYPES["maidenhead"]["max_res"] + relative_depth
+    target_cell_count = AUTHALIC_AREA / meters_squared
     res = 0
 
-    for res in range(min_res, max_res + 1):       
+    for res in range(min_res, max_res + 1):
         cell_count = maidenhead.num_cells(res)
         if cell_count >= target_cell_count:
             return res
     return res
 
-def get_maidenhead_resolution_from_scale_denominator(scale_denominator, relative_depth=2, mm_per_pixel=0.28):
-    display_meters_per_pixel = mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+
+def get_maidenhead_resolution_from_scale_denominator(
+    scale_denominator, relative_depth=2, mm_per_pixel=0.28
+):
+    display_meters_per_pixel = (
+        mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
+    )
     physical_meters_per_cell = scale_denominator * display_meters_per_pixel
-    return max(1, get_maidenhead_resolution_from_area(physical_meters_per_cell * physical_meters_per_cell,relative_depth)-relative_depth)
+    return max(
+        1,
+        get_maidenhead_resolution_from_area(
+            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+        )
+        - relative_depth,
+    )

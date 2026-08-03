@@ -118,7 +118,7 @@ def point2maidenhead(
 
     for point in points:
         maidenhead_id = latlon2maidenhead(point.y, point.x, resolution)
-        cell_polygon  = maidenhead2geo(maidenhead_id)
+        cell_polygon = maidenhead2geo(maidenhead_id)
         row = graticule_dggs_to_geoseries(
             "maidenhead", maidenhead_id, resolution, cell_polygon
         )

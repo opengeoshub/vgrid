@@ -165,7 +165,7 @@ def maidenheadinspect(resolution: int):
             - zsc: Zonal Standardized Compactness
     """
     resolution = validate_maidenhead_resolution(resolution)
-    maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd")    
+    maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd")
     maidenhead_gdf["crossed"] = maidenhead_gdf["geometry"].apply(check_crossing_geom)
     mean_area = maidenhead_gdf["cell_area"].mean()
     # Calculate normalized area
@@ -193,7 +193,7 @@ def maidenheadinspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    maidenhead_gdf_lambert = get_cells_area(maidenhead_gdf.copy(), 'LAEA')
+    maidenhead_gdf_lambert = get_cells_area(maidenhead_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     maidenhead_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

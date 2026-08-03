@@ -129,7 +129,9 @@ def get_nearest_resolution(
         raise ValueError(f"No features or missing <{from_col}> column.")
 
     from_dggs_id = source_gdf.iloc[0][from_col]
-    if from_dggs_id is None or (isinstance(from_dggs_id, float) and pd.isna(from_dggs_id)):
+    if from_dggs_id is None or (
+        isinstance(from_dggs_id, float) and pd.isna(from_dggs_id)
+    ):
         raise ValueError(f"No valid DGGS IDs found in <{from_col}> column.")
 
     try:
@@ -202,7 +204,9 @@ def get_nearest_resolution(
             if "resolution" in source_gdf.columns:
                 rv = source_gdf.iloc[0]["resolution"]
                 if rv is None or (isinstance(rv, float) and pd.isna(rv)):
-                    raise ValueError("Missing or invalid <resolution> for DGGRID source.")
+                    raise ValueError(
+                        "Missing or invalid <resolution> for DGGRID source."
+                    )
                 from_resolution = int(rv)
             else:
                 pref = int(DGGRID_TYPES[dt]["default_res"])
@@ -349,7 +353,9 @@ def get_nearest_resolution(
             raise ValueError(f"Unsupported to_dggs type for area match: {to_dggs}")
 
     except Exception as e:
-        raise ValueError(f"Failed to calculate nearest resolution for {to_dggs}: {e}") from e
+        raise ValueError(
+            f"Failed to calculate nearest resolution for {to_dggs}: {e}"
+        ) from e
 
     return nearest_resolution
 
@@ -359,7 +365,7 @@ def generate_grid(
     to_dggs: str,
     resolution: int,
     *,
-    fix_antimeridian: Optional[str] = None,   
+    fix_antimeridian: Optional[str] = None,
     split_antimeridian: bool = False,
     aggregate: bool = False,
     dggrid_options: Optional[dict] = None,
@@ -386,11 +392,15 @@ def generate_grid(
             split_antimeridian=split_antimeridian,
         )
     elif to_dggs == "rhealpix":
-        gdf = rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=fix_antimeridian)
+        gdf = rhealpix_grid_within_bbox(
+            resolution, bbox, fix_antimeridian=fix_antimeridian
+        )
     elif to_dggs == "isea4t":
         if platform.system() != "Windows":
             raise ValueError("isea4t grid generation requires Windows in this build.")
-        gdf = isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=fix_antimeridian)
+        gdf = isea4t_grid_within_bbox(
+            resolution, bbox, fix_antimeridian=fix_antimeridian
+        )
     elif to_dggs == "qtm":
         gdf = qtm_grid_within_bbox(resolution, bbox)
     elif to_dggs == "olc":
@@ -637,12 +647,11 @@ def resampling(
     norm = method.strip().lower().replace("-", "_")
     if norm in ("area_weighted", "area"):
         return _resampling_area_weighted(source_gdf, target_gdf, resample_col)
-    if norm in ("nearest", "nn","nearest_neighbour", "nearest_neighbor"):
+    if norm in ("nearest", "nn", "nearest_neighbour", "nearest_neighbor"):
         return _resampling_nearest(source_gdf, target_gdf, resample_col)
 
     raise ValueError(
-        f"Unsupported resampling method {method!r}; "
-        "use 'area_weighted' or 'nearest'."
+        f"Unsupported resampling method {method!r}; use 'area_weighted' or 'nearest'."
     )
 
 
@@ -728,9 +737,7 @@ def dggsresample(
         raise ValueError(f"Missing '{dggs_col}' in input data.")
 
     if resolution is None or resolution == -1:
-        res = get_nearest_resolution(
-            source_gdf, dggs_from, dggs_to, dggs_col
-        )
+        res = get_nearest_resolution(source_gdf, dggs_from, dggs_to, dggs_col)
     else:
         res = resolution
 
@@ -742,13 +749,11 @@ def dggsresample(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         dggrid_options=dggrid_options,
-        a5_options=a5_options,  # for A5 grid generation    
+        a5_options=a5_options,  # for A5 grid generation
     )
 
     if resample_col:
-        target_gdf = resampling(
-            source_gdf, target_gdf, resample_col, method=method
-        )
+        target_gdf = resampling(source_gdf, target_gdf, resample_col, method=method)
 
     if output_name is None and output_format in OUTPUT_FORMATS:
         if isinstance(source_dggs, str):
@@ -879,7 +884,7 @@ def dggsresample_cli():
         default=None,
         help="JSON options for DGGRID grid generation (e.g. '{\"densification\": 2}')",
     )
-    
+
     parser.add_argument(
         "--a5_options",
         "--a5_options",
@@ -921,7 +926,7 @@ def dggsresample_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             dggrid_options=dggrid_options,
-            a5_options=a5_options,  # for A5 grid generation    
+            a5_options=a5_options,  # for A5 grid generation
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
@@ -932,4 +937,3 @@ def dggsresample_cli():
 
 if __name__ == "__main__":
     dggsresample_cli()
-

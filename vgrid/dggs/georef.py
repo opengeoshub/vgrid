@@ -79,9 +79,7 @@ def encode(lat: float, lon: float, prec: int) -> str:
     If lat or lon is NaN, returns ``\"INVALID\"``.
     """
     if abs(lat) > _qd:
-        raise GeorefException(
-            f"Latitude {lat} not in [-{_qd}, {_qd}]"
-        )
+        raise GeorefException(f"Latitude {lat} not in [-{_qd}, {_qd}]")
     if math.isnan(lat) or math.isnan(lon):
         return "INVALID"
     lon = _ang_normalize(lon)
@@ -131,9 +129,7 @@ def decode(georef: str, centerp: bool = False) -> Tuple[float, float, int]:
     if leng >= 3 and s[0:3].upper() == "INV":
         return float("nan"), float("nan"), -1
     if leng < baselen_ - 2:
-        raise GeorefException(
-            f"Georef must start with at least 2 letters: {georef!r}"
-        )
+        raise GeorefException(f"Georef must start with at least 2 letters: {georef!r}")
     u = s.upper()
     prec1 = _decode_prec_from_len(leng)
     k = _lookup(lontile_, u[0])
@@ -149,9 +145,7 @@ def decode(georef: str, centerp: bool = False) -> Tuple[float, float, int]:
         unit *= tile_
         k = _lookup(degrees_, u[2])
         if k < 0:
-            raise GeorefException(
-                f"Bad longitude degree letter in georef: {georef!r}"
-            )
+            raise GeorefException(f"Bad longitude degree letter in georef: {georef!r}")
         lon1 = lon1 * tile_ + k
         if leng < 4:
             raise GeorefException(
@@ -159,9 +153,7 @@ def decode(georef: str, centerp: bool = False) -> Tuple[float, float, int]:
             )
         k = _lookup(degrees_, u[3])
         if k < 0:
-            raise GeorefException(
-                f"Bad latitude degree letter in georef: {georef!r}"
-            )
+            raise GeorefException(f"Bad latitude degree letter in georef: {georef!r}")
         lat1 = lat1 * tile_ + k
         if prec1 >= 2:
             if _find_first_not_of(u, digits_, baselen_) != -1:
@@ -183,8 +175,7 @@ def decode(georef: str, centerp: bool = False) -> Tuple[float, float, int]:
                 y = _lookup(digits_, u[baselen_ + i + prec1])
                 if not (i or (x < m and y < m)):
                     raise GeorefException(
-                        "Minutes terms in georef must be less than 60 "
-                        f"{u[baselen_:]!r}"
+                        f"Minutes terms in georef must be less than 60 {u[baselen_:]!r}"
                     )
                 lon1 = m * lon1 + x
                 lat1 = m * lat1 + y
@@ -195,6 +186,7 @@ def decode(georef: str, centerp: bool = False) -> Tuple[float, float, int]:
     lat = (tile_ * lat1) / unit
     lon = (tile_ * lon1) / unit
     return lat, lon, prec1
+
 
 ## Added by Vgrid
 def georefcell(georef_id: str):

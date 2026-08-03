@@ -18,7 +18,11 @@ from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.io import convert_to_output_format, validate_bbox, validate_qtm_resolution
+from vgrid.utils.io import (
+    convert_to_output_format,
+    validate_bbox,
+    validate_qtm_resolution,
+)
 from vgrid.conversion.dggscompact.qtmcompact import qtm_compact
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 
@@ -26,9 +30,7 @@ from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 def _qtm_row_from_id(qtm_id):
     cell_polygon = qtm2geo(qtm_id)
     cell_resolution = len(qtm_id)
-    return geodesic_dggs_to_geoseries(
-        "qtm", qtm_id, cell_resolution, cell_polygon, 3
-    )
+    return geodesic_dggs_to_geoseries("qtm", qtm_id, cell_resolution, cell_polygon, 3)
 
 
 p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (
@@ -54,15 +56,16 @@ n90_n180, n90_n90, n90_p0, n90_p90, n90_p180 = (
 )
 
 initial_facets = [
-                [p0_n180, p0_n90, p90_n90, p90_n180, p0_n180, True],
-                [p0_n90, p0_p0, p90_p0, p90_n90, p0_n90, True],
-                [p0_p0, p0_p90, p90_p90, p90_p0, p0_p0, True],
-                [p0_p90, p0_p180, p90_p180, p90_p90, p0_p90, True],
-                [n90_n180, n90_n90, p0_n90, p0_n180, n90_n180, False],
-                [n90_n90, n90_p0, p0_p0, p0_n90, n90_n90, False],
-                [n90_p0, n90_p90, p0_p90, p0_p0, n90_p0, False],
-                [n90_p90, n90_p180, p0_p180, p0_p90, n90_p90, False],
-            ]
+    [p0_n180, p0_n90, p90_n90, p90_n180, p0_n180, True],
+    [p0_n90, p0_p0, p90_p0, p90_n90, p0_n90, True],
+    [p0_p0, p0_p90, p90_p90, p90_p0, p0_p0, True],
+    [p0_p90, p0_p180, p90_p180, p90_p90, p0_p90, True],
+    [n90_n180, n90_n90, p0_n90, p0_n180, n90_n180, False],
+    [n90_n90, n90_p0, p0_p0, p0_n90, n90_n90, False],
+    [n90_p0, n90_p90, p0_p90, p0_p0, n90_p0, False],
+    [n90_p90, n90_p180, p0_p180, p0_p90, n90_p90, False],
+]
+
 
 def qtm_grid(resolution, compact=False):
     resolution = validate_qtm_resolution(resolution)

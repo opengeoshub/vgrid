@@ -18,7 +18,11 @@ from ease_dggs.constants import grid_spec, ease_crs, geo_crs, levels_specs
 from ease_dggs.dggs.grid_addressing import geo_polygon_to_grid_ids
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries, get_ease_resolution
-from vgrid.utils.io import validate_bbox, validate_ease_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_ease_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggscompact.easecompact import ease_compact
 from vgrid.conversion.dggs2geo.ease2geo import ease2geo
 # Initialize the geodetic model

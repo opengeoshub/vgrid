@@ -163,7 +163,9 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
         resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
     )
     isea4t_gdf["crossed"] = isea4t_gdf["geometry"].apply(check_crossing_geom)
-    isea4t_gdf = isea4t_gdf[~isea4t_gdf["crossed"]]  # remove cells that cross the Antimeridian
+    isea4t_gdf = isea4t_gdf[
+        ~isea4t_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
     mean_area = isea4t_gdf["cell_area"].mean()
     # Calculate normalized area
     isea4t_gdf["norm_area"] = isea4t_gdf["cell_area"] / mean_area
@@ -187,7 +189,7 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    isea4t_gdf_lambert = get_cells_area(isea4t_gdf.copy(), 'LAEA')
+    isea4t_gdf_lambert = get_cells_area(isea4t_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     isea4t_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

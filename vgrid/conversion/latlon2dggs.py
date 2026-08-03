@@ -157,10 +157,13 @@ def latlon2s2(lat, lon, res=None):
         res = DGGS_TYPES["s2"]["default_res"]
     res = validate_s2_resolution(res)
     lat_lng = s2.LatLng.from_degrees(lat, lon)
-    s2_cell= s2.CellId.from_lat_lng(lat_lng)  # return S2 cell at max level 30
-    s2_cell_res = s2_cell.parent(res)  # get S2 cell at resolution  
-    s2_token = s2.CellId.to_token(s2_cell_res)  # get Cell ID Token, shorter than cell_id.id()
+    s2_cell = s2.CellId.from_lat_lng(lat_lng)  # return S2 cell at max level 30
+    s2_cell_res = s2_cell.parent(res)  # get S2 cell at resolution
+    s2_token = s2.CellId.to_token(
+        s2_cell_res
+    )  # get Cell ID Token, shorter than cell_id.id()
     return s2_token
+
 
 def latlon2s2_cli():
     """
@@ -793,10 +796,9 @@ def latlon2georef(lat, lon, res):
         >>> latlon2georef(10.775275567242561, 106.70679737574993, 5)
         'MK1234567890'
     """
-    res = validate_georef_resolution(res)   
+    res = validate_georef_resolution(res)
     georef_id = georef.encode(lat, lon, res)
     return georef_id
-    
 
 
 def latlon2georef_cli():

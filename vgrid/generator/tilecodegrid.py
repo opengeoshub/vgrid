@@ -16,7 +16,11 @@ from tqdm import tqdm
 from vgrid.dggs import mercantile
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import validate_bbox, validate_tilecode_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_tilecode_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggscompact.tilecodecompact import tilecode_compact
 from vgrid.dggs.tilecode import tilecode_resolution
 from vgrid.conversion.dggs2geo.tilecode2geo import tilecode2geo
@@ -37,7 +41,9 @@ def tilecode_grid(resolution, bbox, compact=False):
         tilecode_ids = tilecode_compact(tilecode_ids)
 
     tilecode_records = []
-    for tilecode_id in tqdm(tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells"):
+    for tilecode_id in tqdm(
+        tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells"
+    ):
         cell_polygon = tilecode2geo(tilecode_id)
         if cell_polygon is None or cell_polygon.is_empty:
             continue
@@ -139,7 +145,9 @@ def tilecodegrid_cli():
             print("Please select a smaller resolution and try again.")
             return
     try:
-        result = tilecodegrid(resolution, bbox, args.output_format, compact=args.compact)
+        result = tilecodegrid(
+            resolution, bbox, args.output_format, compact=args.compact
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

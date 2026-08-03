@@ -53,9 +53,7 @@ def maidenhead_bin(
     resolution = validate_maidenhead_resolution(int(resolution))
 
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
         data, lat_col=lat_col, lon_col=lon_col, **kwargs
@@ -69,9 +67,7 @@ def maidenhead_bin(
 
     minx, miny, maxx, maxy = points_gdf.total_bounds
     id_col = "maidenhead"
-    grid_gdf = maidenhead_grid_within_bbox(
-        resolution, bbox=(minx, miny, maxx, maxy)
-    )
+    grid_gdf = maidenhead_grid_within_bbox(resolution, bbox=(minx, miny, maxx, maxy))
 
     join_cols = []
     if category_col and category_col in points_gdf.columns:
@@ -93,7 +89,9 @@ def maidenhead_bin(
     out = grid_gdf.merge(grouped, on=id_col, how="inner")
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 
@@ -108,9 +106,7 @@ def maidenheadbin(
 ):
     resolution = validate_maidenhead_resolution(resolution)
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = maidenhead_bin(
         data, resolution, stats, category_col, numeric_col, **kwargs
     )

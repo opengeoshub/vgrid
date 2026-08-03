@@ -38,7 +38,7 @@ def mgrs_metrics(resolution, unit: str = "m"):
 
     # Calculate cell size in kilometers based on resolution
     # Resolution 1: 100 km, each subsequent resolution divides by 10
-    cell_size_km = 100 / (10 ** (resolution))   
+    cell_size_km = 100 / (10 ** (resolution))
     # Calculate number of cells in latitude and longitude for the chosen cell size
     cells_latitude = latitude_span / cell_size_km
     cells_longitude = longitude_span / cell_size_km
@@ -87,7 +87,9 @@ def mgrsstats(unit: str = "m"):
     avg_cell_areas = []
     cls_list = []
     for resolution in range(min_res, max_res + 1):
-        num_cells, avg_edge_len, avg_cell_area, cls = mgrs_metrics(resolution, unit=unit)
+        num_cells, avg_edge_len, avg_cell_area, cls = mgrs_metrics(
+            resolution, unit=unit
+        )
         resolutions.append(resolution)
         num_cells_list.append(num_cells)
         avg_edge_lens.append(avg_edge_len)

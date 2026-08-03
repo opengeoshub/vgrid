@@ -47,7 +47,9 @@ def ease_metrics(resolution: int, unit: str = "m"):  # length unit is m, area un
     avg_edge_length = levels_specs[resolution][
         "x_length"
     ]  # Assuming x_length and y_length are equal
-    cell_area = avg_edge_length * levels_specs[resolution]["y_length"]  # cell area in m²
+    cell_area = (
+        avg_edge_length * levels_specs[resolution]["y_length"]
+    )  # cell area in m²
     cls = characteristic_length_scale(
         cell_area, unit=unit
     )  # cell_area is in m², function handles conversion
@@ -155,7 +157,7 @@ def easeinspect(resolution: int):  # length unit is m, area unit is m2
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    ease_gdf = easegrid(resolution, output_format="gpd")    
+    ease_gdf = easegrid(resolution, output_format="gpd")
     ease_gdf["crossed"] = ease_gdf["geometry"].apply(check_crossing_geom)
     # ease_gdf = ease_gdf[~ease_gdf["crossed"]]  # remove cells that cross the Antimeridian
 
@@ -182,7 +184,7 @@ def easeinspect(resolution: int):  # length unit is m, area unit is m2
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    ease_gdf_lambert = get_cells_area(ease_gdf.copy(), 'LAEA')
+    ease_gdf_lambert = get_cells_area(ease_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     ease_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

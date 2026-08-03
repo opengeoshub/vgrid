@@ -85,7 +85,9 @@ def s2_bin(
     out = grid_gdf.merge(grouped, on=id_col, how="inner")
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 
@@ -101,9 +103,7 @@ def s2bin(
 ):
     resolution = validate_s2_resolution(resolution)
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     # Process input data and bin
     result_gdf = s2_bin(
         data,

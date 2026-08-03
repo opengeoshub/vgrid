@@ -52,9 +52,7 @@ def gars_bin(
     resolution = validate_gars_resolution(int(resolution))
 
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
         data, lat_col=lat_col, lon_col=lon_col, **kwargs
@@ -90,7 +88,9 @@ def gars_bin(
     out = grid_gdf.merge(grouped, on=id_col, how="inner")
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 
@@ -105,9 +105,7 @@ def garsbin(
 ):
     resolution = validate_gars_resolution(resolution)
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = gars_bin(data, resolution, stats, category_col, numeric_col, **kwargs)
     output_name = None
     if output_format in OUTPUT_FORMATS:

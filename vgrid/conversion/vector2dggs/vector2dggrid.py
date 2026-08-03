@@ -85,9 +85,7 @@ def _shortest_point_distance_sjoin(points_gdf: gpd.GeoDataFrame) -> float:
     for idx in pts.index:
         query = pts.loc[[idx]]
         others = pts.drop(index=idx)
-        joined = gpd.sjoin_nearest(
-            query, others, how="inner", distance_col="distance"
-        )
+        joined = gpd.sjoin_nearest(query, others, how="inner", distance_col="distance")
         if not joined.empty:
             shortest_distance = min(shortest_distance, joined["distance"].min())
 
@@ -736,7 +734,7 @@ def vector2dggrid_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_for_extent or grid_cell_polygons_from_cellids. "
-             "Example: '{\"densification\": 2}'",
+        "Example: '{\"densification\": 2}'",
     )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()

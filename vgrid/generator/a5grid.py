@@ -21,7 +21,11 @@ import a5
 from a5.core.cell_info import get_num_cells
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
-from vgrid.utils.io import validate_a5_resolution, validate_bbox, convert_to_output_format
+from vgrid.utils.io import (
+    validate_a5_resolution,
+    validate_bbox,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggs2geo.a52geo import a52geo_u64
 
 
@@ -283,7 +287,7 @@ def a5grid_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-        'Example: \'{"segments": 1000}\'',
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
 

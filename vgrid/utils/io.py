@@ -31,7 +31,7 @@ warnings.filterwarnings(
 )
 
 
-def output_format (input_data, id_col=None, crs="EPSG:4326"):
+def output_format(input_data, id_col=None, crs="EPSG:4326"):
     """
     Convert various inputs into a GeoDataFrame with 'id_col' and None geometry.
     Supports:
@@ -100,9 +100,7 @@ def _require_resample_geometry(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         )
     valid = geom.notna() & ~geom.is_empty
     if not valid.any():
-        raise ValueError(
-            "Resampling requires at least one non-empty polygon geometry."
-        )
+        raise ValueError("Resampling requires at least one non-empty polygon geometry.")
     if not valid.all():
         gdf = gdf.loc[valid].copy()
     return gdf
@@ -196,7 +194,9 @@ def stat_column_name(stats, numeric_col=None, category_col_value=None):
     return f"{numeric_col}_{stats}"
 
 
-def aggregate_joined(joined, id_col, stats="count", category_col=None, numeric_col=None):
+def aggregate_joined(
+    joined, id_col, stats="count", category_col=None, numeric_col=None
+):
     """
     Aggregate spatially joined point-in-cell rows for DGGS binning.
 
@@ -258,9 +258,7 @@ def aggregate_joined(joined, id_col, stats="count", category_col=None, numeric_c
             col_name = stat_column_name(stats, numeric_col=numeric_col)
             if stats == "variety":
                 grouped = (
-                    joined.groupby(id_col)[value_field]
-                    .nunique()
-                    .to_frame(col_name)
+                    joined.groupby(id_col)[value_field].nunique().to_frame(col_name)
                 )
             elif stats == "range":
                 grouped = (
@@ -321,9 +319,7 @@ def aggregate_joined(joined, id_col, stats="count", category_col=None, numeric_c
                     raise ValueError(f"numeric_col required for stats='{stats}'")
                 col_name = stat_column_name(stats, numeric_col=numeric_col)
                 grouped = (
-                    joined.groupby(id_col)[numeric_col]
-                    .agg(stats)
-                    .to_frame(col_name)
+                    joined.groupby(id_col)[numeric_col].agg(stats).to_frame(col_name)
                 )
 
     return grouped
@@ -828,9 +824,7 @@ def validate_bbox(bbox):
         raise ValueError(
             "bbox must have exactly 4 values: [min_lon, min_lat, max_lon, max_lat]"
         )
-    min_lon, min_lat, max_lon, max_lat = validate_coordinate(
-        *[float(v) for v in bbox]
-    )
+    min_lon, min_lat, max_lon, max_lat = validate_coordinate(*[float(v) for v in bbox])
     if min_lon >= max_lon or min_lat >= max_lat:
         raise ValueError("bbox must satisfy min_lon < max_lon and min_lat < max_lat")
     return [min_lon, min_lat, max_lon, max_lat]
@@ -844,7 +838,9 @@ def is_full_world_bbox(bbox):
     if list(bbox) == FULL_WORLD_BBOX:
         return True
     min_lon, min_lat, max_lon, max_lat = bbox
-    return (max_lon - min_lon) >= 350 and (max_lat - min_lat) >= 170 # in case using shift_antimeridian
+    return (max_lon - min_lon) >= 350 and (
+        max_lat - min_lat
+    ) >= 170  # in case using shift_antimeridian
 
 
 def validate_digipin_coordinate(min_lon, min_lat, max_lon, max_lat):
@@ -948,6 +944,7 @@ def validate_gars_resolution(resolution: int) -> int:
 def validate_maidenhead_resolution(resolution: int) -> int:
     return validate_dggs_resolution("maidenhead", resolution)
 
+
 olc_resolutions = [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
 
 
@@ -967,9 +964,7 @@ def validate_olc_resolution(resolution: int) -> int:
             f"Resolution must be an integer, got {type(resolution).__name__}"
         )
     if resolution not in olc_resolutions:
-        raise ValueError(
-            f"Resolution must be in {olc_resolutions}, got {resolution}"
-        )
+        raise ValueError(f"Resolution must be in {olc_resolutions}, got {resolution}")
     return resolution
 
 
