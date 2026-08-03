@@ -18,7 +18,7 @@ import os
 import argparse
 from math import sqrt
 from tqdm import tqdm
-from shapely.geometry import Polygon, MultiPoint
+from shapely.geometry import MultiPoint
 import geopandas as gpd
 from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin

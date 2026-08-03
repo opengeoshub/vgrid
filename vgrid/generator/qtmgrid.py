@@ -15,7 +15,6 @@ import argparse
 import geopandas as gpd
 from vgrid.dggs import qtm
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
-from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import (

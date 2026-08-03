@@ -13,8 +13,7 @@ Reference: https://geohash.softeng.co/uekkn, https://github.com/vinsci/geohash, 
 """
 
 import argparse
-from shapely.geometry import Polygon, shape
-from shapely.ops import unary_union
+from shapely.geometry import Polygon
 from tqdm import tqdm
 from vgrid.utils.constants import (
     MAX_CELLS,

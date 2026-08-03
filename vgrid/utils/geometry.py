@@ -21,7 +21,6 @@ from vgrid.dggs.eaggr.enums.model import Model
 from vgrid.utils.constants import (
     DGGAL_TYPES,
     AUTHALIC_RADIUS,
-    ICOSA_EDGE_M,
     STANDARD_METERS_PER_PIXEL,
 )
 import platform
@@ -33,7 +32,6 @@ from shapely.ops import transform
 import pyproj
 import geopandas as gpd
 from vgrid.utils.constants import AUTHALIC_AREA, DGGS_TYPES, GEOREF_RESOLUTION_DEGREES
-from vgrid.utils.constants import DGGS_TYPES
 from vgrid.dggs import maidenhead
 
 if platform.system() == "Windows":
@@ -967,7 +965,7 @@ def dggal_dggsjsonfile2geojson(input_file, output_file=None, options: dict = {})
 
                 exitCode = 0
             else:
-                print(f"Failed to convert DGGS-JSON to GeoJSON")
+                print("Failed to convert DGGS-JSON to GeoJSON")
         else:
             print(f"Failure to parse DGGS-JSON file {input_file}")
     except FileNotFoundError:

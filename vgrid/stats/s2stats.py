@@ -21,7 +21,6 @@ from vgrid.generator.s2grid import s2grid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,

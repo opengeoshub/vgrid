@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from numpy import float64
 import os
 import platform
 import re

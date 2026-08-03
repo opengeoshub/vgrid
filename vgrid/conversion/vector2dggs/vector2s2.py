@@ -15,7 +15,6 @@ Key Functions:
 import sys
 import os
 import argparse
-import math
 from tqdm import tqdm
 import geopandas as gpd
 from shapely.geometry import MultiPoint

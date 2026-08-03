@@ -11,9 +11,8 @@ Key Functions:
 """
 
 import argparse
-from shapely.ops import unary_union
 from tqdm import tqdm
-from shapely.geometry import box, shape
+from shapely.geometry import box
 import geopandas as gpd
 import platform
 

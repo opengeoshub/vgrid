@@ -47,8 +47,6 @@ from .quadkeycompact import (
     quadkeycompact_cli,
     quadkeyexpand_cli,
 )
-from .dggalcompact import dggalcompact, dggalexpand, dggalcompact_cli, dggalexpand_cli
-from .qtmcompact import qtmcompact, qtmexpand, qtmcompact_cli, qtmexpand_cli
 from .digipincompact import (
     digipincompact,
     digipinexpand,

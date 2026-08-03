@@ -12,13 +12,11 @@ Key Functions:
 
 import argparse
 from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
-from shapely.geometry import box, shape
+from shapely.geometry import box
 from tqdm import tqdm
-from shapely.ops import unary_union
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
-    is_full_world_bbox,
     validate_bbox,
     validate_rhealpix_resolution,
     convert_to_output_format,

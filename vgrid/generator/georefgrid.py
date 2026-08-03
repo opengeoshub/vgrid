@@ -13,7 +13,6 @@ Key Functions:
 import argparse
 from tqdm import tqdm
 import numpy as np
-from vgrid.dggs import georef
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 import geopandas as gpd

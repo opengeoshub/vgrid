@@ -9,12 +9,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import all the individual inspect functions
-from vgrid.stats.h3stats import h3inspect
-from vgrid.stats.s2stats import s2inspect
-from vgrid.stats.a5stats import a5inspect
-from vgrid.stats.isea4tstats import isea4tinspect
-from vgrid.stats.rhealpixstats import rhealpixinspect
-from vgrid.stats.dggalstats import dggalinspect
 from vgrid.stats.dggridstats import dggridinspect
 
 # Import utilities

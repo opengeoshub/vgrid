@@ -13,7 +13,6 @@ import os
 import argparse
 from tqdm import tqdm
 import rasterio
-import numpy as np
 from vgrid.dggs import s2
 from vgrid.stats.s2stats import s2_metrics
 from math import cos, radians

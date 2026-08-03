@@ -14,10 +14,9 @@ import argparse
 import geopandas as gpd
 from vgrid.dggs import olc
 from tqdm import tqdm
-from shapely.geometry import shape, box, Polygon
+from shapely.geometry import box, Polygon
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from shapely.ops import unary_union
 from vgrid.utils.io import (
     is_full_world_bbox,
     validate_bbox,

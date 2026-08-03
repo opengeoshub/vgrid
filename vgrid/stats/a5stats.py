@@ -13,7 +13,6 @@ from vgrid.generator.a5grid import a5grid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,

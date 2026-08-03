@@ -2,8 +2,7 @@
 # https://h3-snow.streamlit.app/
 
 import argparse
-from shapely.geometry import box, shape
-from shapely.ops import unary_union
+from shapely.geometry import box
 from tqdm import tqdm
 import geopandas as gpd
 import h3

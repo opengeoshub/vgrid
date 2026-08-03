@@ -13,8 +13,6 @@ Note: DIGIPIN is a geocoding system for India with bounds (lat: 2.5-38.5, lon: 6
 """
 
 import argparse
-from shapely.geometry import Polygon, shape
-from shapely.ops import unary_union
 from tqdm import tqdm
 from vgrid.utils.constants import (
     MAX_CELLS,
