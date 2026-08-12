@@ -84,6 +84,7 @@ Vgrid is built upon free and open-source software and would like to acknowledge 
 - [dggrid4py](https://github.com/allixender/dggrid4py) by [Alex Kmoch](https://github.com/allixender).
 - [QTM](https://github.com/opengeoshub/vgrid/blob/main/vgrid/dggs/qtm.py) by [Thang Quach](https://github.com/thangqd), with reference to [QTM](https://github.com/paulojraposo/QTM) by [Paulo Raposo](https://github.com/paulojraposo).
 - [Lat Lon Tools QGIS Plugin](https://github.com/hamiltoncj/qgis-latlontools-plugin) by [Calvin Hamilton](https://github.com/hamiltoncj).
+- [geohash](https://github.com/hkwi/python-geohash/blob/master/geohash.py) by [Hiroaki Kawai](https://github.com/hkwi).
 - [gars-field](https://github.com/corteva/gars-field) by [Corteva Agriscience](https://github.com/corteva).
 - [Tilecode & Quadkey](https://github.com/opengeoshub/vgrid/blob/main/vgrid/dggs/tilecode.py) by [Thang Quach](https://github.com/thangqd), utilizing [mercantile](https://github.com/mapbox/mercantile) by [Mapbox](https://github.com/mapbox).
 - [antimeridian](https://www.gadom.ski/antimeridian) by [gadomski](https://github.com/gadomski/antimeridian).

@@ -34,6 +34,7 @@ from vgrid.generator.olcgrid import olc_grid_within_bbox
 from vgrid.generator.quadkeygrid import quadkey_grid
 from vgrid.generator.qtmgrid import qtm_grid_within_bbox
 from vgrid.generator.rhealpixgrid import rhealpix_grid_within_bbox
+from vgrid.generator.healpixgrid import healpix_grid_within_bbox
 from vgrid.generator.s2grid import s2_grid
 from vgrid.generator.tilecodegrid import tilecode_grid
 from vgrid.stats.a5stats import a5_metrics
@@ -392,6 +393,10 @@ def generate_grid(
         )
     elif to_dggs == "rhealpix":
         gdf = rhealpix_grid_within_bbox(
+            resolution, bbox, fix_antimeridian=fix_antimeridian
+        )
+    elif to_dggs == "healpix":
+        gdf = healpix_grid_within_bbox(
             resolution, bbox, fix_antimeridian=fix_antimeridian
         )
     elif to_dggs == "isea4t":

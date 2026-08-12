@@ -893,8 +893,8 @@ def validate_a5_resolution(resolution: int) -> int:
     return validate_dggs_resolution("a5", resolution)
 
 
-# def validate_healpix_resolution(resolution: int) -> int:
-#     return validate_dggs_resolution("healpix", resolution)
+def validate_healpix_resolution(resolution: int) -> int:
+    return validate_dggs_resolution("healpix", resolution)
 
 
 def validate_rhealpix_resolution(resolution: int) -> int:

@@ -192,7 +192,7 @@ DGGS_TYPES = {
     "h3": {"min_res": 0, "max_res": 15, "default_res": 10},
     "s2": {"min_res": 0, "max_res": 30, "default_res": 16},
     "a5": {"min_res": 0, "max_res": 30, "default_res": 15},
-    # "healpix": {"min_res": 0, "max_res": 29, "default_res": 10},  # to be checked
+    "healpix": {"min_res": 0, "max_res": 29, "default_res": 10},
     "rhealpix": {"min_res": 0, "max_res": 15, "default_res": 10},
     "isea4t": {"min_res": 0, "max_res": 39, "default_res": 16},
     "isea3h": {"min_res": 0, "max_res": 40, "default_res": 20},
@@ -256,6 +256,7 @@ DGGS_INSPECT = {
     "dggal_ivea4r": {"min_res": 2, "max_res": 7},
     "dggal_ivea7h": {"min_res": 2, "max_res": 5},
     "dggal_ivea9r": {"min_res": 2, "max_res": 5},
+    "dggal_healpix": {"min_res": 2, "max_res": 7},
 }
 
 

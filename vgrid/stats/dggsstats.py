@@ -330,6 +330,10 @@ def dggsboxplot(
     )
     print(summary)
 
+    csv_file = f"dggs_{y_column}_box.csv"
+    summary.to_csv(csv_file)
+    print(f"Saved summary to: {csv_file}")
+
     return summary
 
 

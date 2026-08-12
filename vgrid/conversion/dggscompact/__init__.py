@@ -53,6 +53,12 @@ from .digipincompact import (
     digipincompact_cli,
     digipinexpand_cli,
 )
+from .healpixcompact import (
+    healpixcompact,
+    healpixexpand,
+    healpixcompact_cli,
+    healpixexpand_cli,
+)
 
 __all__ = [
     "h3compact",
@@ -111,4 +117,8 @@ __all__ = [
     "digipinexpand",
     "digipincompact_cli",
     "digipinexpand_cli",
+    "healpixcompact",
+    "healpixexpand",
+    "healpixcompact_cli",
+    "healpixexpand_cli",
 ]

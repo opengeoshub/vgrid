@@ -8,6 +8,7 @@ discrete global grid systems (DGGS).
 from .raster2h3 import raster2h3, raster2h3_cli
 from .raster2s2 import raster2s2, raster2s2_cli
 from .raster2a5 import raster2a5, raster2a5_cli
+from .raster2healpix import raster2healpix, raster2healpix_cli
 from .raster2rhealpix import raster2rhealpix, raster2rhealpix_cli
 from .raster2isea4t import raster2isea4t, raster2isea4t_cli
 from .raster2dggrid import raster2dggrid, raster2dggrid_cli
@@ -29,6 +30,8 @@ __all__ = [
     "raster2s2_cli",
     "raster2a5",
     "raster2a5_cli",
+    "raster2healpix",
+    "raster2healpix_cli",
     "raster2rhealpix",
     "raster2rhealpix_cli",
     "raster2isea4t",
