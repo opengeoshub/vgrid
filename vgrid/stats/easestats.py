@@ -7,7 +7,7 @@ import numpy as np
 import argparse
 import geopandas as gpd
 from ease_dggs.constants import levels_specs
-from vgrid.utils.constants import DGGS_TYPES, VMIN_QUAD, VMAX_QUAD, VCENTER_QUAD
+from vgrid.utils.constants import DGGS_TYPES, VMIN_QUAD, VMAX_QUAD, VCENTER_QUAD, AUTHALIC_AREA
 from vgrid.generator.easegrid import easegrid
 from vgrid.utils.geometry import (
     check_crossing_geom,
@@ -160,7 +160,9 @@ def easeinspect(resolution: int):  # length unit is m, area unit is m2
     ease_gdf["crossed"] = ease_gdf["geometry"].apply(check_crossing_geom)
     # ease_gdf = ease_gdf[~ease_gdf["crossed"]]  # remove cells that cross the Antimeridian
 
-    mean_area = ease_gdf["cell_area"].mean()
+    # mean_area = ease_gdf["cell_area"].mean()
+    num_cells = levels_specs[resolution]["n_row"] * levels_specs[resolution]["n_col"]
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     ease_gdf["norm_area"] = ease_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

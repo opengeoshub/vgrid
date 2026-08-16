@@ -166,7 +166,8 @@ def maidenheadinspect(resolution: int):
     resolution = validate_maidenhead_resolution(resolution)
     maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd")
     maidenhead_gdf["crossed"] = maidenhead_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = maidenhead_gdf["cell_area"].mean()
+    # mean_area = maidenhead_gdf["cell_area"].mean()
+    mean_area = AUTHALIC_AREA / maidenhead.num_cells(resolution)
     # Calculate normalized area
     maidenhead_gdf["norm_area"] = maidenhead_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

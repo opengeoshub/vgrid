@@ -8,6 +8,7 @@ discrete global grid systems (DGGS), including cell counts, areas, and edge leng
 from .h3stats import h3stats, h3stats_cli, h3inspect, h3inspect_cli
 from .s2stats import s2stats, s2stats_cli, s2inspect, s2inspect_cli
 from .a5stats import a5stats, a5stats_cli, a5inspect, a5inspect_cli
+from .a5_segments import a5_segments, a5_segments_cli
 from .healpixstats import (
     healpixstats,
     healpixstats_cli,
@@ -74,6 +75,8 @@ __all__ = [
     "a5stats_cli",
     "a5inspect",
     "a5inspect_cli",
+    "a5_segments",
+    "a5_segments_cli",
     "healpixstats",
     "healpixstats_cli",
     "healpixinspect",

@@ -257,6 +257,7 @@ DGGS_INSPECT = {
     "dggal_ivea7h": {"min_res": 2, "max_res": 5},
     "dggal_ivea9r": {"min_res": 2, "max_res": 5},
     "dggal_healpix": {"min_res": 2, "max_res": 7},
+    "dggal_rhealpix": {"min_res": 2, "max_res": 5},
 }
 
 

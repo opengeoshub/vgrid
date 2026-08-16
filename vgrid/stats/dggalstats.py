@@ -310,12 +310,18 @@ def dggalinspect(
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggal_gdf.crs.is_geographic:
-        dggal_gdf["cell_area"] = dggal_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[0])
-        )
-        dggal_gdf["cell_perimeter"] = dggal_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[1])
-        )
+        def _geod_area_perimeter(g):
+            cell_area_perimeter = geod.geometry_area_perimeter(g)
+            return pd.Series(
+                {
+                    "cell_area": abs(cell_area_perimeter[0]),
+                    "cell_perimeter": abs(cell_area_perimeter[1]),
+                }
+            )
+
+        metrics = dggal_gdf.geometry.apply(_geod_area_perimeter)
+        dggal_gdf["cell_area"] = metrics["cell_area"]
+        dggal_gdf["cell_perimeter"] = metrics["cell_perimeter"]
         dggal_gdf["crossed"] = dggal_gdf.geometry.apply(check_crossing_geom)
     else:
         dggal_gdf["cell_area"] = dggal_gdf.geometry.area
@@ -325,7 +331,10 @@ def dggalinspect(
     dggal_gdf = dggal_gdf[
         ~dggal_gdf["crossed"]
     ]  # remove cells that cross the Antimeridian
-    mean_area = dggal_gdf["cell_area"].mean()
+    # mean_area = dggal_gdf["cell_area"].mean()
+    num_cells, _, _, _ = dggal_metrics(dggs_type, resolution)
+    mean_area = AUTHALIC_AREA / num_cells
+
     dggal_gdf["norm_area"] = (
         dggal_gdf["cell_area"] / mean_area if mean_area and mean_area != 0 else np.nan
     )

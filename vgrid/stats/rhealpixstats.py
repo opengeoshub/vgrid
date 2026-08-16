@@ -168,7 +168,9 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
     rhealpix_gdf = rhealpix_gdf[
         ~rhealpix_gdf["crossed"]
     ]  # remove cells that cross the Antimeridian
-    mean_area = rhealpix_gdf["cell_area"].mean()
+    # mean_area = rhealpix_gdf["cell_area"].mean()
+    num_cells = 6 * 9 ** (resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     rhealpix_gdf["norm_area"] = rhealpix_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

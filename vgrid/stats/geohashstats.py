@@ -157,7 +157,9 @@ def geohashinspect(resolution: int):
     """
     geohash_gdf = geohashgrid(resolution, output_format="gpd")
     geohash_gdf["crossed"] = geohash_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = geohash_gdf["cell_area"].mean()
+    # mean_area = geohash_gdf["cell_area"].mean()
+    num_cells = 32**resolution
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     geohash_gdf["norm_area"] = geohash_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

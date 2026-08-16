@@ -156,7 +156,9 @@ def qtminspect(resolution: int):
     qtm_gdf = qtm_grid(resolution)
     qtm_gdf["crossed"] = qtm_gdf["geometry"].apply(check_crossing_geom)
     qtm_gdf = qtm_gdf[~qtm_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = qtm_gdf["cell_area"].mean()
+    # mean_area = qtm_gdf["cell_area"].mean()
+    num_cells = 8 * 4 ** (resolution - 1)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     qtm_gdf["norm_area"] = qtm_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

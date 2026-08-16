@@ -125,7 +125,9 @@ def healpixinspect(resolution: int = 0, fix_antimeridian: str = None):
     )
     healpix_gdf["crossed"] = healpix_gdf["geometry"].apply(check_crossing_geom)
     healpix_gdf = healpix_gdf[~healpix_gdf["crossed"]]
-    mean_area = healpix_gdf["cell_area"].mean()
+    # mean_area = healpix_gdf["cell_area"].mean()
+    num_cells = nside2npix(order2nside(resolution))
+    mean_area = AUTHALIC_AREA / num_cells
     healpix_gdf["norm_area"] = healpix_gdf["cell_area"] / mean_area
     healpix_gdf["ipq"] = (
         4 * np.pi * healpix_gdf["cell_area"] / (healpix_gdf["cell_perimeter"] ** 2)

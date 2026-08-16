@@ -163,7 +163,8 @@ def garsinspect(resolution: int):  # length unit is km, area unit is km2
     """
     gars_gdf = garsgrid(resolution, output_format="gpd")
     gars_gdf["crossed"] = gars_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = gars_gdf["cell_area"].mean()
+    # mean_area = gars_gdf["cell_area"].mean()
+    mean_area = AUTHALIC_AREA / gars_num_cells(resolution)
     # Calculate normalized area
     gars_gdf["norm_area"] = gars_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

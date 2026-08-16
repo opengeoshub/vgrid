@@ -10,6 +10,8 @@ import seaborn as sns
 
 # Import all the individual inspect functions
 from vgrid.stats.dggridstats import dggridinspect
+from vgrid.stats.a5stats import a5inspect
+from vgrid.stats.dggalstats import dggalinspect
 
 # Import utilities
 from vgrid.utils.constants import DGGS_INSPECT
@@ -76,11 +78,11 @@ def dggsinspect():
         #     "cell_id_col": "global_id",
         #     "dggs_type": "FULLER4T",
         # },
-        "dggrid_igeo7": {
-            "inspect_func": dggridinspect,
-            "cell_id_col": "global_id",
-            "dggs_type": "IGEO7",
-        },
+        # "dggrid_igeo7": {
+        #     "inspect_func": dggridinspect,
+        #     "cell_id_col": "global_id",
+        #     "dggs_type": "IGEO7",
+        # },
         # "dggal_ivea3h": {
         #     "inspect_func": dggalinspect,
         #     "cell_id_col": "dggal_ivea3h",
@@ -101,6 +103,11 @@ def dggsinspect():
         #     "cell_id_col": "dggal_ivea9r",
         #     "dggs_type": "ivea9r",
         # },
+        "dggal_rhealpix": {
+             "inspect_func": dggalinspect,
+             "cell_id_col": "rhealpix",
+             "dggs_type": "rhealpix",         
+        },
     }
 
     # Dictionary to store processed GeoDataFrames for return
@@ -256,10 +263,15 @@ def dggsboxplot(
     # Convert dggs_type to uppercase for display and sort by dggs_type
     df["dggs_type"] = df["dggs_type"].str.upper()
 
+    data_min = float(df[y_column].min())
+    data_max = float(df[y_column].max())
+
     print(
         f"Loaded data with {len(df)} cells across DGGS types: {df['dggs_type'].unique()}"
     )
     print(f"Resolution range: {df['resolution'].min()}-{df['resolution'].max()}")
+    print(f"{y_column} max: {data_max}")
+    print(f"{y_column} min: {data_min}")
 
     # Create the boxplot
     plt.figure(figsize=(9, 9))
@@ -322,12 +334,15 @@ def dggsboxplot(
         f"Data contains {len(df)} cells across DGGS types: {df['dggs_type'].unique()}"
     )
     print(f"Resolution range: {df['resolution'].min()}-{df['resolution'].max()}")
+    print(f"{y_column} max: {data_max}")
+    print(f"{y_column} min: {data_min}")
 
     # Print some summary statistics
     print("\nSummary statistics by DGGS type:")
     summary = df.groupby("dggs_type")[y_column].agg(
-        ["count", "mean", "std", "min", "max"]
+        ["count", "mean", "std", "max", "min"]
     )
+    summary["max_min"] = summary["max"] / summary["min"]
     print(summary)
 
     csv_file = f"dggs_{y_column}_box.csv"
@@ -515,8 +530,9 @@ def dggsboxplot_folder(
     # Print some summary statistics
     print("\nSummary statistics by DGGS type:")
     summary = df.groupby("dggs_type")[y_column].agg(
-        ["count", "mean", "std", "min", "max"]
+        ["count", "mean", "std", "max", "min"]
     )
+    summary["max_min"] = summary["max"] / summary["min"]
     print(summary)
 
     return summary

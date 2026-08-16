@@ -157,7 +157,9 @@ def quadkeyinspect(resolution: int):
     """
     quadkey_gdf = quadkeygrid(resolution, output_format="gpd")
     quadkey_gdf["crossed"] = quadkey_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = quadkey_gdf["cell_area"].mean()
+    # mean_area = quadkey_gdf["cell_area"].mean()
+    num_cells = 4**resolution
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     quadkey_gdf["norm_area"] = quadkey_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

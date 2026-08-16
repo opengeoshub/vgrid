@@ -159,7 +159,9 @@ def tilecodeinspect(resolution: int):
     """
     tilecode_gdf = tilecodegrid(resolution, output_format="gpd")
     tilecode_gdf["crossed"] = tilecode_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = tilecode_gdf["cell_area"].mean()
+    # mean_area = tilecode_gdf["cell_area"].mean()
+    num_cells = 4**resolution
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     tilecode_gdf["norm_area"] = tilecode_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

@@ -160,7 +160,14 @@ def olcinspect(resolution: int):
     """
     olc_gdf = olcgrid(resolution, output_format="gpd")
     olc_gdf["crossed"] = olc_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = olc_gdf["cell_area"].mean()
+    # mean_area = olc_gdf["cell_area"].mean()
+    if resolution <= 10:
+        num_cells = 162 * (400 ** ((resolution // 2) - 1))
+    else:
+        base = 162 * (400 ** ((10 // 2) - 1))
+        extra = resolution - 10
+        num_cells = base * (20**extra)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     olc_gdf["norm_area"] = olc_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

@@ -278,8 +278,9 @@ def graticule_dggs_metrics(cell_polygon):
     center_lon = (min_lon + max_lon) / 2
     cell_width = geod.line_length([min_lon, max_lon], [min_lat, min_lat])
     cell_height = geod.line_length([min_lon, min_lon], [min_lat, max_lat])
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
-    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    cell_area_perimeter = geod.geometry_area_perimeter(cell_polygon)
+    cell_area = abs(cell_area_perimeter[0])
+    cell_perimeter = abs(cell_area_perimeter[1])
     return center_lat, center_lon, cell_width, cell_height, cell_area, cell_perimeter
 
 
@@ -287,8 +288,9 @@ def geodesic_dggs_metrics(cell_polygon, num_edges):
     cell_centroid = cell_polygon.centroid
     center_lat = cell_centroid.y
     center_lon = cell_centroid.x
-    cell_area = abs(geod.geometry_area_perimeter(cell_polygon)[0])
-    cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+    cell_area_perimeter = geod.geometry_area_perimeter(cell_polygon)
+    cell_area = abs(cell_area_perimeter[0])
+    cell_perimeter = abs(cell_area_perimeter[1])
     avg_edge_len = cell_perimeter / num_edges
     return center_lat, center_lon, avg_edge_len, cell_area, cell_perimeter
 

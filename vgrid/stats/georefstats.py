@@ -164,7 +164,12 @@ def georefinspect(resolution: int):
     """
     georef_gdf = georefgrid(resolution, output_format="gpd")
     georef_gdf["crossed"] = georef_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = georef_gdf["cell_area"].mean()
+    # mean_area = georef_gdf["cell_area"].mean()
+    grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(resolution)
+    num_lon = int(round(360.0 / grid_size_deg))
+    num_lat = int(round(180.0 / grid_size_deg))
+    num_cells = num_lon * num_lat
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     georef_gdf["norm_area"] = georef_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²

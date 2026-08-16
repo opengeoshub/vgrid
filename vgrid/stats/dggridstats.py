@@ -29,6 +29,7 @@ from vgrid.utils.geometry import (
     get_cells_area,
 )
 from vgrid.utils.constants import (
+    AUTHALIC_AREA,
     VMIN_QUAD,
     VMAX_QUAD,
     VCENTER_QUAD,
@@ -254,12 +255,18 @@ def dggridinspect(
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggrid_gdf.crs.is_geographic:
-        dggrid_gdf["cell_area"] = dggrid_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[0])
-        )
-        dggrid_gdf["cell_perimeter"] = dggrid_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[1])
-        )
+        def _geod_area_perimeter(g):
+            cell_area_perimeter = geod.geometry_area_perimeter(g)
+            return pd.Series(
+                {
+                    "cell_area": abs(cell_area_perimeter[0]),
+                    "cell_perimeter": abs(cell_area_perimeter[1]),
+                }
+            )
+
+        metrics = dggrid_gdf.geometry.apply(_geod_area_perimeter)
+        dggrid_gdf["cell_area"] = metrics["cell_area"]
+        dggrid_gdf["cell_perimeter"] = metrics["cell_perimeter"]
         dggrid_gdf["crossed"] = dggrid_gdf.geometry.apply(check_crossing_geom)
     else:
         dggrid_gdf["cell_area"] = dggrid_gdf.geometry.area
@@ -273,7 +280,9 @@ def dggridinspect(
         ~dggrid_gdf["crossed"]
     ]  # remove cells that cross the Antimeridian
     # Calculate normalized area
-    mean_area = dggrid_gdf["cell_area"].mean()
+    # mean_area = dggrid_gdf["cell_area"].mean()
+    num_cells, _, _, _ = dggrid_metrics(dggrid_instance, dggs_type, resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     dggrid_gdf["norm_area"] = (
         dggrid_gdf["cell_area"] / mean_area if mean_area and mean_area != 0 else np.nan
     )

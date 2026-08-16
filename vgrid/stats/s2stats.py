@@ -157,7 +157,9 @@ def s2inspect(resolution: int, fix_antimeridian=None):
     s2_gdf = s2grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian)
     s2_gdf["crossed"] = s2_gdf["geometry"].apply(check_crossing_geom)
     s2_gdf = s2_gdf[~s2_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = s2_gdf["cell_area"].mean()
+    # mean_area = s2_gdf["cell_area"].mean()
+    num_cells = 6 * (4**resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     s2_gdf["norm_area"] = s2_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
