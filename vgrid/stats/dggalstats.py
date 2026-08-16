@@ -16,6 +16,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 from vgrid.utils.geometry import (
     check_crossing_geom,
@@ -37,6 +38,29 @@ from vgrid.utils.constants import (
 from vgrid.generator.dggalgen import dggalgen
 from pyproj import Geod
 from vgrid.utils.io import validate_dggal_resolution, validate_dggal_type
+
+_DGGS_TYPE_DISPLAY = {
+    "healpix": "HEALPix",
+    "rhealpix": "rHEALPix",
+}
+
+
+def _format_dggs_type_label(dggs_type: str) -> str:
+    key = str(dggs_type).strip().lower()
+    return _DGGS_TYPE_DISPLAY.get(key, key.upper())
+
+
+def _format_norm_area_colorbar(cb_ax, vmin: float, vmax: float, vcenter: float = 1.0):
+    """Keep colorbar tick labels readable when the value range is very narrow."""
+    span = float(vmax) - float(vmin)
+    if span < 0.05:
+        ticks = sorted({float(vmin), float(vcenter), float(vmax)})
+        cb_ax.set_xticks(ticks)
+        decimals = max(2, min(8, int(-np.floor(np.log10(max(span, 1e-12)))) + 1))
+        cb_ax.xaxis.set_major_formatter(FormatStrFormatter(f"%.{decimals}f"))
+    else:
+        cb_ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+    cb_ax.tick_params(labelsize=14)
 
 # Import dggal library
 from dggal import *
@@ -427,7 +451,7 @@ def dggal_norm_area_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
     )
 
     # Customize the plot
-    ax.set_xlabel(f"{dggs_type.upper()} normalized area", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} normalized area", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -465,8 +489,8 @@ def dggal_norm_area(
     )
     ax.axis("off")
     cb_ax = fig.axes[1]
-    cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} Normalized Area", fontsize=14)
+    _format_norm_area_colorbar(cb_ax, vmin, vmax, vcenter)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} Normalized Area", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -511,7 +535,7 @@ def dggal_compactness_ipq(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} IPQ Compactness", fontsize=14)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -582,7 +606,7 @@ def dggal_compactness_ipq_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
     )
 
     # Customize the plot
-    ax.set_xlabel(f"{dggs_type.upper()} IPQ Compactness", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -625,7 +649,7 @@ def dggal_compactness_cvh(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} CVH Compactness", fontsize=14)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -673,7 +697,7 @@ def dggal_compactness_cvh_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
         bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
     )
 
-    ax.set_xlabel(f"{dggs_type.upper()} CVH Compactness", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)

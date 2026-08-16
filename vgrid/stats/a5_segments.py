@@ -12,7 +12,6 @@ from pathlib import Path
 
 import a5
 import geopandas as gpd
-from a5.core.cell_info import cell_area as a5_cell_area
 from a5.core.cell_info import get_num_cells
 from tqdm import tqdm
 
@@ -48,16 +47,15 @@ def a5_segments(
     -------
     geopandas.GeoDataFrame
         Columns: ``a5_id``, ``resolution``, ``segments``, ``cell_area``,
-        ``norm_area``, ``area_diff``, ``geometry``.
+        ``norm_area``, ``area_error``, ``geometry``.
 
-        ``area_diff`` is ``abs(cell_area - a5.cell_area(resolution))``.
+        ``area_error`` is ``100 * abs(norm_area - 1)`` (percent).
     """
     if segments is None:
         segments = DEFAULT_SEGMENTS
 
     resolution = a5.get_resolution(a5.hex_to_u64(a5_id))
     mean_area = AUTHALIC_AREA / get_num_cells(resolution)
-    ref_area = a5_cell_area(resolution)
 
     rows = []
     for n_segments in tqdm(list(segments), desc="A5 segments", unit=" value"):
@@ -71,14 +69,15 @@ def a5_segments(
 
         cell_area_perimeter = geod.geometry_area_perimeter(cell_polygon)
         cell_area = abs(cell_area_perimeter[0])
+        norm_area = cell_area / mean_area
         rows.append(
             {
                 "a5_id": a5_id,
                 "resolution": resolution,
                 "segments": int(n_segments),
                 "cell_area": cell_area,
-                "norm_area": cell_area / mean_area,
-                "area_diff": abs(cell_area - ref_area),
+                "norm_area": norm_area,
+                "area_error": 100 * abs(norm_area - 1),
                 "geometry": cell_polygon,
             }
         )
@@ -89,12 +88,11 @@ def a5_segments(
     gdf = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
     if output is None:
-        output = f"a5_segments_{a5_id}.parquet"
+        output = f"a5_segments.parquet"
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     gdf.to_parquet(output_path, index=False)
     print(f"Saved {len(gdf)} rows to {output_path.resolve()}")
-    print(f"Reference a5.cell_area({resolution}) = {ref_area}")
     return gdf
 
 
