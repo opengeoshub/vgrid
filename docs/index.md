@@ -72,7 +72,7 @@ Isoperimetric Inequality (IPQ) Compactness (suggested by [Osserman, 1978](https:
 
 $$C_{IPQ} = \frac{4 \pi A}{p^2}$$
 
-The range of the IPQ compactness metric is [0,1]. 
+The range of the IPQ compactness metric is (0,1]. 
 
 A circle represents the maximum compactness with a value of 1. 
 
@@ -90,7 +90,7 @@ As shapes become more irregular or elongated, their compactness decreases toward
 
 $$C_{CVH} = \frac{A}{A_{CVH}}$$
 
-The range of the convex hull compactness metric is [0,1]. 
+The range of the convex hull compactness metric is (0,1]. 
 
 As shapes become more concave, their convex hull compactness decreases toward 0.
 <p align="center">
