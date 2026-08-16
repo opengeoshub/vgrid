@@ -18,7 +18,7 @@ import os
 import argparse
 from math import sqrt
 from tqdm import tqdm
-from shapely.geometry import Polygon, MultiPoint
+from shapely.geometry import MultiPoint
 import geopandas as gpd
 from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin
@@ -398,7 +398,7 @@ def geodataframe2digipin(
             if shortest_distance > 0:
                 for res in range(min_res, max_res + 1):
                     _, avg_edge_len, _, _ = digipin_metrics(res, unit="m")
-                    cell_diameter = avg_edge_len*sqrt(2)
+                    cell_diameter = avg_edge_len * sqrt(2)
                     if cell_diameter < shortest_distance:
                         estimated_resolution = res
                         break

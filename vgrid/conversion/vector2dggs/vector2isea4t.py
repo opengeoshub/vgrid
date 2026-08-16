@@ -345,7 +345,7 @@ def geodataframe2isea4t(
             if shortest_distance > 0:
                 for res in range(min_res, max_res + 1):
                     _, avg_edge_length, _, _ = isea4t_metrics(res)
-                    cell_diameter = (2 *avg_edge_length * math.sqrt(3)) / 3
+                    cell_diameter = (2 * avg_edge_length * math.sqrt(3)) / 3
                     if cell_diameter < shortest_distance:
                         estimated_resolution = res
                         break

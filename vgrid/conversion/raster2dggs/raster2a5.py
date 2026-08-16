@@ -318,7 +318,7 @@ def raster2a5_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     parser.add_argument(
         "-s",

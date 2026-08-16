@@ -166,7 +166,9 @@ def h32geojson(h3_ids, fix_antimeridian=None):
             num_edges = 6
             if h3.is_pentagon(h3_id):
                 num_edges = 5
-            h3_feature = geodesic_dggs_to_feature("h3", h3_id, cell_resolution, cell_polygon, num_edges)
+            h3_feature = geodesic_dggs_to_feature(
+                "h3", h3_id, cell_resolution, cell_polygon, num_edges
+            )
             h3_features.append(h3_feature)
         except Exception:
             continue

@@ -60,11 +60,9 @@ def point2georef(
         return []
 
     for point in points:
-        georef_id = latlon2georef(point.y, point.x, resolution)       
-        cell_polygon = georef2geo(georef_id)        
-        row = graticule_dggs_to_geoseries(
-            "georef", georef_id, resolution, cell_polygon
-        )
+        georef_id = latlon2georef(point.y, point.x, resolution)
+        cell_polygon = georef2geo(georef_id)
+        row = graticule_dggs_to_geoseries("georef", georef_id, resolution, cell_polygon)
         if include_properties and feature_properties:
             row.update(feature_properties)
         rows.append(row)
@@ -92,11 +90,11 @@ def polyline2georef(
         min_lon, min_lat, max_lon, max_lat = polyline.bounds
         resolution_degrees = GEOREF_RESOLUTION_DEGREES.get(resolution)
         longitudes = np.arange(min_lon, max_lon, resolution_degrees)
-        latitudes = np.arange(min_lat, max_lat, resolution_degrees)     
+        latitudes = np.arange(min_lat, max_lat, resolution_degrees)
         for lon in longitudes:
             for lat in latitudes:
-                georef_id = latlon2georef(lat, lon, resolution)                    
-                cell_polygon = georef2geo(georef_id)    
+                georef_id = latlon2georef(lat, lon, resolution)
+                cell_polygon = georef2geo(georef_id)
                 if cell_polygon is not None and cell_polygon.intersects(polyline):
                     row = graticule_dggs_to_geoseries(
                         "georef", georef_id, resolution, cell_polygon
@@ -131,15 +129,17 @@ def polygon2georef(
         latitudes = np.arange(min_lat, max_lat, resolution_degrees)
         for lon in longitudes:
             for lat in latitudes:
-                georef_id = latlon2georef(lat, lon, resolution)                    
-                cell_polygon = georef2geo(georef_id)    
-                if cell_polygon is not None and check_predicate(cell_polygon, polygon, predicate):
+                georef_id = latlon2georef(lat, lon, resolution)
+                cell_polygon = georef2geo(georef_id)
+                if cell_polygon is not None and check_predicate(
+                    cell_polygon, polygon, predicate
+                ):
                     row = graticule_dggs_to_geoseries(
                         "georef", georef_id, resolution, cell_polygon
                     )
                     if include_properties and feature_properties:
                         row.update(feature_properties)
-                    rows.append(row)                
+                    rows.append(row)
     return rows
 
 
@@ -169,7 +169,7 @@ def geodataframe2georef(
             if shortest_distance > 0:
                 for res in range(min_res, max_res + 1):
                     _, avg_edge_len, _, _ = georef_metrics(res, unit="m")
-                    cell_diameter_m = avg_edge_len * sqrt(2) 
+                    cell_diameter_m = avg_edge_len * sqrt(2)
                     if cell_diameter_m < shortest_distance:
                         estimated_resolution = res
                         break

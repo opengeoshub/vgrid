@@ -26,7 +26,11 @@ from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.dggs import s2
-from vgrid.utils.io import validate_bbox, validate_s2_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_s2_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggs2geo.s22geo import s22geo
 
 
@@ -134,9 +138,7 @@ def s2grid(
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-    gdf = s2_grid(
-        resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact
-    )
+    gdf = s2_grid(resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact)
     output_name = f"s2_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 

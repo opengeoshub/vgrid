@@ -357,7 +357,7 @@ def polygon2rhealpix(
                     )
                     rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
                     rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
-                    cell_resolution = rhealpix_cell.resolution               
+                    cell_resolution = rhealpix_cell.resolution
 
                     num_edges = 4
                     if rhealpix_cell.ellipsoidal_shape() == "dart":

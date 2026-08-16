@@ -126,9 +126,7 @@ def dggalgen(
         # Create GeoDataFrame from records
         gdf = gpd.GeoDataFrame(dggal_records, geometry="geometry", crs="EPSG:4326")
         base_name = f"{dggs_type}_grid_{resolution}"
-        return dggal_convert_to_output_format(
-            gdf, output_format, output_name=base_name
-        )
+        return dggal_convert_to_output_format(gdf, output_format, output_name=base_name)
     else:
         print("No valid zones found for the specified parameters.", file=sys.stderr)
         return None

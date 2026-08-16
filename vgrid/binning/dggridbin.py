@@ -59,9 +59,7 @@ def dggrid_bin(
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
 
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
         data, lat_col=lat_col, lon_col=lon_col, **kwargs
@@ -111,7 +109,9 @@ def dggrid_bin(
     out = out.rename(columns={id_col: f"dggrid_{dggs_type.lower()}"})
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 

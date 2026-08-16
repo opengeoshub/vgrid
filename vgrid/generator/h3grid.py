@@ -2,8 +2,7 @@
 # https://h3-snow.streamlit.app/
 
 import argparse
-from shapely.geometry import box, shape
-from shapely.ops import unary_union
+from shapely.geometry import box
 from tqdm import tqdm
 import geopandas as gpd
 import h3
@@ -29,8 +28,7 @@ def _polygon_to_h3_cells_exprimental(polygon, resolution, contain=None):
         return h3.geo_to_cells(polygon, resolution)
     outer = [(lat, lon) for lon, lat in polygon.exterior.coords[:-1]]
     holes = [
-        [(lat, lon) for lon, lat in ring.coords[:-1]]
-        for ring in polygon.interiors
+        [(lat, lon) for lon, lat in ring.coords[:-1]] for ring in polygon.interiors
     ]
     h3_poly = h3.LatLngPoly(outer, *holes)
     return h3.polygon_to_cells_experimental(h3_poly, resolution, contain=contain)

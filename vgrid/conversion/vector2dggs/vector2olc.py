@@ -368,7 +368,7 @@ def geodataframe2olc(
             if shortest_distance > 0:
                 for res in olc_resolutions:  # OLC valid resolutions
                     _, avg_edge_length, _, _ = olc_metrics(res)
-                    cell_diameter = avg_edge_length * math.sqrt(2) 
+                    cell_diameter = avg_edge_length * math.sqrt(2)
                     if cell_diameter < shortest_distance:
                         estimated_resolution = res
                         break

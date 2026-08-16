@@ -107,6 +107,12 @@ from .a52geo import (
     a52geo_cli,
     a52geojson_cli,
 )
+from .healpix2geo import (
+    healpix2geo,
+    healpix2geojson,
+    healpix2geo_cli,
+    healpix2geojson_cli,
+)
 
 from .dggal2geo import (
     dggal2geo,
@@ -190,6 +196,10 @@ __all__ = [
     "a52geojson",
     "a52geo_cli",
     "a52geojson_cli",
+    "healpix2geo",
+    "healpix2geojson",
+    "healpix2geo_cli",
+    "healpix2geojson_cli",
     "dggal2geo",
     "dggal2geojson",
     "dggal2geo_cli",

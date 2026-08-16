@@ -12,12 +12,12 @@ from vgrid.utils.constants import (
     VMIN_QUAD,
     VMAX_QUAD,
     VCENTER_QUAD,
+    AUTHALIC_RADIUS,
 )
 from vgrid.generator.digipingrid import digipingrid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -40,10 +40,9 @@ LON_RANGE = BOUNDS["maxLon"] - BOUNDS["minLon"]  # 36 degrees
 # Calculate approximate area in m² using spherical approximation
 # Area ≈ (lon_range * cos(mean_lat) * R) × (lat_range * R) where R is Earth radius
 MEAN_LAT = (BOUNDS["minLat"] + BOUNDS["maxLat"]) / 2
-EARTH_RADIUS = 6_371_007.180918475  # meters
 DIGIPIN_AREA = (
-    LON_RANGE * math.pi / 180 * EARTH_RADIUS * math.cos(MEAN_LAT * math.pi / 180)
-) * (LAT_RANGE * math.pi / 180 * EARTH_RADIUS)
+    LON_RANGE * math.pi / 180 * AUTHALIC_RADIUS * math.cos(MEAN_LAT * math.pi / 180)
+) * (LAT_RANGE * math.pi / 180 * AUTHALIC_RADIUS)
 
 
 def digipin_metrics(resolution, unit: str = "m"):  # length unit is km, area unit is km2
@@ -182,7 +181,9 @@ def digipininspect(resolution):
     resolution = validate_digipin_resolution(resolution)
     digipin_gdf = digipingrid(resolution, output_format="gpd")
     digipin_gdf["crossed"] = digipin_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = digipin_gdf["cell_area"].mean()
+    # mean_area = digipin_gdf["cell_area"].mean()
+    num_cells = 16**resolution
+    mean_area = DIGIPIN_AREA / num_cells
     # Calculate normalized area
     digipin_gdf["norm_area"] = digipin_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -205,7 +206,7 @@ def digipininspect(resolution):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    digipin_gdf_lambert = get_cells_area(digipin_gdf.copy(), 'LAEA')
+    digipin_gdf_lambert = get_cells_area(digipin_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     digipin_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

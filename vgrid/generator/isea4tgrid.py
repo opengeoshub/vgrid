@@ -11,9 +11,8 @@ Key Functions:
 """
 
 import argparse
-from shapely.ops import unary_union
 from tqdm import tqdm
-from shapely.geometry import box, shape
+from shapely.geometry import box
 import geopandas as gpd
 import platform
 
@@ -130,7 +129,9 @@ def isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
     if compact:
         bounding_children = isea4t_compact(bounding_children)
     isea4t_rows = []
-    for cell_id in tqdm(bounding_children, desc="Generating ISEA4T DGGS", unit=" cells"):
+    for cell_id in tqdm(
+        bounding_children, desc="Generating ISEA4T DGGS", unit=" cells"
+    ):
         isea4t_rows.append(_isea4t_row_from_id(cell_id, fix_antimeridian))
     return gpd.GeoDataFrame(isea4t_rows, geometry="geometry", crs="EPSG:4326")
 

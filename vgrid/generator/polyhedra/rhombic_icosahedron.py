@@ -70,9 +70,7 @@ def rhombic_icosahedron(output_format="gpd", split_antimeridian=False):
     gdf = gpd.GeoDataFrame(dggal_records, geometry="geometry", crs="EPSG:4326")
     base_name = "rhombic_icosahedron"
 
-    return dggal_convert_to_output_format(
-        gdf, output_format, output_name=base_name
-    )
+    return dggal_convert_to_output_format(gdf, output_format, output_name=base_name)
 
 
 def rhombic_icosahedron_cli():

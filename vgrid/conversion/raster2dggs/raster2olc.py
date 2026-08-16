@@ -74,7 +74,9 @@ def get_nearest_olc_resolution(raster_path):
         transform = src.transform
         crs = src.crs
         if crs is None:
-            raise ValueError("Raster CRS is undefined. OLC conversion requires a valid CRS.")
+            raise ValueError(
+                "Raster CRS is undefined. OLC conversion requires a valid CRS."
+            )
         pixel_width = transform.a
         pixel_height = -transform.e
         cell_size = pixel_width * pixel_height

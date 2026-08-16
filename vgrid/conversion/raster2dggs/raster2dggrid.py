@@ -122,9 +122,7 @@ def _raster2dggrid_binning(
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         try:
-            return latlon2dggrid(
-                dggrid_instance, dggs_type, lat, lon, resolution
-            )
+            return latlon2dggrid(dggrid_instance, dggs_type, lat, lon, resolution)
         except Exception:
             return None
 
@@ -299,7 +297,7 @@ def raster2dggrid_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_from_cellids. "
-        'Example: \'{"densification": 2}\'',
+        "Example: '{\"densification\": 2}'",
     )
     parser.add_argument(
         "-s",

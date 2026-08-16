@@ -47,13 +47,17 @@ from .quadkeycompact import (
     quadkeycompact_cli,
     quadkeyexpand_cli,
 )
-from .dggalcompact import dggalcompact, dggalexpand, dggalcompact_cli, dggalexpand_cli
-from .qtmcompact import qtmcompact, qtmexpand, qtmcompact_cli, qtmexpand_cli
 from .digipincompact import (
     digipincompact,
     digipinexpand,
     digipincompact_cli,
     digipinexpand_cli,
+)
+from .healpixcompact import (
+    healpixcompact,
+    healpixexpand,
+    healpixcompact_cli,
+    healpixexpand_cli,
 )
 
 __all__ = [
@@ -113,4 +117,8 @@ __all__ = [
     "digipinexpand",
     "digipincompact_cli",
     "digipinexpand_cli",
+    "healpixcompact",
+    "healpixexpand",
+    "healpixcompact_cli",
+    "healpixexpand_cli",
 ]

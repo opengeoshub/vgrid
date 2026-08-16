@@ -12,7 +12,6 @@ import geopandas as gpd
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -20,7 +19,7 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.constants import DGGS_TYPES, VMIN_HEX, VMAX_HEX, VCENTER_HEX
+from vgrid.utils.constants import DGGS_TYPES, VMIN_HEX, VMAX_HEX, VCENTER_HEX, AUTHALIC_AREA
 from vgrid.generator.h3grid import h3grid
 
 min_res = DGGS_TYPES["h3"]["min_res"]
@@ -78,7 +77,8 @@ def h3_metrics(resolution: int, unit: str = "m"):
 
     # Largest hex area among center children of base hex cells
     center_children = [
-        idx if resolution == 0 else h3.cell_to_center_child(idx, resolution) for idx in base_hex_cells
+        idx if resolution == 0 else h3.cell_to_center_child(idx, resolution)
+        for idx in base_hex_cells
     ]
     max_hex_area = max(
         (h3.cell_area(idx, unit=area_unit) for idx in center_children),
@@ -231,7 +231,8 @@ def h3inspect(resolution: int, fix_antimeridian: None = None):
     h3_gdf["crossed"] = h3_gdf["geometry"].apply(check_crossing_geom)
     h3_gdf = h3_gdf[~h3_gdf["crossed"]]  # remove cells that cross the Antimeridian
     h3_gdf["is_pentagon"] = h3_gdf["h3"].apply(h3.is_pentagon)
-    mean_area = h3_gdf["cell_area"].mean()
+    # mean_area = h3_gdf["cell_area"].mean()
+    mean_area = AUTHALIC_AREA / h3.get_num_cells(resolution)
     # Calculate normalized area
     h3_gdf["norm_area"] = h3_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -252,7 +253,7 @@ def h3inspect(resolution: int, fix_antimeridian: None = None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    h3_gdf_lambert = get_cells_area(h3_gdf.copy(), 'LAEA')
+    h3_gdf_lambert = get_cells_area(h3_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     h3_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

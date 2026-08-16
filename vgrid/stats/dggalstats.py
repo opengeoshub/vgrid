@@ -16,6 +16,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 from vgrid.utils.geometry import (
     check_crossing_geom,
@@ -37,6 +38,29 @@ from vgrid.utils.constants import (
 from vgrid.generator.dggalgen import dggalgen
 from pyproj import Geod
 from vgrid.utils.io import validate_dggal_resolution, validate_dggal_type
+
+_DGGS_TYPE_DISPLAY = {
+    "healpix": "HEALPix",
+    "rhealpix": "rHEALPix",
+}
+
+
+def _format_dggs_type_label(dggs_type: str) -> str:
+    key = str(dggs_type).strip().lower()
+    return _DGGS_TYPE_DISPLAY.get(key, key.upper())
+
+
+def _format_norm_area_colorbar(cb_ax, vmin: float, vmax: float, vcenter: float = 1.0):
+    """Keep colorbar tick labels readable when the value range is very narrow."""
+    span = float(vmax) - float(vmin)
+    if span < 0.05:
+        ticks = sorted({float(vmin), float(vcenter), float(vmax)})
+        cb_ax.set_xticks(ticks)
+        decimals = max(2, min(8, int(-np.floor(np.log10(max(span, 1e-12)))) + 1))
+        cb_ax.xaxis.set_major_formatter(FormatStrFormatter(f"%.{decimals}f"))
+    else:
+        cb_ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+    cb_ax.tick_params(labelsize=14)
 
 # Import dggal library
 from dggal import *
@@ -180,7 +204,7 @@ def dggal_metrics(
     elif dggs_type in ["healpix"]:
         num_cells = 12 * (4**resolution)
     elif dggs_type in ["rhealpix"]:
-        num_cells = 6 * (9**resolution) 
+        num_cells = 6 * (9**resolution)
 
     avg_cell_area = AUTHALIC_AREA / num_cells  # area in m2
 
@@ -310,20 +334,31 @@ def dggalinspect(
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggal_gdf.crs.is_geographic:
-        dggal_gdf["cell_area"] = dggal_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[0])
-        )
-        dggal_gdf["cell_perimeter"] = dggal_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[1])
-        )
+        def _geod_area_perimeter(g):
+            cell_area_perimeter = geod.geometry_area_perimeter(g)
+            return pd.Series(
+                {
+                    "cell_area": abs(cell_area_perimeter[0]),
+                    "cell_perimeter": abs(cell_area_perimeter[1]),
+                }
+            )
+
+        metrics = dggal_gdf.geometry.apply(_geod_area_perimeter)
+        dggal_gdf["cell_area"] = metrics["cell_area"]
+        dggal_gdf["cell_perimeter"] = metrics["cell_perimeter"]
         dggal_gdf["crossed"] = dggal_gdf.geometry.apply(check_crossing_geom)
     else:
         dggal_gdf["cell_area"] = dggal_gdf.geometry.area
         dggal_gdf["cell_perimeter"] = dggal_gdf.geometry.length
         dggal_gdf["crossed"] = False
 
-    dggal_gdf = dggal_gdf[~dggal_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = dggal_gdf["cell_area"].mean()
+    dggal_gdf = dggal_gdf[
+        ~dggal_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
+    # mean_area = dggal_gdf["cell_area"].mean()
+    num_cells, _, _, _ = dggal_metrics(dggs_type, resolution)
+    mean_area = AUTHALIC_AREA / num_cells
+
     dggal_gdf["norm_area"] = (
         dggal_gdf["cell_area"] / mean_area if mean_area and mean_area != 0 else np.nan
     )
@@ -347,7 +382,7 @@ def dggalinspect(
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    dggal_gdf_lambert = get_cells_area(dggal_gdf.copy(), 'LAEA')
+    dggal_gdf_lambert = get_cells_area(dggal_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     dggal_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),
@@ -416,7 +451,7 @@ def dggal_norm_area_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
     )
 
     # Customize the plot
-    ax.set_xlabel(f"{dggs_type.upper()} normalized area", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} normalized area", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -454,8 +489,8 @@ def dggal_norm_area(
     )
     ax.axis("off")
     cb_ax = fig.axes[1]
-    cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} Normalized Area", fontsize=14)
+    _format_norm_area_colorbar(cb_ax, vmin, vmax, vcenter)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} Normalized Area", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -500,7 +535,7 @@ def dggal_compactness_ipq(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} IPQ Compactness", fontsize=14)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -571,7 +606,7 @@ def dggal_compactness_ipq_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
     )
 
     # Customize the plot
-    ax.set_xlabel(f"{dggs_type.upper()} IPQ Compactness", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -614,7 +649,7 @@ def dggal_compactness_cvh(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{dggs_type.upper()} CVH Compactness", fontsize=14)
+    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14)
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -662,7 +697,7 @@ def dggal_compactness_cvh_hist(dggs_type: str, dggal_gdf: gpd.GeoDataFrame):
         bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
     )
 
-    ax.set_xlabel(f"{dggs_type.upper()} CVH Compactness", fontsize=14)
+    ax.set_xlabel(f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14)
     ax.set_ylabel("Number of cells", fontsize=14)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -695,9 +730,7 @@ def dggalinspect_cli():
     dggs_type = args.dggs_type
     resolution = args.resolution
     print(
-        dggalinspect(
-            dggs_type, resolution, split_antimeridian=args.split_antimeridian
-        )
+        dggalinspect(dggs_type, resolution, split_antimeridian=args.split_antimeridian)
     )
 
 

@@ -56,7 +56,7 @@ def dggrid2geo(
         When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False when None or omitted.
     options : dict, optional
-        Options to pass to grid_cell_polygons_from_cellids. 
+        Options to pass to grid_cell_polygons_from_cellids.
         For example: {"densification": 2} to add densification points.
         Defaults to None.
 
@@ -135,7 +135,9 @@ def dggrid2geo(
     # Apply antimeridian fixing if requested
     if split_antimeridian:
         if aggregate:
-            dggrid_cells = dggrid_cells.dissolve(by=f"dggrid_{dggs_type.lower()}", as_index=False)  
+            dggrid_cells = dggrid_cells.dissolve(
+                by=f"dggrid_{dggs_type.lower()}", as_index=False
+            )
     return dggrid_cells
 
 
@@ -184,11 +186,11 @@ def dggrid2geo_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_from_cellids. "
-             "Example: '{\"densification\": 2}'",
+        "Example: '{\"densification\": 2}'",
     )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -197,7 +199,7 @@ def dggrid2geo_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     polys = dggrid2geo(
         dggrid_instance,
         args.dggs_type,
@@ -245,7 +247,7 @@ def dggrid2geojson(
         When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False when None or omitted.
     options : dict, optional
-        Options to pass to grid_cell_polygons_from_cellids. 
+        Options to pass to grid_cell_polygons_from_cellids.
         For example: {"densification": 2} to add densification points.
         Defaults to None.
 
@@ -336,11 +338,11 @@ def dggrid2geojson_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_from_cellids. "
-             "Example: '{\"densification\": 2}'",
+        "Example: '{\"densification\": 2}'",
     )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -349,7 +351,7 @@ def dggrid2geojson_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     geojson_data = json.dumps(
         dggrid2geojson(
             dggrid_instance,

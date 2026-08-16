@@ -122,6 +122,7 @@ def a52geo_u64(a5_ids, options=None, split_antimeridian=False):
         return a5_polygons[0]
     return a5_polygons
 
+
 def a52geo_cli():
     """
     Command-line interface for a52geo supporting multiple a5 cell IDs.
@@ -147,10 +148,10 @@ def a52geo_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a5.cell_to_boundary. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -159,7 +160,7 @@ def a52geo_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     polys = a52geo(args.a5, options=options, split_antimeridian=args.split_antimeridian)
     return polys
 
@@ -243,10 +244,10 @@ def a52geojson_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a5.cell_to_boundary. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -255,7 +256,7 @@ def a52geojson_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     geojson_data = json.dumps(
         a52geojson(args.a5, options=options, split_antimeridian=args.split_antimeridian)
     )

@@ -16,7 +16,11 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import convert_to_output_format, validate_bbox, validate_vgrid_resolution
+from vgrid.utils.io import (
+    convert_to_output_format,
+    validate_bbox,
+    validate_vgrid_resolution,
+)
 from vgrid.dggs.vgrid import VGRID
 
 

@@ -18,7 +18,6 @@ from vgrid.generator.tilecodegrid import tilecodegrid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -31,7 +30,9 @@ min_res = DGGS_TYPES["tilecode"]["min_res"]
 max_res = DGGS_TYPES["tilecode"]["max_res"]
 
 
-def tilecode_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+def tilecode_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for Tilecode DGGS cells.
 
@@ -158,7 +159,9 @@ def tilecodeinspect(resolution: int):
     """
     tilecode_gdf = tilecodegrid(resolution, output_format="gpd")
     tilecode_gdf["crossed"] = tilecode_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = tilecode_gdf["cell_area"].mean()
+    # mean_area = tilecode_gdf["cell_area"].mean()
+    num_cells = 4**resolution
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     tilecode_gdf["norm_area"] = tilecode_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -181,7 +184,7 @@ def tilecodeinspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    tilecode_gdf_lambert = get_cells_area(tilecode_gdf.copy(), 'LAEA')
+    tilecode_gdf_lambert = get_cells_area(tilecode_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     tilecode_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

@@ -48,9 +48,7 @@ def a5_bin(
     resolution = validate_a5_resolution(int(resolution))
 
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     # 1) Normalize input to GeoDataFrame of points
     points_gdf = process_input_data_bin(
@@ -97,7 +95,9 @@ def a5_bin(
     out = grid_gdf.merge(grouped, on=id_col, how="inner")
     if "resolution" not in out.columns:
         out["resolution"] = resolution
-    result_gdf = gpd.GeoDataFrame(out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326")
+    result_gdf = gpd.GeoDataFrame(
+        out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
+    )
     return result_gdf
 
 
@@ -189,9 +189,7 @@ def a5bin(
     """
 
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     # Process input data and bin
     result_gdf = a5_bin(
@@ -291,7 +289,7 @@ def a5bin_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     parser.add_argument(
         "-split",

@@ -178,7 +178,7 @@ def dggalcompact(
     # Create the appropriate DGGS instance
     dggs_class_name = DGGAL_TYPES[dggs_type]["class_name"]
     dggrs = getattr(dggal, dggs_class_name)()
-    
+
     dggal_ids_compact = dggal_compact(dggs_type, dggal_ids)
     # dggal_ids_compact = dggrs.compactZones(dggal_ids)
 
@@ -186,7 +186,6 @@ def dggalcompact(
         print("Warning: Compaction returned no results, returning original data")
         # Return the original data if compaction fails
         return convert_to_output_format(gdf, output_format, f"{dggs_type}_original")
-
 
     rows = []
     for dggal_id_compact in dggal_ids_compact:

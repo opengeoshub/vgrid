@@ -60,7 +60,8 @@ def get_isea3h_resolution(isea3h_id):
     try:
         isea3h_cell = DggsCell(isea3h_id)
         cell_polygon = isea3h2geo(isea3h_id)
-        cell_perimeter = abs(geod.geometry_area_perimeter(cell_polygon)[1])
+        cell_area_perimeter = geod.geometry_area_perimeter(cell_polygon)
+        cell_perimeter = abs(cell_area_perimeter[1])
 
         isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)
         cell_accuracy = isea3h2point._accuracy

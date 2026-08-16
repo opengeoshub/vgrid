@@ -12,7 +12,9 @@ MIN_CELL_AREA = 0.1  # m^2
 
 AUTHALIC_RADIUS = 6_371_007.180918473897976252  # m, ref: https://github.com/ecere/dggal/blob/7c496d4a8dff94821a38f33b4c37ad6abf459725/src/dggrs.ec#L29C24-L29C50
 AUTHALIC_AREA = 4 * math.pi * AUTHALIC_RADIUS * AUTHALIC_RADIUS  # m^2
-STANDARD_METERS_PER_PIXEL = 0.00028  # 0.28 mm/pixels -- following standard WMS 1.3.0 [OGC 06-042], SE and WMTS
+STANDARD_METERS_PER_PIXEL = (
+    0.00028  # 0.28 mm/pixels -- following standard WMS 1.3.0 [OGC 06-042], SE and WMTS
+)
 METERS_PER_DEGREE = AUTHALIC_RADIUS * math.pi / 180  # m
 
 ICOSA_EDGE_RADS = math.atan((2))
@@ -190,7 +192,7 @@ DGGS_TYPES = {
     "h3": {"min_res": 0, "max_res": 15, "default_res": 10},
     "s2": {"min_res": 0, "max_res": 30, "default_res": 16},
     "a5": {"min_res": 0, "max_res": 30, "default_res": 15},
-    # "healpix": {"min_res": 0, "max_res": 29, "default_res": 10},  # to be checked
+    "healpix": {"min_res": 0, "max_res": 29, "default_res": 10},
     "rhealpix": {"min_res": 0, "max_res": 15, "default_res": 10},
     "isea4t": {"min_res": 0, "max_res": 39, "default_res": 16},
     "isea3h": {"min_res": 0, "max_res": 40, "default_res": 20},
@@ -225,35 +227,37 @@ DGGS_INSPECT = {
     "dggrid_isea4t": {
         "min_res": 2,
         "max_res": 7,
-    },  
+    },
     "dggrid_fuller4t": {
         "min_res": 2,
         "max_res": 7,
-    },  
+    },
     "dggrid_isea4d": {
         "min_res": 2,
         "max_res": 7,
-    },  
+    },
     "dggrid_fuller4d": {
         "min_res": 2,
         "max_res": 7,
-    },  
+    },
     "dggrid_isea7h": {
         "min_res": 2,
         "max_res": 5,
-    },  
+    },
     "dggrid_fuller7h": {
         "min_res": 2,
         "max_res": 5,
-    },  
+    },
     "dggrid_igeo7": {
         "min_res": 2,
         "max_res": 5,
-    },  
+    },
     "dggal_ivea3h": {"min_res": 2, "max_res": 9},
     "dggal_ivea4r": {"min_res": 2, "max_res": 7},
     "dggal_ivea7h": {"min_res": 2, "max_res": 5},
     "dggal_ivea9r": {"min_res": 2, "max_res": 5},
+    "dggal_healpix": {"min_res": 2, "max_res": 7},
+    "dggal_rhealpix": {"min_res": 2, "max_res": 5},
 }
 
 

@@ -13,7 +13,6 @@ from vgrid.generator.a5grid import a5grid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -21,7 +20,7 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.constants import DGGS_TYPES, VMIN_PEN, VMAX_PEN, VCENTER_PEN
+from vgrid.utils.constants import DGGS_TYPES, VMIN_PEN, VMAX_PEN, VCENTER_PEN, AUTHALIC_AREA
 
 min_res = DGGS_TYPES["a5"]["min_res"]
 max_res = DGGS_TYPES["a5"]["max_res"]
@@ -136,7 +135,9 @@ def a5stats_cli():
     print(df)
 
 
-def a5inspect(resolution: int, options={"segments": 100}, split_antimeridian: bool = False):
+def a5inspect(
+    resolution: int, options={"segments": 100}, split_antimeridian: bool = False
+):
     """
     Generate comprehensive inspection data for A5 DGGS cells at a given resolution.
 
@@ -162,12 +163,17 @@ def a5inspect(resolution: int, options={"segments": 100}, split_antimeridian: bo
             - zsc: Zonal Standardized Compactness
     """
     a5_gdf = a5grid(
-        resolution, output_format="gpd", options=options, split_antimeridian=split_antimeridian
+        resolution,
+        output_format="gpd",
+        options=options,
+        split_antimeridian=split_antimeridian,
     )
     a5_gdf["crossed"] = a5_gdf["geometry"].apply(check_crossing_geom)
     a5_gdf = a5_gdf[~a5_gdf["crossed"]]  # remove cells that cross the Antimeridian
+    
+    # mean_area = a5_gdf["cell_area"].mean()
+    mean_area = AUTHALIC_AREA / get_num_cells(resolution)
 
-    mean_area = a5_gdf["cell_area"].mean()
     # Calculate normalized area
     a5_gdf["norm_area"] = a5_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -188,7 +194,7 @@ def a5inspect(resolution: int, options={"segments": 100}, split_antimeridian: bo
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    a5_gdf_lambert = get_cells_area(a5_gdf.copy(), 'LAEA')
+    a5_gdf_lambert = get_cells_area(a5_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     a5_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),
@@ -520,11 +526,11 @@ def a5inspect_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to a52geo. "
-             "Example: '{\"segments\": 1000}'",
+        "Example: '{\"segments\": 1000}'",
     )
     args = parser.parse_args()
     resolution = args.resolution
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -533,8 +539,12 @@ def a5inspect_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
-    print(a5inspect(resolution, options=options, split_antimeridian=args.split_antimeridian))
+
+    print(
+        a5inspect(
+            resolution, options=options, split_antimeridian=args.split_antimeridian
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ for various coordinate systems and geographic areas.
 from .h3grid import h3grid, h3grid_cli
 from .s2grid import s2grid, s2grid_cli
 from .a5grid import a5grid, a5grid_cli
+from .healpixgrid import healpixgrid, healpixgrid_cli
 from .rhealpixgrid import rhealpixgrid, rhealpixgrid_cli
 from .isea4tgrid import isea4tgrid, isea4tgrid_cli
 from .isea3hgrid import isea3hgrid, isea3hgrid_cli
@@ -33,6 +34,8 @@ __all__ = [
     "s2grid_cli",
     "a5grid",
     "a5grid_cli",
+    "healpixgrid",
+    "healpixgrid_cli",
     "rhealpixgrid",
     "rhealpixgrid_cli",
     "isea4tgrid",

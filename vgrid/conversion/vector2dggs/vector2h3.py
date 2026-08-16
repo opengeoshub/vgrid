@@ -21,7 +21,6 @@ from shapely.geometry import box, MultiPoint
 from vgrid.conversion.dggs2geo.h32geo import h32geo
 import h3
 from vgrid.utils.geometry import (
-    geodesic_buffer,
     check_predicate,
     shortest_point_distance,
     geodesic_dggs_to_geoseries,

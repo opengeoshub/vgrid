@@ -29,6 +29,7 @@ from vgrid.utils.geometry import (
     get_cells_area,
 )
 from vgrid.utils.constants import (
+    AUTHALIC_AREA,
     VMIN_QUAD,
     VMAX_QUAD,
     VCENTER_QUAD,
@@ -96,9 +97,7 @@ def dggridstats(
     avg_edge_len_col = f"avg_edge_len_{unit_norm}"
     areas = dggrid_stats[area_col]
     if dggrid_num_edges(dggs_type) == 6:
-        dggrid_stats[avg_edge_len_col] = np.sqrt(
-            (2 * areas) / (3 * math.sqrt(3))
-        )
+        dggrid_stats[avg_edge_len_col] = np.sqrt((2 * areas) / (3 * math.sqrt(3)))
     else:
         dggrid_stats[avg_edge_len_col] = np.sqrt(areas)
 
@@ -153,9 +152,7 @@ def dggrid_metrics(
 
     row = grid_stats[grid_stats["resolution"] == resolution]
     if row.empty:
-        raise ValueError(
-            f"No DGGRID stats for {dggs_type} at resolution {resolution}"
-        )
+        raise ValueError(f"No DGGRID stats for {dggs_type} at resolution {resolution}")
 
     area_col = "area_m2" if unit_norm == "m" else "area_km2"
     cls_col = "cls_m" if unit_norm == "m" else "cls_km"
@@ -218,7 +215,7 @@ def dggridinspect(
         split_antimeridian: When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False to avoid splitting the Antimeridian by default.
         aggregate: When True, aggregate the resulting polygons. Defaults to False to avoid aggregation by default.
-        options (dict, optional): Options to pass to grid_cell_polygons_for_extent. 
+        options (dict, optional): Options to pass to grid_cell_polygons_for_extent.
             For example: {"densification": 2} to add densification points.
             Defaults to None.
     Returns:
@@ -258,12 +255,18 @@ def dggridinspect(
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggrid_gdf.crs.is_geographic:
-        dggrid_gdf["cell_area"] = dggrid_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[0])
-        )
-        dggrid_gdf["cell_perimeter"] = dggrid_gdf.geometry.apply(
-            lambda g: abs(geod.geometry_area_perimeter(g)[1])
-        )
+        def _geod_area_perimeter(g):
+            cell_area_perimeter = geod.geometry_area_perimeter(g)
+            return pd.Series(
+                {
+                    "cell_area": abs(cell_area_perimeter[0]),
+                    "cell_perimeter": abs(cell_area_perimeter[1]),
+                }
+            )
+
+        metrics = dggrid_gdf.geometry.apply(_geod_area_perimeter)
+        dggrid_gdf["cell_area"] = metrics["cell_area"]
+        dggrid_gdf["cell_perimeter"] = metrics["cell_perimeter"]
         dggrid_gdf["crossed"] = dggrid_gdf.geometry.apply(check_crossing_geom)
     else:
         dggrid_gdf["cell_area"] = dggrid_gdf.geometry.area
@@ -273,9 +276,13 @@ def dggridinspect(
     # Add resolution column
     dggrid_gdf["resolution"] = resolution
 
-    dggrid_gdf = dggrid_gdf[~dggrid_gdf["crossed"]]  # remove cells that cross the Antimeridian
+    dggrid_gdf = dggrid_gdf[
+        ~dggrid_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
     # Calculate normalized area
-    mean_area = dggrid_gdf["cell_area"].mean()
+    # mean_area = dggrid_gdf["cell_area"].mean()
+    num_cells, _, _, _ = dggrid_metrics(dggrid_instance, dggs_type, resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     dggrid_gdf["norm_area"] = (
         dggrid_gdf["cell_area"] / mean_area if mean_area and mean_area != 0 else np.nan
     )
@@ -299,7 +306,7 @@ def dggridinspect(
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    dggrid_gdf_lambert = get_cells_area(dggrid_gdf.copy(), 'LAEA')
+    dggrid_gdf_lambert = get_cells_area(dggrid_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     dggrid_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),
@@ -670,13 +677,13 @@ def dggridinspect_cli():
         type=str,
         default=None,
         help="JSON string of options to pass to grid_cell_polygons_for_extent. "
-             "Example: '{\"densification\": 2}'",
+        "Example: '{\"densification\": 2}'",
     )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
     dggs_type = args.dggs_type
     resolution = args.resolution
-    
+
     # Parse options JSON if provided
     options = None
     if args.options:
@@ -685,7 +692,7 @@ def dggridinspect_cli():
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in options: {str(e)}")
             return
-    
+
     print(
         dggridinspect(
             dggrid_instance,

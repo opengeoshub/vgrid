@@ -28,7 +28,7 @@ software.
 
 ## APA
 
-> Thang Quach (2026). Vgrid - A unified framework for working with DGGS.
+> Quach, Thang (2026). Vgrid - A unified framework for working with DGGS.
 > Zenodo. <https://doi.org/10.5281/zenodo.21717224>
 
 ## Citation metadata file

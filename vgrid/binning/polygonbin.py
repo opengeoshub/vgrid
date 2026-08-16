@@ -11,7 +11,11 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
-from vgrid.utils.io import process_input_data_bin, convert_to_output_format, aggregate_joined
+from vgrid.utils.io import (
+    process_input_data_bin,
+    convert_to_output_format,
+    aggregate_joined,
+)
 from vgrid.utils.constants import STATS_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
@@ -94,9 +98,7 @@ def polygonbin(
     if stats not in STATS_OPTIONS:
         raise ValueError(f"Unsupported statistic: {stats}")
     if stats != "count" and not numeric_col:
-        raise ValueError(
-            "A numeric_col is required for statistics other than 'count'"
-        )
+        raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = polygon_bin(
         polygon_data, point_data, stats, category_col, numeric_col, **kwargs
     )

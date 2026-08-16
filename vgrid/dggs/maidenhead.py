@@ -1,3 +1,4 @@
+
 """
 /***************************************************************************
  *                                                                         *
@@ -12,25 +13,23 @@
 
 def maidenGridCenter(maiden):
     """
-    maiden is a string the is even and between 2 to 8 characters
-    It returns the center point of a maiden grid and throws an exception
-    on error
+        maiden is a string the is even and between 2 to 8 characters
+        It returns the center point of a maiden grid and throws an exception
+        on error
     """
     if not isinstance(maiden, str):
-        raise TypeError("Maidenhead locator must be a string")
+        raise TypeError('Maidenhead locator must be a string')
 
     maiden = maiden.strip().upper()
 
     N = len(maiden)
     if not 8 >= N >= 2 and N % 2 == 0:
-        raise ValueError(
-            "Maidenhead locator requires 2-8 characters, even number of characters"
-        )
+        raise ValueError('Maidenhead locator requires 2-8 characters, even number of characters')
 
-    Oa = ord("A")
-    lon = -180.0
-    lat = -90.0
-    # %% first pair
+    Oa = ord('A')
+    lon = -180.
+    lat = -90.
+# %% first pair
     isValid(maiden[0], 0)
     isValid(maiden[1], 0)
     lon += (ord(maiden[0]) - Oa) * 20
@@ -38,7 +37,7 @@ def maidenGridCenter(maiden):
     if N == 2:
         lon += 10
         lat += 5
-    # %% second pair
+# %% second pair
     if N >= 4:
         isValid(maiden[2], 1)
         isValid(maiden[3], 1)
@@ -47,20 +46,20 @@ def maidenGridCenter(maiden):
     if N == 4:
         lon += 1
         lat += 0.5
-    # %%
+# %%
     if N >= 6:
         isValid(maiden[4], 2)
         isValid(maiden[5], 2)
-        lon += (ord(maiden[4]) - Oa) * 5.0 / 60
+        lon += (ord(maiden[4]) - Oa) * 5. / 60
         lat += (ord(maiden[5]) - Oa) * 2.5 / 60
     if N == 6:
-        lon += 5.0 / 120
+        lon += 5. / 120
         lat += 2.5 / 120
-    # %%
+# %%
     if N == 8:
-        lon += int(maiden[6]) * 5.0 / 600
+        lon += int(maiden[6]) * 5. / 600
         lat += int(maiden[7]) * 2.5 / 600
-        lon += 5.0 / 1200
+        lon += 5. / 1200
         lat += 2.5 / 1200
 
     return lat, lon
@@ -68,25 +67,23 @@ def maidenGridCenter(maiden):
 
 def maidenGrid(maiden):
     """
-    maiden is a string the is even and between 2 to 8 characters
-    It returns the center point of a maiden grid and throws an exception
-    on error
+        maiden is a string the is even and between 2 to 8 characters
+        It returns the center point of a maiden grid and throws an exception
+        on error
     """
     if not isinstance(maiden, str):
-        raise TypeError("Maidenhead locator must be a string")
+        raise TypeError('Maidenhead locator must be a string')
 
     maiden = maiden.strip().upper()
 
     N = len(maiden)
     if not 8 >= N >= 2 and N % 2 == 0:
-        raise ValueError(
-            "Maidenhead locator requires 2-8 characters, even number of characters"
-        )
+        raise ValueError('Maidenhead locator requires 2-8 characters, even number of characters')
 
-    Oa = ord("A")
-    lon = -180.0
-    lat = -90.0
-    # %% first pair
+    Oa = ord('A')
+    lon = -180.
+    lat = -90.
+# %% first pair
     isValid(maiden[0], 0)
     isValid(maiden[1], 0)
     lon += (ord(maiden[0]) - Oa) * 20
@@ -98,7 +95,7 @@ def maidenGrid(maiden):
         lat2 = lat + 10
         lon += 10
         lat += 5
-    # %% second pair
+# %% second pair
     if N >= 4:
         isValid(maiden[2], 1)
         isValid(maiden[3], 1)
@@ -111,44 +108,44 @@ def maidenGrid(maiden):
         lat2 = lat + 1
         lon += 1
         lat += 0.5
-    # %%
+# %%
     if N >= 6:
         isValid(maiden[4], 2)
         isValid(maiden[5], 2)
-        lon += (ord(maiden[4]) - Oa) * 5.0 / 60
+        lon += (ord(maiden[4]) - Oa) * 5. / 60
         lat += (ord(maiden[5]) - Oa) * 2.5 / 60
     if N == 6:
         lon1 = lon
         lat1 = lat
-        lon2 = lon + 5.0 / 60
+        lon2 = lon + 5. / 60
         lat2 = lat + 2.5 / 60
-        lon += 5.0 / 120
+        lon += 5. / 120
         lat += 2.5 / 120
-    # %%
+# %%
     if N == 8:
-        lon += int(maiden[6]) * 5.0 / 600
+        lon += int(maiden[6]) * 5. / 600
         lat += int(maiden[7]) * 2.5 / 600
         lon1 = lon
         lat1 = lat
-        lon2 = lon + 5.0 / 600
+        lon2 = lon + 5. / 600
         lat2 = lat + 2.5 / 600
-        lon += 5.0 / 1200
+        lon += 5. / 1200
         lat += 2.5 / 1200
 
-    return lat, lon, lat1, lon1, lat2, lon2, maiden
+    return lat, lon, lat1, lon1, lat2, lon2
 
 
 def isValid(c, level):
     if level == 0:
-        if not "R" >= c >= "A":
-            raise ValueError("Invalid maidenhead encoding")
+        if not 'R' >= c >= 'A':
+            raise ValueError('Invalid maidenhead encoding')
     if level == 1 or level == 3:
-        if not "9" >= c >= "0":
-            raise ValueError("Invalid maidenhead encoding")
+        if not '9' >= c >= '0':
+            raise ValueError('Invalid maidenhead encoding')
     if level == 2:
-        if not "X" >= c >= "A":
-            raise ValueError("Invalid maidenhead encoding")
-    return True
+        if not 'X' >= c >= 'A':
+            raise ValueError('Invalid maidenhead encoding')
+    return (True)
 
 
 def toMaiden(lat, lon=None, precision=3):
@@ -173,12 +170,12 @@ def toMaiden(lat, lon=None, precision=3):
     """
 
     if lon < -180.0 or lon > 180.0 or lat < -90.0 or lat > 90.0:
-        raise ValueError("Maidenhead: invalid latitude and longitude")
-    A = ord("A")
+        raise ValueError('Maidenhead: invalid latitude and longitude')
+    A = ord('A')
     a = divmod(lon + 180, 20)
     b = divmod(lat + 90, 10)
     maiden = chr(A + int(a[0])) + chr(A + int(b[0]))
-    lon = a[1] / 2.0
+    lon = a[1] / 2.
     lat = b[1]
     i = 1
     while i < precision:

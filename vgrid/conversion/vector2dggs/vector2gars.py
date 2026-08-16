@@ -59,10 +59,8 @@ def point2gars(
 
     for point in points:
         gars_id = latlon2gars(point.y, point.x, resolution)
-        cell_polygon = gars2geo(gars_id)       
-        row = graticule_dggs_to_geoseries(
-            "gars", gars_id, resolution, cell_polygon
-        )
+        cell_polygon = gars2geo(gars_id)
+        row = graticule_dggs_to_geoseries("gars", gars_id, resolution, cell_polygon)
         if include_properties and feature_properties:
             row.update(feature_properties)
         rows.append(row)
@@ -92,13 +90,13 @@ def polyline2gars(
     for polyline in polylines:
         min_lon, min_lat, max_lon, max_lat = polyline.bounds
         longitudes = np.arange(min_lon, max_lon, resolution_degrees)
-        latitudes = np.arange(min_lat, max_lat, resolution_degrees)     
+        latitudes = np.arange(min_lat, max_lat, resolution_degrees)
         for lon in longitudes:
-            for lat in latitudes:              
-                gars_id = latlon2gars(lat, lon, resolution)              
+            for lat in latitudes:
+                gars_id = latlon2gars(lat, lon, resolution)
                 cell_polygon = gars2geo(gars_id)
                 if not cell_polygon.intersects(polyline):
-                    continue              
+                    continue
                 row = graticule_dggs_to_geoseries(
                     "gars", gars_id, resolution, cell_polygon
                 )
@@ -135,11 +133,9 @@ def polygon2gars(
         seen = set()
         for lon in longitudes:
             for lat in latitudes:
-                gars_id = latlon2gars(lat, lon, resolution)              
+                gars_id = latlon2gars(lat, lon, resolution)
                 cell_polygon = gars2geo(gars_id)
-                if not check_predicate(
-                    cell_polygon, polygon, predicate
-                ):
+                if not check_predicate(cell_polygon, polygon, predicate):
                     continue
                 seen.add(gars_id)
                 row = graticule_dggs_to_geoseries(
@@ -262,9 +258,7 @@ def vector2gars(
         resolution = validate_gars_resolution(resolution)
 
     gdf = process_input_data_vector(vector_data, **kwargs)
-    result = geodataframe2gars(
-        gdf, resolution, predicate, topology, include_properties
-    )
+    result = geodataframe2gars(gdf, resolution, predicate, topology, include_properties)
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(vector_data, str):

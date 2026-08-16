@@ -16,7 +16,11 @@ from tqdm import tqdm
 from vgrid.dggs import mercantile
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import validate_bbox, validate_quadkey_resolution, convert_to_output_format
+from vgrid.utils.io import (
+    validate_bbox,
+    validate_quadkey_resolution,
+    convert_to_output_format,
+)
 from vgrid.conversion.dggscompact.quadkeycompact import quadkey_compact
 from vgrid.dggs.tilecode import quadkey_resolution
 from vgrid.conversion.dggs2geo.quadkey2geo import quadkey2geo
@@ -138,9 +142,7 @@ def quadkeygrid_cli():
             print("Please select a smaller resolution and try again.")
             return
     try:
-        result = quadkeygrid(
-            resolution, bbox, args.output_format, compact=args.compact
-        )
+        result = quadkeygrid(resolution, bbox, args.output_format, compact=args.compact)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

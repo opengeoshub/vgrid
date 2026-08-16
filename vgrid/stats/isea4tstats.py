@@ -21,7 +21,6 @@ from vgrid.utils.io import validate_isea4t_resolution
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -163,8 +162,12 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
         resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
     )
     isea4t_gdf["crossed"] = isea4t_gdf["geometry"].apply(check_crossing_geom)
-    isea4t_gdf = isea4t_gdf[~isea4t_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = isea4t_gdf["cell_area"].mean()
+    isea4t_gdf = isea4t_gdf[
+        ~isea4t_gdf["crossed"]
+    ]  # remove cells that cross the Antimeridian
+    # mean_area = isea4t_gdf["cell_area"].mean()
+    num_cells = 20 * (4**resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     isea4t_gdf["norm_area"] = isea4t_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -187,7 +190,7 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    isea4t_gdf_lambert = get_cells_area(isea4t_gdf.copy(), 'LAEA')
+    isea4t_gdf_lambert = get_cells_area(isea4t_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     isea4t_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

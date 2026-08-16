@@ -319,7 +319,7 @@ def geodataframe2qtm(
                 ):  # QTM resolution range is [1..24]
                     _, avg_edge_length, _, _ = qtm_metrics(res)
                     # Use a factor to ensure sufficient separation (triangle diameter is ~2x edge length)
-                    triangle_diameter = (2 *avg_edge_length * math.sqrt(3)) / 3
+                    triangle_diameter = (2 * avg_edge_length * math.sqrt(3)) / 3
                     if triangle_diameter < shortest_distance:
                         estimated_resolution = res
                         break

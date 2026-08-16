@@ -21,7 +21,6 @@ from vgrid.generator.s2grid import s2grid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -158,7 +157,9 @@ def s2inspect(resolution: int, fix_antimeridian=None):
     s2_gdf = s2grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian)
     s2_gdf["crossed"] = s2_gdf["geometry"].apply(check_crossing_geom)
     s2_gdf = s2_gdf[~s2_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = s2_gdf["cell_area"].mean()
+    # mean_area = s2_gdf["cell_area"].mean()
+    num_cells = 6 * (4**resolution)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     s2_gdf["norm_area"] = s2_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -178,7 +179,7 @@ def s2inspect(resolution: int, fix_antimeridian=None):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    s2_gdf_lambert = get_cells_area(s2_gdf.copy(), 'LAEA')
+    s2_gdf_lambert = get_cells_area(s2_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     s2_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

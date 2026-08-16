@@ -19,7 +19,6 @@ from vgrid.generator.georefgrid import georefgrid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -165,7 +164,12 @@ def georefinspect(resolution: int):
     """
     georef_gdf = georefgrid(resolution, output_format="gpd")
     georef_gdf["crossed"] = georef_gdf["geometry"].apply(check_crossing_geom)
-    mean_area = georef_gdf["cell_area"].mean()
+    # mean_area = georef_gdf["cell_area"].mean()
+    grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(resolution)
+    num_lon = int(round(360.0 / grid_size_deg))
+    num_lat = int(round(180.0 / grid_size_deg))
+    num_cells = num_lon * num_lat
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     georef_gdf["norm_area"] = georef_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -188,7 +192,7 @@ def georefinspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    georef_gdf_lambert = get_cells_area(georef_gdf.copy(), 'LAEA')
+    georef_gdf_lambert = get_cells_area(georef_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     georef_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

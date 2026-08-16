@@ -15,7 +15,6 @@ Key Functions:
 import sys
 import os
 import argparse
-import math
 from tqdm import tqdm
 import geopandas as gpd
 from shapely.geometry import MultiPoint
@@ -349,7 +348,9 @@ def geodataframe2s2(
             if shortest_distance > 0:
                 for res in range(min_res, max_res + 1):
                     _, avg_edge_length, _, _ = s2_metrics(res)
-                    cell_diameter = avg_edge_length *2  #math.sqrt(2) # to bypass the big aperture
+                    cell_diameter = (
+                        avg_edge_length * 2
+                    )  # math.sqrt(2) # to bypass the big aperture
                     if cell_diameter < shortest_distance:
                         estimated_resolution = res
                         break

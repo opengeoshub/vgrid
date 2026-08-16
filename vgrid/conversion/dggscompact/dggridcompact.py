@@ -247,7 +247,11 @@ def dggrid_expand(
         tgt_gdf = tgt_gdf.set_crs(src_gdf.crs)
     elif src_gdf.crs is None and tgt_gdf.crs is not None:
         src_gdf = src_gdf.set_crs(tgt_gdf.crs)
-    elif tgt_gdf.crs is not None and src_gdf.crs is not None and tgt_gdf.crs != src_gdf.crs:
+    elif (
+        tgt_gdf.crs is not None
+        and src_gdf.crs is not None
+        and tgt_gdf.crs != src_gdf.crs
+    ):
         tgt_gdf = tgt_gdf.to_crs(src_gdf.crs)
 
     tgt_cent = tgt_gdf.copy()
@@ -377,7 +381,9 @@ def dggridexpand(
 
 def dggridcompact_cli():
     parser = argparse.ArgumentParser(description="DGGRID Compact")
-    parser.add_argument("-i", "--input", type=str, required=True, help="Input DGGRID file")
+    parser.add_argument(
+        "-i", "--input", type=str, required=True, help="Input DGGRID file"
+    )
     parser.add_argument(
         "-dggs",
         "--dggs_type",
@@ -386,12 +392,16 @@ def dggridcompact_cli():
         choices=DGGRID_TYPES.keys(),
         help="DGGRID type",
     )
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Resolution")
+    parser.add_argument(
+        "-r", "--resolution", type=int, required=True, help="Resolution"
+    )
     parser.add_argument("-cellid", "--cellid", type=str, help="DGGRID ID field")
     parser.add_argument(
         "-f", "--output_format", type=str, default="gpd", choices=OUTPUT_FORMATS
     )
-    parser.add_argument("-split", "--split_antimeridian", action="store_true", default=False)
+    parser.add_argument(
+        "-split", "--split_antimeridian", action="store_true", default=False
+    )
     parser.add_argument("-aggregate", "--aggregate", action="store_true")
     parser.add_argument(
         "-options",
@@ -428,7 +438,9 @@ def dggridcompact_cli():
 
 def dggridexpand_cli():
     parser = argparse.ArgumentParser(description="DGGRID Expand (Uncompact)")
-    parser.add_argument("-i", "--input", type=str, required=True, help="Input DGGRID file")
+    parser.add_argument(
+        "-i", "--input", type=str, required=True, help="Input DGGRID file"
+    )
     parser.add_argument(
         "-dggs",
         "--dggs_type",
@@ -437,7 +449,9 @@ def dggridexpand_cli():
         choices=DGGRID_TYPES.keys(),
         help="DGGRID type",
     )
-    parser.add_argument("-r", "--resolution", type=int, required=True, help="Input resolution")
+    parser.add_argument(
+        "-r", "--resolution", type=int, required=True, help="Input resolution"
+    )
     parser.add_argument(
         "-tr", "--target_resolution", type=int, required=True, help="Target resolution"
     )
@@ -445,7 +459,9 @@ def dggridexpand_cli():
     parser.add_argument(
         "-f", "--output_format", type=str, default="gpd", choices=OUTPUT_FORMATS
     )
-    parser.add_argument("-split", "--split_antimeridian", action="store_true", default=False)
+    parser.add_argument(
+        "-split", "--split_antimeridian", action="store_true", default=False
+    )
     parser.add_argument("-aggregate", "--aggregate", action="store_true")
     parser.add_argument(
         "-options",

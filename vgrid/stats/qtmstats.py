@@ -21,7 +21,6 @@ from vgrid.generator.qtmgrid import qtm_grid
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
-    geod,
     convexhull_from_lambert,
     get_area_perimeter_from_lambert,
     get_cells_area,
@@ -31,7 +30,9 @@ min_res = DGGS_TYPES["qtm"]["min_res"]
 max_res = DGGS_TYPES["qtm"]["max_res"]
 
 
-def qtm_metrics(resolution: int, unit: str = "m"):  # length unit is km, area unit is km2
+def qtm_metrics(
+    resolution: int, unit: str = "m"
+):  # length unit is km, area unit is km2
     """
     Calculate metrics for QTM DGGS cells.
 
@@ -155,7 +156,9 @@ def qtminspect(resolution: int):
     qtm_gdf = qtm_grid(resolution)
     qtm_gdf["crossed"] = qtm_gdf["geometry"].apply(check_crossing_geom)
     qtm_gdf = qtm_gdf[~qtm_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    mean_area = qtm_gdf["cell_area"].mean()
+    # mean_area = qtm_gdf["cell_area"].mean()
+    num_cells = 8 * 4 ** (resolution - 1)
+    mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     qtm_gdf["norm_area"] = qtm_gdf["cell_area"] / mean_area
     # Calculate IPQ compactness using the standard formula: CI = 4πA/P²
@@ -176,7 +179,7 @@ def qtminspect(resolution: int):
         lambda g: get_area_perimeter_from_lambert(g)[0] if g is not None else np.nan
     )
     # Calculate cell area using Lambert projection for consistent cvh calculation
-    qtm_gdf_lambert = get_cells_area(qtm_gdf.copy(), 'LAEA')
+    qtm_gdf_lambert = get_cells_area(qtm_gdf.copy(), "LAEA")
     # Compute CVH safely; set to NaN where convex hull area is non-positive or invalid
     qtm_gdf["cvh"] = np.where(
         (convex_hull_area > 0) & np.isfinite(convex_hull_area),

@@ -16,7 +16,7 @@
 #
 # Convert locations to and from short codes.
 #
-# Plus Codes are short, 10-11 character codes that can be used instead
+# Open Location Codes are short, 10-11 character codes that can be used instead
 # of street addresses. The codes can be generated and decoded offline, and use
 # a reduced character set that minimises the chance of codes including words.
 #
@@ -60,8 +60,6 @@
 import re
 import math
 
-from vgrid.utils.io import olc_resolutions
-
 # A separator used to break the code into two parts to aid memorability.
 SEPARATOR_ = '+'
 
@@ -83,10 +81,7 @@ LATITUDE_MAX_ = 90
 # The maximum value for longitude in degrees.
 LONGITUDE_MAX_ = 180
 
-# The min number of digits to process in a Plus Code.
-MIN_DIGIT_COUNT_ = 2
-
-# The max number of digits to process in a Plus Code.
+# The max number of digits to process in a plus code.
 MAX_DIGIT_COUNT_ = 15
 
 # Maximum code length using lat/lng pair encoding. The area of such a
@@ -122,13 +117,11 @@ GRID_LNG_FIRST_PLACE_VALUE_ = GRID_COLUMNS_**(GRID_CODE_LENGTH_ - 1)
 
 # Multiply latitude by this much to make it a multiple of the finest
 # precision.
-FINAL_LAT_PRECISION_ = PAIR_PRECISION_ * GRID_ROWS_**(MAX_DIGIT_COUNT_ -
-                                                      PAIR_CODE_LENGTH_)
+FINAL_LAT_PRECISION_ = PAIR_PRECISION_ * GRID_ROWS_**(MAX_DIGIT_COUNT_ - PAIR_CODE_LENGTH_)
 
 # Multiply longitude by this much to make it a multiple of the finest
 # precision.
-FINAL_LNG_PRECISION_ = PAIR_PRECISION_ * GRID_COLUMNS_**(MAX_DIGIT_COUNT_ -
-                                                         PAIR_CODE_LENGTH_)
+FINAL_LNG_PRECISION_ = PAIR_PRECISION_ * GRID_COLUMNS_**(MAX_DIGIT_COUNT_ - PAIR_CODE_LENGTH_)
 
 # Minimum length of a code that can be shortened.
 MIN_TRIMMABLE_CODE_LEN_ = 6
@@ -229,38 +222,6 @@ def isFull(code):
     return True
 
 
-def locationToIntegers(latitude, longitude):
-    """
-    Convert location in degrees into the integer representations.
-
-    This function is exposed for testing purposes and should not be called
-    directly.
-
-    Args:
-      latitude: Latitude in degrees.
-      longitude: Longitude in degrees.
-    Return:
-      A tuple of the [latitude, longitude] values as integers.
-    """
-    latVal = int(math.floor(latitude * FINAL_LAT_PRECISION_))
-    latVal += LATITUDE_MAX_ * FINAL_LAT_PRECISION_
-    if latVal < 0:
-        latVal = 0
-    elif latVal >= 2 * LATITUDE_MAX_ * FINAL_LAT_PRECISION_:
-        latVal = 2 * LATITUDE_MAX_ * FINAL_LAT_PRECISION_ - 1
-
-    lngVal = int(math.floor(longitude * FINAL_LNG_PRECISION_))
-    lngVal += LONGITUDE_MAX_ * FINAL_LNG_PRECISION_
-    if lngVal < 0:
-        # Python's % operator differs from other languages in that it returns
-        # the same sign as the divisor. This means we don't need to add the
-        # range to the result.
-        lngVal = lngVal % (2 * LONGITUDE_MAX_ * FINAL_LNG_PRECISION_)
-    elif lngVal >= 2 * LONGITUDE_MAX_ * FINAL_LNG_PRECISION_:
-        lngVal = lngVal % (2 * LONGITUDE_MAX_ * FINAL_LNG_PRECISION_)
-    return (latVal, lngVal)
-
-
 def encode(latitude, longitude, codeLength=PAIR_CODE_LENGTH_):
     """
     Encode a location into an Open Location Code.
@@ -278,24 +239,28 @@ def encode(latitude, longitude, codeLength=PAIR_CODE_LENGTH_):
       codeLength: The number of significant digits in the output code, not
           including any separator characters.
     """
-    (latInt, lngInt) = locationToIntegers(latitude, longitude)
-    return encodeIntegers(latInt, lngInt, codeLength)
-
-
-def encodeIntegers(latVal, lngVal, codeLength):
-    """
-    Encode a location, as two integer values, into a code.
-
-    This function is exposed for testing purposes and should not be called
-    directly.
-    """
-    if codeLength < MIN_DIGIT_COUNT_ or (codeLength < PAIR_CODE_LENGTH_ and
-                                         codeLength % 2 == 1):
-        raise ValueError('Invalid Open Location Code length - ' +
-                         str(codeLength))
+    if codeLength < 2 or (codeLength < PAIR_CODE_LENGTH_ and codeLength % 2 == 1):
+        raise ValueError('Invalid Open Location Code length - ' + str(codeLength))
     codeLength = min(codeLength, MAX_DIGIT_COUNT_)
-    # Initialise the code string.
+    # Ensure that latitude and longitude are valid.
+    latitude = clipLatitude(latitude)
+    longitude = normalizeLongitude(longitude)
+    # Latitude 90 needs to be adjusted to be just less, so the returned code
+    # can also be decoded.
+    if latitude == 90:
+        latitude = latitude - computeLatitudePrecision(codeLength)
     code = ''
+
+    # Compute the code.
+    # This approach converts each value to an integer after multiplying it by
+    # the final precision. This allows us to use only integer operations, so
+    # avoiding any accumulation of floating point representation errors.
+
+    # Multiply values by their precision and convert to positive.
+    # Force to integers so the division operations will have integer results.
+    # Note: Python requires rounding before truncating to ensure precision!
+    latVal = int(round((latitude + LATITUDE_MAX_) * FINAL_LAT_PRECISION_, 6))
+    lngVal = int(round((longitude + LONGITUDE_MAX_) * FINAL_LNG_PRECISION_, 6))
 
     # Compute the grid part of the code if necessary.
     if codeLength > PAIR_CODE_LENGTH_:
@@ -324,8 +289,7 @@ def encodeIntegers(latVal, lngVal, codeLength):
         return code[0:codeLength + 1]
 
     # Pad and return the code.
-    return code[0:codeLength] + ''.zfill(SEPARATOR_POSITION_ -
-                                         codeLength) + SEPARATOR_
+    return code[0:codeLength] + ''.zfill(SEPARATOR_POSITION_ - codeLength) + SEPARATOR_
 
 
 def decode(code):
@@ -441,13 +405,11 @@ def recoverNearest(code, referenceLatitude, referenceLongitude):
     # How many degrees latitude is the code from the reference? If it is more
     # than half the resolution, we need to move it north or south but keep it
     # within -90 to 90 degrees.
-    if (referenceLatitude + halfResolution < codeArea.latitudeCenter and
-            codeArea.latitudeCenter - resolution >= -LATITUDE_MAX_):
+    if (referenceLatitude + halfResolution < codeArea.latitudeCenter and codeArea.latitudeCenter - resolution >= -LATITUDE_MAX_):
         # If the proposed code is more than half a cell north of the reference location,
         # it's too far, and the best match will be one cell south.
         codeArea.latitudeCenter -= resolution
-    elif (referenceLatitude - halfResolution > codeArea.latitudeCenter and
-          codeArea.latitudeCenter + resolution <= LATITUDE_MAX_):
+    elif (referenceLatitude - halfResolution > codeArea.latitudeCenter and codeArea.latitudeCenter + resolution <= LATITUDE_MAX_):
         # If the proposed code is more than half a cell south of the reference location,
         # it's too far, and the best match will be one cell north.
         codeArea.latitudeCenter += resolution
@@ -490,8 +452,7 @@ def shorten(code, latitude, longitude):
     code = code.upper()
     codeArea = decode(code)
     if codeArea.codeLength < MIN_TRIMMABLE_CODE_LEN_:
-        raise ValueError('Code length must be at least ' +
-                         MIN_TRIMMABLE_CODE_LEN_)
+        raise ValueError('Code length must be at least ' + MIN_TRIMMABLE_CODE_LEN_)
     # Ensure that latitude and longitude are valid.
     latitude = clipLatitude(latitude)
     longitude = normalizeLongitude(longitude)
@@ -558,7 +519,6 @@ class CodeArea(object):
        code_length: The number of significant characters that were in the code.
            This excludes the separator.
     """
-
     def __init__(self, latitudeLo, longitudeLo, latitudeHi, longitudeHi,
                  codeLength):
         self.latitudeLo = latitudeLo
@@ -581,9 +541,11 @@ class CodeArea(object):
     def latlng(self):
         return [self.latitudeCenter, self.longitudeCenter]
 
+
 ################
 # Added by Vgrid
 ################
+
 
 def olc_to_latlon(olc_id):
     code_area = decode(olc_id)
