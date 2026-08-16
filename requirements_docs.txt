@@ -8,7 +8,7 @@ mkdocs>=1.6.1,<2.0.0
 mkdocs-git-revision-date-localized-plugin
 mkdocs-git-revision-date-plugin
 mkdocs-jupyter>=0.26.3
-mkdocs-material>=9.7.6
+mkdocs-material>=9.7.6,<10
 mkdocs-pdf-export-plugin
 mkdocstrings
 mkdocstrings-crystal
