@@ -158,7 +158,7 @@ a5inspect()
 </div>
 
 
-### Visualization of DGGS IPQ Compactness visualized from DGGS Inspect
+### Distribution of DGGS IPQ Compactness visualized from DGGS Inspect
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/a5_compactness.png">
 </div>
