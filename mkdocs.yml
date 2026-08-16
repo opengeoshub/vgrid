@@ -60,7 +60,7 @@ plugins:
                   "changelog_update.py",
               ]
           # Uncomment and modify the line below to execute only specific notebooks
-          # execute_include: ["notebooks/00_intro.ipynb", "notebooks/01_h3.ipynb"]
+          # execute_include: ["notebooks/01_h3.ipynb"]
 
 markdown_extensions:
     - admonition
@@ -96,9 +96,8 @@ extra_javascript:
 nav:
     - Home: index.md
     - Installation: installation.md
-    - Introduction: notebooks/00_intro.ipynb
+    - Introduction: introduction.md
     - Notebooks:
-          - notebooks/00_intro.ipynb
           - notebooks/01_h3.ipynb
           - notebooks/02_s2.ipynb
           - notebooks/03_a5.ipynb
