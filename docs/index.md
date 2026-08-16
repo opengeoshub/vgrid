@@ -25,7 +25,15 @@ For an interactive demo, visit the [Vgrid Homepage](https://vgrid.vn).
 [![image](https://static.pepy.tech/badge/vgrid)](https://pepy.tech/project/vgrid)
 [![image](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### References:
+## Citation
+
+If you use Vgrid DGGS in your work, please cite it. Vgrid is archived on [Zenodo](https://zenodo.org/)
+
+[![DOI](https://zenodo.org/badge/1251638045.svg)](https://doi.org/10.5281/zenodo.21717224)
+
+### Acknowledgements
+Vgrid is built upon free and open-source software and would like to acknowledge the maintainers and contributors of the following projects, together with the many transitive dependencies that make them possible.
+
 - [h3-py](https://github.com/uber/h3-py) by [Uber](https://github.com/uber).
 - [s2sphere](https://github.com/sidewalklabs/s2sphere) by [Sidewalk Labs](https://github.com/sidewalklabs).
 - [a5-py](https://github.com/felixpalmer/a5-py) by [Felix Palmer](https://github.com/felixpalmer) and [Thang Quach](https://github.com/thangqd).
@@ -37,6 +45,7 @@ For an interactive demo, visit the [Vgrid Homepage](https://vgrid.vn).
 - [dggrid4py](https://github.com/allixender/dggrid4py) by [Alex Kmoch](https://github.com/allixender).
 - [QTM](https://github.com/opengeoshub/vgrid/blob/main/vgrid/dggs/qtm.py) by [Thang Quach](https://github.com/thangqd), with reference to [QTM](https://github.com/paulojraposo/QTM) by [Paulo Raposo](https://github.com/paulojraposo).
 - [Lat Lon Tools QGIS Plugin](https://github.com/hamiltoncj/qgis-latlontools-plugin) by [Calvin Hamilton](https://github.com/hamiltoncj).
+- [geohash](https://github.com/hkwi/python-geohash/blob/master/geohash.py) by [Hiroaki Kawai](https://github.com/hkwi).
 - [gars-field](https://github.com/corteva/gars-field) by [Corteva Agriscience](https://github.com/corteva).
 - [Tilecode & Quadkey](https://github.com/opengeoshub/vgrid/blob/main/vgrid/dggs/tilecode.py) by [Thang Quach](https://github.com/thangqd), utilizing [mercantile](https://github.com/mapbox/mercantile) by [Mapbox](https://github.com/mapbox).
 - [antimeridian](https://www.gadom.ski/antimeridian) by [gadomski](https://github.com/gadomski/antimeridian).
@@ -51,6 +60,11 @@ For an interactive demo, visit the [Vgrid Homepage](https://vgrid.vn).
 <p align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs_norm_area.png">
 </p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs_norm_area_distribution.png">
+</p>
+
 
 ##  IPQ compactness distribution over popular geodesic DGGS
 
