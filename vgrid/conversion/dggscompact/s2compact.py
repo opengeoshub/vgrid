@@ -181,7 +181,7 @@ def s2expand(
     """
     Expand (uncompact) S2 cells to a target resolution.
 
-    Expands S2 cells to their children at the specified resolution. The target resolution
+    Expands S2 cells using CellUnion.denormalize(). The target resolution
     must be greater than or equal to the maximum resolution of the input cells.
 
     Parameters
@@ -241,13 +241,15 @@ def s2expand(
         if resolution < max_res:
             print(f"Target expand resolution ({resolution}) must >= {max_res}.")
             return None
-        # Expand each cell to the target resolution
-        expanded_cells = []
-        for cell in s2_cells:
-            if cell.level() >= resolution:
-                expanded_cells.append(cell)
-            else:
-                expanded_cells.extend(cell.children(resolution))
+        # Previous expand used CellId.children() per cell:
+        # expanded_cells = []
+        # for cell in s2_cells:
+        #     if cell.level() >= resolution:
+        #         expanded_cells.append(cell)
+        #     else:
+        #         expanded_cells.extend(cell.children(resolution))
+        covering = s2.CellUnion(s2_cells, raw=False)
+        expanded_cells = covering.denormalize(resolution, 1)
         s2_tokens_expand = [cell_id.to_token() for cell_id in expanded_cells]
     except Exception:
         raise Exception(
