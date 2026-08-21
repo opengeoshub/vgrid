@@ -86,6 +86,10 @@ As shapes become more irregular or elongated, their compactness decreases toward
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs_ipq.png">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggs_ipq_distribution.png">
+</p>
+
 ##  Convex hull compactness distribution over popular geodesic DGGS
 
 $$C_{CVH} = \frac{A}{A_{CVH}}$$

@@ -270,7 +270,10 @@ def dggsinspect_cli():
 
 
 def dggsboxplot(
-    parquet_folder: str = ".", y_column: str = "norm_area", y_lim: tuple | None = None
+    parquet_folder: str = ".",
+    y_column: str = "norm_area",
+    y_lim: tuple | None = None,
+    x_rotation: float = 45,
 ) -> pd.DataFrame:
     """
     Create a seaborn boxplot from DGGS inspection parquet files in a folder.
@@ -281,6 +284,7 @@ def dggsboxplot(
         y_column (str): Column name to plot on y-axis (default: ``"norm_area"``)
         y_lim (tuple): Y-axis limits as (min, max). Defaults to (0.5, 1.3) for
             ``norm_area`` and (0.5, 1.0) for ``ipq``.
+        x_rotation (float): X-axis label rotation in degrees (default: ``45``).
 
     Returns:
         pd.DataFrame: Summary statistics dataframe grouped by DGGS type
@@ -361,8 +365,8 @@ def dggsboxplot(
     )
 
     plt.xticks(
-        rotation=90,
-        horizontalalignment="center",
+        rotation=x_rotation,
+        horizontalalignment="right" if x_rotation else "center",
         fontweight="light",
         fontsize="xx-large",
     )
@@ -422,6 +426,7 @@ def dggsboxplot_cli():
       --y-column: Column name to plot on y-axis (default: norm_area)
       --y-min: Minimum y-axis value (default: column-specific)
       --y-max: Maximum y-axis value (default: column-specific)
+      --x-rotation: X-axis label rotation in degrees (default: 35)
     """
 
     parser = argparse.ArgumentParser(
@@ -455,6 +460,13 @@ def dggsboxplot_cli():
         default=None,
         help="Maximum y-axis value (default: 1.3 for norm_area, 1.0 for ipq)",
     )
+    parser.add_argument(
+        "-xrot",
+        "--x-rotation",
+        type=float,
+        default=35,
+        help="X-axis label rotation in degrees (default: 35)",
+    )
 
     args = parser.parse_args()
 
@@ -477,10 +489,18 @@ def dggsboxplot_cli():
 
 
 def dggsboxplot_folder(
-    folder: str = ".", y_column: str = "norm_area", y_lim: tuple | None = None
+    folder: str = ".",
+    y_column: str = "norm_area",
+    y_lim: tuple | None = None,
+    x_rotation: float = 35,
 ) -> pd.DataFrame:
     """Alias for ``dggsboxplot`` (kept for backward compatibility)."""
-    return dggsboxplot(parquet_folder=folder, y_column=y_column, y_lim=y_lim)
+    return dggsboxplot(
+        parquet_folder=folder,
+        y_column=y_column,
+        y_lim=y_lim,
+        x_rotation=x_rotation,
+    )
 
 
 def dggsboxplot_folder_cli():
@@ -527,11 +547,12 @@ def _load_norm_area_panel(parquet_path: str, y_column: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def dggs_norm_area_distribution(
+def dggs_distribution(
     parquet_folder: str = ".",
     y_column: str = "norm_area",
     y_lim: tuple | None = None,
     crs: str = "proj=moll",
+    col_num: int = 2,
 ):
     """
     Plot Mollweide maps of area distortion from DGGS inspection parquet files.
@@ -548,7 +569,10 @@ def dggs_norm_area_distribution(
         y_lim: Color limits as (min, max). Defaults to the same limits as
             ``dggsboxplot`` for ``y_column``.
         crs: Plot CRS (default: Mollweide).
+        col_num: Number of map panels per row (default: 2).
     """
+    if col_num < 1:
+        raise ValueError("col_num must be >= 1")
     if y_lim is None:
         y_lim = _default_y_lim(y_column)
     vmin, vmax = y_lim
@@ -580,7 +604,7 @@ def dggs_norm_area_distribution(
         raise ValueError(f"No valid panels could be built from: {parquet_folder}")
 
     n = len(panels)
-    ncols = min(3, n)
+    ncols = min(col_num, n)
     nrows = math.ceil(n / ncols)
 
     world = gpd.read_file(_WORLD_COUNTRIES_URL).to_crs(crs)
@@ -591,7 +615,7 @@ def dggs_norm_area_distribution(
     left, right, wspace = 0.01, 0.99, 0.05
     title_height = 0.35
     row_gap = 0.55
-    top_margin = 0.7
+    top_margin = 0.15
     bottom_margin = 1.0
 
     fig_width = panel_width * ncols
@@ -647,13 +671,6 @@ def dggs_norm_area_distribution(
     cbar.ax.tick_params(labelsize=12)
     cbar.set_ticks(np.linspace(vmin, vmax, 9))
 
-    fig.suptitle(
-        "DGGS Area Distortion Distribution",
-        fontsize=15,
-        fontweight="bold",
-        y=1 - 0.28 / fig_height,
-    )
-
     output_file = f"dggs_{y_column}_distribution.png"
     fig.savefig(output_file, dpi=300)
     plt.show()
@@ -661,9 +678,9 @@ def dggs_norm_area_distribution(
     return output_file
 
 
-def dggs_norm_area_distribution_cli():
+def dggs_distribution_cli():
     """
-    Command-line interface for DGGS normalized-area distribution maps.
+    Command-line interface for DGGS distribution maps.
 
     Each panel uses the maximum resolution present in its parquet file.
 
@@ -671,6 +688,7 @@ def dggs_norm_area_distribution_cli():
       --folder: Folder containing parquet files (default: current folder)
       --y-column: Column to map (default: norm_area)
       --y-min / --y-max: Color limits (default: column-specific)
+      --col-num: Number of map panels per row (default: 2)
     """
     parser = argparse.ArgumentParser(
         description="Plot DGGS area distortion maps from inspection parquet files"
@@ -703,6 +721,13 @@ def dggs_norm_area_distribution_cli():
         default=None,
         help="Maximum color value (default: column-specific)",
     )
+    parser.add_argument(
+        "-col",
+        "--col-num",
+        type=int,
+        default=2,
+        help="Number of map panels per row (default: 2)",
+    )
     args = parser.parse_args()
 
     try:
@@ -713,10 +738,11 @@ def dggs_norm_area_distribution_cli():
                 default_min if args.ymin is None else args.ymin,
                 default_max if args.ymax is None else args.ymax,
             )
-        dggs_norm_area_distribution(
+        dggs_distribution(
             parquet_folder=args.folder,
             y_column=args.y_column,
             y_lim=y_lim,
+            col_num=args.col_num,
         )
     except Exception as e:
         print(f"Error: {e}")
