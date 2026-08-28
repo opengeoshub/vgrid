@@ -27,6 +27,7 @@ from vgrid.utils.geometry import (
     nearest_neighbour_from_grid,
 )
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_h3_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -95,12 +96,13 @@ def _raster2h3_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     h3_gdf = generate_grid(
-        footprint, "h3", resolution, fix_antimeridian=fix_antimeridian
+        footprint, "h3", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, h3_gdf)
+    return nearest_neighbour_from_grid(raster_path, h3_gdf, verbose=verbose)
 
 
 def _raster2h3_binning(
@@ -108,6 +110,7 @@ def _raster2h3_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     """Bin pixel centroids into H3 cells and aggregate band values with ``stats``."""
 
@@ -115,12 +118,13 @@ def _raster2h3_binning(
         return h3.latlng_to_cell(lat, lon, resolution)
 
     h3_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to H3"
+        raster_path, cell_id, stats, desc="Binning raster blocks to H3", verbose=verbose
     )
 
     properties = []
     for h3_id, acc in tqdm(
-        h3_acc.items(), desc="Converting raster to H3", unit=" cells"
+        h3_acc.items(), desc="Converting raster to H3", unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = h32geo(h3_id, fix_antimeridian=fix_antimeridian)
         num_edges = 6
@@ -147,6 +151,7 @@ def raster2h3(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to H3 DGGS format.
@@ -182,11 +187,11 @@ def raster2h3(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2h3_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2h3_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -252,6 +257,7 @@ def raster2h3_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -264,6 +270,7 @@ def raster2h3_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

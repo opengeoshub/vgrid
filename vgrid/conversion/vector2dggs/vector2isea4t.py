@@ -27,6 +27,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
 )
 import platform
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
@@ -292,6 +293,7 @@ def geodataframe2isea4t(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to ISEA4T grid cells.
@@ -356,7 +358,7 @@ def geodataframe2isea4t(
 
     isea4t_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -423,6 +425,7 @@ def vector2isea4t(
     output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -465,6 +468,7 @@ def vector2isea4t(
         topology,
         include_properties,
         fix_antimeridian,
+        verbose=verbose,
     )
 
     output_name = None
@@ -545,6 +549,7 @@ def vector2isea4t_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     # Allow running on all platforms
@@ -559,6 +564,7 @@ def vector2isea4t_cli():
                 output_format=args.output_format,
                 include_properties=args.include_properties,
                 fix_antimeridian=args.fix_antimeridian,
+                verbose=args.verbose,
             )
             if args.output_format in STRUCTURED_FORMATS:
                 print(result)

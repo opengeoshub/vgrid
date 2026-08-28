@@ -14,6 +14,7 @@ import argparse
 from tqdm import tqdm
 from vgrid.stats.rhealpixstats import rhealpix_metrics
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_rhealpix_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -119,12 +120,13 @@ def _raster2rhealpix_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "rhealpix", resolution, fix_antimeridian=fix_antimeridian
+        footprint, "rhealpix", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2rhealpix_binning(
@@ -132,12 +134,13 @@ def _raster2rhealpix_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2rhealpix(lat, lon, resolution)
 
     rhealpix_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to rHEALPix"
+        raster_path, cell_id, stats, desc="Binning raster blocks to rHEALPix", verbose=verbose
     )
 
     properties = []
@@ -145,6 +148,7 @@ def _raster2rhealpix_binning(
         rhealpix_acc.items(),
         desc="Converting raster to rHEALPix",
         unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = rhealpix2geo(rhealpix_id, fix_antimeridian=fix_antimeridian)
         rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
@@ -182,6 +186,7 @@ def raster2rhealpix(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to RHEALPix DGGS format.
@@ -245,11 +250,11 @@ def raster2rhealpix(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2rhealpix_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2rhealpix_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -314,6 +319,7 @@ def raster2rhealpix_cli():
         default="mean",
         help="Band statistic for binning method only",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         raise FileNotFoundError(f"The file {args.raster} does not exist.")
@@ -325,6 +331,7 @@ def raster2rhealpix_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

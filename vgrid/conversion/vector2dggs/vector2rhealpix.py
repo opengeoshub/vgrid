@@ -34,6 +34,7 @@ from vgrid.utils.io import (
     validate_rhealpix_resolution,
     process_input_data_vector,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 from vgrid.utils.io import DGGS_TYPES
@@ -380,6 +381,7 @@ def geodataframe2rhealpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to rHEALPix grid cells.
@@ -444,7 +446,7 @@ def geodataframe2rhealpix(
 
     rhealpix_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -507,6 +509,7 @@ def vector2rhealpix(
     output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -550,6 +553,7 @@ def vector2rhealpix(
         topology,
         include_properties,
         fix_antimeridian=fix_antimeridian,
+        verbose=verbose,
     )
 
     output_name = None
@@ -628,6 +632,7 @@ def vector2rhealpix_cli():
         ],
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -640,6 +645,7 @@ def vector2rhealpix_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

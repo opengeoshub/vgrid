@@ -20,6 +20,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_rhealpix_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
 from vgrid.conversion.dggscompact.rhealpixcompact import rhealpix_compact
@@ -45,19 +46,19 @@ def _rhealpix_row_from_cell_id(cell_id, fix_antimeridian=None):
     )
 
 
-def rhealpix_grid(resolution, fix_antimeridian=None, compact=False):
+def rhealpix_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_rhealpix_resolution(resolution)
     cell_ids = [str(rhealpix_cell) for rhealpix_cell in rhealpix_dggs.grid(resolution)]
     if compact:
         cell_ids = rhealpix_compact(cell_ids)
 
     rhealpix_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells", disable=not verbose):
         rhealpix_rows.append(_rhealpix_row_from_cell_id(cell_id, fix_antimeridian))
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
+def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_rhealpix_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     bbox_polygon = box(min_lon, min_lat, max_lon, max_lat)
@@ -109,7 +110,7 @@ def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=F
     if compact:
         cell_ids = rhealpix_compact(cell_ids)
 
-    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells", disable=not verbose):
         rhealpix_rows.append(_rhealpix_row_from_cell_id(cell_id, fix_antimeridian))
 
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
@@ -126,11 +127,11 @@ def rhealpix_grid_ids(resolution, compact=False):
     return cell_ids
 
 
-def rhealpix_grid_within_bbox_ids(resolution, bbox, compact=False):
+def rhealpix_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of rHEALPix cell IDs intersecting the given bounding box at a given resolution.
     """
-    gdf = rhealpix_grid_within_bbox(resolution, bbox, compact=compact)
+    gdf = rhealpix_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
     if gdf.empty:
         return []
     return gdf["rhealpix"].tolist()
@@ -145,6 +146,7 @@ def rhealpixgrid(
     output_format="gpd",
     fix_antimeridian=None,
     compact=False,
+    verbose=True,
 ):
     """
     Generate rHEALPix grid for pure Python usage.
@@ -168,7 +170,7 @@ def rhealpixgrid(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
         gdf = rhealpix_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
     else:
         gdf = rhealpix_grid_within_bbox(
@@ -176,6 +178,7 @@ def rhealpixgrid(
             bbox,
             fix_antimeridian=fix_antimeridian,
             compact=compact,
+            verbose=verbose,
         )
     output_name = f"rhealpix_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -223,6 +226,7 @@ def rhealpixgrid_cli():
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
@@ -235,6 +239,7 @@ def rhealpixgrid_cli():
             output_format,
             fix_antimeridian=fix_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if output_format in STRUCTURED_FORMATS:
             print(result)

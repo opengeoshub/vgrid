@@ -20,6 +20,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_tilecode_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.tilecodecompact import tilecode_compact
 from vgrid.dggs.tilecode import tilecode_resolution
@@ -34,7 +35,7 @@ def _tilecode_ids_for_bbox(resolution, bbox):
     ]
 
 
-def tilecode_grid(resolution, bbox, compact=False):
+def tilecode_grid(resolution, bbox, compact=False, verbose=True):
     resolution = validate_tilecode_resolution(resolution)
     tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
     if compact:
@@ -42,7 +43,7 @@ def tilecode_grid(resolution, bbox, compact=False):
 
     tilecode_records = []
     for tilecode_id in tqdm(
-        tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells"
+        tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells", disable=not verbose
     ):
         cell_polygon = tilecode2geo(tilecode_id)
         if cell_polygon is None or cell_polygon.is_empty:
@@ -79,7 +80,7 @@ def tilecode_grid_within_bbox_ids(resolution, bbox, compact=False):
     return tilecode_ids
 
 
-def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False):
+def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     """
     Generate Tilecode grid for pure Python usage.
 
@@ -100,7 +101,7 @@ def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False):
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = tilecode_grid(resolution, bbox, compact=compact)
+    gdf = tilecode_grid(resolution, bbox, compact=compact, verbose=verbose)
 
     output_name = f"tilecode_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -131,6 +132,7 @@ def tilecodegrid_cli():
         action="store_true",
         help="Enable Tilecode compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180.0, -85.05112878, 180.0, 85.05112878]
@@ -146,7 +148,7 @@ def tilecodegrid_cli():
             return
     try:
         result = tilecodegrid(
-            resolution, bbox, args.output_format, compact=args.compact
+            resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

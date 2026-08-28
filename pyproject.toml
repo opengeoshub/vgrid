@@ -15,12 +15,12 @@ authors = [
 ]
 urls = {Homepage = "https://github.com/opengeoshub/vgrid"}
 dependencies = [
-    "tqdm>=4.67.1",
-    "h3>=4.4.2",
-    "pya5>=0.8.0",
+    "tqdm>=4.70.0",
+    "h3>=4.5.0",
+    "pya5>=0.9.0",
     "dggal~=0.0.6",
     "dggrid4py>=0.5.3",
-    # "rhealpixdggs>=0.5.13", # To avoid conflicts between dggrid4py and rhealpixdggs
+    # "rhealpixdggs>=0.6.0", # To avoid conflicts between dggrid4py and rhealpixdggs
     "ease-dggs>=0.1.0",
     "gars-field>=0.3.3",
     "geopandas",

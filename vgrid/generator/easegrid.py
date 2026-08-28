@@ -22,6 +22,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_ease_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.easecompact import ease_compact
 from vgrid.conversion.dggs2geo.ease2geo import ease2geo
@@ -121,27 +122,27 @@ def ease_grid_within_bbox_ids(resolution, bbox, compact=False):
     return cells
 
 
-def ease_grid(resolution, compact=False):
+def ease_grid(resolution, compact=False, verbose=True):
     resolution = validate_ease_resolution(resolution)
     cell_ids = ease_grid_ids(resolution, compact=compact)
     ease_rows = []
     for cell_id in tqdm(
-        cell_ids, total=len(cell_ids), desc="Generating EASE DGGS", unit=" cells"
+        cell_ids, total=len(cell_ids), desc="Generating EASE DGGS", unit=" cells", disable=not verbose
     ):
         ease_rows.append(_ease_row_from_id(cell_id))
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def ease_grid_within_bbox(resolution, bbox, compact=False):
+def ease_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
     resolution = validate_ease_resolution(resolution)
     cell_ids = ease_grid_within_bbox_ids(resolution, bbox, compact=compact)
     ease_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating EASE DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating EASE DGGS", unit=" cells", disable=not verbose):
         ease_rows.append(_ease_row_from_id(cell_id))
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def easegrid(resolution, bbox=None, output_format="gpd", compact=False):
+def easegrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     if bbox is None:
         bbox = [min_longitude, min_lattitude, max_longitude, max_latitude]
         level_spec = levels_specs[resolution]
@@ -152,9 +153,9 @@ def easegrid(resolution, bbox=None, output_format="gpd", compact=False):
             raise ValueError(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = ease_grid(resolution, compact=compact)
+        gdf = ease_grid(resolution, compact=compact, verbose=verbose)
     else:
-        gdf = ease_grid_within_bbox(resolution, bbox, compact=compact)
+        gdf = ease_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
     output_name = f"ease_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -184,6 +185,7 @@ def easegrid_cli():
         action="store_true",
         help="Enable EASE compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = (
@@ -192,7 +194,7 @@ def easegrid_cli():
         else [min_longitude, min_lattitude, max_longitude, max_latitude]
     )
     try:
-        result = easegrid(resolution, bbox, args.output_format, compact=args.compact)
+        result = easegrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

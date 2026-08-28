@@ -20,7 +20,7 @@ from shapely.ops import transform
 from pyproj import CRS, Transformer
 from tqdm import tqdm
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import validate_mgrs_resolution, convert_to_output_format
+from vgrid.utils.io import validate_mgrs_resolution, convert_to_output_format, add_verbose_argument
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import mgrs
 
@@ -31,7 +31,7 @@ def is_valid_gzd(gzd):
     return bool(re.match(pattern, gzd))
 
 
-def mgrs_grid(gzd, resolution):
+def mgrs_grid(gzd, resolution, verbose=True):
     resolution = validate_mgrs_resolution(resolution)
     # Reference: https://www.maptools.com/tutorials/utm/details
     cell_size = 100_000 // (10**resolution)
@@ -73,7 +73,7 @@ def mgrs_grid(gzd, resolution):
     x_coords = np.arange(min_x, max_x, cell_size)
     y_coords = np.arange(min_y, max_y, cell_size)
     num_cells = len(x_coords) * len(y_coords)
-    with tqdm(total=num_cells, desc="Generating MGRS DGGS", unit=" cells") as pbar:
+    with tqdm(total=num_cells, desc="Generating MGRS DGGS", unit=" cells", disable=not verbose) as pbar:
         for x in x_coords:
             for y in y_coords:
                 cell_polygon_utm = Polygon(
@@ -120,7 +120,7 @@ def mgrs_grid(gzd, resolution):
     return gpd.GeoDataFrame(mgrs_records, geometry="geometry", crs="EPSG:4326")
 
 
-def mgrs_grid_ids(gzd, resolution):
+def mgrs_grid_ids(gzd, resolution, verbose=True):
     """
     Return a list of MGRS IDs for a given GZD and resolution.
     """
@@ -165,7 +165,7 @@ def mgrs_grid_ids(gzd, resolution):
     x_coords = np.arange(min_x, max_x, cell_size)
     y_coords = np.arange(min_y, max_y, cell_size)
     num_cells = len(x_coords) * len(y_coords)
-    with tqdm(total=num_cells, desc="Generating MGRS IDs", unit=" cells") as pbar:
+    with tqdm(total=num_cells, desc="Generating MGRS IDs", unit=" cells", disable=not verbose) as pbar:
         for x in x_coords:
             for y in y_coords:
                 cell_polygon_utm = Polygon(
@@ -203,7 +203,7 @@ def mgrs_grid_ids(gzd, resolution):
     return ids
 
 
-def mgrsgrid(gzd, resolution, output_format="gpd"):
+def mgrsgrid(gzd, resolution, output_format="gpd", verbose=True):
     """
     Generate MGRS grid for pure Python usage.
 
@@ -217,7 +217,7 @@ def mgrsgrid(gzd, resolution, output_format="gpd"):
     """
     if not is_valid_gzd(gzd):
         raise ValueError("Invalid GZD. Please input a valid GZD.")
-    gdf = mgrs_grid(gzd, resolution)
+    gdf = mgrs_grid(gzd, resolution, verbose=verbose)
 
     output_name = f"mgrs_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -247,6 +247,7 @@ def mgrsgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     gzd = args.gzd
@@ -256,7 +257,7 @@ def mgrsgrid_cli():
     resolution = args.resolution
 
     try:
-        result = mgrsgrid(gzd, resolution, args.output_format)
+        result = mgrsgrid(gzd, resolution, args.output_format, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

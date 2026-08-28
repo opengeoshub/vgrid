@@ -32,6 +32,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
 )
 
 from vgrid.conversion.latlon2dggs import latlon2a5
@@ -233,6 +234,7 @@ def polygon2a5(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -301,7 +303,7 @@ def polygon2a5(
                             queue.append(neighbor_id)
 
             for cell_id, cell_polygon in tqdm(
-                intersecting_cells.items(), desc="Generating A5 cells", unit=" cells"
+                intersecting_cells.items(), desc="Generating A5 cells", unit=" cells", disable=not verbose
             ):
                 if check_predicate(cell_polygon, polygon, predicate):
                     cell_hex = a5.u64_to_hex(cell_id)
@@ -450,6 +452,7 @@ def geodataframe2a5(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to A5 grid cells.
@@ -513,7 +516,7 @@ def geodataframe2a5(
 
     a5_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -564,6 +567,7 @@ def geodataframe2a5(
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
+                    verbose=verbose,
                 )
             )
             # polygon2a5_new only supports predicate "centroid_within"
@@ -581,6 +585,7 @@ def vector2a5(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -625,6 +630,7 @@ def vector2a5(
         include_properties,
         options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -705,6 +711,7 @@ def vector2a5_cli():
         "Example: '{\"segments\": 1000}'",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -727,6 +734,7 @@ def vector2a5_cli():
             include_properties=args.include_properties,
             options=options,
             split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

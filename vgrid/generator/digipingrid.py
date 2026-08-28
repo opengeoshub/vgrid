@@ -28,6 +28,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_digipin_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.digipincompact import digipin_compact
 from vgrid.dggs.digipin import digipin_resolution
@@ -43,7 +44,7 @@ def _digipin_row_from_id(digipin_code):
     )
 
 
-def digipin_grid(resolution, bbox=None, compact=False):
+def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
     """
     Generate DIGIPIN grid at the given resolution.
 
@@ -68,7 +69,7 @@ def digipin_grid(resolution, bbox=None, compact=False):
 
     digipin_records = []
     for digipin_code in tqdm(
-        digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells"
+        digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells", disable=not verbose
     ):
         try:
             digipin_records.append(_digipin_row_from_id(digipin_code))
@@ -148,7 +149,7 @@ def digipin_grid_ids(resolution, bbox=None, compact=False):
     return ids
 
 
-def digipingrid(resolution, bbox=None, output_format="gpd", compact=False):
+def digipingrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     """
     Generate DIGIPIN grid for pure Python usage.
 
@@ -193,7 +194,7 @@ def digipingrid(resolution, bbox=None, output_format="gpd", compact=False):
                 f"which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = digipin_grid(resolution, bbox=bbox, compact=compact)
+    gdf = digipin_grid(resolution, bbox=bbox, compact=compact, verbose=verbose)
 
     output_name = f"digipin_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -229,11 +230,12 @@ def digipingrid_cli():
         action="store_true",
         help="Enable DIGIPIN compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
         result = digipingrid(
-            args.resolution, args.bbox, args.output_format, compact=args.compact
+            args.resolution, args.bbox, args.output_format, compact=args.compact, verbose=args.verbose
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

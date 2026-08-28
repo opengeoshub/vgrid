@@ -17,6 +17,7 @@ import geopandas as gpd
 from a5.core.cell_info import cell_area
 from math import cos, radians
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_a5_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -116,6 +117,7 @@ def _raster2a5_nearest_neighbour(
     resolution,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
@@ -124,8 +126,9 @@ def _raster2a5_nearest_neighbour(
         resolution,
         a5_options=options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2a5_binning(
@@ -134,17 +137,19 @@ def _raster2a5_binning(
     stats,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2a5(lat, lon, resolution)
 
     a5_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to A5"
+        raster_path, cell_id, stats, desc="Binning raster blocks to A5", verbose=verbose
     )
 
     properties = []
     for a5_hex, acc in tqdm(
-        a5_acc.items(), desc="Converting raster to A5", unit=" cells"
+        a5_acc.items(), desc="Converting raster to A5", unit=" cells",
+        disable=not verbose,
     ):
         try:
             cell_polygon = a52geo(
@@ -186,6 +191,7 @@ def raster2a5(
     split_antimeridian=False,
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to A5 DGGS format.
@@ -255,14 +261,14 @@ def raster2a5(
             resolution,
             stats,
             options=options,
-            split_antimeridian=split_antimeridian,
+            split_antimeridian=split_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2a5_nearest_neighbour(
             raster_path,
             resolution,
             options=options,
-            split_antimeridian=split_antimeridian,
+            split_antimeridian=split_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -329,6 +335,7 @@ def raster2a5_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -350,6 +357,7 @@ def raster2a5_cli():
         split_antimeridian=args.split_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

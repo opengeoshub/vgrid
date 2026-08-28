@@ -58,6 +58,7 @@ from shapely.geometry.base import BaseGeometry
 
 from vgrid.utils.geometry import _reproject_for_metric
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     create_dggrid_instance,
     process_input_data_resample,
@@ -370,6 +371,7 @@ def generate_grid(
     aggregate: bool = False,
     dggrid_options: Optional[dict] = None,
     a5_options: Optional[dict] = None,
+    verbose: bool = True,
 ) -> gpd.GeoDataFrame:
     """
     Build a target DGGS GeoDataFrame over the axis-aligned bounds of ``source_gdf``
@@ -381,40 +383,45 @@ def generate_grid(
     bbox = validate_bbox(list(source_gdf.total_bounds))
 
     if to_dggs == "h3":
-        gdf = h3_grid_within_bbox(resolution, bbox, fix_antimeridian=fix_antimeridian)
+        gdf = h3_grid_within_bbox(
+            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+        )
     elif to_dggs == "s2":
-        gdf = s2_grid(resolution, bbox, fix_antimeridian=fix_antimeridian)
+        gdf = s2_grid(
+            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+        )
     elif to_dggs == "a5":
         gdf = a5_grid(
             resolution,
             bbox,
             options=a5_options,
             split_antimeridian=split_antimeridian,
+            verbose=verbose,
         )
     elif to_dggs == "rhealpix":
         gdf = rhealpix_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian
+            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     elif to_dggs == "healpix":
         gdf = healpix_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian
+            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     elif to_dggs == "isea4t":
         if platform.system() != "Windows":
             raise ValueError("isea4t grid generation requires Windows in this build.")
         gdf = isea4t_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian
+            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     elif to_dggs == "qtm":
-        gdf = qtm_grid_within_bbox(resolution, bbox)
+        gdf = qtm_grid_within_bbox(resolution, bbox, verbose=verbose)
     elif to_dggs == "olc":
-        gdf = olc_grid_within_bbox(resolution, bbox)
+        gdf = olc_grid_within_bbox(resolution, bbox, verbose=verbose)
     elif to_dggs == "geohash":
-        gdf = geohash_grid_within_bbox(resolution, bbox)
+        gdf = geohash_grid_within_bbox(resolution, bbox, verbose=verbose)
     elif to_dggs == "tilecode":
-        gdf = tilecode_grid(resolution, bbox)
+        gdf = tilecode_grid(resolution, bbox, verbose=verbose)
     elif to_dggs == "quadkey":
-        gdf = quadkey_grid(resolution, bbox)
+        gdf = quadkey_grid(resolution, bbox, verbose=verbose)
     elif (dt := _dggal_short_type(to_dggs)) is not None:
         dt = validate_dggal_type(dt)
         bbox_t = (float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
@@ -426,6 +433,7 @@ def generate_grid(
             compact=False,
             output_format="gpd",
             split_antimeridian=use_split,
+            verbose=verbose,
         )
         if gdf is None or getattr(gdf, "empty", True):
             raise ValueError(
@@ -500,6 +508,7 @@ def _resampling_area_weighted(
     source_gdf: gpd.GeoDataFrame,
     target_gdf: gpd.GeoDataFrame,
     resample_col: str,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     if source_gdf.empty or target_gdf.empty:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
@@ -533,6 +542,7 @@ def _resampling_area_weighted(
         total=len(joined),
         desc="Area-weighted resampling",
         unit=" cells",
+        disable=not verbose,
     ):
         try:
             source_idx = row["index_right"]
@@ -566,6 +576,7 @@ def _resampling_nearest(
     source_gdf: gpd.GeoDataFrame,
     target_gdf: gpd.GeoDataFrame,
     resample_col: str,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     if source_gdf.empty or target_gdf.empty:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
@@ -612,6 +623,7 @@ def _resampling_nearest(
         total=len(target_indices),
         desc="Nearest neighbor resampling",
         unit=" cells",
+        disable=not verbose,
     ):
         rec = target_gdf.loc[target_idx].to_dict()
         resampled_value = float(nearest_joined.loc[target_idx, resample_col])
@@ -626,6 +638,7 @@ def resampling(
     target_gdf: gpd.GeoDataFrame,
     resample_col: str,
     method: str = "nearest",
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     """
     Transfer ``resample_col`` from source cells onto target cells.
@@ -650,9 +663,13 @@ def resampling(
 
     norm = method.strip().lower().replace("-", "_")
     if norm in ("area_weighted", "area"):
-        return _resampling_area_weighted(source_gdf, target_gdf, resample_col)
+        return _resampling_area_weighted(
+            source_gdf, target_gdf, resample_col, verbose=verbose
+        )
     if norm in ("nearest", "nn", "nearest_neighbour", "nearest_neighbor"):
-        return _resampling_nearest(source_gdf, target_gdf, resample_col)
+        return _resampling_nearest(
+            source_gdf, target_gdf, resample_col, verbose=verbose
+        )
 
     raise ValueError(
         f"Unsupported resampling method {method!r}; use 'area_weighted' or 'nearest'."
@@ -675,6 +692,7 @@ def dggsresample(
     split_antimeridian: bool = False,
     aggregate: bool = False,
     dggrid_options: Optional[dict] = None,
+    verbose: bool = True,
 ) -> Union[gpd.GeoDataFrame, str, dict, list, None]:
     """
     High-level resample: optional automatic resolution (-1), target grid
@@ -754,10 +772,13 @@ def dggsresample(
         aggregate=aggregate,
         dggrid_options=dggrid_options,
         a5_options=a5_options,  # for A5 grid generation
+        verbose=verbose,
     )
 
     if resample_col:
-        target_gdf = resampling(source_gdf, target_gdf, resample_col, method=method)
+        target_gdf = resampling(
+            source_gdf, target_gdf, resample_col, method=method, verbose=verbose
+        )
 
     if output_name is None and output_format in OUTPUT_FORMATS:
         if isinstance(source_dggs, str):
@@ -897,6 +918,7 @@ def dggsresample_cli():
         help="JSON options for A5 grid generation (e.g. '{\"segments\": 1000}')",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     a5_options = None
@@ -931,6 +953,7 @@ def dggsresample_cli():
             aggregate=args.aggregate,
             dggrid_options=dggrid_options,
             a5_options=a5_options,  # for A5 grid generation
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

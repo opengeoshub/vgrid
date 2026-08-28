@@ -27,6 +27,7 @@ from vgrid.utils.io import (
     validate_s2_resolution,
     process_input_data_vector,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import DGGS_TYPES
@@ -297,6 +298,7 @@ def geodataframe2s2(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to S2 grid cells.
@@ -361,7 +363,7 @@ def geodataframe2s2(
 
     s2_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -424,6 +426,7 @@ def vector2s2(
     output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -465,6 +468,7 @@ def vector2s2(
         topology,
         include_properties,
         fix_antimeridian,
+        verbose=verbose,
     )
 
     output_name = None
@@ -543,6 +547,7 @@ def vector2s2_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -555,6 +560,7 @@ def vector2s2_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

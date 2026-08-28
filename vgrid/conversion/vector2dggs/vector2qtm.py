@@ -34,6 +34,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 
@@ -275,6 +276,7 @@ def geodataframe2qtm(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to QTM grid cells.
@@ -330,7 +332,7 @@ def geodataframe2qtm(
 
     qtm_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -389,6 +391,7 @@ def vector2qtm(
     topology=False,
     output_format="gpd",
     include_properties=True,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -419,7 +422,8 @@ def vector2qtm(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2qtm(
-        gdf, resolution, predicate, compact, topology, include_properties
+        gdf, resolution, predicate, compact, topology, include_properties,
+        verbose=verbose,
     )
 
     # Apply compaction if requested
@@ -483,6 +487,7 @@ def vector2qtm_cli():
         help="Output format (default: gpd).",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     args.resolution = validate_qtm_resolution(args.resolution)
     try:
@@ -494,6 +499,7 @@ def vector2qtm_cli():
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

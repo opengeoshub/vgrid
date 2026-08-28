@@ -40,6 +40,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     process_input_data_vector,
     validate_healpix_resolution,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import DGGS_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -221,6 +222,7 @@ def polygon2healpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to HEALPix grid cells.
@@ -247,7 +249,7 @@ def polygon2healpix(
 
         filtered_ids = []
         for uniq_id in tqdm(
-            candidate_ids, desc="Generating HEALPix cells", unit=" cells"
+            candidate_ids, desc="Generating HEALPix cells", unit=" cells", disable=not verbose
         ):
             cell_polygon = healpix2geo(uniq_id, fix_antimeridian=fix_antimeridian)
             if cell_polygon is None or cell_polygon.is_empty:
@@ -278,6 +280,7 @@ def geodataframe2healpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to HEALPix grid cells.
@@ -311,7 +314,7 @@ def geodataframe2healpix(
     resolution = validate_healpix_resolution(resolution)
 
     healpix_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -357,6 +360,7 @@ def geodataframe2healpix(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
 
@@ -374,6 +378,7 @@ def vector2healpix(
     output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -415,6 +420,7 @@ def vector2healpix(
         topology,
         include_properties,
         fix_antimeridian=fix_antimeridian,
+        verbose=verbose,
     )
 
     output_name = None
@@ -491,6 +497,7 @@ def vector2healpix_cli():
         default=None,
         help="Antimeridian fixing method",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -503,6 +510,7 @@ def vector2healpix_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

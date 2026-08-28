@@ -25,6 +25,7 @@ from vgrid.utils.geometry import (
 )
 from vgrid.stats.dggalstats import dggal_metrics
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     validate_dggal_resolution,
     validate_dggal_type,
@@ -91,15 +92,16 @@ def _raster2dggal_nearest_neighbour(
     raster_path: str,
     resolution: int,
     split_antimeridian: bool = False,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
         footprint,
         f"dggal_{dggs_type}",
         resolution,
-        split_antimeridian=split_antimeridian,
+        split_antimeridian=split_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2dggal_binning(
@@ -108,6 +110,7 @@ def _raster2dggal_binning(
     resolution: int,
     stats: str,
     split_antimeridian: bool = False,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         try:
@@ -116,12 +119,13 @@ def _raster2dggal_binning(
             return None
 
     zone_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to DGGAL"
+        raster_path, cell_id, stats, desc="Binning raster blocks to DGGAL", verbose=verbose
     )
 
     properties = []
     for zone_id, acc in tqdm(
-        zone_acc.items(), desc="Converting raster to DGGAL", unit=" cells"
+        zone_acc.items(), desc="Converting raster to DGGAL", unit=" cells",
+        disable=not verbose,
     ):
         try:
             dggs_class_name = DGGAL_TYPES[dggs_type]["class_name"]
@@ -167,6 +171,7 @@ def raster2dggal(
     split_antimeridian: bool = False,
     method: str = "binning",
     stats: str = "mean",
+    verbose=True,
 ):
     """
     Convert raster data to DGGAL DGGS format.
@@ -197,14 +202,14 @@ def raster2dggal(
             raster_path,
             resolution,
             stats,
-            split_antimeridian=split_antimeridian,
+            split_antimeridian=split_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2dggal_nearest_neighbour(
             dggs_type,
             raster_path,
             resolution,
-            split_antimeridian=split_antimeridian,
+            split_antimeridian=split_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -267,6 +272,7 @@ def raster2dggal_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -280,6 +286,7 @@ def raster2dggal_cli():
         split_antimeridian=args.split_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

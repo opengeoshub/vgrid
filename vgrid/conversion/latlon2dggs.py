@@ -539,13 +539,10 @@ def latlon2dggrid_cli():
     """
     Command-line interface for latlon2dggrid.
     """
-    dggs_type = args.dggs_type
-    min_res = DGGRID_TYPES[f"{dggs_type}"]["min_res"]
-    max_res = DGGRID_TYPES[f"{dggs_type}"]["max_res"]
     parser = argparse.ArgumentParser(
         description="Convert Lat, Long to DGGRID cell at a specific Resolution. \
-                                     Usage: latlon2dggrid <lat> <lon> <dggs_type> <res>. \
-                                     Ex: latlon2dggrid  10.775275567242561 106.70679737574993 ISEA7H 13"
+                                     Usage: latlon2dggrid <dggs_type> <lat> <lon> <res>. \
+                                     Ex: latlon2dggrid ISEA7H 10.775275567242561 106.70679737574993 13"
     )
     parser.add_argument(
         "dggs_type",
@@ -558,9 +555,7 @@ def latlon2dggrid_cli():
     parser.add_argument(
         "res",
         type=int,
-        default=DGGRID_TYPES[f"{dggs_type}"]["default_res"],
-        choices=range(min_res, max_res + 1),
-        help=f"Input Resolution [{min_res}..{max_res}]",
+        help="Input Resolution (range depends on dggs_type)",
     )
     parser.add_argument(
         "output_address_type",
@@ -1205,18 +1200,12 @@ def latlon2dggal_cli():
     parser.add_argument(
         "dggs_type", type=str, choices=DGGAL_TYPES.keys(), help="DGGAL type"
     )
-
-    dggs_type = args.dggs_type
-    min_res = DGGAL_TYPES[f"{dggs_type}"]["min_res"]
-    max_res = DGGAL_TYPES[f"{dggs_type}"]["max_res"]
     parser.add_argument("lat", type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument(
         "res",
         type=int,
-        default=DGGAL_TYPES[f"{dggs_type}"]["default_res"],
-        choices=range(min_res, max_res + 1),
-        help=f"Input Resolution [{min_res}..{max_res}]",
+        help="Input Resolution (range depends on dggs_type)",
     )
 
     args = parser.parse_args()

@@ -11,9 +11,11 @@
 # https://ufl.maps.arcgis.com/apps/dashboards/2539764e24e74bd78f265f49c7adc2d1
 # https://earth-info.nga.mil/index.php?dir=coordsys&action=gars-20x20-dloads
 
+import argparse
 import json
 from shapely.geometry import box, mapping
 from tqdm import tqdm
+from vgrid.utils.io import add_verbose_argument
 
 bands = [
     "C",
@@ -39,7 +41,7 @@ bands = [
 ]
 
 
-def gzd_grid(polar=True):
+def gzd_grid(polar=True, verbose=True):
     features = []
 
     def export_polygon(lon, lat, width, height, gzd):
@@ -53,7 +55,7 @@ def gzd_grid(polar=True):
         export_polygon(0, -90, 180, 10, "B")
 
     lat = -80
-    for b in tqdm(bands, desc="Generating Bands"):
+    for b in tqdm(bands, desc="Generating Bands", disable=not verbose):
         if b == "X":
             height = 12
             lon = -180
@@ -98,9 +100,12 @@ def gzd_grid(polar=True):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Generate GZD grid.")
+    add_verbose_argument(parser)
+    args = parser.parse_args()
     try:
         # Generate gzd grid
-        features = gzd_grid()
+        features = gzd_grid(verbose=args.verbose)
 
         # Save to GeoJSON
         geojson = {"type": "FeatureCollection", "features": features}

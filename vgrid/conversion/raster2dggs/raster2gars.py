@@ -33,6 +33,7 @@ from vgrid.utils.constants import (
     STRUCTURED_FORMATS,
 )
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     finalize_dggs_band_values,
     normalize_raster2dggs_method,
@@ -80,27 +81,30 @@ def get_nearest_gars_resolution(raster_path):
 
 
 def _raster2gars_nearest_neighbour(
-    raster_path: str, resolution: int
+    raster_path: str, resolution: int,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     bbox = list(footprint.total_bounds)
-    grid_gdf = gars_grid(resolution, bbox)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    grid_gdf = gars_grid(resolution, bbox, verbose=verbose)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2gars_binning(
-    raster_path: str, resolution: int, stats: str
+    raster_path: str, resolution: int, stats: str,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2gars(lat, lon, resolution)
 
     gars_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to GARS"
+        raster_path, cell_id, stats, desc="Binning raster blocks to GARS", verbose=verbose
     )
 
     properties = []
     for gars_id, acc in tqdm(
-        gars_acc.items(), desc="Converting raster to GARS", unit=" cells"
+        gars_acc.items(), desc="Converting raster to GARS", unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = gars2geo(gars_id)
         base_props = {"gars": gars_id, "geometry": cell_polygon}
@@ -120,6 +124,7 @@ def raster2gars(
     output_format="gpd",
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to GARS DGGS format.
@@ -144,9 +149,9 @@ def raster2gars(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2gars_binning(raster_path, resolution, stats)
+        gdf = _raster2gars_binning(raster_path, resolution, stats, verbose=verbose)
     else:
-        gdf = _raster2gars_nearest_neighbour(raster_path, resolution)
+        gdf = _raster2gars_nearest_neighbour(raster_path, resolution, verbose=verbose)
 
     if gdf.empty:
         raise ValueError("No GARS cells were produced from the raster.")
@@ -193,6 +198,7 @@ def raster2gars_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -204,6 +210,7 @@ def raster2gars_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

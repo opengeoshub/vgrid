@@ -13,6 +13,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_h3_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.h32geo import h32geo
 
@@ -51,7 +52,7 @@ def _empty_h3_gdf():
     )
 
 
-def h3_grid(resolution, fix_antimeridian=None):
+def h3_grid(resolution, fix_antimeridian=None, verbose=True):
     resolution = validate_h3_resolution(resolution)
     total_cells = h3.get_num_cells(resolution)
     if total_cells > MAX_CELLS:
@@ -62,7 +63,7 @@ def h3_grid(resolution, fix_antimeridian=None):
         base_cells = h3.get_res0_cells()
         h3_records = []
         # Progress bar for base cells
-        with tqdm(total=total_cells, desc="Generating H3 DGGS", unit=" cells") as pbar:
+        with tqdm(total=total_cells, desc="Generating H3 DGGS", unit=" cells", disable=not verbose) as pbar:
             for cell in base_cells:
                 child_cells = h3.cell_to_children(cell, resolution)
                 # Progress bar for child cells
@@ -81,11 +82,11 @@ def h3_grid(resolution, fix_antimeridian=None):
         return gpd.GeoDataFrame(h3_records, geometry="geometry", crs="EPSG:4326")
 
 
-def h3_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
+def h3_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_h3_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return h3_grid(resolution, fix_antimeridian=fix_antimeridian)
+        return h3_grid(resolution, fix_antimeridian=fix_antimeridian, verbose=verbose)
 
     bbox_polygon = box(*bbox)
     bbox_cells = h3.geo_to_cells(bbox_polygon, resolution)
@@ -99,7 +100,7 @@ def h3_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
         )
 
     filtered_cells = []
-    for cell_id in tqdm(bbox_cells, desc="Generating H3 DGGS"):
+    for cell_id in tqdm(bbox_cells, desc="Generating H3 DGGS", disable=not verbose):
         cell_polygon = h32geo(cell_id, fix_antimeridian=fix_antimeridian)
         if cell_polygon.intersects(bbox_polygon):
             filtered_cells.append(cell_id)
@@ -123,7 +124,7 @@ def h3_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
     return gpd.GeoDataFrame(h3_records, geometry="geometry", crs="EPSG:4326")
 
 
-def h3_grid_ids(resolution, fix_antimeridian=None):
+def h3_grid_ids(resolution, fix_antimeridian=None, verbose=True):
     """
     Generate a list of H3 cell IDs for the whole world at a given resolution.
 
@@ -137,7 +138,7 @@ def h3_grid_ids(resolution, fix_antimeridian=None):
     total_cells = h3.get_num_cells(resolution)
     base_cells = h3.get_res0_cells()
     h3_ids = []
-    with tqdm(total=total_cells, desc="Generating H3 IDs", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating H3 IDs", unit=" cells", disable=not verbose) as pbar:
         for cell in base_cells:
             child_cells = h3.cell_to_children(cell, resolution)
             for child_cell in child_cells:
@@ -147,7 +148,7 @@ def h3_grid_ids(resolution, fix_antimeridian=None):
     return h3_ids
 
 
-def h3_grid_within_bbox_ids(resolution, bbox, fix_antimeridian=None, compact=False):
+def h3_grid_within_bbox_ids(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     """
     Generate a list of H3 cell IDs that intersect a bounding box.
 
@@ -163,7 +164,7 @@ def h3_grid_within_bbox_ids(resolution, bbox, fix_antimeridian=None, compact=Fal
     resolution = validate_h3_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return h3_grid_ids(resolution, fix_antimeridian=fix_antimeridian)
+        return h3_grid_ids(resolution, fix_antimeridian=fix_antimeridian, verbose=verbose)
 
     bbox_polygon = box(*bbox)
     bbox_cells = h3.geo_to_cells(bbox_polygon, resolution)
@@ -172,7 +173,7 @@ def h3_grid_within_bbox_ids(resolution, bbox, fix_antimeridian=None, compact=Fal
 
     total_cells = len(bbox_cells)
     filtered_cells = []
-    for cell_id in tqdm(bbox_cells, total=total_cells, desc="Generating H3 IDs"):
+    for cell_id in tqdm(bbox_cells, total=total_cells, desc="Generating H3 IDs", disable=not verbose):
         cell_polygon = h32geo(cell_id, fix_antimeridian=fix_antimeridian)
         if cell_polygon.intersects(bbox_polygon):
             filtered_cells.append(cell_id)
@@ -189,6 +190,7 @@ def h3grid(
     output_format="gpd",
     fix_antimeridian=None,
     compact=False,
+    verbose=True,
 ):
     """
     Generate H3 grid for pure Python usage.
@@ -207,10 +209,10 @@ def h3grid(
         raise ValueError("compact requires a bounding box (bbox must not be None)")
 
     if bbox is None:
-        h3_gdf = h3_grid(resolution, fix_antimeridian=fix_antimeridian)
+        h3_gdf = h3_grid(resolution, fix_antimeridian=fix_antimeridian, verbose=verbose)
     else:
         h3_gdf = h3_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
     output_name = f"h3_grid_{resolution}"
     return convert_to_output_format(h3_gdf, output_format, output_name)
@@ -254,6 +256,7 @@ def h3grid_cli():
         help="Enable H3 compact mode to reduce cell count (requires --bbox)",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     try:
         result = h3grid(
@@ -262,6 +265,7 @@ def h3grid_cli():
             args.output_format,
             fix_antimeridian=args.fix_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

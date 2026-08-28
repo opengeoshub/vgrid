@@ -1,10 +1,9 @@
-tqdm>=4.67.1
-h3>=4.4.2
-pya5>=0.7.3
+tqdm>=4.70.0
+h3>=4.5.0
+pya5>=0.9.0
 dggal~=0.0.6
 dggrid4py>=0.5.3
-# rhealpixdggs>=0.5.13 
-shapely>=2.0.7
+# rhealpixdggs>=0.5.13  # To avoid conflicts between dggrid4py and rhealpixdggs
 ease-dggs>=0.1.0
 gars-field>=0.3.3
 geopandas
@@ -16,5 +15,9 @@ requests
 gdown
 pyarrow
 matplotlib
-healpy; sys_platform == 'linux'
+shapely>=2.0.7  # To avoid conflicts between dggrid4py and rhealpixdggs
+seaborn>=0.13.2
+pytest>=9.0.3
+pytest-cov>=7.1.0
 ruff
+numpy

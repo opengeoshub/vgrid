@@ -23,6 +23,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_healpix_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.healpix2geo import healpix2geo
 from vgrid.conversion.dggscompact.healpixcompact import healpix_compact
@@ -60,7 +61,7 @@ def _healpix_row_from_uniq(uniq_id, fix_antimeridian=None):
     )
 
 
-def healpix_grid(resolution, fix_antimeridian=None, compact=False):
+def healpix_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     """Generate HEALPix UNIQ cells for the whole world at a given order."""
     resolution = validate_healpix_resolution(resolution)
     nside = order2nside(resolution)
@@ -76,12 +77,12 @@ def healpix_grid(resolution, fix_antimeridian=None, compact=False):
         uniq_ids = healpix_compact(uniq_ids)
 
     rows = []
-    for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells"):
+    for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells", disable=not verbose):
         rows.append(_healpix_row_from_uniq(uniq_id, fix_antimeridian))
     return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
 
-def healpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
+def healpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     """
     Generate HEALPix UNIQ cells intersecting a bounding box.
 
@@ -110,7 +111,7 @@ def healpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fa
         uniq_ids = healpix_compact(uniq_ids)
 
     rows = []
-    for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells"):
+    for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells", disable=not verbose):
         cell_polygon = healpix2geo(uniq_id, fix_antimeridian=fix_antimeridian)
         if cell_polygon is None or cell_polygon.is_empty:
             continue
@@ -139,9 +140,9 @@ def healpix_grid_ids(resolution, compact=False):
     return uniq_ids
 
 
-def healpix_grid_within_bbox_ids(resolution, bbox, compact=False):
+def healpix_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """Return HEALPix UNIQ IDs intersecting the given bounding box."""
-    gdf = healpix_grid_within_bbox(resolution, bbox, compact=compact)
+    gdf = healpix_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
     if gdf.empty:
         return []
     return gdf["healpix"].tolist()
@@ -153,6 +154,7 @@ def healpixgrid(
     output_format="gpd",
     fix_antimeridian=None,
     compact=False,
+    verbose=True,
 ):
     """
     Generate HEALPix grid for pure Python usage.
@@ -178,7 +180,7 @@ def healpixgrid(
                 f"exceeds the limit of {MAX_CELLS}"
             )
         gdf = healpix_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
     else:
         gdf = healpix_grid_within_bbox(
@@ -186,6 +188,7 @@ def healpixgrid(
             bbox,
             fix_antimeridian=fix_antimeridian,
             compact=compact,
+            verbose=verbose,
         )
     output_name = f"healpix_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -233,6 +236,7 @@ def healpixgrid_cli():
         help="Antimeridian fixing method",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     try:
         result = healpixgrid(
@@ -241,6 +245,7 @@ def healpixgrid_cli():
             args.output_format,
             fix_antimeridian=args.fix_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

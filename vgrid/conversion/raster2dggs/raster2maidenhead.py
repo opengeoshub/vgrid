@@ -34,6 +34,7 @@ from vgrid.utils.constants import (
     STRUCTURED_FORMATS,
 )
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     finalize_dggs_band_values,
     normalize_raster2dggs_method,
@@ -81,22 +82,24 @@ def get_nearest_maidenhead_resolution(raster_path):
 
 
 def _raster2maidenhead_nearest_neighbour(
-    raster_path: str, resolution: int
+    raster_path: str, resolution: int,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     bbox = list(footprint.total_bounds)
-    grid_gdf = maidenhead_grid_within_bbox(resolution, bbox)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    grid_gdf = maidenhead_grid_within_bbox(resolution, bbox, verbose=verbose)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2maidenhead_binning(
-    raster_path: str, resolution: int, stats: str
+    raster_path: str, resolution: int, stats: str,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2maidenhead(lat, lon, resolution)
 
     maidenhead_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to Maidenhead"
+        raster_path, cell_id, stats, desc="Binning raster blocks to Maidenhead", verbose=verbose
     )
 
     properties = []
@@ -104,6 +107,7 @@ def _raster2maidenhead_binning(
         maidenhead_acc.items(),
         desc="Converting raster to Maidenhead",
         unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = maidenhead2geo(maidenhead_id)
         base_props = {"maidenhead": maidenhead_id, "geometry": cell_polygon}
@@ -123,6 +127,7 @@ def raster2maidenhead(
     output_format="gpd",
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to Maidenhead DGGS format.
@@ -147,9 +152,9 @@ def raster2maidenhead(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2maidenhead_binning(raster_path, resolution, stats)
+        gdf = _raster2maidenhead_binning(raster_path, resolution, stats, verbose=verbose)
     else:
-        gdf = _raster2maidenhead_nearest_neighbour(raster_path, resolution)
+        gdf = _raster2maidenhead_nearest_neighbour(raster_path, resolution, verbose=verbose)
 
     if gdf.empty:
         raise ValueError("No Maidenhead cells were produced from the raster.")
@@ -196,6 +201,7 @@ def raster2maidenhead_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -207,6 +213,7 @@ def raster2maidenhead_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

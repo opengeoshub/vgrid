@@ -21,13 +21,14 @@ from vgrid.utils.io import (
     validate_gars_resolution,
     convert_to_output_format,
     gars_num_cells,
+    add_verbose_argument,
 )
 import geopandas as gpd
 from vgrid.utils.constants import GARS_RESOLUTION_MINUTES
 from vgrid.utils.io import validate_bbox
 
 
-def gars_grid(resolution, bbox=None):
+def gars_grid(resolution, bbox=None, verbose=True):
     resolution = validate_gars_resolution(resolution)
     # Default to the whole world if no bounding box is provided
     if bbox is None:
@@ -46,7 +47,7 @@ def gars_grid(resolution, bbox=None):
 
     gars_records = []
     # Loop over longitudes and latitudes with tqdm progress bar
-    with tqdm(total=total_cells, desc="Generating GARS DGGS", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating GARS DGGS", unit=" cells", disable=not verbose) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 # Create the GARS grid code
@@ -66,7 +67,7 @@ def gars_grid(resolution, bbox=None):
     return gpd.GeoDataFrame(gars_records, geometry="geometry", crs="EPSG:4326")
 
 
-def gars_grid_ids(resolution, bbox=None):
+def gars_grid_ids(resolution, bbox=None, verbose=True):
     """
     Return a list of GARS IDs for the whole world at the given resolution.
     """
@@ -83,7 +84,7 @@ def gars_grid_ids(resolution, bbox=None):
 
     total_cells = len(longitudes) * len(latitudes)
     ids = []
-    with tqdm(total=total_cells, desc="Generating GARS IDs", unit=" cells") as pbar:
+    with tqdm(total=total_cells, desc="Generating GARS IDs", unit=" cells", disable=not verbose) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 cell = GARSGrid.from_latlon(lat, lon, resolution_minutes)
@@ -93,7 +94,7 @@ def gars_grid_ids(resolution, bbox=None):
     return ids
 
 
-def garsgrid(resolution, bbox=None, output_format="gpd"):
+def garsgrid(resolution, bbox=None, output_format="gpd", verbose=True):
     """
     Generate GARS grid for pure Python usage.
 
@@ -112,9 +113,9 @@ def garsgrid(resolution, bbox=None, output_format="gpd"):
             raise ValueError(
                 f"Resolution level {resolution} ({resolution_minutes} minutes) will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = gars_grid(resolution)
+        gdf = gars_grid(resolution, verbose=verbose)
     else:
-        gdf = gars_grid(resolution, bbox)
+        gdf = gars_grid(resolution, bbox, verbose=verbose)
     output_name = f"gars_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -143,11 +144,12 @@ def garsgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     try:
-        result = garsgrid(resolution, bbox, args.output_format)
+        result = garsgrid(resolution, bbox, args.output_format, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

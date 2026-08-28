@@ -22,6 +22,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     validate_dggal_resolution,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS, DGGAL_TYPES
 from vgrid.utils.geometry import (
@@ -279,6 +280,7 @@ def geodataframe2dggal(
     topology: bool = False,
     include_properties: bool = True,
     split_antimeridian: bool = False,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to DGGAL grid cells.
@@ -341,7 +343,7 @@ def geodataframe2dggal(
     resolution = validate_dggal_resolution(dggs_type, resolution)
 
     dggal_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -407,6 +409,7 @@ def vector2dggal(
     include_properties: bool = True,
     output_format: str = "gpd",
     split_antimeridian: bool = False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -451,6 +454,7 @@ def vector2dggal(
         topology,
         include_properties,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
 
     # Return or export
@@ -512,6 +516,7 @@ def vector2dggal_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -524,6 +529,7 @@ def vector2dggal_cli():
             topology=args.topology,
             include_properties=args.include_properties,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

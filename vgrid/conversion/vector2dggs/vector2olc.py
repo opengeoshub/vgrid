@@ -32,6 +32,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     DGGS_TYPES,
     olc_resolutions,
+    add_verbose_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
@@ -316,6 +317,7 @@ def geodataframe2olc(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to OLC grid cells.
@@ -379,7 +381,7 @@ def geodataframe2olc(
 
     olc_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -438,6 +440,7 @@ def vector2olc(
     topology=False,
     output_format="gpd",
     include_properties=True,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -472,7 +475,8 @@ def vector2olc(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2olc(
-        gdf, resolution, predicate, compact, topology, include_properties
+        gdf, resolution, predicate, compact, topology, include_properties,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -539,6 +543,7 @@ def vector2olc_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -550,6 +555,7 @@ def vector2olc_cli():
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

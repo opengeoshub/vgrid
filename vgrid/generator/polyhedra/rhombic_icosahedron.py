@@ -14,7 +14,7 @@ import geopandas as gpd
 from dggal import *
 from tqdm import tqdm
 from vgrid.utils.constants import DGGAL_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.io import dggal_convert_to_output_format
+from vgrid.utils.io import dggal_convert_to_output_format, add_verbose_argument
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.conversion.dggs2geo.dggal2geo import dggal2geo
 
@@ -22,7 +22,7 @@ app = Application(appGlobals=globals())
 pydggal_setup(app)
 
 
-def rhombic_icosahedron(output_format="gpd", split_antimeridian=False):
+def rhombic_icosahedron(output_format="gpd", split_antimeridian=False, verbose=True):
     """
     Generate a DGGAL grid using the dggal library directly.
 
@@ -45,7 +45,7 @@ def rhombic_icosahedron(output_format="gpd", split_antimeridian=False):
 
     dggal_records = []
 
-    for zone in tqdm(zones, desc="Generating Rhombic Icosahedron"):
+    for zone in tqdm(zones, desc="Generating Rhombic Icosahedron", disable=not verbose):
         try:
             zone_id = dggrs.getZoneTextID(zone)
             zone_resolution = dggrs.getZoneLevel(zone)
@@ -84,9 +84,10 @@ def rhombic_icosahedron_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     try:
-        result = rhombic_icosahedron(output_format=args.output_format)
+        result = rhombic_icosahedron(output_format=args.output_format, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

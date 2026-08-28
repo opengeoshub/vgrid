@@ -20,6 +20,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_quadkey_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.quadkeycompact import quadkey_compact
 from vgrid.dggs.tilecode import quadkey_resolution
@@ -34,14 +35,14 @@ def _quadkey_ids_for_bbox(resolution, bbox):
     ]
 
 
-def quadkey_grid(resolution, bbox, compact=False):
+def quadkey_grid(resolution, bbox, compact=False, verbose=True):
     resolution = validate_quadkey_resolution(resolution)
     quadkey_ids = _quadkey_ids_for_bbox(resolution, bbox)
     if compact:
         quadkey_ids = quadkey_compact(quadkey_ids)
 
     quadkey_records = []
-    for quadkey_id in tqdm(quadkey_ids, desc="Generating Quadkey DGGS", unit=" cells"):
+    for quadkey_id in tqdm(quadkey_ids, desc="Generating Quadkey DGGS", unit=" cells", disable=not verbose):
         cell_polygon = quadkey2geo(quadkey_id)
         if cell_polygon is None or cell_polygon.is_empty:
             continue
@@ -76,7 +77,7 @@ def quadkey_grid_within_bbox_ids(resolution, bbox, compact=False):
     return quadkey_ids
 
 
-def quadkeygrid(resolution, bbox=None, output_format="gpd", compact=False):
+def quadkeygrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     """
     Generate Quadkey grid for pure Python usage.
 
@@ -97,7 +98,7 @@ def quadkeygrid(resolution, bbox=None, output_format="gpd", compact=False):
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = quadkey_grid(resolution, bbox, compact=compact)
+    gdf = quadkey_grid(resolution, bbox, compact=compact, verbose=verbose)
 
     output_name = f"quadkey_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -128,6 +129,7 @@ def quadkeygrid_cli():
         action="store_true",
         help="Enable Quadkey compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180.0, -85.05112878, 180.0, 85.05112878]
@@ -142,7 +144,7 @@ def quadkeygrid_cli():
             print("Please select a smaller resolution and try again.")
             return
     try:
-        result = quadkeygrid(resolution, bbox, args.output_format, compact=args.compact)
+        result = quadkeygrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

@@ -25,6 +25,7 @@ from vgrid.utils.io import (
     validate_a5_resolution,
     validate_bbox,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.a52geo import a52geo_u64
 
@@ -47,7 +48,7 @@ def _a5_compact_cell_ids(cell_ids):
     return list(a5.get_res0_cells())
 
 
-def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False):
+def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False, verbose=True):
     resolution = validate_a5_resolution(resolution)
     """
     Generate an A5 DGGS grid for a given resolution and bounding box.
@@ -115,7 +116,7 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
         cell_ids = _a5_compact_cell_ids(cell_ids)
 
     a5_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells", disable=not verbose):
         cell_polygon = intersecting_cells.get(cell_id)
         if cell_polygon is None or cell_polygon.is_empty:
             cell_polygon = a52geo_u64(
@@ -213,6 +214,7 @@ def a5grid(
     options=None,
     split_antimeridian=False,
     compact=False,
+    verbose=True,
 ):
     """
     Generate A5 grid for pure Python usage.
@@ -241,6 +243,7 @@ def a5grid(
         options=options,
         split_antimeridian=split_antimeridian,
         compact=compact,
+        verbose=verbose,
     )
 
     output_name = f"a5_grid_{resolution}"
@@ -289,6 +292,7 @@ def a5grid_cli():
         help="JSON string of options to pass to a52geo. "
         "Example: '{\"segments\": 1000}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     options = None
@@ -307,6 +311,7 @@ def a5grid_cli():
             options=options,
             split_antimeridian=args.split_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

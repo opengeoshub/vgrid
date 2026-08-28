@@ -26,6 +26,7 @@ from vgrid.utils.io import (
     validate_dggrid_type,
     validate_dggrid_resolution,
     create_dggrid_instance,
+    add_verbose_argument,
 )
 from vgrid.conversion.latlon2dggs import latlon2dggrid
 from vgrid.conversion.dggs2geo.dggrid2geo import dggrid2geo
@@ -440,6 +441,7 @@ def geodataframe2dggrid(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to DGGRID grid cells.
@@ -507,7 +509,7 @@ def geodataframe2dggrid(
 
     # Build GeoDataFrames per geometry type and concatenate for performance
     dggrid_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -600,6 +602,7 @@ def vector2dggrid(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -642,6 +645,7 @@ def vector2dggrid(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        verbose=verbose,
     )
 
     output_name = None
@@ -736,6 +740,7 @@ def vector2dggrid_cli():
         help="JSON string of options to pass to grid_cell_polygons_for_extent or grid_cell_polygons_from_cellids. "
         "Example: '{\"densification\": 2}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
 
@@ -763,6 +768,7 @@ def vector2dggrid_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             options=options,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

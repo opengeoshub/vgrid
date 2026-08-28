@@ -29,6 +29,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_isea3h_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
 
@@ -117,7 +118,7 @@ def _isea3h_row_from_id(isea3h_id, fix_antimeridian=None):
     )
 
 
-def isea3h_grid(resolution, fix_antimeridian=None, compact=False):
+def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
@@ -126,7 +127,7 @@ def isea3h_grid(resolution, fix_antimeridian=None, compact=False):
     if compact:
         cell_ids = isea3h_compact(cell_ids)
     records = []
-    for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells", disable=not verbose):
         try:
             records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
         except Exception as e:
@@ -195,7 +196,7 @@ def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False):
 
 
 def isea3hgrid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False
+    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
 ):
     """
     Generate ISEA3H grid for pure Python usage.
@@ -221,7 +222,7 @@ def isea3hgrid(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
         gdf = isea3h_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
     else:
         gdf = isea3h_grid_within_bbox(
@@ -272,6 +273,7 @@ def isea3hgrid_cli():
         action="store_true",
         help="Enable ISEA3H compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
@@ -284,6 +286,7 @@ def isea3hgrid_cli():
                 args.output_format,
                 fix_antimeridian=fix_antimeridian,
                 compact=args.compact,
+                verbose=args.verbose,
             )
             if args.output_format in STRUCTURED_FORMATS:
                 print(result)

@@ -1,4 +1,5 @@
 import warnings
+import argparse
 import geopandas as gpd
 import pandas as pd
 import numpy as np
@@ -29,6 +30,17 @@ warnings.filterwarnings(
     message="Several features with id = .* have been found. Altering it to be unique. This warning will not be emitted anymore for this layer",
     category=RuntimeWarning,
 )
+
+
+def add_verbose_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``-v`` / ``--verbose`` (default True). Use ``--no-verbose`` to hide tqdm."""
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
 
 
 def output_format(input_data, id_col=None, crs="EPSG:4326"):

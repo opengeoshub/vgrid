@@ -390,7 +390,7 @@ def raster_bbox_wgs84(raster_path: str) -> list[float]:
         return [min(xs), min(ys), max(xs), max(ys)]
 
 
-def read_pixel_centroids(raster_path: str):
+def read_pixel_centroids(raster_path: str, verbose=True):
     """
     Read valid raster pixels as point geometries (cell centers) in EPSG:4326.
 
@@ -427,6 +427,7 @@ def read_pixel_centroids(raster_path: str):
             total=total_blocks,
             desc="Reading raster pixel centers",
             unit=" block",
+            disable=not verbose,
         ):
             block = src.read(window=window, masked=True)
             if block.size == 0:
@@ -533,7 +534,7 @@ def footprint_gdf_from_raster(raster_path: str):
     )
 
 
-def nearest_neighbour_from_grid(raster_path: str, grid_gdf):
+def nearest_neighbour_from_grid(raster_path: str, grid_gdf, verbose=True):
     """
     Assign each grid cell the band values of the nearest raster pixel center.
 
@@ -544,7 +545,7 @@ def nearest_neighbour_from_grid(raster_path: str, grid_gdf):
     if grid_gdf.empty:
         raise ValueError("No grid cells were generated for the raster extent.")
 
-    pixel_gdf, band_count = read_pixel_centroids(raster_path)
+    pixel_gdf, band_count = read_pixel_centroids(raster_path, verbose=verbose)
     if pixel_gdf.empty:
         raise ValueError("No valid raster pixels found.")
 
@@ -587,6 +588,7 @@ def accumulate_raster_pixels(
     cell_id_fn,
     stats: str,
     desc: str = "Binning raster blocks",
+    verbose=True,
 ):
     """
     Stream raster blocks and aggregate pixel values per cell id from ``cell_id_fn(lat, lon)``.
@@ -623,6 +625,7 @@ def accumulate_raster_pixels(
             total=total_blocks,
             desc=desc,
             unit=" block",
+            disable=not verbose,
         ):
             block = src.read(window=window, masked=True)
             if block.size == 0:

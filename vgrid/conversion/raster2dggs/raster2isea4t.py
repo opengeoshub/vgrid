@@ -27,6 +27,7 @@ from vgrid.utils.geometry import (
 from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_isea4t_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -110,13 +111,14 @@ def _raster2isea4t_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     _require_windows()
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "isea4t", resolution, fix_antimeridian=fix_antimeridian
+        footprint, "isea4t", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2isea4t_binning(
@@ -124,6 +126,7 @@ def _raster2isea4t_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     _require_windows()
 
@@ -131,7 +134,7 @@ def _raster2isea4t_binning(
         return _isea4t_cell_id(lat, lon, resolution)
 
     isea4t_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to ISEA4T"
+        raster_path, cell_id, stats, desc="Binning raster blocks to ISEA4T", verbose=verbose
     )
 
     properties = []
@@ -139,6 +142,7 @@ def _raster2isea4t_binning(
         isea4t_acc.items(),
         desc="Converting raster to ISEA4T",
         unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = isea4t2geo(isea4t_id, fix_antimeridian=fix_antimeridian)
         num_edges = 3
@@ -172,6 +176,7 @@ def raster2isea4t(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to ISEA4T DGGS format.
@@ -198,11 +203,11 @@ def raster2isea4t(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2isea4t_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2isea4t_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -265,6 +270,7 @@ def raster2isea4t_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -281,6 +287,7 @@ def raster2isea4t_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)
