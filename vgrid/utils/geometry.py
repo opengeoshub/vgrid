@@ -464,12 +464,8 @@ def read_pixel_centroids(raster_path: str, verbose=True):
     return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326"), band_count
 
 
-def _laea_crs_from_bounds(minx, miny, maxx, maxy) -> PyprojCRS:
-    """Local LAEA CRS (metres) for a bounding box in degrees."""
-    lon_0 = (minx + maxx) / 2.0
-    lat_0 = max(-89.9, min(89.9, (miny + maxy) / 2.0))
-    proj4 = f"+proj=laea +lat_0={lat_0} +lon_0={lon_0} +datum=WGS84 +units=m +no_defs"
-    # pyproj 2.x / 3.x / OSGeo4W builds expose different factory methods
+def _crs_from_proj4(proj4: str, label: str) -> PyprojCRS:
+    """Build a CRS from a PROJ string across pyproj factory variants."""
     for factory in (
         lambda: PyprojCRS.from_user_input(proj4),
         lambda: PyprojCRS(proj4),
@@ -481,18 +477,54 @@ def _laea_crs_from_bounds(minx, miny, maxx, maxy) -> PyprojCRS:
         except (AttributeError, TypeError, ValueError):
             continue
     raise RuntimeError(
-        "Cannot construct LAEA CRS from PROJ string; upgrade pyproj or use EPSG:4326 only."
+        f"Cannot construct {label} CRS from PROJ string; "
+        "upgrade pyproj or use EPSG:4326 only."
     )
 
 
+def _laea_crs_from_bounds(minx, miny, maxx, maxy) -> PyprojCRS:
+    """Local LAEA CRS (metres) for a bounding box in degrees."""
+    lon_0 = (minx + maxx) / 2.0
+    lat_0 = max(-89.9, min(89.9, (miny + maxy) / 2.0))
+    proj4 = f"+proj=laea +lat_0={lat_0} +lon_0={lon_0} +datum=WGS84 +units=m +no_defs"
+    return _crs_from_proj4(proj4, "LAEA")
+
+
+def _cea_crs(lon_0: float = 0.0) -> PyprojCRS:
+    """Cylindrical equal-area CRS (metres). No antipodal singularity."""
+    proj4 = f"+proj=cea +lat_ts=0 +lon_0={lon_0} +datum=WGS84 +units=m +no_defs"
+    return _crs_from_proj4(proj4, "CEA")
+
+
+def _laea_antipode_in_extent(minx, miny, maxx, maxy) -> bool:
+    """True when a LAEA centered on the box would place its singularity inside it."""
+    lon_0 = (minx + maxx) / 2.0
+    lat_0 = max(-89.9, min(89.9, (miny + maxy) / 2.0))
+    anti_lon = lon_0 + 180.0
+    if anti_lon > 180.0:
+        anti_lon -= 360.0
+    elif anti_lon < -180.0:
+        anti_lon += 360.0
+    anti_lat = -lat_0
+    return minx <= anti_lon <= maxx and miny <= anti_lat <= maxy
+
+
 def _metric_crs(gdf: gpd.GeoDataFrame) -> PyprojCRS | None:
-    """Lambert azimuthal equal-area CRS centered on the data extent (metres)."""
+    """Equal-area CRS in metres for geographic data.
+
+    Uses a local Lambert azimuthal equal-area CRS when the extent is compact.
+    Falls back to cylindrical equal area when the LAEA antipode (a singularity
+    that projects to Inf) would fall inside the bounding box — typical of
+    near-global layers such as world population hexes.
+    """
     if gdf.crs is None:
         return None
     if not gdf.crs.is_geographic:
         return gdf.crs
 
     minx, miny, maxx, maxy = gdf.total_bounds
+    if _laea_antipode_in_extent(minx, miny, maxx, maxy):
+        return _cea_crs()
     return _laea_crs_from_bounds(minx, miny, maxx, maxy)
 
 
@@ -538,7 +570,7 @@ def nearest_neighbour_from_grid(raster_path: str, grid_gdf, verbose=True):
     """
     Assign each grid cell the band values of the nearest raster pixel center.
 
-    Uses ``_metric_crs`` (local LAEA) when the grid is geographic.
+    Uses ``_metric_crs`` (local LAEA or global CEA) when the grid is geographic.
     """
     import geopandas as gpd
 

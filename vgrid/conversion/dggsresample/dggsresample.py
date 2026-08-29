@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
 import re
@@ -56,7 +57,8 @@ from vgrid.utils.constants import (
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
 )
-from shapely import make_valid
+from shapely import get_coordinates, make_valid
+from shapely.geometry import Polygon
 from shapely.geometry.base import BaseGeometry
 
 from vgrid.utils.geometry import _reproject_for_metric
@@ -466,14 +468,30 @@ def generate_grid(
     return gdf
 
 
+def _geom_has_nonfinite(geom: BaseGeometry) -> bool:
+    """True if any vertex is NaN or Inf (GEOS cannot repair these)."""
+    try:
+        coords = get_coordinates(geom)
+    except Exception:
+        return True
+    return coords.size > 0 and not all(
+        math.isfinite(float(v)) for v in coords.ravel()
+    )
+
+
 def _ensure_valid_geometry(geom: BaseGeometry) -> BaseGeometry:
     """Repair invalid metric geometries before intersection (e.g. after antimeridian shift)."""
     if geom is None or geom.is_empty:
         return geom
-    if geom.is_valid:
-        return geom
-    fixed = make_valid(geom)
-    if fixed.is_empty:
+    if _geom_has_nonfinite(geom):
+        return Polygon()
+    try:
+        if geom.is_valid:
+            return geom
+        fixed = make_valid(geom)
+    except Exception:
+        return Polygon()
+    if fixed is None or fixed.is_empty:
         return fixed
     if fixed.geom_type == "GeometryCollection":
         polys = [
@@ -483,8 +501,11 @@ def _ensure_valid_geometry(geom: BaseGeometry) -> BaseGeometry:
         ]
         if polys:
             fixed = max(polys, key=lambda g: g.area)
-    if not fixed.is_valid:
-        fixed = fixed.buffer(0)
+    try:
+        if not fixed.is_valid:
+            fixed = fixed.buffer(0)
+    except Exception:
+        return Polygon()
     return fixed
 
 
