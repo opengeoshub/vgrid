@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- New features and improvements coming in the next release
+- `dggsresample` source–target predicate (`centroid_within`, `intersects`) to keep target cells that contain a source centroid or that intersect a source cell
 
 ### Changed
 - Changes in existing functionality

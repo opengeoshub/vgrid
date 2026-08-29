@@ -13,6 +13,21 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    versioning-strategy: increase
+    allow:
+      - dependency-name: "tqdm"
+      - dependency-name: "h3"
+      - dependency-name: "pya5"
+      - dependency-name: "dggal"
+      - dependency-name: "dggrid4py"
+    groups:
+      dggs-core:
+        patterns:
+          - "tqdm"
+          - "h3"
+          - "pya5"
+          - "dggal"
+          - "dggrid4py"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

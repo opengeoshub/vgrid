@@ -5,6 +5,9 @@ Port of the QGIS vgridtools ``dggsresample`` workflow: pick a target resolution
 (optionally by matching mean cell area), build a target DGGS grid over the
 source footprint, then transfer a numeric field using either area-weighted overlap or
 nearest-neighbour assignment from the nearest source cell centroid.
+
+Target cells are kept according to a source–target predicate:
+``centroid_within`` (target contains a source centroid) or ``intersects``.
 """
 
 from __future__ import annotations
@@ -504,11 +507,95 @@ def _safe_intersection(geom_a: BaseGeometry, geom_b: BaseGeometry) -> BaseGeomet
     return a.intersection(b)
 
 
+def _normalize_predicate(predicate: str) -> str:
+    pred = (predicate or "centroid_within").strip().lower().replace("-", "_")
+    if pred in ("intersects", "intersect"):
+        return "intersects"
+    if pred in ("centroid_within", "centroid"):
+        return "centroid_within"
+    raise ValueError(
+        f"Unsupported source-target predicate {predicate!r}; "
+        "use 'centroid_within' or 'intersects'."
+    )
+
+
+def _target_intersects_source(
+    source_metric: gpd.GeoDataFrame,
+    target_metric: gpd.GeoDataFrame,
+) -> pd.Index:
+    """Target cell indices that intersect at least one source cell."""
+    joined = gpd.sjoin(
+        target_metric[["geometry"]],
+        source_metric[["geometry"]],
+        how="inner",
+        predicate="intersects",
+    )
+    if joined.empty:
+        return pd.Index([])
+    return joined.index.unique()
+
+
+def _target_contains_source_centroid(
+    source_metric: gpd.GeoDataFrame,
+    target_metric: gpd.GeoDataFrame,
+) -> pd.Index:
+    """Target cell indices that contain at least one source cell centroid."""
+    source_pts = gpd.GeoDataFrame(
+        geometry=source_metric.geometry.centroid,
+        crs=source_metric.crs,
+        index=source_metric.index,
+    )
+    joined = gpd.sjoin(
+        target_metric[["geometry"]],
+        source_pts,
+        how="inner",
+        predicate="contains",
+    )
+    if joined.empty:
+        return pd.Index([])
+    return joined.index.unique()
+
+
+def _keep_target_indices(
+    source_metric: gpd.GeoDataFrame,
+    target_metric: gpd.GeoDataFrame,
+    predicate: str = "centroid_within",
+) -> pd.Index:
+    if _normalize_predicate(predicate) == "intersects":
+        return _target_intersects_source(source_metric, target_metric)
+    return _target_contains_source_centroid(source_metric, target_metric)
+
+
+def _filter_target_gdf_by_predicate(
+    source_gdf: gpd.GeoDataFrame,
+    target_gdf: gpd.GeoDataFrame,
+    predicate: str = "centroid_within",
+    verbose: bool = True,
+) -> gpd.GeoDataFrame:
+    """Keep target cells that pass the source–target predicate (no attribute transfer)."""
+    if source_gdf.empty or target_gdf.empty:
+        return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
+
+    source_metric, target_metric = _reproject_for_metric(source_gdf, target_gdf)
+    source_metric = _prepare_metric_geometries(source_metric)
+    target_metric = _prepare_metric_geometries(target_metric)
+    keep_idx = _keep_target_indices(source_metric, target_metric, predicate)
+    if verbose:
+        pred = _normalize_predicate(predicate)
+        print(
+            f"Predicate '{pred}' kept {len(keep_idx)} of {len(target_gdf)} target cells."
+        )
+    if len(keep_idx) == 0:
+        return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
+    return target_gdf.loc[keep_idx].copy()
+
+
 def _resampling_area_weighted(
     source_gdf: gpd.GeoDataFrame,
     target_gdf: gpd.GeoDataFrame,
     resample_col: str,
     verbose=True,
+    predicate: str = "centroid_within",
 ) -> gpd.GeoDataFrame:
     if source_gdf.empty or target_gdf.empty:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
@@ -524,9 +611,15 @@ def _resampling_area_weighted(
     source_metric = _prepare_metric_geometries(source_metric)
     target_metric = _prepare_metric_geometries(target_metric)
 
+    keep_idx = _keep_target_indices(source_metric, target_metric, predicate)
+    if len(keep_idx) == 0:
+        return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
+
+    target_kept = target_metric.loc[keep_idx]
+
     # Spatial index: only evaluate intersections for overlapping pairs (not n × m).
     joined = gpd.sjoin(
-        target_metric,
+        target_kept,
         source_metric,
         how="inner",
         predicate="intersects",
@@ -577,6 +670,7 @@ def _resampling_nearest(
     target_gdf: gpd.GeoDataFrame,
     resample_col: str,
     verbose=True,
+    predicate: str = "centroid_within",
 ) -> gpd.GeoDataFrame:
     if source_gdf.empty or target_gdf.empty:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
@@ -590,16 +684,9 @@ def _resampling_nearest(
 
     source_metric, target_metric = _reproject_for_metric(source_gdf, target_gdf)
 
-    joined = gpd.sjoin(
-        target_metric,
-        source_metric,
-        how="inner",
-        predicate="intersects",
-    )
-    if joined.empty:
+    keep_idx = _keep_target_indices(source_metric, target_metric, predicate)
+    if len(keep_idx) == 0:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
-
-    target_indices = joined.index.unique()
 
     source_pts = gpd.GeoDataFrame(
         {resample_col: source_metric[resample_col].values},
@@ -607,8 +694,8 @@ def _resampling_nearest(
         crs=source_metric.crs,
     )
     target_pts = gpd.GeoDataFrame(
-        index=target_indices,
-        geometry=target_metric.loc[target_indices].geometry.centroid,
+        index=keep_idx,
+        geometry=target_metric.loc[keep_idx].geometry.centroid,
         crs=target_metric.crs,
     )
     nearest_joined = gpd.sjoin_nearest(
@@ -619,8 +706,8 @@ def _resampling_nearest(
 
     out_rows: list[dict] = []
     for target_idx in tqdm(
-        target_indices,
-        total=len(target_indices),
+        keep_idx,
+        total=len(keep_idx),
         desc="Nearest neighbor resampling",
         unit=" cells",
         disable=not verbose,
@@ -639,6 +726,7 @@ def resampling(
     resample_col: str,
     method: str = "nearest",
     verbose=True,
+    predicate: str = "centroid_within",
 ) -> gpd.GeoDataFrame:
     """
     Transfer ``resample_col`` from source cells onto target cells.
@@ -650,25 +738,43 @@ def resampling(
 
             value = sum(source_value * area(intersection) / area(target_cell))
 
-        Only target rows with at least one intersecting source cell are returned.
+        Only target rows that pass ``predicate`` are returned.
 
         ``\"nearest\"`` — assign the value of the source cell whose centroid is
         closest to the target centroid (``geopandas.sjoin_nearest``).
-        Only target rows that intersect at least one source cell are returned.
+        Only target rows that pass ``predicate`` are returned.
+    predicate
+        Source–target keep filter applied before value transfer:
+
+        ``\"centroid_within\"`` (default) — keep a target cell if it contains
+        at least one source cell centroid.
+
+        ``\"intersects\"`` — keep a target cell if it intersects at least one
+        source cell.
     """
     if resample_col not in source_gdf.columns:
         raise ValueError(
             f"There is no <{resample_col}> column in the source GeoDataFrame."
         )
 
+    _normalize_predicate(predicate)
+
     norm = method.strip().lower().replace("-", "_")
     if norm in ("area_weighted", "area"):
         return _resampling_area_weighted(
-            source_gdf, target_gdf, resample_col, verbose=verbose
+            source_gdf,
+            target_gdf,
+            resample_col,
+            verbose=verbose,
+            predicate=predicate,
         )
     if norm in ("nearest", "nn", "nearest_neighbour", "nearest_neighbor"):
         return _resampling_nearest(
-            source_gdf, target_gdf, resample_col, verbose=verbose
+            source_gdf,
+            target_gdf,
+            resample_col,
+            verbose=verbose,
+            predicate=predicate,
         )
 
     raise ValueError(
@@ -686,6 +792,7 @@ def dggsresample(
     output_format: str = "gpd",
     output_name: Optional[str] = None,
     method: str = "area_weighted",
+    predicate: str = "centroid_within",
     *,
     fix_antimeridian: Optional[str] = None,
     a5_options: Optional[dict] = None,
@@ -726,6 +833,10 @@ def dggsresample(
     method
         ``\"area_weighted\"`` (default) or ``\"nearest\"`` (nearest source
         centroid via ``geopandas.sjoin_nearest``).
+    predicate
+        Source–target keep filter: ``\"centroid_within\"`` (default) keeps
+        target cells that contain a source centroid; ``\"intersects\"`` keeps
+        target cells that intersect any source cell.
     output_format
         Output format; see :func:`~vgrid.utils.io.convert_to_output_format`.
     output_name
@@ -775,9 +886,18 @@ def dggsresample(
         verbose=verbose,
     )
 
+    target_gdf = _filter_target_gdf_by_predicate(
+        source_gdf, target_gdf, predicate=predicate, verbose=verbose
+    )
+
     if resample_col:
         target_gdf = resampling(
-            source_gdf, target_gdf, resample_col, method=method, verbose=verbose
+            source_gdf,
+            target_gdf,
+            resample_col,
+            method=method,
+            verbose=verbose,
+            predicate=predicate,
         )
 
     if output_name is None and output_format in OUTPUT_FORMATS:
@@ -794,7 +914,8 @@ def dggsresample_cli():
     parser = argparse.ArgumentParser(
         description=(
             "Resample DGGS cells from one grid to another "
-            "(area-weighted overlap or nearest-neighbour transfer)"
+            "(area-weighted overlap or nearest-neighbour transfer; "
+            "keep cells by centroid_within or intersects)"
         )
     )
     parser.add_argument(
@@ -858,6 +979,18 @@ def dggsresample_cli():
             "nearest_neighbor",
         ],
         help="Resampling method (default: area_weighted)",
+    )
+    parser.add_argument(
+        "-p",
+        "--predicate",
+        type=str,
+        default="centroid_within",
+        choices=["centroid_within", "intersects"],
+        help=(
+            "Source-target keep filter (default: centroid_within). "
+            "centroid_within: keep target cells that contain a source centroid; "
+            "intersects: keep target cells that intersect any source cell"
+        ),
     )
     parser.add_argument(
         "-f",
@@ -948,6 +1081,7 @@ def dggsresample_cli():
             output_format=args.output_format,
             output_name=args.output_name,
             method=args.method,
+            predicate=args.predicate,
             fix_antimeridian=args.fix_antimeridian,
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,

@@ -243,10 +243,10 @@ Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--pr
 
 ### DGGS Resample
 
-Resample a source DGGS layer to another DGGS type (or resolution): build a target grid over the source footprint, then optionally transfer a numeric attribute by **area-weighted overlap** (default) or **nearest-neighbour** assignment from source cells. Omit `-r` or pass `-1` to pick the target resolution that best matches mean source cell area.
+Resample a source DGGS layer to another DGGS type (or resolution): build a target grid over the source footprint, then optionally transfer a numeric attribute by **area-weighted overlap** (default) or **nearest-neighbour** assignment from source cells. Keep target cells with **`-p centroid_within`** (default: the target cell contains a source centroid) or **`-p intersects`**. Omit `-r` or pass `-1` to pick the target resolution that best matches mean source cell area.
 
 ``` bash
-> dggsresample -i h3_cells.geojson --from_dggs h3 --to_dggs s2 -r 15 -resample_col elevation -m area_weighted -f geojson # dggsresample -i <source layer> --from_dggs <source type> --to_dggs <target type> [-r <resolution> | -1] [-dggs_col <id column>] [-resample_col <numeric field>] [-m area_weighted|nearest] [-f output_format] [-o output_name] [-fix antimeridian method] [-split] [-aggregate] [--dggrid_options JSON] [--a5_options JSON]
+> dggsresample -i h3_cells.geojson --from_dggs h3 --to_dggs s2 -r 15 -resample_col elevation -m area_weighted -p centroid_within -f geojson # dggsresample -i <source layer> --from_dggs <source type> --to_dggs <target type> [-r <resolution> | -1] [-dggs_col <id column>] [-resample_col <numeric field>] [-m area_weighted|nearest] [-p centroid_within|intersects] [-f output_format] [-o output_name] [-fix antimeridian method] [-split] [-aggregate] [--dggrid_options JSON] [--a5_options JSON]
 ```
 
 <div align="center">

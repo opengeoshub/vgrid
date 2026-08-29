@@ -4,7 +4,7 @@
 
 - **DGGS Compact:** Compact DGGS cells or expand them to a specific resolution.
 
-- **DGGS Resample:** Resample a source DGGS layer to another DGGS type or resolution, with optional area-weighted or nearest-neighbour attribute transfer.
+- **DGGS Resample:** Resample a source DGGS layer to another DGGS type or resolution, with optional area-weighted or nearest-neighbour attribute transfer and a source–target keep filter (`centroid_within` or `intersects`).
 
 - **DGGS Binning:** Aggregate points into DGGS cells, supporting common statistics (count, min, max, etc.) and category-based groups.
 
@@ -77,7 +77,7 @@ isea4t_expanded = isea4texpand(isea4t_compacted, resolution=17, output_format="g
 
 ### DGGS Resample
 
-Resample a source DGGS layer to another DGGS type (or resolution): build a target grid over the source footprint, then optionally transfer a numeric attribute by **area-weighted overlap** (default) or **nearest-neighbour** assignment from source cells. Omit `resolution` or pass `-1` to pick the target resolution that best matches mean source cell area.
+Resample a source DGGS layer to another DGGS type (or resolution): build a target grid over the source footprint, then optionally transfer a numeric attribute by **area-weighted overlap** (default) or **nearest-neighbour** assignment from source cells. Keep target cells with **`centroid_within`** (default: the target cell contains a source centroid) or **`intersects`**. Omit `resolution` or pass `-1` to pick the target resolution that best matches mean source cell area.
 
 ```python
 from vgrid.conversion.dggsresample.dggsresample import dggsresample
@@ -91,6 +91,7 @@ s2_resampled = dggsresample(
     dggs_to="s2",
     resolution=15,
     method="area_weighted",
+    predicate="centroid_within",
     output_format="gpd",
 )
 ```
