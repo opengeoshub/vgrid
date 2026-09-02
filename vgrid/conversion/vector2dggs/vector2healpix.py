@@ -259,7 +259,7 @@ def polygon2healpix(
             filtered_ids.append(uniq_id)
 
         if compact and filtered_ids:
-            filtered_ids = healpix_compact(filtered_ids)
+            filtered_ids = healpix_compact(filtered_ids, verbose=verbose)
 
         healpix_rows.extend(
             _rows_from_uniq_ids(

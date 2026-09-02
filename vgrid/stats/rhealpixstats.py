@@ -15,6 +15,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.rhealpixgrid import rhealpixgrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -137,7 +138,7 @@ def rhealpixstats_cli():
     print(df)
 
 
-def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
+def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None, verbose=True):
     """
     Generate comprehensive inspection data for rHEALPix DGGS cells at a given resolution.
 
@@ -148,6 +149,7 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
         resolution: rHEALPix resolution level (0-15)
         fix_antimeridian: Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to False to avoid splitting the Antimeridian by default.
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing rHEALPix cell inspection data with columns:
             - rhealpix: rHEALPix cell ID
@@ -162,7 +164,7 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None):
             - cvh: Convex Hull Compactness
     """
     rhealpix_gdf = rhealpixgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
+        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
     )  # type: ignore
     rhealpix_gdf["crossed"] = rhealpix_gdf["geometry"].apply(check_crossing_geom)
     rhealpix_gdf = rhealpix_gdf[
@@ -535,10 +537,11 @@ def rhealpixinspect_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none (default: none)",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(rhealpixinspect(resolution, fix_antimeridian=fix_antimeridian))
+    print(rhealpixinspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
 
 
 if __name__ == "__main__":

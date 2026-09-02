@@ -63,9 +63,9 @@ def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
     gpd.GeoDataFrame
         GeoDataFrame containing DIGIPIN cells with geometries and metadata
     """
-    digipin_ids = digipin_grid_ids(resolution, bbox=bbox)
+    digipin_ids = digipin_grid_ids(resolution, bbox=bbox, compact=False, verbose=verbose)
     if compact:
-        digipin_ids = digipin_compact(digipin_ids)
+        digipin_ids = digipin_compact(digipin_ids, verbose=verbose)
 
     digipin_records = []
     for digipin_code in tqdm(
@@ -79,7 +79,7 @@ def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
     return gpd.GeoDataFrame(digipin_records, geometry="geometry", crs="EPSG:4326")
 
 
-def digipin_grid_ids(resolution, bbox=None, compact=False):
+def digipin_grid_ids(resolution, bbox=None, compact=False, verbose=True):
     """
     Return a list of DIGIPIN IDs at the given resolution.
 
@@ -145,7 +145,7 @@ def digipin_grid_ids(resolution, bbox=None, compact=False):
         lon += sample_width
 
     if compact:
-        ids = digipin_compact(ids)
+        ids = digipin_compact(ids, verbose=verbose)
     return ids
 
 

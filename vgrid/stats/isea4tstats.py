@@ -17,7 +17,7 @@ from vgrid.utils.constants import (
     DGGS_TYPES,
 )
 from vgrid.generator.isea4tgrid import isea4tgrid
-from vgrid.utils.io import validate_isea4t_resolution
+from vgrid.utils.io import add_verbose_argument, validate_isea4t_resolution
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -134,7 +134,7 @@ def isea4tstats_cli():
     print(df)
 
 
-def isea4tinspect(resolution, fix_antimeridian: None = None):
+def isea4tinspect(resolution, fix_antimeridian: None = None, verbose=True):
     """
     Generate comprehensive inspection data for ISEA4T DGGS cells at a given resolution.
 
@@ -144,6 +144,7 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
     Args:
         resolution: ISEA4T resolution level (0-15)
         fix_antimeridian: Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing ISEA4T cell inspection data with columns:
             - isea4t: ISEA4T cell ID
@@ -159,7 +160,7 @@ def isea4tinspect(resolution, fix_antimeridian: None = None):
     # Allow running on all platforms
     resolution = validate_isea4t_resolution(resolution)
     isea4t_gdf = isea4tgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
+        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
     )
     isea4t_gdf["crossed"] = isea4t_gdf["geometry"].apply(check_crossing_geom)
     isea4t_gdf = isea4t_gdf[
@@ -531,10 +532,11 @@ def isea4tinspect_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(isea4tinspect(resolution, fix_antimeridian=fix_antimeridian))
+    print(isea4tinspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.tilecodegrid import tilecodegrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -135,7 +136,7 @@ def tilecodestats_cli():
     print(df)
 
 
-def tilecodeinspect(resolution: int):
+def tilecodeinspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for Tilecode DGGS cells at a given resolution.
 
@@ -145,6 +146,7 @@ def tilecodeinspect(resolution: int):
     Args:
         resolution: Tilecode resolution level (0-29)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing Tilecode cell inspection data with columns:
             - tilecode: Tilecode cell ID
@@ -157,7 +159,7 @@ def tilecodeinspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    tilecode_gdf = tilecodegrid(resolution, output_format="gpd")
+    tilecode_gdf = tilecodegrid(resolution, output_format="gpd", verbose=verbose)
     tilecode_gdf["crossed"] = tilecode_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = tilecode_gdf["cell_area"].mean()
     num_cells = 4**resolution
@@ -512,9 +514,10 @@ def tilecodeinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
-    print(tilecodeinspect(resolution))
+    print(tilecodeinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

@@ -19,20 +19,22 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_a5_resolution,
     aggregate_joined,
+    validate_agg,
 )
-from vgrid.utils.constants import STATS_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
 def a5_bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
     options=None,
     split_antimeridian=False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -47,7 +49,9 @@ def a5_bin(
     """
     resolution = validate_a5_resolution(int(resolution))
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     # 1) Normalize input to GeoDataFrame of points
@@ -70,13 +74,14 @@ def a5_bin(
         bbox=(minx, miny, maxx, maxy),
         options=options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
 
     # 3) Spatial join points -> cells with only needed columns
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -87,7 +92,7 @@ def a5_bin(
 
     # 4) Aggregate
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -104,12 +109,13 @@ def a5_bin(
 def a5bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
     options=None,
     split_antimeridian=False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -128,7 +134,7 @@ def a5bin(
             - dict: GeoJSON dictionary
             - list: List of GeoJSON feature dictionaries
         resolution (int): A5 resolution level [0..29] (0=coarsest, 29=finest)
-        stats (str): Statistic to compute:
+        agg (str): Statistic to compute:
             - 'count': Count of points in each cell
             - 'sum': Sum of field values
             - 'min': Minimum field value
@@ -143,7 +149,7 @@ def a5bin(
             - 'variety': Number of unique values
         category_col (str, optional): Category column for grouping statistics. When provided,
             statistics are computed separately for each category value.
-        numeric_col (str, optional): Numeric field to compute statistics (required if stats != 'count')
+        numeric_col (str, optional): Numeric field to compute statistics (required if agg != 'count')
         output_format (str, optional): Output format. Options include:
             - 'gpd', 'geopandas', 'gdf', 'geodataframe': Return GeoDataFrame
             - 'geojson_dict', 'json_dict': Return GeoJSON dictionary
@@ -188,18 +194,21 @@ def a5bin(
         >>> print(f"Output saved to: {result}")
     """
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     # Process input data and bin
     result_gdf = a5_bin(
         data,
         resolution,
-        stats,
+        agg,
         category_col,
         numeric_col,
         options=options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
         **kwargs,
     )
 
@@ -222,21 +231,21 @@ def a5bin_cli():
     It parses command-line arguments and calls the main a5bin function.
 
     Usage:
-        python a5bin.py -i input.shp -r 10 -stats count -f geojson -o output.geojson
+        python a5bin.py -i input.shp -r 10 -agg count -f geojson -o output.geojson
 
     Arguments:
         -i, --input: Input file path, URL, or other vector file formats
         -r, --resolution: A5 resolution [0..29]
-        -stats, --statistics: Statistic to compute (count, min, max, sum, mean, median, std, var, range, minority, majority, variety)
+        -agg, --agg: Statistic to compute (count, min, max, sum, mean, median, std, var, range, minority, majority, variety)
         -category, --category: Optional category field for grouping
-        -numeric_col, --numeric_col: Numeric field to compute statistics (required if stats != 'count')
+        -numeric_col, --numeric_col: Numeric field to compute statistics (required if agg != 'count')
         -split, --split_antimeridian: Apply antimeridian fixing to the resulting polygons
         -o, --output: Output file path (optional, will auto-generate if not provided)
         -f, --output_format: Output output_format (geojson, gpkg, parquet, csv, shapefile)
 
     Example:
         >>> # Bin shapefile to A5 cells at resolution 10 with count statistics
-        >>> # python a5bin.py -i cities.shp -r 10 -stats count -f geojson
+        >>> # python a5bin.py -i cities.shp -r 10 -agg count -f geojson
     """
     parser = argparse.ArgumentParser(description="Binning point data to A5 DGGS")
     parser.add_argument(
@@ -254,11 +263,11 @@ def a5bin_cli():
         help="Resolution of the grid [0..29]",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
 
     parser.add_argument(
@@ -273,7 +282,7 @@ def a5bin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     # Removed -o/--output; output is saved in CWD with predefined name
     parser.add_argument(
@@ -299,6 +308,14 @@ def a5bin_cli():
         help="Apply antimeridian fixing to the resulting polygons",
     )
 
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -315,12 +332,13 @@ def a5bin_cli():
         result = a5bin(
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             options=options,
             split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

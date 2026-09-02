@@ -4,7 +4,7 @@ DGGS Compact and Expand functions.
 This submodule provides functions to compact and expand various discrete global grid systems (DGGS).
 """
 
-from .h3compact import h3compact, h3expand, h3compact_cli, h3expand_cli
+from .h3compact import h3compact, h3expand, h3compact_cli, h3expand_cli, h3_compact
 from .s2compact import s2compact, s2expand, s2compact_cli, s2expand_cli
 from .a5compact import a5compact, a5expand, a5compact_cli, a5expand_cli
 from .rhealpixcompact import (
@@ -62,6 +62,7 @@ from .healpixcompact import (
 
 __all__ = [
     "h3compact",
+    "h3_compact",
     "h3expand",
     "h3compact_cli",
     "h3expand_cli",

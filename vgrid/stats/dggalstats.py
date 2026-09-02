@@ -37,7 +37,11 @@ from vgrid.utils.constants import (
 )
 from vgrid.generator.dggalgen import dggalgen
 from pyproj import Geod
-from vgrid.utils.io import validate_dggal_resolution, validate_dggal_type
+from vgrid.utils.io import (
+    add_verbose_argument,
+    validate_dggal_resolution,
+    validate_dggal_type,
+)
 
 _DGGS_TYPE_DISPLAY = {
     "healpix": "HEALPix",
@@ -302,7 +306,7 @@ def dggalstats_cli():
 
 
 def dggalinspect(
-    dggs_type: str, resolution: int, split_antimeridian: bool = False
+    dggs_type: str, resolution: int, split_antimeridian: bool = False, verbose=True
 ) -> gpd.GeoDataFrame:
     """
     Generate detailed inspection data for a DGGAL DGGS type at a given resolution.
@@ -312,6 +316,7 @@ def dggalinspect(
         resolution: Resolution level
         split_antimeridian: When True, apply antimeridian splitting to the resulting polygons.
             Defaults to True when None or omitted.
+        verbose: Show progress bars. Defaults to True.
 
     Returns:
         geopandas.GeoDataFrame with columns:
@@ -330,6 +335,7 @@ def dggalinspect(
         resolution,
         output_format="gpd",
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
 
     # Determine whether current CRS is geographic; compute metrics accordingly
@@ -726,11 +732,17 @@ def dggalinspect_cli():
         default=False,  # default is False to avoid splitting the Antimeridian by default
         help="Enable antimeridian splitting",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     dggs_type = args.dggs_type
     resolution = args.resolution
     print(
-        dggalinspect(dggs_type, resolution, split_antimeridian=args.split_antimeridian)
+        dggalinspect(
+            dggs_type,
+            resolution,
+            split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
+        )
     )
 
 

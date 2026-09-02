@@ -18,9 +18,10 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_dggal_resolution,
     aggregate_joined,
+    validate_agg,
 )
 from vgrid.utils.constants import (
-    STATS_OPTIONS,
+    AGG_OPTIONS,
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
     DGGAL_TYPES,
@@ -31,12 +32,13 @@ def dggal_bin(
     dggs_type: str,
     data,
     resolution: int,
-    stats: str = "count",
+    agg: str = "count",
     category_col: str | None = None,
     numeric_col: str | None = None,
     lat_col: str = "lat",
     lon_col: str = "lon",
     split_antimeridian: bool = False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -50,7 +52,9 @@ def dggal_bin(
 
     resolution = validate_dggal_resolution(dggs_type, int(resolution))
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     # 1) Normalize input to GeoDataFrame of points
@@ -74,11 +78,12 @@ def dggal_bin(
         output_format="gpd",
         bbox=bbox,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -88,7 +93,7 @@ def dggal_bin(
     )
 
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -105,24 +110,28 @@ def dggalbin(
     dggs_type: str,
     data,
     resolution: int,
-    stats: str = "count",
+    agg: str = "count",
     category_col: str | None = None,
     numeric_col: str | None = None,
     output_format: str = "gpd",
     split_antimeridian: bool = False,
+    verbose=True,
     **kwargs,
 ):
     """
     Bin point data into DGGAL grid cells and compute statistics from various input formats.
     """
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
     result_gdf = dggal_bin(
         dggs_type=dggs_type,
         data=data,
         resolution=resolution,
-        stats=stats,
+        agg=agg,
         category_col=category_col,
         numeric_col=numeric_col,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
         **kwargs,
     )
 
@@ -162,11 +171,11 @@ def dggalbin_cli():
         help="Resolution (integer)",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -180,7 +189,7 @@ def dggalbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     parser.add_argument(
         "-f",
@@ -197,6 +206,14 @@ def dggalbin_cli():
         help="Apply antimeridian fixing to the resulting polygons",
     )
 
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -204,11 +221,12 @@ def dggalbin_cli():
             dggs_type=args.dggs_type,
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -105,8 +105,8 @@ s2_resampled = dggsresample(
 ```python
 from vgrid.binning.h3bin import h3bin
 file_path = ("https://raw.githubusercontent.com/opengeoshub/vopendata/main/csv/dist1_pois.csv")
-stats="count"
-h3_bin = h3bin(file_path, resolution=10, stats=stats, 
+agg="count"
+h3_bin = h3bin(file_path, resolution=10, agg=agg, 
                 # numeric_col="confidence",
                 # category="category",
                 output_format="gpd")

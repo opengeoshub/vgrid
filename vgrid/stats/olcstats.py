@@ -19,7 +19,7 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.io import olc_resolutions
+from vgrid.utils.io import add_verbose_argument, olc_resolutions
 
 
 def olc_metrics(
@@ -136,7 +136,7 @@ def olcstats_cli():
     print(df)
 
 
-def olcinspect(resolution: int):
+def olcinspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for OLC DGGS cells at a given resolution.
 
@@ -146,6 +146,7 @@ def olcinspect(resolution: int):
     Args:
         resolution: OLC resolution level (2-15)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing OLC cell inspection data with columns:
             - olc: OLC cell ID
@@ -158,7 +159,7 @@ def olcinspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    olc_gdf = olcgrid(resolution, output_format="gpd")
+    olc_gdf = olcgrid(resolution, output_format="gpd", verbose=verbose)
     olc_gdf["crossed"] = olc_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = olc_gdf["cell_area"].mean()
     if resolution <= 10:
@@ -506,9 +507,10 @@ def olcinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args, _ = parser.parse_known_args()  # type: ignore
     resolution = args.resolution
-    print(olcinspect(resolution))
+    print(olcinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

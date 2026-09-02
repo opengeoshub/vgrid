@@ -203,6 +203,7 @@ def polygon2quadkey(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to Quadkey grid cells.
@@ -268,8 +269,7 @@ def polygon2quadkey(
 
         # Use quadkeycompact function directly
         compacted_gdf = quadkeycompact(
-            temp_gdf, quadkey_id="quadkey", output_format="gpd"
-        )
+            temp_gdf, quadkey_id="quadkey", output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -395,6 +395,7 @@ def geodataframe2quadkey(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(quadkey_rows, geometry="geometry", crs="EPSG:4326")

@@ -197,21 +197,21 @@ Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--pr
 ### DGGS Compact
 
 ``` bash
-> h3compact -i h3.geojson -cellid h3 -fix split # h3compact -i <input> -cellid [optional] -f [output_format] -fix [antimeridian method]
-> s2compact -i s2.geojson -cellid s2 -fix split # s2compact -i <input> -cellid [optional] -fix [antimeridian method]
-> a5compact -i a5.geojson -cellid a5 -split # a5compact -i <input> -cellid [optional] -split
-> rhealpixcompact -i rhealpix.geojson -cellid rhealpix -fix split # rhealpixcompact -i <input> -cellid [optional] -fix [antimeridian method]
-> dggalcompact -i dggal_cells.geojson -dggs gnosis # dggalcompact -i <input> -dggs <dggal_type> [-zoneid field] [-f output_format]
-> dggridcompact -i dggrid_cells.geojson -dggs ISEA4T -r 10 -split -aggregate # Linux API: dggridcompact -i <input> -dggs <DGGS Type> -r <resolution> [-cellid] [-split] [-aggregate]
-> isea4tcompact -i isea4t.geojson -cellid isea4t -fix split # isea4tcompact -i <input> -cellid [optional] -fix [antimeridian method]
-> isea3hcompact -i isea3h.geojson -cellid isea3h -fix split # isea3hcompact -i <input> -cellid [optional] -fix [antimeridian method]
-> easecompact -i ease.geojson -cellid ease # easecompact -i <input> -cellid [optional]
-> qtmcompact -i qtm.geojson -cellid qtm # qtmcompact -i <input> -cellid [optional]
-> olccompact -i olc.geojson -cellid olc # olccompact -i <input> -cellid [optional]
-> geohashcompact -i geohash.geojson -cellid geohash # geohashcompact -i <input> -cellid [optional]
-> tilecodecompact -i tilecode.geojson -cellid tilecode # tilecodecompact -i <input> -cellid [optional]
-> quadkeycompact -i quadkey.geojson -cellid quadkey # quadkeycompact -i <input> -cellid [optional]
-> digipincompact -i digipin.geojson -cellid digipin # digipincompact -i <input> -cellid [optional]
+> h3compact -i h3.geojson -cellid h3 -fix split # h3compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -f [output_format] -fix [antimeridian method]
+> s2compact -i s2.geojson -cellid s2 -fix split # s2compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
+> a5compact -i a5.geojson -cellid a5 -split # a5compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -split
+> rhealpixcompact -i rhealpix.geojson -cellid rhealpix -fix split # rhealpixcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
+> dggalcompact -i dggal_cells.geojson -dggs gnosis # dggalcompact -i <input> -dggs <dggal_type> [-zoneid field] [-d depth] [-agg ...] [-numeric_col] [-f output_format]
+> dggridcompact -i dggrid_cells.geojson -dggs ISEA4T -r 10 -split -aggregate # Linux API: dggridcompact -i <input> -dggs <DGGS Type> -r <resolution> [-cellid] [-d depth] [-agg ...] [-numeric_col] [-split] [-aggregate]
+> isea4tcompact -i isea4t.geojson -cellid isea4t -fix split # isea4tcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
+> isea3hcompact -i isea3h.geojson -cellid isea3h -fix split # isea3hcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
+> easecompact -i ease.geojson -cellid ease # easecompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> qtmcompact -i qtm.geojson -cellid qtm # qtmcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> olccompact -i olc.geojson -cellid olc # olccompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> geohashcompact -i geohash.geojson -cellid geohash # geohashcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> tilecodecompact -i tilecode.geojson -cellid tilecode # tilecodecompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> quadkeycompact -i quadkey.geojson -cellid quadkey # quadkeycompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
+> digipincompact -i digipin.geojson -cellid digipin # digipincompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col]
 ```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggscompact_isea4t.png">
@@ -256,27 +256,27 @@ Resample a source DGGS layer to another DGGS type (or resolution): build a targe
 ### DGGS Binning
 Binning point layers to DGGS cells with spatial joins and aggregation.
 
-Common options for all `*bin` CLIs: `-i` / `--input` (vector file or URL), `-r` / `--resolution`, `-stats` / `--statistics` (`count`, `min`, `max`, `sum`, `mean`, `median`, `std`, `var`, `range`, `minority`, `majority`, `variety`), `-numeric_col` / `--numeric_col` (required when `stats` ≠ `count`), `-category` / `--category` (optional grouping field), `-f` / `--output_format` (default `gpd`).
+Common options for all `*bin` CLIs: `-i` / `--input` (vector file or URL), `-r` / `--resolution`, `-agg` / `--agg` (`count`, `min`, `max`, `sum`, `mean`, `median`, `std`, `var`, `range`, `minority`, `majority`, `variety`), `-numeric_col` / `--numeric_col` (required when `agg` ≠ `count`), `-category` / `--category` (optional grouping field), `-f` / `--output_format` (default `gpd`), `-v` / `--verbose` (progress bar; `--no-verbose` to hide).
 
 ``` bash
-> h3bin -i point.geojson -r 8 -stats count -numeric_col value -category group -fix split # h3bin -i <input> -r <resolution[0..15]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
-> s2bin -i point.geojson -r 13 -stats count -numeric_col value -category group -fix split # s2bin -i <input> -r <resolution[0..30]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
-> a5bin -i point.geojson -r 18 -stats count -numeric_col value -category group -split # a5bin -i <input> -r <resolution[0..29]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -split [-options JSON]
-> rhealpixbin -i point.geojson -r 8 -stats count -numeric_col value -category group -fix split # rhealpixbin -i <input> -r <resolution[0..15]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
-> dggalbin -i point.geojson -t gnosis -r 5 -stats count -numeric_col value -category group -split # dggalbin -i <input> -t <dggal_type> -r <resolution> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -split
+> h3bin -i point.geojson -r 8 -agg count -numeric_col value -category group -fix split # h3bin -i <input> -r <resolution[0..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
+> s2bin -i point.geojson -r 13 -agg count -numeric_col value -category group -fix split # s2bin -i <input> -r <resolution[0..30]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
+> a5bin -i point.geojson -r 18 -agg count -numeric_col value -category group -split # a5bin -i <input> -r <resolution[0..29]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -split [-options JSON]
+> rhealpixbin -i point.geojson -r 8 -agg count -numeric_col value -category group -fix split # rhealpixbin -i <input> -r <resolution[0..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
+> dggalbin -i point.geojson -t gnosis -r 5 -agg count -numeric_col value -category group -split # dggalbin -i <input> -t <dggal_type> -r <resolution> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -split
 # dggridbin: Linux API — same options as dggalbin plus -aggregate
-> isea4tbin -i point.geojson -r 13 -stats count -numeric_col value -category group -fix split # isea4tbin -i <input> -r <resolution[0..25]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
-> easebin -i point.geojson -r 4 -stats count -numeric_col value -category group # easebin -i <input> -r <resolution[0..6]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> qtmbin -i point.geojson -r 13 -stats count -numeric_col value -category group # qtmbin -i <input> -r <resolution[1..24]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> olcbin -i point.geojson -r 9 -stats count -numeric_col value -category group # olcbin -i <input> -r <resolution[2,4,6,8,10..15]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> geohashbin -i point.geojson -r 6 -stats count -numeric_col value -category group # geohashbin -i <input> -r <resolution[1..10]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> georefbin -i point.geojson -r 4 -stats count # georefbin -i <input> -r <resolution[0..10]>
-> tilecodebin -i point.geojson -r 15 -stats count -numeric_col value -category group # tilecodebin -i <input> -r <resolution[0..29]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> quadkeybin -i point.geojson -r 13 -stats count -numeric_col value -category group # quadkeybin -i <input> -r <resolution[0..29]> -stats [...] -numeric_col [optional] -category [optional] -f [output_format]
-> maidenheadbin -i point.geojson -r 4 -stats count # maidenheadbin -i <input> -r <resolution[1..4]>
-> garsbin -i point.geojson -r 1 -stats count # garsbin -i <input> -r <resolution[1..4]>
-> digipinbin -i point.geojson -r 10 -stats count # digipinbin -i <input> -r <resolution> (Python API; no console script yet)
-> polygonbin -i points.geojson -p polygons.geojson -stats count # polygonbin -i <points> -p <polygons> [-stats] [-numeric_col] [-category]
+> isea4tbin -i point.geojson -r 13 -agg count -numeric_col value -category group -fix split # isea4tbin -i <input> -r <resolution[0..25]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
+> easebin -i point.geojson -r 4 -agg count -numeric_col value -category group # easebin -i <input> -r <resolution[0..6]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> qtmbin -i point.geojson -r 13 -agg count -numeric_col value -category group # qtmbin -i <input> -r <resolution[1..24]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> olcbin -i point.geojson -r 9 -agg count -numeric_col value -category group # olcbin -i <input> -r <resolution[2,4,6,8,10..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> geohashbin -i point.geojson -r 6 -agg count -numeric_col value -category group # geohashbin -i <input> -r <resolution[1..10]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> georefbin -i point.geojson -r 4 -agg count # georefbin -i <input> -r <resolution[0..10]>
+> tilecodebin -i point.geojson -r 15 -agg count -numeric_col value -category group # tilecodebin -i <input> -r <resolution[0..29]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> quadkeybin -i point.geojson -r 13 -agg count -numeric_col value -category group # quadkeybin -i <input> -r <resolution[0..29]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format]
+> maidenheadbin -i point.geojson -r 4 -agg count # maidenheadbin -i <input> -r <resolution[1..4]>
+> garsbin -i point.geojson -r 1 -agg count # garsbin -i <input> -r <resolution[1..4]>
+> digipinbin -i point.geojson -r 10 -agg count # digipinbin -i <input> -r <resolution> (Python API; no console script yet)
+> polygonbin -i points.geojson -p polygons.geojson -agg count # polygonbin -i <points> -p <polygons> [-agg] [-numeric_col] [-category]
 ```
 
 DGGRID binning (`dggrid_bin` / `dggridbin` Python API, Linux): `-split`, `-aggregate`, same as `vector2dggrid` and `dggridgen`.

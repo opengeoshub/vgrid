@@ -19,6 +19,7 @@ from tqdm import tqdm
 import geopandas as gpd
 from shapely.geometry import box, MultiPoint
 from vgrid.conversion.dggs2geo.h32geo import h32geo
+from vgrid.conversion.dggscompact.h3compact import h3_compact
 import h3
 from vgrid.utils.geometry import (
     check_predicate,
@@ -221,6 +222,7 @@ def polygon2h3(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to H3 grid cells.
@@ -270,7 +272,7 @@ def polygon2h3(
 
         # Apply compact after predicate check
         if compact:
-            filtered_cells = h3.compact_cells(filtered_cells)
+            filtered_cells = h3_compact(filtered_cells, verbose=verbose)
 
         # Convert filtered/compacted cells to rows
         for cell_id in filtered_cells:
@@ -409,6 +411,7 @@ def geodataframe2h3(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
     if not h3_rows:

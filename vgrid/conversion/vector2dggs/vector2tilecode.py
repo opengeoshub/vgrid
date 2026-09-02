@@ -215,6 +215,7 @@ def polygon2tilecode(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to Tilecode grid cells.
@@ -291,8 +292,7 @@ def polygon2tilecode(
 
         # Use tilecodecompact function directly
         compacted_gdf = tilecodecompact(
-            temp_gdf, tilecode_id="tilecode", output_format="gpd"
-        )
+            temp_gdf, tilecode_id="tilecode", output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -416,6 +416,7 @@ def geodataframe2tilecode(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(tilecode_rows, geometry="geometry", crs="EPSG:4326")

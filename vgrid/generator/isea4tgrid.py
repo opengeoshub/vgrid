@@ -100,7 +100,7 @@ def isea4t_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_isea4t_resolution(resolution)
     cell_ids = get_isea4t_children_cells(ISEA4T_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea4t_compact(cell_ids)
+        cell_ids = isea4t_compact(cell_ids, verbose=verbose)
     isea4t_rows = []
     for cell_id in tqdm(cell_ids, desc="Generating ISEA4T DGGS", unit=" cells", disable=not verbose):
         isea4t_rows.append(_isea4t_row_from_id(cell_id, fix_antimeridian))
@@ -128,7 +128,7 @@ def isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
         bounding_cell.get_cell_id(), bounding_box, resolution
     )
     if compact:
-        bounding_children = isea4t_compact(bounding_children)
+        bounding_children = isea4t_compact(bounding_children, verbose=verbose)
     isea4t_rows = []
     for cell_id in tqdm(
         bounding_children, desc="Generating ISEA4T DGGS", unit=" cells", disable=not verbose
@@ -137,25 +137,25 @@ def isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
     return gpd.GeoDataFrame(isea4t_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def isea4t_grid_ids(resolution, compact=False):
+def isea4t_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of ISEA4T cell IDs for the whole world at a given resolution.
     """
     resolution = validate_isea4t_resolution(resolution)
     cell_ids = get_isea4t_children_cells(ISEA4T_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea4t_compact(cell_ids)
+        cell_ids = isea4t_compact(cell_ids, verbose=verbose)
     return [str(cid) for cid in cell_ids]
 
 
-def isea4t_grid_within_bbox_ids(resolution, bbox, compact=False):
+def isea4t_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of ISEA4T cell IDs intersecting the given bounding box at a given resolution.
     """
     resolution = validate_isea4t_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return isea4t_grid_ids(resolution, compact=compact)
+        return isea4t_grid_ids(resolution, compact=compact, verbose=verbose)
 
     accuracy = ISEA4T_RES_ACCURACY_DICT.get(resolution)
     bounding_box = box(*bbox)
@@ -171,7 +171,7 @@ def isea4t_grid_within_bbox_ids(resolution, bbox, compact=False):
     )
     cell_ids = list(bounding_children or [])
     if compact:
-        cell_ids = isea4t_compact(cell_ids)
+        cell_ids = isea4t_compact(cell_ids, verbose=verbose)
     return cell_ids
 
 

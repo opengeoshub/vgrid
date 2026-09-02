@@ -72,6 +72,7 @@ def point2dggal(
     topology=False,
     include_properties=True,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a point geometry to DGGAL grid cells.
@@ -162,6 +163,7 @@ def polyline2dggal(
     topology=False,
     include_properties=True,
     split_antimeridian=False,
+    verbose=True,
 ):
     dggs_class_name = DGGAL_TYPES[dggs_type]["class_name"]
     dggrs = globals()[dggs_class_name]()
@@ -216,6 +218,7 @@ def polygon2dggal(
     topology=False,
     include_properties=True,
     split_antimeridian=False,
+    verbose=True,
 ):
     dggs_class_name = DGGAL_TYPES[dggs_type]["class_name"]
     dggrs = globals()[dggs_class_name]()
@@ -261,7 +264,7 @@ def polygon2dggal(
         # Create a GeoDataFrame from the current results
         temp_gdf = gpd.GeoDataFrame(dggal_rows, geometry="geometry", crs="EPSG:4326")
         # Use a5compact function directly
-        compacted_gdf = dggalcompact(dggs_type, temp_gdf, output_format="gpd")
+        compacted_gdf = dggalcompact(dggs_type, temp_gdf, output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -394,6 +397,7 @@ def geodataframe2dggal(
                     compact,
                     include_properties,
                     split_antimeridian=split_antimeridian,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(dggal_rows, geometry="geometry", crs="EPSG:4326")

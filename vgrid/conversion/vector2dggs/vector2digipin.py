@@ -232,6 +232,7 @@ def polygon2digipin(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to DIGIPIN grid cells.
@@ -330,8 +331,7 @@ def polygon2digipin(
 
         # Use digipincompact function directly
         compacted_gdf = digipincompact(
-            temp_gdf, digipin_id="digipin", output_format="gpd"
-        )
+            temp_gdf, digipin_id="digipin", output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -455,6 +455,7 @@ def geodataframe2digipin(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(digipin_rows, geometry="geometry", crs="EPSG:4326")

@@ -15,6 +15,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.quadkeygrid import quadkeygrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -133,7 +134,7 @@ def quadkeystats_cli():
     print(df)
 
 
-def quadkeyinspect(resolution: int):
+def quadkeyinspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for Quadkey DGGS cells at a given resolution.
 
@@ -143,6 +144,7 @@ def quadkeyinspect(resolution: int):
     Args:
         resolution: Quadkey resolution level (0-29)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing Quadkey cell inspection data with columns:
             - quadkey: Quadkey cell ID
@@ -155,7 +157,7 @@ def quadkeyinspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    quadkey_gdf = quadkeygrid(resolution, output_format="gpd")
+    quadkey_gdf = quadkeygrid(resolution, output_format="gpd", verbose=verbose)
     quadkey_gdf["crossed"] = quadkey_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = quadkey_gdf["cell_area"].mean()
     num_cells = 4**resolution
@@ -509,9 +511,10 @@ def quadkeyinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=None)
+    add_verbose_argument(parser)
     args, _ = parser.parse_known_args()
     res = args.resolution if args.resolution is not None else 2
-    print(quadkeyinspect(res))
+    print(quadkeyinspect(res, verbose=args.verbose))
 
 
 if __name__ == "__main__":

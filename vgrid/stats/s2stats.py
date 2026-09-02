@@ -18,6 +18,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.s2grid import s2grid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -135,13 +136,14 @@ def s2stats_cli():
     print(df)
 
 
-def s2inspect(resolution: int, fix_antimeridian=None):
+def s2inspect(resolution: int, fix_antimeridian=None, verbose=True):
     """
     Generate comprehensive inspection data for S2 DGGS cells at a given resolution.
 
     Args:
         resolution: S2 resolution level (0-30)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing S2 cell inspection data with columns:
             - s2: S2 cell ID
@@ -154,7 +156,7 @@ def s2inspect(resolution: int, fix_antimeridian=None):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    s2_gdf = s2grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian)
+    s2_gdf = s2grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose)
     s2_gdf["crossed"] = s2_gdf["geometry"].apply(check_crossing_geom)
     s2_gdf = s2_gdf[~s2_gdf["crossed"]]  # remove cells that cross the Antimeridian
     # mean_area = s2_gdf["cell_area"].mean()
@@ -502,10 +504,11 @@ def s2inspect_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(s2inspect(resolution, fix_antimeridian=fix_antimeridian))
+    print(s2inspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
 
 
 if __name__ == "__main__":

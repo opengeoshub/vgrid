@@ -80,7 +80,7 @@ STRUCTURED_FORMATS = [
     "json_dict",
 ]
 
-STATS_OPTIONS = [
+AGG_OPTIONS = [
     "count",
     "min",
     "max",

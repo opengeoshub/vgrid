@@ -33,19 +33,19 @@ from vgrid.utils.io import (
     add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.s22geo import s22geo
+from vgrid.conversion.dggscompact.s2compact import s2_compact
 
 
-def _s2_compact_cell_ids(cell_ids):
-    """Compact S2 cell IDs using CellUnion normalization."""
+def _s2_compact_cell_ids(cell_ids, verbose=True):
+    """Compact S2 CellIds via ``s2_compact``."""
     if not cell_ids:
         return []
-
-    try:
-        covering = s2.CellUnion(cell_ids)
-        covering.normalize()
-        return list(covering.cell_ids())
-    except Exception:
-        return list(cell_ids)
+    tokens = [
+        cell_id.to_token() if hasattr(cell_id, "to_token") else str(cell_id)
+        for cell_id in cell_ids
+    ]
+    compacted = s2_compact(tokens, verbose=verbose)
+    return [s2.CellId.from_token(token) for token in compacted]
 
 
 def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
@@ -73,7 +73,7 @@ def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True
 
     cell_ids = list(coverer.get_covering(region))
     if compact:
-        cell_ids = _s2_compact_cell_ids(cell_ids)
+        cell_ids = _s2_compact_cell_ids(cell_ids, verbose=verbose)
 
     s2_rows = []
     num_edges = 4
@@ -90,7 +90,7 @@ def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True
     return gpd.GeoDataFrame(s2_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False):
+def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     """
     Return a list of S2 cell tokens for a given resolution and bounding box.
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
@@ -113,7 +113,7 @@ def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False):
     )
     cell_ids = list(coverer.get_covering(region))
     if compact:
-        cell_ids = _s2_compact_cell_ids(cell_ids)
+        cell_ids = _s2_compact_cell_ids(cell_ids, verbose=verbose)
     return [cell_id.to_token() for cell_id in cell_ids]
 
 

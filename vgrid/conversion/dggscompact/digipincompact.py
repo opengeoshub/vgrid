@@ -4,7 +4,8 @@ Digipin Compact Module
 This module provides functionality to compact and expand DIGIPIN cells with flexible input and output formats.
 
 Key Functions:
-    digipincompact: Compact a set of DIGIPIN cells to their minimal covering set
+    digipin_compact: Compact a list of DIGIPIN IDs with an optional parent depth
+    digipincompact: Compact a set of DIGIPIN cells to their covering set
     digipinexpand: Expand (uncompact) a set of DIGIPIN cells to a target resolution
     digipincompact_cli: Command-line interface for compaction
     digipinexpand_cli: Command-line interface for expansion
@@ -13,88 +14,93 @@ Key Functions:
 import os
 import argparse
 import geopandas as gpd
-from collections import defaultdict
+from tqdm import tqdm
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import process_input_data_compact, convert_to_output_format
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.io import (
+    aggregate_values,
+    compact_cells,
+    convert_to_output_format,
+    prepare_compact_bags,
+    process_input_data_compact,
+)
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs.digipin import digipin_parent, digipin_children, digipin_resolution
 from vgrid.conversion.dggs2geo.digipin2geo import digipin2geo
 
 
-def digipin_compact(digipin_ids):
+def digipin_compact(digipin_ids, depth=-1, bags=None, verbose=True):
     """
-    Compact a list of DIGIPIN cell IDs to their minimal covering set.
+    Compact a list of DIGIPIN cell IDs by replacing complete child sets with parents.
 
-    Groups DIGIPIN cells by their parents and replaces complete sets of children
-    with their parent cells, repeating until no more compaction is possible.
+    Groups cells by their immediate parent and replaces a parent when every child
+    is present. Repeats until ``depth`` parent levels have been applied, or until
+    no further compaction is possible.
 
     Parameters
     ----------
     digipin_ids : list of str
-        List of DIGIPIN cell IDs to compact.
+        DIGIPIN cell IDs to compact. Mixed resolutions are allowed.
+    depth : int, default -1
+        How many parent levels to climb:
+        - ``0``: do nothing (return the unique input cells)
+        - ``-1``: compact as far as possible
+        - ``1``: replace complete sibling sets with their direct parent
+        - ``2``: then compact those parents (grandparents), and so on
+    bags : dict of list, optional
+        Per-cell lists of original values. When a complete child set is replaced
+        by its parent, child lists are concatenated onto the parent. Mutated
+        in place so remaining keys match the compacted IDs.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
     list of str
-        Sorted list of compacted DIGIPIN cell IDs representing the minimal covering set.
-
-    Examples
-    --------
-    >>> digipin_ids = ["F3K-F", "F3K-C", "F3K-9", "F3K-8", "F3K-J", "F3K-3", "F3K-2", "F3K-7",
-    ...                "F3K-K", "F3K-4", "F3K-5", "F3K-6", "F3K-L", "F3K-M", "F3K-P", "F3K-T"]
-    >>> compacted = digipin_compact(digipin_ids)
-    >>> print(f"Compacted {len(digipin_ids)} cells to {len(compacted)} cells")
+        Sorted compacted DIGIPIN cell IDs.
     """
-    digipin_ids = set(digipin_ids)  # Remove duplicates
 
-    # Main loop for compaction
-    while True:
-        grouped_digipin_ids = defaultdict(set)
+    def parent_fn(digipin_id):
+        parent = digipin_parent(digipin_id)
+        if parent == "Invalid DIGIPIN":
+            return None
+        return parent
 
-        # Group cells by their parent
-        for digipin_id in digipin_ids:
-            parent = digipin_parent(digipin_id)
-            if parent != "Invalid DIGIPIN":  # Ensure there's a valid parent
-                grouped_digipin_ids[parent].add(digipin_id)
+    def children_fn(parent):
+        parent_resolution = digipin_resolution(parent)
+        if isinstance(parent_resolution, str):
+            raise ValueError("Invalid DIGIPIN resolution")
+        return digipin_children(parent, parent_resolution + 1)
 
-        new_digipin_ids = set(digipin_ids)
-        changed = False
-
-        # Check if we can replace children with parent
-        for parent, children in grouped_digipin_ids.items():
-            # Generate the subcells for the parent at the next resolution
-            parent_resolution = digipin_resolution(parent)
-            if isinstance(parent_resolution, str):
-                continue  # Skip invalid resolutions
-
-            childcells_at_next_res = set(
-                childcell
-                for childcell in digipin_children(parent, parent_resolution + 1)
-            )  # Collect subcells as strings
-
-            # Check if the current children match the subcells at the next resolution
-            if children == childcells_at_next_res:
-                new_digipin_ids.difference_update(children)  # Remove children
-                new_digipin_ids.add(parent)  # Add the parent
-                changed = True  # A change occurred
-
-        if not changed:
-            break  # Stop if no more compaction is possible
-        digipin_ids = new_digipin_ids  # Continue compacting
-
-    return sorted(digipin_ids)  # Sorted for consistency
+    return compact_cells(
+        digipin_ids,
+        parent_fn,
+        children_fn,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
+        desc="Compacting DIGIPIN",
+    )
 
 
 def digipincompact(
     input_data,
     digipin_id="digipin",
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
+    verbose=True,
 ):
     """
-    Compact DIGIPIN cells to their minimal covering set.
+    Compact DIGIPIN cells to their covering set at a given parent depth.
 
-    Compacts a set of DIGIPIN cells by replacing complete sets of children with their parent cells,
-    repeating until no more compaction is possible. Supports flexible input and output formats.
+    Compacts a set of DIGIPIN cells by replacing complete sets of children with
+    their parent cells. ``depth`` limits how far up the hierarchy to merge.
+
+    When a complete sibling set is replaced by its parent, original child values
+    are combined with ``agg`` (same options as ``h3bin``). If ``agg`` is
+    ``"count"``, ``numeric_col`` is ignored and the output ``count`` is the
+    number of original input cells in each compacted cell.
 
     Parameters
     ----------
@@ -107,6 +113,17 @@ def digipincompact(
         - List of DIGIPIN cell IDs
     digipin_id : str, default "digipin"
         Name of the column containing DIGIPIN cell IDs.
+    depth : int, default -1
+        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
+        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+    agg : str, default "count"
+        Aggregation applied to original child values when cells compact into a
+        parent. Same options as ``h3bin`` (``count``, ``min``, ``max``, ``sum``,
+        ``mean``, ``median``, ``std``, ``var``, ``range``, ``minority``,
+        ``majority``, ``variety``).
+    numeric_col : str, optional
+        Numeric field to aggregate. Required when ``agg`` is not ``"count"``;
+        ignored when ``agg`` is ``"count"``.
     output_format : str, default "gpd"
         Output format. Options:
         - "gpd": Returns GeoPandas GeoDataFrame (default)
@@ -116,6 +133,8 @@ def digipincompact(
         - "parquet": Returns Parquet file path
         - "shapefile"/"shp": Returns Shapefile file path
         - "gpkg"/"geopackage": Returns GeoPackage file path
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
@@ -131,28 +150,44 @@ def digipincompact(
     >>> # Compact from list
     >>> result = digipincompact(["F3K-F", "F3K-C", "F3K-9", "F3K-8"])
 
+    >>> # Compact only one parent level
+    >>> result = digipincompact(cells, depth=1)
+
+    >>> # Mean of a numeric field on compacted parents
+    >>> result = digipincompact(cells, agg="mean", numeric_col="value")
+
     >>> # Compact to GeoJSON file
     >>> result = digipincompact("cells.geojson", output_format="geojson")
     >>> print(f"Saved to: {result}")
     """
+    if not digipin_id:
+        digipin_id = "digipin"
 
-    gdf = process_input_data_compact(input_data, digipin_id)
-    digipin_ids = gdf[digipin_id].drop_duplicates().tolist()
-
-    if not digipin_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        digipin_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="DIGIPIN cells",
+    )
+    if bags is None:
         print(f"No DIGIPIN IDs found in <{digipin_id}> field.")
         return
 
-    try:
-        digipin_ids_compact = digipin_compact(digipin_ids)
-    except Exception:
-        raise Exception("Compact cells failed. Please check your DIGIPIN ID field.")
-
+    digipin_ids_compact = digipin_compact(
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+    )
     if not digipin_ids_compact:
         return None
 
     rows = []
-    for digipin_id_compact in digipin_ids_compact:
+    for digipin_id_compact in tqdm(
+        digipin_ids_compact,
+        desc="Building DIGIPIN compact",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = digipin2geo(digipin_id_compact)
             cell_resolution = digipin_resolution(digipin_id_compact)
@@ -161,6 +196,7 @@ def digipincompact(
             row = graticule_dggs_to_geoseries(
                 "digipin", digipin_id_compact, cell_resolution, cell_polygon
             )
+            row[agg_col] = aggregate_values(bags.get(digipin_id_compact, []), agg)
             rows.append(row)
         except Exception:
             continue
@@ -197,6 +233,35 @@ def digipincompact_cli():
         choices=OUTPUT_FORMATS,
         help="Output format",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
 
     args = parser.parse_args()
     input_data = args.input
@@ -207,6 +272,10 @@ def digipincompact_cli():
         input_data,
         digipin_id=cellid,
         output_format=output_format,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
 
     if output_format in STRUCTURED_FORMATS:

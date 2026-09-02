@@ -15,6 +15,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.healpixgrid import healpixgrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.dggs.healpix import nside2npix, order2nside
 from vgrid.utils.geometry import (
     check_crossing_geom,
@@ -109,7 +110,7 @@ def healpixstats_cli():
     print(healpixstats(unit=args.unit))
 
 
-def healpixinspect(resolution: int = 0, fix_antimeridian: str = None):
+def healpixinspect(resolution: int = 0, fix_antimeridian: str = None, verbose=True):
     """
     Generate comprehensive inspection data for HEALPix DGGS cells at a given resolution.
 
@@ -117,11 +118,12 @@ def healpixinspect(resolution: int = 0, fix_antimeridian: str = None):
         resolution: HEALPix order (0-29)
         fix_antimeridian: Antimeridian fixing method
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame with area, compactness, and dateline metrics.
     """
     healpix_gdf = healpixgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
+        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
     )
     healpix_gdf["crossed"] = healpix_gdf["geometry"].apply(check_crossing_geom)
     healpix_gdf = healpix_gdf[~healpix_gdf["crossed"]]
@@ -397,8 +399,9 @@ def healpixinspect_cli():
         default=None,
         help="Antimeridian fixing method",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    print(healpixinspect(args.resolution, fix_antimeridian=args.fix_antimeridian))
+    print(healpixinspect(args.resolution, fix_antimeridian=args.fix_antimeridian, verbose=args.verbose))
 
 
 if __name__ == "__main__":

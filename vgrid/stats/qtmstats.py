@@ -18,6 +18,7 @@ from vgrid.utils.constants import (
     VCENTER_TRI,
 )
 from vgrid.generator.qtmgrid import qtm_grid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -131,7 +132,7 @@ def qtmstats_cli():
     print(df)
 
 
-def qtminspect(resolution: int):
+def qtminspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for QTM DGGS cells at a given resolution.
 
@@ -141,6 +142,7 @@ def qtminspect(resolution: int):
     Args:
         resolution: QTM resolution level (1-24)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing QTM cell inspection data with columns:
             - qtm: QTM cell ID
@@ -153,7 +155,7 @@ def qtminspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    qtm_gdf = qtm_grid(resolution)
+    qtm_gdf = qtm_grid(resolution, verbose=verbose)
     qtm_gdf["crossed"] = qtm_gdf["geometry"].apply(check_crossing_geom)
     qtm_gdf = qtm_gdf[~qtm_gdf["crossed"]]  # remove cells that cross the Antimeridian
     # mean_area = qtm_gdf["cell_area"].mean()
@@ -497,9 +499,10 @@ def qtminspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
-    print(qtminspect(resolution))
+    print(qtminspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

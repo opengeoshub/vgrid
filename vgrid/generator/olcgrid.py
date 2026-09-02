@@ -94,7 +94,7 @@ def olc_grid(resolution, compact=False, verbose=True):
             lat += lat_step
 
     if compact:
-        olc_ids = olc_compact([record["olc"] for record in olc_records])
+        olc_ids = olc_compact([record["olc"] for record in olc_records], verbose=verbose)
         return _olc_gdf_from_ids(olc_ids)
 
     return gpd.GeoDataFrame(olc_records, geometry="geometry", crs="EPSG:4326")
@@ -143,7 +143,7 @@ def olc_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
     gdf = gdf.drop_duplicates(subset=["olc"])
 
     if compact:
-        olc_ids = olc_compact(gdf["olc"].tolist())
+        olc_ids = olc_compact(gdf["olc"].tolist(), verbose=verbose)
         return _olc_gdf_from_ids(olc_ids)
 
     return gdf
@@ -243,7 +243,7 @@ def olc_grid_ids(resolution, compact=False, verbose=True):
             lat += lat_step
 
     if compact:
-        ids = olc_compact(ids)
+        ids = olc_compact(ids, verbose=verbose)
     return ids
 
 

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dggsresample` source–target predicate (`centroid_within`, `intersects`) to keep target cells that contain a source centroid or that intersect a source cell
 
 ### Changed
-- Changes in existing functionality
+- Binning Python/CLI parameter renamed from `stats` / `-stats` to `agg` / `-agg` (raster2dggs `stats` is unchanged)
 
 ### Deprecated
 - Features that will be removed in upcoming releases

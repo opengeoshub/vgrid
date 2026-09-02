@@ -213,6 +213,7 @@ def polygon2olc(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to OLC grid cells.
@@ -300,7 +301,7 @@ def polygon2olc(
         temp_gdf = gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")
 
         # Use olccompact function directly
-        compacted_gdf = olccompact(temp_gdf, olc_id="olc", output_format="gpd")
+        compacted_gdf = olccompact(temp_gdf, olc_id="olc", output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -426,6 +427,7 @@ def geodataframe2olc(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")

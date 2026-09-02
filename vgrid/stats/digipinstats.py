@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
 from vgrid.dggs.digipin import BOUNDS
-from vgrid.utils.io import validate_digipin_resolution
+from vgrid.utils.io import add_verbose_argument, validate_digipin_resolution
 
 min_res = DGGS_TYPES["digipin"]["min_res"]
 max_res = DGGS_TYPES["digipin"]["max_res"]
@@ -155,7 +155,7 @@ def digipinstats_cli():
     print(df)
 
 
-def digipininspect(resolution):
+def digipininspect(resolution, verbose=True):
     """
     Generate comprehensive inspection data for DIGIPIN DGGS cells at a given resolution.
 
@@ -165,6 +165,7 @@ def digipininspect(resolution):
     Args:
         resolution: DIGIPIN resolution level (1-10)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing DIGIPIN cell inspection data with columns:
             - digipin: DIGIPIN cell ID
@@ -179,7 +180,7 @@ def digipininspect(resolution):
             - cvh: Convex Hull compactness
     """
     resolution = validate_digipin_resolution(resolution)
-    digipin_gdf = digipingrid(resolution, output_format="gpd")
+    digipin_gdf = digipingrid(resolution, output_format="gpd", verbose=verbose)
     digipin_gdf["crossed"] = digipin_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = digipin_gdf["cell_area"].mean()
     num_cells = 16**resolution
@@ -541,9 +542,10 @@ def digipininspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=1)
+    add_verbose_argument(parser)
     args, _ = parser.parse_known_args()  # type: ignore
     resolution = args.resolution
-    print(digipininspect(resolution))
+    print(digipininspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

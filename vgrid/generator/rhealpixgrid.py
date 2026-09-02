@@ -50,7 +50,7 @@ def rhealpix_grid(resolution, fix_antimeridian=None, compact=False, verbose=True
     resolution = validate_rhealpix_resolution(resolution)
     cell_ids = [str(rhealpix_cell) for rhealpix_cell in rhealpix_dggs.grid(resolution)]
     if compact:
-        cell_ids = rhealpix_compact(cell_ids)
+        cell_ids = rhealpix_compact(cell_ids, verbose=verbose)
 
     rhealpix_rows = []
     for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells", disable=not verbose):
@@ -108,7 +108,7 @@ def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=F
 
     cell_ids = list(intersecting_cells.keys())
     if compact:
-        cell_ids = rhealpix_compact(cell_ids)
+        cell_ids = rhealpix_compact(cell_ids, verbose=verbose)
 
     for cell_id in tqdm(cell_ids, desc="Generating rHEALPix DGGS", unit=" cells", disable=not verbose):
         rhealpix_rows.append(_rhealpix_row_from_cell_id(cell_id, fix_antimeridian))
@@ -116,14 +116,14 @@ def rhealpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=F
     return gpd.GeoDataFrame(rhealpix_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def rhealpix_grid_ids(resolution, compact=False):
+def rhealpix_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of rHEALPix cell IDs for the whole world at a given resolution.
     """
     resolution = validate_rhealpix_resolution(resolution)
     cell_ids = [str(rhealpix_cell) for rhealpix_cell in rhealpix_dggs.grid(resolution)]
     if compact:
-        cell_ids = rhealpix_compact(cell_ids)
+        cell_ids = rhealpix_compact(cell_ids, verbose=verbose)
     return cell_ids
 
 

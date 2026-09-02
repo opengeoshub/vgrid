@@ -74,7 +74,7 @@ def healpix_grid(resolution, fix_antimeridian=None, compact=False, verbose=True)
 
     uniq_ids = [orderpix2uniq(resolution, ipix) for ipix in range(npix)]
     if compact:
-        uniq_ids = healpix_compact(uniq_ids)
+        uniq_ids = healpix_compact(uniq_ids, verbose=verbose)
 
     rows = []
     for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells", disable=not verbose):
@@ -108,7 +108,7 @@ def healpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fa
         )
 
     if compact:
-        uniq_ids = healpix_compact(uniq_ids)
+        uniq_ids = healpix_compact(uniq_ids, verbose=verbose)
 
     rows = []
     for uniq_id in tqdm(uniq_ids, desc="Generating HEALPix DGGS", unit=" cells", disable=not verbose):
@@ -129,14 +129,14 @@ def healpix_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fa
     return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
 
-def healpix_grid_ids(resolution, compact=False):
+def healpix_grid_ids(resolution, compact=False, verbose=True):
     """Return a list of HEALPix UNIQ IDs for the whole world at a given resolution."""
     resolution = validate_healpix_resolution(resolution)
     nside = order2nside(resolution)
     npix = nside2npix(nside)
     uniq_ids = [orderpix2uniq(resolution, ipix) for ipix in range(npix)]
     if compact:
-        uniq_ids = healpix_compact(uniq_ids)
+        uniq_ids = healpix_compact(uniq_ids, verbose=verbose)
     return uniq_ids
 
 

@@ -28,24 +28,19 @@ from vgrid.utils.io import (
     add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.a52geo import a52geo_u64
+from vgrid.conversion.dggscompact.a5compact import a5_compact
 
 
-def _a5_compact_cell_ids(cell_ids):
-    """Compact cell IDs, capping before invalid pre-resolution-0 parents."""
+def _a5_compact_cell_ids(cell_ids, verbose=True):
+    """Compact A5 cell IDs via ``a5_compact``."""
     if not cell_ids:
         return []
-
-    try:
-        compacted = list(a5.compact(cell_ids))
-    except Exception:
-        return list(cell_ids)
-
-    valid = [cell_id for cell_id in compacted if a5.get_resolution(cell_id) >= 0]
-    if valid:
-        return valid
-
-    # a5.compact can overshoot to the invalid world parent (resolution -1).
-    return list(a5.get_res0_cells())
+    as_hex = isinstance(cell_ids[0], str)
+    hexes = list(cell_ids) if as_hex else [a5.u64_to_hex(cell_id) for cell_id in cell_ids]
+    compacted = a5_compact(hexes, verbose=verbose)
+    if as_hex:
+        return compacted
+    return [a5.hex_to_u64(cell_id) for cell_id in compacted]
 
 
 def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False, verbose=True):
@@ -113,7 +108,7 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
 
     cell_ids = list(intersecting_cells.keys())
     if compact:
-        cell_ids = _a5_compact_cell_ids(cell_ids)
+        cell_ids = _a5_compact_cell_ids(cell_ids, verbose=verbose)
 
     a5_rows = []
     for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells", disable=not verbose):
@@ -139,7 +134,7 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
 
 
 def a5_grid_ids(
-    resolution, bbox=None, options=None, split_antimeridian=False, compact=False
+    resolution, bbox=None, options=None, split_antimeridian=False, compact=False, verbose=True
 ):
     """
     Return A5 cell IDs (hex strings) for the same cells as `a5_grid`.
@@ -199,7 +194,7 @@ def a5_grid_ids(
 
     cell_ids = list(intersecting_cells.keys())
     if compact:
-        cell_ids = _a5_compact_cell_ids(cell_ids)
+        cell_ids = _a5_compact_cell_ids(cell_ids, verbose=verbose)
     return [
         a5.u64_to_hex(cell_id)
         for cell_id in cell_ids

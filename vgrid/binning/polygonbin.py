@@ -15,18 +15,20 @@ from vgrid.utils.io import (
     process_input_data_bin,
     convert_to_output_format,
     aggregate_joined,
+    validate_agg,
 )
-from vgrid.utils.constants import STATS_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
 def polygon_bin(
     polygon_data,
     point_data,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
+    verbose=True,
     **kwargs,
 ):
     """
@@ -62,7 +64,7 @@ def polygon_bin(
     join_cols = []
     if category_col and category_col in point_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in point_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in point data")
         join_cols.append(numeric_col)
@@ -75,7 +77,7 @@ def polygon_bin(
 
     # Aggregate per polygon (and optional category)
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -89,18 +91,19 @@ def polygon_bin(
 def polygonbin(
     polygon_data,
     point_data,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
+    verbose=True,
     **kwargs,
 ):
-    if stats not in STATS_OPTIONS:
-        raise ValueError(f"Unsupported statistic: {stats}")
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = polygon_bin(
-        polygon_data, point_data, stats, category_col, numeric_col, **kwargs
+        polygon_data, point_data, agg, category_col, numeric_col, verbose=verbose, **kwargs
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -116,9 +119,9 @@ def polygonbin(
         ext = ext_map.get(output_format, "")
         if isinstance(point_data, str):
             base = os.path.splitext(os.path.basename(point_data))[0]
-            output_name = f"{base}_polygonbin_{stats}{ext}"
+            output_name = f"{base}_polygonbin_{agg}{ext}"
         else:
-            output_name = f"polygonbin_{stats}{ext}"
+            output_name = f"polygonbin_{agg}{ext}"
     return convert_to_output_format(result_gdf, output_format, output_name)
 
 
@@ -141,11 +144,11 @@ def polygonbin_cli():
         help="Input polygon data: GeoJSON file path, URL, or other vector file formats",
     )
     parser.add_argument(
-        "-stats",
-        "--statistic",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -159,7 +162,7 @@ def polygonbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     # Removed -o/--output; output saved in CWD with predefined name
     parser.add_argument(
@@ -169,15 +172,24 @@ def polygonbin_cli():
         default="gpd",
         choices=OUTPUT_FORMATS,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
     try:
         result = polygonbin(
             polygon_data=args.polygon,
             point_data=args.input,
-            stats=args.statistic,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

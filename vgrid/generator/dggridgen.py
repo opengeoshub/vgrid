@@ -17,6 +17,7 @@ import geopandas as gpd
 from dggrid4py import dggs_types
 from dggrid4py.dggrid_runner import output_address_types
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     create_dggrid_instance,
     is_full_world_bbox,
@@ -48,6 +49,7 @@ def generate_grid(
     aggregate=False,
     options=None,
     compact=False,
+    verbose=True,
 ):
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, resolution)
@@ -101,7 +103,7 @@ def generate_grid(
         )
 
         cell_ids = dggrid_gdf["global_id"].tolist()
-        compact_ids = dggrid_compact(dggrid_instance, dggs_type, cell_ids, resolution)
+        compact_ids = dggrid_compact(dggrid_instance, dggs_type, cell_ids, resolution, verbose=verbose)
         dggrid_gdf = _cells_to_gdf(
             dggrid_instance,
             dggs_type,
@@ -110,6 +112,7 @@ def generate_grid(
             split_antimeridian=split_antimeridian,
             aggregate=aggregate,
             options=options,
+            verbose=verbose,
         )
         id_col = f"dggrid_{dggs_type.lower()}"
         if id_col in dggrid_gdf.columns:
@@ -129,6 +132,7 @@ def dggridgen(
     aggregate=False,
     options=None,
     compact=False,
+    verbose=True,
 ):
     """
     Generate DGGRID grid for pure Python usage.
@@ -147,6 +151,7 @@ def dggridgen(
             For example: {"densification": 2} to add densification points.
             Defaults to None.
         compact (bool, optional): Enable DGGRID compact mode to reduce cell count.
+        verbose (bool, optional): Show progress when compacting. Defaults to True.
 
     Returns:
         Delegated to convert_to_output_format
@@ -161,6 +166,7 @@ def dggridgen(
         aggregate=aggregate,
         options=options,
         compact=compact,
+        verbose=verbose,
     )
     output_name = f"dggrid_{dggs_type}_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -226,6 +232,7 @@ def dggridgen_cli():
         action="store_true",
         help="Enable DGGRID compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     dggrid_instance = create_dggrid_instance()
@@ -256,6 +263,7 @@ def dggridgen_cli():
             aggregate=args.aggregate,
             options=options,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -59,6 +59,7 @@ def point2isea4t(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a point geometry to ISEA4T grid cells.
@@ -137,6 +138,7 @@ def polyline2isea4t(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polyline geometry to ISEA4T grid cells.
@@ -206,6 +208,7 @@ def polygon2isea4t(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to ISEA4T grid cells.
@@ -269,7 +272,7 @@ def polygon2isea4t(
             # Extract cell IDs from isea4t_rows
             cells_to_process = [row.get("isea4t") for row in isea4t_rows]
             # Apply compact
-            cells_to_process = isea4t_compact(cells_to_process)
+            cells_to_process = isea4t_compact(cells_to_process, verbose=verbose)
             # Rebuild isea4t_rows with compacted cells
             isea4t_rows = []
             for cell_id in cells_to_process:
@@ -406,6 +409,7 @@ def geodataframe2isea4t(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
 

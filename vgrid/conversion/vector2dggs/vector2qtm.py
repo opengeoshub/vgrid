@@ -428,7 +428,7 @@ def vector2qtm(
 
     # Apply compaction if requested
     if compact:
-        result = qtmcompact(result, qtm_id="qtm", output_format="gpd")
+        result = qtmcompact(result, qtm_id="qtm", output_format="gpd", verbose=verbose)
 
     output_name = None
     if output_format in OUTPUT_FORMATS:

@@ -61,7 +61,7 @@ def geohash_grid(resolution, compact=False, verbose=True):
 
     geohash_ids = list(geohashes)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
 
     geohash_records = []
     for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells", disable=not verbose):
@@ -97,13 +97,13 @@ def geohash_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
     geohash_ids = list(geohashes_bbox)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
     for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells", disable=not verbose):
         geohash_records.append(_geohash_row_from_id(gh))
     return gpd.GeoDataFrame(geohash_records, geometry="geometry", crs="EPSG:4326")
 
 
-def geohash_grid_ids(resolution, compact=False):
+def geohash_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of Geohash IDs for the whole world at the given resolution.
     """
@@ -113,11 +113,11 @@ def geohash_grid_ids(resolution, compact=False):
         expand_geohash(gh, resolution, geohashes)
     geohash_ids = list(geohashes)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
     return geohash_ids
 
 
-def geohash_grid_within_bbox_ids(resolution, bbox, compact=False):
+def geohash_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of Geohash IDs intersecting the given bounding box at the given resolution.
     """
@@ -132,7 +132,7 @@ def geohash_grid_within_bbox_ids(resolution, bbox, compact=False):
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
     geohash_ids = list(geohashes_bbox)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
     return geohash_ids
 
 

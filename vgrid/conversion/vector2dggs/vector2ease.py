@@ -123,6 +123,7 @@ def polyline2ease(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert line geometries (LineString, MultiLineString) to EASE grid cells.
@@ -161,7 +162,7 @@ def polyline2ease(
         )
         ease_ids = cells_bbox["result"]["data"]
         if compact:
-            ease_ids = ease_compact(ease_ids)
+            ease_ids = ease_compact(ease_ids, verbose=verbose)
         for ease_id in ease_ids:
             cell_resolution = int(ease_id[1])
             # Use ease2geo to get the cell geometry
@@ -185,6 +186,7 @@ def polygon2ease(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to EASE grid cells.
@@ -242,7 +244,7 @@ def polygon2ease(
             # Extract cell IDs from polygon_ease_rows
             cells_to_process = [row.get("ease") for row in polygon_ease_rows]
             # Apply compact
-            cells_to_process = ease_compact(cells_to_process)
+            cells_to_process = ease_compact(cells_to_process, verbose=verbose)
             # Rebuild polygon_ease_rows with compacted cells
             polygon_ease_rows = []
             for cell_id in cells_to_process:
@@ -363,6 +365,7 @@ def geodataframe2ease(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -374,6 +377,7 @@ def geodataframe2ease(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")

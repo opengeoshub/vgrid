@@ -16,6 +16,7 @@ from vgrid.utils.constants import (
     VCENTER_QUAD,
 )
 from vgrid.generator.georefgrid import georefgrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -140,7 +141,7 @@ def georefstats_cli():
     print(df)
 
 
-def georefinspect(resolution: int):
+def georefinspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for GEOREF DGGS cells at a given resolution.
 
@@ -150,6 +151,7 @@ def georefinspect(resolution: int):
     Args:
         resolution: GEOREF resolution level (0-10)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing GEOREF cell inspection data with columns:
             - georef: GEOREF cell ID
@@ -162,7 +164,7 @@ def georefinspect(resolution: int):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    georef_gdf = georefgrid(resolution, output_format="gpd")
+    georef_gdf = georefgrid(resolution, output_format="gpd", verbose=verbose)
     georef_gdf["crossed"] = georef_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = georef_gdf["cell_area"].mean()
     grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(resolution)
@@ -516,9 +518,10 @@ def georefinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
-    print(georefinspect(resolution))
+    print(georefinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

@@ -53,6 +53,7 @@ def point2rhealpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a point geometry to RHEALPix grid cells.
@@ -171,6 +172,7 @@ def polyline2rhealpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polyline geometry to rHEALPix grid cells using ``linetrace``.
@@ -249,6 +251,7 @@ def polygon2rhealpix(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to rHEALPix grid cells.
@@ -349,7 +352,7 @@ def polygon2rhealpix(
                 # Extract cell IDs from rhealpix_rows
                 cells_to_process = [row.get("rhealpix") for row in rhealpix_rows]
                 # Apply compact
-                cells_to_process = rhealpix_compact(cells_to_process)
+                cells_to_process = rhealpix_compact(cells_to_process, verbose=verbose)
                 # Rebuild rhealpix_rows with compacted cells
                 rhealpix_rows = []
                 for cell_id in cells_to_process:
@@ -494,6 +497,7 @@ def geodataframe2rhealpix(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
             #   void using native rhp polyfill because it only supports "within" predicate

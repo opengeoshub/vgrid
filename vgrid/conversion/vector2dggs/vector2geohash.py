@@ -182,6 +182,7 @@ def polygon2geohash(
     compact=False,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to Geohash grid cells.
@@ -238,8 +239,7 @@ def polygon2geohash(
 
         # Use geohashcompact function directly
         compacted_gdf = geohashcompact(
-            temp_gdf, geohash_id="geohash", output_format="gpd"
-        )
+            temp_gdf, geohash_id="geohash", output_format="gpd", verbose=verbose)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -364,6 +364,7 @@ def geodataframe2geohash(
                     predicate=predicate,
                     compact=compact,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(geohash_rows, geometry="geometry", crs="EPSG:4326")

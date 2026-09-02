@@ -39,7 +39,7 @@ def tilecode_grid(resolution, bbox, compact=False, verbose=True):
     resolution = validate_tilecode_resolution(resolution)
     tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
     if compact:
-        tilecode_ids = tilecode_compact(tilecode_ids)
+        tilecode_ids = tilecode_compact(tilecode_ids, verbose=verbose)
 
     tilecode_records = []
     for tilecode_id in tqdm(
@@ -57,7 +57,7 @@ def tilecode_grid(resolution, bbox, compact=False, verbose=True):
     return gpd.GeoDataFrame(tilecode_records, geometry="geometry", crs="EPSG:4326")
 
 
-def tilecode_grid_ids(resolution, compact=False):
+def tilecode_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of Tilecode IDs for the whole world at the given resolution.
     """
@@ -65,18 +65,18 @@ def tilecode_grid_ids(resolution, compact=False):
     bbox = [-180.0, -85.05112878, 180.0, 85.05112878]
     tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
     if compact:
-        tilecode_ids = tilecode_compact(tilecode_ids)
+        tilecode_ids = tilecode_compact(tilecode_ids, verbose=verbose)
     return tilecode_ids
 
 
-def tilecode_grid_within_bbox_ids(resolution, bbox, compact=False):
+def tilecode_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of Tilecode IDs intersecting the given bounding box at the given resolution.
     """
     resolution = validate_tilecode_resolution(resolution)
     tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
     if compact:
-        tilecode_ids = tilecode_compact(tilecode_ids)
+        tilecode_ids = tilecode_compact(tilecode_ids, verbose=verbose)
     return tilecode_ids
 
 

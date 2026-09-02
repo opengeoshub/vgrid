@@ -92,7 +92,7 @@ def qtm_grid(resolution, compact=False, verbose=True):
                         qtm_ids.append(new_id)
 
     if compact:
-        qtm_ids = qtm_compact(qtm_ids)
+        qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
     for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
@@ -148,7 +148,7 @@ def qtm_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
                             qtm_ids.append(new_id)
 
     if compact:
-        qtm_ids = qtm_compact(qtm_ids)
+        qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
     for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
@@ -190,7 +190,7 @@ def qtm_grid_ids(resolution, compact=False, verbose=True):
                     if lvl == resolution - 1:
                         ids.append(new_id)
     if compact:
-        ids = qtm_compact(ids)
+        ids = qtm_compact(ids, verbose=verbose)
     return ids
 
 
@@ -241,7 +241,7 @@ def qtm_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
                         if lvl == resolution - 1:
                             ids.append(new_id)
     if compact:
-        ids = qtm_compact(ids)
+        ids = qtm_compact(ids, verbose=verbose)
     return ids
 
 

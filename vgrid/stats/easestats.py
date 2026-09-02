@@ -9,6 +9,7 @@ import geopandas as gpd
 from ease_dggs.constants import levels_specs
 from vgrid.utils.constants import DGGS_TYPES, VMIN_QUAD, VMAX_QUAD, VCENTER_QUAD, AUTHALIC_AREA
 from vgrid.generator.easegrid import easegrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -134,7 +135,7 @@ def easestats_cli():
     print(df)
 
 
-def easeinspect(resolution: int):  # length unit is m, area unit is m2
+def easeinspect(resolution: int, verbose=True):  # length unit is m, area unit is m2
     """
     Generate comprehensive inspection data for EASE-DGGS cells at a given resolution.
 
@@ -144,6 +145,7 @@ def easeinspect(resolution: int):  # length unit is m, area unit is m2
     Args:
         resolution: EASE-DGGS resolution level (0-6)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing EASE cell inspection data with columns:
             - ease: EASE cell ID
@@ -156,7 +158,7 @@ def easeinspect(resolution: int):  # length unit is m, area unit is m2
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    ease_gdf = easegrid(resolution, output_format="gpd")
+    ease_gdf = easegrid(resolution, output_format="gpd", verbose=verbose)
     ease_gdf["crossed"] = ease_gdf["geometry"].apply(check_crossing_geom)
     # ease_gdf = ease_gdf[~ease_gdf["crossed"]]  # remove cells that cross the Antimeridian
 
@@ -504,9 +506,10 @@ def easeinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
-    print(easeinspect(resolution))
+    print(easeinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

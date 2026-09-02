@@ -64,6 +64,7 @@ def point2isea3h(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a point geometry to ISEA3H grid cells.
@@ -146,6 +147,7 @@ def polyline2isea3h(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polyline geometry to ISEA3H grid cells.
@@ -219,6 +221,7 @@ def polygon2isea3h(
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to ISEA3H grid cells.
@@ -286,7 +289,7 @@ def polygon2isea3h(
             # Extract cell IDs from isea3h_rows
             cells_to_process = [row.get("isea3h") for row in isea3h_rows]
             # Apply compact
-            cells_to_process = isea3h_compact(cells_to_process)
+            cells_to_process = isea3h_compact(cells_to_process, verbose=verbose)
             # Rebuild isea3h_rows with compacted cells
             isea3h_rows = []
             for cell_id in cells_to_process:
@@ -427,6 +430,7 @@ def geodataframe2isea3h(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
 

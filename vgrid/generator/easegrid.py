@@ -86,7 +86,7 @@ def _ease_row_from_id(cell_id):
     )
 
 
-def ease_grid_ids(resolution, compact=False):
+def ease_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of EASE-DGGS cell IDs for the whole world at a given resolution.
 
@@ -99,11 +99,11 @@ def ease_grid_ids(resolution, compact=False):
     resolution = validate_ease_resolution(resolution)
     cell_ids = get_ease_cells(resolution)
     if compact:
-        cell_ids = ease_compact(cell_ids)
+        cell_ids = ease_compact(cell_ids, verbose=verbose)
     return cell_ids
 
 
-def ease_grid_within_bbox_ids(resolution, bbox, compact=False):
+def ease_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of EASE-DGGS cell IDs that intersect a bounding box.
 
@@ -118,13 +118,13 @@ def ease_grid_within_bbox_ids(resolution, bbox, compact=False):
     cells_result = get_ease_cells_bbox(resolution, validate_bbox(bbox))
     cells = (cells_result or {}).get("result", {}).get("data", [])
     if compact:
-        cells = ease_compact(cells)
+        cells = ease_compact(cells, verbose=verbose)
     return cells
 
 
 def ease_grid(resolution, compact=False, verbose=True):
     resolution = validate_ease_resolution(resolution)
-    cell_ids = ease_grid_ids(resolution, compact=compact)
+    cell_ids = ease_grid_ids(resolution, compact=compact, verbose=verbose)
     ease_rows = []
     for cell_id in tqdm(
         cell_ids, total=len(cell_ids), desc="Generating EASE DGGS", unit=" cells", disable=not verbose
@@ -135,7 +135,7 @@ def ease_grid(resolution, compact=False, verbose=True):
 
 def ease_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
     resolution = validate_ease_resolution(resolution)
-    cell_ids = ease_grid_within_bbox_ids(resolution, bbox, compact=compact)
+    cell_ids = ease_grid_within_bbox_ids(resolution, bbox, compact=compact, verbose=verbose)
     ease_rows = []
     for cell_id in tqdm(cell_ids, desc="Generating EASE DGGS", unit=" cells", disable=not verbose):
         ease_rows.append(_ease_row_from_id(cell_id))

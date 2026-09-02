@@ -15,8 +15,8 @@ Note: This module is only supported on Windows systems due to OpenEaggr dependen
 import os
 import argparse
 import geopandas as gpd
-from collections import defaultdict
 import platform
+from tqdm import tqdm
 
 if platform.system() == "Windows":
     from vgrid.dggs.eaggr.eaggr import Eaggr
@@ -28,7 +28,14 @@ if platform.system() == "Windows":
 
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
-from vgrid.utils.io import process_input_data_compact, convert_to_output_format
+from vgrid.utils.io import (
+    aggregate_values,
+    compact_cells,
+    convert_to_output_format,
+    prepare_compact_bags,
+    process_input_data_compact,
+)
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from pyproj import Geod
 
 geod = Geod(ellps="WGS84")
@@ -95,92 +102,79 @@ def get_isea3h_resolution(isea3h_id):
         raise ValueError(f"Invalid cell ID <{isea3h_id}> : {e}")
 
 
-def isea3h_compact(isea3h_ids):
+def isea3h_compact(isea3h_ids, depth=-1, bags=None, verbose=True):
     """
-    Compact a list of ISEA3H cell IDs to their minimal covering set.
+    Compact a list of ISEA3H cell IDs by replacing complete child sets with parents.
 
-    Groups ISEA3H cells by their parents and replaces complete sets of children
-    with their parent cells, repeating until no more compaction is possible.
+    A cell may have multiple parents. Groups cells by every parent and replaces a
+    parent when every child is present. Repeats until ``depth`` parent levels have
+    been applied, or until no further compaction is possible.
 
     Parameters
     ----------
     isea3h_ids : list of str
-        List of ISEA3H cell IDs to compact.
+        ISEA3H cell IDs to compact. Mixed resolutions are allowed.
+    depth : int, default -1
+        How many parent levels to climb:
+        - ``0``: do nothing (return the unique input cells)
+        - ``-1``: compact as far as possible
+        - ``1``: replace complete sibling sets with their direct parent
+        - ``2``: then compact those parents (grandparents), and so on
+    bags : dict of list, optional
+        Per-cell lists of original values. When a complete child set is replaced
+        by its parent, child lists are concatenated onto the parent. Mutated
+        in place so remaining keys match the compacted IDs.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
     list of str
-        Sorted list of compacted ISEA3H cell IDs representing the minimal covering set.
-
-    Examples
-    --------
-    >>> isea3h_ids = ["A0", "A1", "A2", "A3", "A4", "A5"]
-    >>> compacted = isea3h_compact(isea3h_ids)
-    >>> print(f"Compacted {len(isea3h_ids)} cells to {len(compacted)} cells")
+        Sorted compacted ISEA3H cell IDs.
     """
 
-    isea3h_ids = set(isea3h_ids)  # Remove duplicates
-    cell_cache = {cell_id: DggsCell(cell_id) for cell_id in isea3h_ids}
+    def parent_fn(cell_id):
+        cell = DggsCell(cell_id)
+        return [p.get_cell_id() for p in isea3h_dggs.get_dggs_cell_parents(cell)]
 
-    while True:
-        grouped_by_parent = defaultdict(set)
+    def children_fn(parent_id):
+        return {
+            c.get_cell_id()
+            for c in isea3h_dggs.get_dggs_cell_children(DggsCell(parent_id))
+        }
 
-        # Group cells by *all* their parents
-        for cell_id in isea3h_ids:
-            cell = cell_cache[cell_id]
-            try:
-                parents = isea3h_dggs.get_dggs_cell_parents(cell)
-            except Exception as e:
-                print(f"Error getting parents for {cell_id}: {e}")
-                continue
-
-            for parent in parents:
-                parent_id = parent.get_cell_id()
-                grouped_by_parent[parent_id].add(cell_id)
-
-        new_isea3h_ids = set(isea3h_ids)
-        changed = False
-
-        for parent_id, children_ids in grouped_by_parent.items():
-            parent_cell = DggsCell(parent_id)
-            try:
-                expected_children = set(
-                    child.get_cell_id()
-                    for child in isea3h_dggs.get_dggs_cell_children(parent_cell)
-                )
-            except Exception as e:
-                print(f"Error getting children for parent {parent_id}: {e}")
-                continue
-
-            # Check for full match: only then compact
-            if children_ids == expected_children:
-                new_isea3h_ids.difference_update(children_ids)
-                new_isea3h_ids.add(parent_id)
-                cell_cache[parent_id] = parent_cell
-                changed = True
-            else:
-                # Keep original children if they don't fully match expected subcells
-                new_isea3h_ids.update(children_ids)
-
-        if not changed:
-            break  # Fully compacted
-
-        isea3h_ids = new_isea3h_ids
-
-    return sorted(isea3h_ids)
+    return compact_cells(
+        isea3h_ids,
+        parent_fn,
+        children_fn,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
+        desc="Compacting ISEA3H",
+    )
 
 
 def isea3hcompact(
     input_data,
     isea3h_id=None,
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
-    Compact ISEA3H cells to their minimal covering set.
+    Compact ISEA3H cells to their covering set at a given parent depth.
 
-    Compacts a set of ISEA3H cells by replacing complete sets of children with their parent cells,
-    repeating until no more compaction is possible. Supports flexible input and output formats.
+    Compacts a set of ISEA3H cells by replacing complete sets of children with their
+    parent cells. Mixed input resolutions are allowed and ``depth`` limits how far
+    up the hierarchy to merge.
+
+    When a complete sibling set is replaced by its parent, original child values
+    are combined with ``agg``. If ``agg`` is ``"count"``, ``numeric_col`` is
+    ignored and the output ``count`` is the number of original input cells in
+    each compacted cell.
 
     Parameters
     ----------
@@ -193,6 +187,16 @@ def isea3hcompact(
         - List of ISEA3H cell IDs
     isea3h_id : str, optional
         Name of the column containing ISEA3H cell IDs. Defaults to "isea3h".
+    depth : int, default -1
+        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
+        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+    agg : str, default "count"
+        Aggregation applied to original child values when cells compact into a
+        parent (``count``, ``min``, ``max``, ``sum``, ``mean``, ``median``,
+        ``std``, ``var``, ``range``, ``minority``, ``majority``, ``variety``).
+    numeric_col : str, optional
+        Numeric field to aggregate. Required when ``agg`` is not ``"count"``;
+        ignored when ``agg`` is ``"count"``.
     output_format : str, default "gpd"
         Output format. Options:
         - "gpd": Returns GeoPandas GeoDataFrame (default)
@@ -205,6 +209,8 @@ def isea3hcompact(
     fix_antimeridian : str, optional
         Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to None when omitted.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
@@ -220,6 +226,12 @@ def isea3hcompact(
     >>> # Compact from list
     >>> result = isea3hcompact(["A0", "A1", "A2", "A3", "A4", "A5"])
 
+    >>> # Compact only one parent level
+    >>> result = isea3hcompact(cells, depth=1)
+
+    >>> # Mean of a numeric field on compacted parents
+    >>> result = isea3hcompact(cells, agg="mean", numeric_col="value")
+
     >>> # Compact to GeoJSON file
     >>> result = isea3hcompact("cells.geojson", output_format="geojson")
     >>> print(f"Saved to: {result}")
@@ -227,23 +239,31 @@ def isea3hcompact(
     if not isea3h_id:
         isea3h_id = "isea3h"
 
-    gdf = process_input_data_compact(input_data, isea3h_id)
-    isea3h_ids = gdf[isea3h_id].drop_duplicates().tolist()
-
-    if not isea3h_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        isea3h_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="ISEA3H cells",
+    )
+    if bags is None:
         print(f"No ISEA3H IDs found in <{isea3h_id}> field.")
         return
 
-    try:
-        isea3h_ids_compact = isea3h_compact(isea3h_ids)
-    except Exception:
-        raise Exception("Compact cells failed. Please check your ISEA3H ID field.")
-
+    isea3h_ids_compact = isea3h_compact(
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+    )
     if not isea3h_ids_compact:
         return None
 
     rows = []
-    for isea3h_id_compact in isea3h_ids_compact:
+    for isea3h_id_compact in tqdm(
+        isea3h_ids_compact,
+        desc="Building ISEA3H compact",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = isea3h2geo(
                 isea3h_id_compact, fix_antimeridian=fix_antimeridian
@@ -253,29 +273,20 @@ def isea3hcompact(
             row = geodesic_dggs_to_geoseries(
                 "isea3h", isea3h_id_compact, cell_resolution, cell_polygon, num_edges
             )
+            row[agg_col] = aggregate_values(bags.get(isea3h_id_compact, []), agg)
             rows.append(row)
         except Exception:
             continue
 
     out_gdf = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
-    file_formats = ["csv", "geojson", "shapefile", "gpkg", "parquet", "geoparquet"]
     output_name = None
-    if output_format in file_formats:
-        ext_map = {
-            "csv": ".csv",
-            "geojson": ".geojson",
-            "shapefile": ".shp",
-            "gpkg": ".gpkg",
-            "parquet": ".parquet",
-            "geoparquet": ".parquet",
-        }
-        ext = ext_map.get(output_format, "")
+    if output_format in OUTPUT_FORMATS:
         if isinstance(input_data, str):
             base = os.path.splitext(os.path.basename(input_data))[0]
-            output_name = f"{base}_isea3h_compacted{ext}"
+            output_name = f"{base}_isea3h_compacted"
         else:
-            output_name = f"isea3h_compacted{ext}"
+            output_name = "isea3h_compacted"
 
     return convert_to_output_format(out_gdf, output_format, output_name)
 
@@ -295,8 +306,9 @@ def isea3hcompact_cli():
         "-f",
         "--output_format",
         type=str,
-        default=None,
-        help="Output format (None, csv, geojson, shapefile, gpd, geojson_dict, gpkg, geoparquet)",
+        default="gpd",
+        choices=OUTPUT_FORMATS,
+        help="Output format",
     )
     parser.add_argument(
         "-fix",
@@ -313,6 +325,35 @@ def isea3hcompact_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -323,39 +364,13 @@ def isea3hcompact_cli():
         isea3h_id=cellid,
         output_format=output_format,
         fix_antimeridian=args.fix_antimeridian,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
-
-    if output_format is None:
+    if output_format in STRUCTURED_FORMATS:
         print(result)
-    elif output_format in [
-        "csv",
-        "geojson",
-        "geojson_dict",
-        "shapefile",
-        "gpkg",
-        "geoparquet",
-        "parquet",
-    ]:
-        if isinstance(input_data, str):
-            base = os.path.splitext(os.path.basename(input_data))[0]
-            ext_map = {
-                "csv": ".csv",
-                "geojson": ".geojson",
-                "geojson_dict": ".geojson",
-                "shapefile": ".shp",
-                "gpkg": ".gpkg",
-                "parquet": ".parquet",
-                "geoparquet": ".parquet",
-            }
-            ext = ext_map.get(output_format, "")
-            output = f"{base}_isea3h_compacted{ext}"
-        else:
-            output = f"isea3h_compacted{ext_map.get(output_format, '')}"
-        print(f"Output written to {output}")
-    elif output_format in ["gpd", "geopandas"]:
-        print(result)
-    else:
-        print("ISEA3H compact completed.")
 
 
 def isea3h_expand(isea3h_ids, resolution):

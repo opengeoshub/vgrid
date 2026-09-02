@@ -125,7 +125,7 @@ def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_isea3h_resolution(resolution)
     cell_ids = get_isea3h_children_cells(ISEA3H_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     records = []
     for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells", disable=not verbose):
         try:
@@ -136,7 +136,7 @@ def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
-def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
+def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_isea3h_resolution(resolution)
     accuracy = ISEA3H_RES_ACCURACY_DICT.get(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
@@ -153,25 +153,25 @@ def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
     )
     if bounding_children_cells:
         if compact:
-            bounding_children_cells = isea3h_compact(bounding_children_cells)
+            bounding_children_cells = isea3h_compact(bounding_children_cells, verbose=verbose)
         records = []
         for cell_id in bounding_children_cells:
             records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
         return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
-def isea3h_grid_ids(resolution, compact=False):
+def isea3h_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of ISEA3H cell IDs for the whole world at a given resolution.
     """
     resolution = validate_isea3h_resolution(resolution)
     cell_ids = get_isea3h_children_cells(ISEA3H_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     return [str(cid) for cid in cell_ids]
 
 
-def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False):
+def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of ISEA3H cell IDs intersecting the given bounding box at a given resolution.
     """
@@ -191,7 +191,7 @@ def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False):
     )
     cell_ids = list(bounding_children_cells or [])
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     return cell_ids
 
 
@@ -226,7 +226,7 @@ def isea3hgrid(
         )
     else:
         gdf = isea3h_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
 
     output_name = f"isea3h_grid_{resolution}"

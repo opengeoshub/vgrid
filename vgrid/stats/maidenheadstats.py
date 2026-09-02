@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
 from vgrid.dggs import maidenhead
-from vgrid.utils.io import validate_maidenhead_resolution
+from vgrid.utils.io import add_verbose_argument, validate_maidenhead_resolution
 
 min_res = DGGS_TYPES["maidenhead"]["min_res"]
 max_res = DGGS_TYPES["maidenhead"]["max_res"]
@@ -141,7 +141,7 @@ def maidenheadstats_cli():
     print(df)
 
 
-def maidenheadinspect(resolution: int):
+def maidenheadinspect(resolution: int, verbose=True):
     """
     Generate comprehensive inspection data for Maidenhead DGGS cells at a given resolution.
 
@@ -151,6 +151,7 @@ def maidenheadinspect(resolution: int):
     Args:
         resolution: Maidenhead resolution level (1-4)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing Maidenhead cell inspection data with columns:
             - maidenhead: Maidenhead cell ID
@@ -164,7 +165,7 @@ def maidenheadinspect(resolution: int):
             - zsc: Zonal Standardized Compactness
     """
     resolution = validate_maidenhead_resolution(resolution)
-    maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd")
+    maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd", verbose=verbose)
     maidenhead_gdf["crossed"] = maidenhead_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = maidenhead_gdf["cell_area"].mean()
     mean_area = AUTHALIC_AREA / maidenhead.num_cells(resolution)
@@ -521,9 +522,10 @@ def maidenheadinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args, _ = parser.parse_known_args()  # type: ignore
     resolution = args.resolution
-    print(maidenheadinspect(resolution))
+    print(maidenheadinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":

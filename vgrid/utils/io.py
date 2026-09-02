@@ -13,6 +13,7 @@ from vgrid.utils.constants import (
     DGGS_TYPES,
     DGGAL_TYPES,
     DGGRID_TYPES,
+    AGG_OPTIONS,
     RASTER_STATS_OPTIONS,
     RASTER2DGGS_METHODS,
 )
@@ -41,6 +42,88 @@ def add_verbose_argument(parser: argparse.ArgumentParser) -> None:
         default=True,
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
+
+
+def compact_cells(
+    cell_ids,
+    parent_fn,
+    children_fn,
+    depth=-1,
+    bags=None,
+    verbose=True,
+    desc="Compacting",
+):
+    """Replace complete sibling sets with their parent, up to ``depth`` levels.
+
+    ``parent_fn(cell_id)`` returns a parent id, a sequence of parent ids, or
+    ``None`` if the cell has no parent. ``children_fn(parent_id)`` returns the
+    complete set of child ids. A parent replaces its children only when every
+    expected child is present.
+    """
+    from collections import defaultdict
+
+    from tqdm import tqdm
+
+    cell_ids = set(cell_ids)
+    if depth == 0 or not cell_ids:
+        return sorted(cell_ids)
+
+    max_iterations = None if depth < 0 else depth
+    iterations = 0
+
+    while True:
+        if max_iterations is not None and iterations >= max_iterations:
+            break
+
+        grouped = defaultdict(set)
+        for cell_id in tqdm(
+            cell_ids, desc=desc, unit=" cells", disable=not verbose
+        ):
+            try:
+                parents = parent_fn(cell_id)
+            except Exception:
+                continue
+            if parents is None:
+                continue
+            if isinstance(parents, (str, bytes, int)) or not hasattr(
+                parents, "__iter__"
+            ):
+                parents = (parents,)
+            for parent_id in parents:
+                if parent_id is None:
+                    continue
+                grouped[parent_id].add(cell_id)
+
+        new_ids = set(cell_ids)
+        changed = False
+        for parent_id, children in grouped.items():
+            try:
+                expected = set(children_fn(parent_id))
+            except Exception:
+                continue
+            if children == expected:
+                new_ids.difference_update(children)
+                new_ids.add(parent_id)
+                if bags is not None:
+                    merged = []
+                    if parent_id in bags and parent_id not in children:
+                        merged.extend(bags[parent_id])
+                    for child in children:
+                        merged.extend(bags.pop(child, []))
+                    bags[parent_id] = merged
+                changed = True
+
+        if not changed:
+            break
+        cell_ids = new_ids
+        iterations += 1
+
+    if bags is not None:
+        for gone in list(bags.keys()):
+            if gone not in cell_ids:
+                bags.pop(gone, None)
+
+    return sorted(cell_ids)
 
 
 def output_format(input_data, id_col=None, crs="EPSG:4326"):
@@ -187,64 +270,89 @@ def process_input_data_resample(
     return _require_resample_geometry(gdf)
 
 
-def stat_column_name(stats, numeric_col=None, category_col_value=None):
-    """Build output column name for binning statistics.
+def agg_column_name(agg, numeric_col=None, category_col_value=None):
+    """Build output column name for binning aggregate.
 
-    With a category_col, names are ``{category_col_value}_{numeric_col}_{stats}`` (or
-    ``{category_col_value}_{numeric_col}_count`` when ``stats`` is ``"count"``).
+    With a category_col, names are ``{category_col_value}_{numeric_col}_{agg}`` (or
+    ``{category_col_value}_{numeric_col}_count`` when ``agg`` is ``"count"``).
     """
     if category_col_value is not None and numeric_col is not None:
-        return f"{category_col_value}_{numeric_col}_{stats}"
-    if stats == "count":
+        return f"{category_col_value}_{numeric_col}_{agg}"
+    if agg == "count":
         if category_col_value is not None:
             return f"{category_col_value}_count"
         return "count"
     if numeric_col is None:
         if category_col_value is not None:
-            return f"{category_col_value}_{stats}"
-        return stats
-    return f"{numeric_col}_{stats}"
+            return f"{category_col_value}_{agg}"
+        return agg
+    return f"{numeric_col}_{agg}"
+
+
+def aggregate_values(values, agg="count"):
+    """Apply a binning/compact aggregation to a sequence of values.
+
+    Same ``agg`` options as DGGS binning (``count``, ``min``, ``max``, ``sum``,
+    ``mean``, ``median``, ``std``, ``var``, ``range``, ``minority``,
+    ``majority``, ``variety``). Used when compacting child cells into a parent.
+    """
+    if agg == "count":
+        return int(len(values))
+    s = pd.Series(values).dropna()
+    if agg == "range":
+        return (s.max() - s.min()) if len(s) else 0
+    if agg == "variety":
+        return int(s.nunique())
+    if agg in {"minority", "majority"}:
+        vc = s.value_counts()
+        if vc.empty:
+            return None
+        vc = vc.sort_values(ascending=(agg == "minority"))
+        return vc.index[0]
+    if s.empty:
+        return None
+    return s.agg(agg)
 
 
 def aggregate_joined(
-    joined, id_col, stats="count", category_col=None, numeric_col=None
+    joined, id_col, agg="count", category_col=None, numeric_col=None
 ):
     """
     Aggregate spatially joined point-in-cell rows for DGGS binning.
 
     Returns a grouped DataFrame (not yet reset_index).
     """
-    special_stats = {"range", "minority", "majority", "variety"}
-    if stats in special_stats:
+    special_aggs = {"range", "minority", "majority", "variety"}
+    if agg in special_aggs:
         value_field = numeric_col if numeric_col else category_col
         if not value_field:
             raise ValueError(
-                f"'{stats}' requires either numeric_col or category_col to be provided"
+                f"'{agg}' requires either numeric_col or category_col to be provided"
             )
 
         if category_col:
             group_cols = [id_col, category_col]
-            if stats == "variety":
+            if agg == "variety":
                 ser = joined.groupby(group_cols)[value_field].nunique()
                 grouped = ser.unstack(fill_value=0)
                 grouped.columns = [
-                    stat_column_name(
-                        stats, numeric_col=numeric_col, category_col_value=cat
+                    agg_column_name(
+                        agg, numeric_col=numeric_col, category_col_value=cat
                     )
                     for cat in grouped.columns
                 ]
-            elif stats == "range":
+            elif agg == "range":
                 ser = joined.groupby(group_cols)[value_field].agg(
                     lambda s: (s.max() - s.min()) if len(s) else 0
                 )
                 grouped = ser.unstack(fill_value=0)
                 grouped.columns = [
-                    stat_column_name(
-                        stats, numeric_col=numeric_col, category_col_value=cat
+                    agg_column_name(
+                        agg, numeric_col=numeric_col, category_col_value=cat
                     )
                     for cat in grouped.columns
                 ]
-            elif stats in {"minority", "majority"}:
+            elif agg in {"minority", "majority"}:
 
                 def pick_value(s, pick):
                     vc = s.value_counts()
@@ -257,28 +365,28 @@ def aggregate_joined(
                     return vc.index[0]
 
                 ser = joined.groupby(group_cols)[value_field].apply(
-                    lambda s: pick_value(s, stats)
+                    lambda s: pick_value(s, agg)
                 )
                 grouped = ser.unstack()
                 grouped.columns = [
-                    stat_column_name(
-                        stats, numeric_col=numeric_col, category_col_value=cat
+                    agg_column_name(
+                        agg, numeric_col=numeric_col, category_col_value=cat
                     )
                     for cat in grouped.columns
                 ]
         else:
-            col_name = stat_column_name(stats, numeric_col=numeric_col)
-            if stats == "variety":
+            col_name = agg_column_name(agg, numeric_col=numeric_col)
+            if agg == "variety":
                 grouped = (
                     joined.groupby(id_col)[value_field].nunique().to_frame(col_name)
                 )
-            elif stats == "range":
+            elif agg == "range":
                 grouped = (
                     joined.groupby(id_col)[value_field]
                     .agg(lambda s: (s.max() - s.min()) if len(s) else 0)
                     .to_frame(col_name)
                 )
-            elif stats in {"minority", "majority"}:
+            elif agg in {"minority", "majority"}:
 
                 def pick_value(s, pick):
                     vc = s.value_counts()
@@ -292,17 +400,17 @@ def aggregate_joined(
 
                 grouped = (
                     joined.groupby(id_col)[value_field]
-                    .apply(lambda s: pick_value(s, stats))
+                    .apply(lambda s: pick_value(s, agg))
                     .to_frame(col_name)
                 )
     else:
         if category_col:
-            if stats == "count":
+            if agg == "count":
                 grouped = (
                     joined.groupby([id_col, category_col]).size().unstack(fill_value=0)
                 )
                 grouped.columns = [
-                    stat_column_name(
+                    agg_column_name(
                         "count",
                         numeric_col=numeric_col,
                         category_col_value=cat,
@@ -311,33 +419,35 @@ def aggregate_joined(
                 ]
             else:
                 if numeric_col is None:
-                    raise ValueError(f"numeric_col required for stats='{stats}'")
+                    raise ValueError(f"numeric_col required for agg='{agg}'")
                 grouped = (
                     joined.groupby([id_col, category_col])[numeric_col]
-                    .agg(stats)
+                    .agg(agg)
                     .unstack()
                 )
                 grouped.columns = [
-                    stat_column_name(
-                        stats, numeric_col=numeric_col, category_col_value=cat
+                    agg_column_name(
+                        agg, numeric_col=numeric_col, category_col_value=cat
                     )
                     for cat in grouped.columns
                 ]
         else:
-            if stats == "count":
+            if agg == "count":
                 grouped = joined.groupby(id_col).size().to_frame("count")
             else:
                 if numeric_col is None:
-                    raise ValueError(f"numeric_col required for stats='{stats}'")
-                col_name = stat_column_name(stats, numeric_col=numeric_col)
+                    raise ValueError(f"numeric_col required for agg='{agg}'")
+                col_name = agg_column_name(agg, numeric_col=numeric_col)
                 grouped = (
-                    joined.groupby(id_col)[numeric_col].agg(stats).to_frame(col_name)
+                    joined.groupby(id_col)[numeric_col].agg(agg).to_frame(col_name)
                 )
 
     return grouped
 
 
-def process_input_data_compact(input_data, id_col=None, crs="EPSG:4326"):
+def process_input_data_compact(
+    input_data, id_col=None, extra_cols=None, crs="EPSG:4326"
+):
     """
     Convert various inputs into a GeoDataFrame with 'id_col' and None geometry.
     Supports:
@@ -345,32 +455,49 @@ def process_input_data_compact(input_data, id_col=None, crs="EPSG:4326"):
     - GeoJSON dictionary (FeatureCollection with id_col in properties)
     - Local or remote files (GeoJSON, Shapefile, GPKG, etc.) using gpd.read_file
     - CSV and Parquet files (local or remote) with id_col column
+
+    ``extra_cols`` are kept alongside ``id_col`` (e.g. a numeric field for compact aggregation).
     """
     if id_col is None:
         id_col = "cellid"
+    extra_cols = [c for c in (extra_cols or []) if c and c != id_col]
+    keep_cols = [id_col, *extra_cols]
+
+    def _subset(df, source="input"):
+        missing = [c for c in keep_cols if c not in df.columns]
+        if missing:
+            raise ValueError(f"Missing {missing} in {source}")
+        out = df[keep_cols].copy()
+        out["geometry"] = None
+        return gpd.GeoDataFrame(out, geometry="geometry", crs=crs)
 
     # 1. GeoDataFrame or DataFrame
     if isinstance(input_data, gpd.GeoDataFrame) or isinstance(input_data, pd.DataFrame):
-        if id_col not in input_data.columns:
-            raise ValueError(f"Missing '{id_col}' in GeoDataFrame")
-        df = input_data[[id_col]].copy()
-        df["geometry"] = None
-        return gpd.GeoDataFrame(df, geometry="geometry", crs=crs)
+        return _subset(input_data, source="GeoDataFrame")
 
     # 2. GeoJSON dictionary
     if isinstance(input_data, dict) and "features" in input_data:
-        ids = []
+        rows = []
         for feature in input_data["features"]:
             props = feature.get("properties", {})
             if id_col not in props:
                 raise ValueError(f"Feature missing '{id_col}' in properties")
-            ids.append(props[id_col])
-        df = pd.DataFrame({id_col: ids})
+            row = {id_col: props[id_col]}
+            for col in extra_cols:
+                if col not in props:
+                    raise ValueError(f"Feature missing '{col}' in properties")
+                row[col] = props[col]
+            rows.append(row)
+        df = pd.DataFrame(rows)
         df["geometry"] = None
         return gpd.GeoDataFrame(df, geometry="geometry", crs=crs)
 
     # 3. List of IDs
     if isinstance(input_data, list):
+        if extra_cols:
+            raise ValueError(
+                f"Cannot read extra columns {extra_cols} from a list of cell IDs"
+            )
         df = pd.DataFrame({id_col: [str(i) for i in input_data]})
         df["geometry"] = None
         return gpd.GeoDataFrame(df, geometry="geometry", crs=crs)
@@ -384,11 +511,7 @@ def process_input_data_compact(input_data, id_col=None, crs="EPSG:4326"):
                 df = pd.read_parquet(input_data)
             else:
                 df = gpd.read_file(input_data)
-            if id_col not in df.columns:
-                raise ValueError(f"Missing '{id_col}' in file/URL: {input_data}")
-            df = df[[id_col]].copy()
-            df["geometry"] = None
-            return gpd.GeoDataFrame(df, geometry="geometry", crs=crs)
+            return _subset(df, source=f"file/URL: {input_data}")
         except Exception as e:
             raise ValueError(f"Failed to read from '{input_data}': {e}")
     raise ValueError("Unsupported input type")
@@ -514,6 +637,61 @@ def process_input_data_vector(input_data, crs="EPSG:4326", **kwargs):
             gdf = gdf.to_crs(crs)
         return gdf
     raise ValueError(f"Unsupported input type for vector data: {type(input_data)}")
+
+
+def validate_agg(agg):
+    """Return True if ``agg`` is a supported binning aggregation, else False."""
+    return agg in AGG_OPTIONS
+
+
+def prepare_compact_bags(
+    input_data,
+    id_col,
+    agg="count",
+    numeric_col=None,
+    verbose=True,
+    label="cells",
+    id_cast=str,
+):
+    """Load compact input and build per-cell value bags.
+
+    Returns ``(bags, agg_col)`` or ``(None, None)`` if no IDs were found.
+    """
+    from collections import defaultdict
+
+    from tqdm import tqdm
+
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
+        raise ValueError("A numeric_col is required for aggregate functions other than 'count'")
+
+    extra_cols = None if agg == "count" else [numeric_col]
+    gdf = process_input_data_compact(input_data, id_col, extra_cols=extra_cols)
+    if gdf.empty or id_col not in gdf.columns:
+        return None, None
+
+    bags = defaultdict(list)
+    for _, row in tqdm(
+        gdf.iterrows(),
+        total=len(gdf),
+        desc=f"Reading {label}",
+        unit=" cells",
+        disable=not verbose,
+    ):
+        cell = id_cast(row[id_col])
+        if agg == "count":
+            bags[cell].append(1)
+        else:
+            bags[cell].append(row[numeric_col])
+
+    if not bags:
+        return None, None
+
+    agg_col = agg_column_name(
+        agg, numeric_col=None if agg == "count" else numeric_col
+    )
+    return bags, agg_col
 
 
 def validate_raster_stats_option(stats):

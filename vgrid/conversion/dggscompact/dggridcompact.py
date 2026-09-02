@@ -15,17 +15,20 @@ import os
 import argparse
 import json
 import geopandas as gpd
+from tqdm import tqdm
 from vgrid.generator.dggridgen import dggridgen
 from vgrid.conversion.dggs2geo.dggrid2geo import dggrid2geo
 from vgrid.utils.geometry import dggrid_num_edges, geodesic_dggs_metrics
 from vgrid.utils.io import (
-    process_input_data_compact,
+    aggregate_values,
     convert_to_output_format,
-    validate_dggrid_type,
-    validate_dggrid_resolution,
     create_dggrid_instance,
+    prepare_compact_bags,
+    process_input_data_compact,
+    validate_dggrid_resolution,
+    validate_dggrid_type,
 )
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS, DGGRID_TYPES
+from vgrid.utils.constants import AGG_OPTIONS, DGGRID_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
 def _extract_geom(cell_gdf):
@@ -75,10 +78,14 @@ def _cells_to_gdf(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
+    desc="Building DGGRID cells",
 ):
     rows = []
     id_col = f"dggrid_{dggs_type.lower()}"
-    for cell_id in cell_ids:
+    for cell_id in tqdm(
+        cell_ids, desc=desc, unit=" cells", disable=not verbose
+    ):
         try:
             geom, cell_resolution = _resolve_cell_geometry(
                 dggrid_instance,
@@ -116,23 +123,39 @@ def dggrid_compact(
     dggs_type,
     cell_ids,
     resolution,
+    depth=-1,
+    bags=None,
+    verbose=True,
 ):
     """
     Compact DGGRID cells by iteratively replacing complete child sets with parents.
+
+    Parent/child mapping is spatial (generate grids + sjoin), so this path does
+    not use ``compact_cells``. ``depth`` limits how many parent-level iterations
+    run: ``0`` is a no-op, ``-1`` compact until min resolution or no change.
     """
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
     min_res = int(DGGRID_TYPES[dggs_type]["min_res"])
 
     active_ids = set(str(v) for v in cell_ids)
+    if depth == 0 or not active_ids:
+        return sorted(active_ids)
+
     current_res = resolution
+    max_iterations = None if depth < 0 else depth
+    iterations = 0
 
     while current_res > min_res and active_ids:
+        if max_iterations is not None and iterations >= max_iterations:
+            break
         sample_gdf = _cells_to_gdf(
             dggrid_instance=dggrid_instance,
             dggs_type=dggs_type,
             cell_ids=list(active_ids),
             resolution=current_res,
+            verbose=verbose,
+            desc="Resolving DGGRID cells",
         )
         if sample_gdf.empty:
             break
@@ -192,11 +215,25 @@ def dggrid_compact(
                 # Replace all children by parent id
                 new_active.difference_update(str(c) for c in all_children)
                 new_active.add(str(parent_id))
+                if bags is not None:
+                    merged = []
+                    parent_key = str(parent_id)
+                    if parent_key in bags and parent_id not in all_children:
+                        merged.extend(bags[parent_key])
+                    for c in all_children:
+                        merged.extend(bags.pop(str(c), []))
+                    bags[parent_key] = merged
                 changed = True
         if not changed:
             break
         active_ids = new_active
         current_res -= 1
+        iterations += 1
+
+    if bags is not None:
+        for gone in list(bags.keys()):
+            if gone not in active_ids:
+                bags.pop(gone, None)
 
     return sorted(active_ids)
 
@@ -274,30 +311,46 @@ def dggridcompact(
     input_data,
     resolution,
     dggrid_id=None,
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
 ):
     """
-    Compact DGGRID cells to their minimal covering set.
+    Compact DGGRID cells to their covering set at a given parent depth.
+
+    Parent/child mapping is spatial. When a complete child set is replaced by
+    its parent, original child values are combined with ``agg``.
     """
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
     if dggrid_id is None:
         dggrid_id = f"dggrid_{dggs_type.lower()}"
 
-    gdf = process_input_data_compact(input_data, dggrid_id)
-    cell_ids = gdf[dggrid_id].drop_duplicates().tolist()
-    if not cell_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        dggrid_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="DGGRID cells",
+    )
+    if bags is None:
         print(f"No DGGRID IDs found in <{dggrid_id}> field.")
         return None
 
     compact_ids = dggrid_compact(
         dggrid_instance=dggrid_instance,
         dggs_type=dggs_type,
-        cell_ids=cell_ids,
+        cell_ids=list(bags.keys()),
         resolution=resolution,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
     )
     if not compact_ids:
         return None
@@ -310,7 +363,14 @@ def dggridcompact(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        verbose=verbose,
+        desc="Building DGGRID compact",
     )
+    id_col = f"dggrid_{dggs_type.lower()}"
+    if not out_gdf.empty and id_col in out_gdf.columns:
+        out_gdf[agg_col] = [
+            aggregate_values(bags.get(str(cid), []), agg) for cid in out_gdf[id_col]
+        ]
 
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -410,6 +470,35 @@ def dggridcompact_cli():
         default=None,
         help="JSON string options for dggrid2geo/dggridgen",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
     args = parser.parse_args()
 
     options = None
@@ -431,6 +520,10 @@ def dggridcompact_cli():
         split_antimeridian=args.split_antimeridian,
         aggregate=args.aggregate,
         options=options,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

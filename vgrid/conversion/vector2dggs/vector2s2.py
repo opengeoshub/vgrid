@@ -21,6 +21,7 @@ from shapely.geometry import MultiPoint
 from vgrid.dggs import s2
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.conversion.dggs2geo.s22geo import s22geo
+from vgrid.conversion.dggscompact.s2compact import s2_compact
 from vgrid.utils.geometry import check_predicate, shortest_point_distance
 from vgrid.stats.s2stats import s2_metrics
 from vgrid.utils.io import (
@@ -196,6 +197,7 @@ def polygon2s2(
     include_properties=True,
     all_polygons=None,  # New parameter for topology preservation
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to S2 grid cells.
@@ -256,34 +258,23 @@ def polygon2s2(
             polygon_rows.append(row)
 
         if compact and polygon_rows:
-            try:
-                polygon_cell_ids = [
-                    s2.CellId.from_token(row.get("s2"))
-                    for row in polygon_rows
-                    if row.get("s2")
-                ]
-            except Exception:
-                polygon_cell_ids = []
-
-            if polygon_cell_ids:
-                covering = s2.CellUnion(polygon_cell_ids)
-                covering.normalize()
-                compact_cell_ids = covering.cell_ids()
-                compact_rows = []
-                for compact_cell in compact_cell_ids:
-                    cell_polygon = s22geo(
-                        compact_cell.to_token(), fix_antimeridian=fix_antimeridian
-                    )
-                    cell_token = s2.CellId.to_token(compact_cell)
-                    cell_resolution = compact_cell.level()
-                    num_edges = 4
-                    row = geodesic_dggs_to_geoseries(
-                        "s2", cell_token, cell_resolution, cell_polygon, num_edges
-                    )
-                    if include_properties and feature_properties:
-                        row.update(feature_properties)
-                    compact_rows.append(row)
-                polygon_rows = compact_rows
+            tokens = [row.get("s2") for row in polygon_rows if row.get("s2")]
+            compact_tokens = s2_compact(tokens, verbose=verbose)
+            compact_rows = []
+            for cell_token in compact_tokens:
+                cell_polygon = s22geo(
+                    cell_token, fix_antimeridian=fix_antimeridian
+                )
+                compact_cell = s2.CellId.from_token(cell_token)
+                cell_resolution = compact_cell.level()
+                num_edges = 4
+                row = geodesic_dggs_to_geoseries(
+                    "s2", cell_token, cell_resolution, cell_polygon, num_edges
+                )
+                if include_properties and feature_properties:
+                    row.update(feature_properties)
+                compact_rows.append(row)
+            polygon_rows = compact_rows
 
         s2_rows.extend(polygon_rows)
 
@@ -411,6 +402,7 @@ def geodataframe2s2(
                     compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(s2_rows, geometry="geometry", crs="EPSG:4326")

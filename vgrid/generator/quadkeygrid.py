@@ -39,7 +39,7 @@ def quadkey_grid(resolution, bbox, compact=False, verbose=True):
     resolution = validate_quadkey_resolution(resolution)
     quadkey_ids = _quadkey_ids_for_bbox(resolution, bbox)
     if compact:
-        quadkey_ids = quadkey_compact(quadkey_ids)
+        quadkey_ids = quadkey_compact(quadkey_ids, verbose=verbose)
 
     quadkey_records = []
     for quadkey_id in tqdm(quadkey_ids, desc="Generating Quadkey DGGS", unit=" cells", disable=not verbose):
@@ -54,7 +54,7 @@ def quadkey_grid(resolution, bbox, compact=False, verbose=True):
     return gpd.GeoDataFrame(quadkey_records, geometry="geometry", crs="EPSG:4326")
 
 
-def quadkey_grid_ids(resolution, compact=False):
+def quadkey_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of Quadkey IDs for the whole world at the given resolution.
     """
@@ -62,18 +62,18 @@ def quadkey_grid_ids(resolution, compact=False):
     bbox = [-180.0, -85.05112878, 180.0, 85.05112878]
     quadkey_ids = _quadkey_ids_for_bbox(resolution, bbox)
     if compact:
-        quadkey_ids = quadkey_compact(quadkey_ids)
+        quadkey_ids = quadkey_compact(quadkey_ids, verbose=verbose)
     return quadkey_ids
 
 
-def quadkey_grid_within_bbox_ids(resolution, bbox, compact=False):
+def quadkey_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of Quadkey IDs intersecting the given bounding box at the given resolution.
     """
     resolution = validate_quadkey_resolution(resolution)
     quadkey_ids = _quadkey_ids_for_bbox(resolution, bbox)
     if compact:
-        quadkey_ids = quadkey_compact(quadkey_ids)
+        quadkey_ids = quadkey_compact(quadkey_ids, verbose=verbose)
     return quadkey_ids
 
 

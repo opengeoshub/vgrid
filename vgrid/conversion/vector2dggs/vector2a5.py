@@ -37,7 +37,7 @@ from vgrid.utils.io import (
 
 from vgrid.conversion.latlon2dggs import latlon2a5
 from vgrid.conversion.dggs2geo.a52geo import a52geo, a52geo_u64
-from vgrid.conversion.dggscompact.a5compact import a5compact
+from vgrid.conversion.dggscompact.a5compact import a5_compact, a5compact
 from vgrid.stats.a5stats import a5_metrics
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -323,7 +323,7 @@ def polygon2a5(
                 temp_gdf = gpd.GeoDataFrame(
                     a5_rows, geometry="geometry", crs="EPSG:4326"
                 )
-                compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd")
+                compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd", verbose=verbose)
                 if compacted_gdf is not None:
                     a5_rows = compacted_gdf.to_dict("records")
 
@@ -340,6 +340,7 @@ def polygon2a5_new(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -416,10 +417,9 @@ def polygon2a5_new(
 
         # Apply compact after predicate check
         if compact and filtered_cells:
-            try:
-                filtered_cells = a5.compact(filtered_cells)
-            except Exception:
-                pass
+            hexes = [a5.u64_to_hex(cell_id) for cell_id in filtered_cells]
+            filtered_hexes = a5_compact(hexes, verbose=verbose)
+            filtered_cells = [a5.hex_to_u64(cell_id) for cell_id in filtered_hexes]
 
         # Convert filtered/compacted cells to rows
         for cell_id in filtered_cells:

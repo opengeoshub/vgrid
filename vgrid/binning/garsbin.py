@@ -19,7 +19,7 @@ from vgrid.generator.garsgrid import gars_grid
 from vgrid.utils.constants import (
     DGGS_TYPES,
     OUTPUT_FORMATS,
-    STATS_OPTIONS,
+    AGG_OPTIONS,
     STRUCTURED_FORMATS,
 )
 from vgrid.utils.io import (
@@ -27,6 +27,7 @@ from vgrid.utils.io import (
     process_input_data_bin,
     validate_gars_resolution,
     aggregate_joined,
+    validate_agg,
 )
 
 min_res = DGGS_TYPES["gars"]["min_res"]
@@ -37,11 +38,12 @@ default_res = DGGS_TYPES["gars"]["default_res"]
 def gars_bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
+    verbose=True,
     **kwargs,
 ):
     """
@@ -51,7 +53,9 @@ def gars_bin(
     """
     resolution = validate_gars_resolution(int(resolution))
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
@@ -66,12 +70,12 @@ def gars_bin(
 
     minx, miny, maxx, maxy = points_gdf.total_bounds
     id_col = "gars"
-    grid_gdf = gars_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy))
+    grid_gdf = gars_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
 
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -81,7 +85,7 @@ def gars_bin(
     )
 
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -97,16 +101,19 @@ def gars_bin(
 def garsbin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
+    verbose=True,
     **kwargs,
 ):
     resolution = validate_gars_resolution(resolution)
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
-    result_gdf = gars_bin(data, resolution, stats, category_col, numeric_col, **kwargs)
+    result_gdf = gars_bin(data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs)
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(data, str):
@@ -134,11 +141,11 @@ def garsbin_cli():
         help=f"GARS resolution [{min_res}..{max_res}] (1=30′, 2=15′, 3=5′, 4=1′)",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -152,7 +159,7 @@ def garsbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     parser.add_argument(
         "-f",
@@ -161,15 +168,24 @@ def garsbin_cli():
         default="gpd",
         choices=OUTPUT_FORMATS,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
     try:
         result = garsbin(
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

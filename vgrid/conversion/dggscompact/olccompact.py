@@ -4,7 +4,8 @@ OLC Compact Module
 This module provides functionality to compact and expand OLC cells with flexible input and output formats.
 
 Key Functions:
-    olccompact: Compact a set of OLC cells to their minimal covering set
+    olc_compact: Compact a list of OLC IDs with an optional parent depth
+    olccompact: Compact a set of OLC cells to their covering set
     olcexpand: Expand (uncompact) a set of OLC cells to a target resolution
     olccompact_cli: Command-line interface for compaction
     olcexpand_cli: Command-line interface for expansion
@@ -13,12 +14,18 @@ Key Functions:
 import os
 import argparse
 import geopandas as gpd
-from collections import defaultdict
+from tqdm import tqdm
 
 from vgrid.conversion.dggs2geo.olc2geo import olc2geo
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import process_input_data_compact, convert_to_output_format
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.io import (
+    aggregate_values,
+    compact_cells,
+    convert_to_output_format,
+    prepare_compact_bags,
+    process_input_data_compact,
+)
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import olc
 
 
@@ -32,80 +39,78 @@ def get_olc_resolution(olc_id):
         raise ValueError(f"Invalid OLC ID <{olc_id}> : {e}")
 
 
-def olc_compact(olc_ids):
+def olc_compact(olc_ids, depth=-1, bags=None, verbose=True):
     """
-    Compact a list of OLC cell IDs to their minimal covering set.
+    Compact a list of OLC cell IDs by replacing complete child sets with parents.
 
-    Groups OLC cells by their parents and replaces complete sets of children
-    with their parent cells, repeating until no more compaction is possible.
+    Groups cells by their immediate parent and replaces a parent when every child
+    is present. Repeats until ``depth`` parent levels have been applied, or until
+    no further compaction is possible.
 
     Parameters
     ----------
     olc_ids : list of str
-        List of OLC cell IDs to compact.
+        OLC cell IDs to compact. Mixed resolutions are allowed.
+    depth : int, default -1
+        How many parent levels to climb:
+        - ``0``: do nothing (return the unique input cells)
+        - ``-1``: compact as far as possible
+        - ``1``: replace complete sibling sets with their direct parent
+        - ``2``: then compact those parents (grandparents), and so on
+    bags : dict of list, optional
+        Per-cell lists of original values. When a complete child set is replaced
+        by its parent, child lists are concatenated onto the parent. Mutated
+        in place so remaining keys match the compacted IDs.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
     list of str
-        Sorted list of compacted OLC cell IDs representing the minimal covering set.
-
-    Examples
-    --------
-    >>> olc_ids = ["7P28QPG4+4P7", "7P28QPG4+4P8", "7P28QPG4+4P9"]
-    >>> compacted = olc_compact(olc_ids)
-    >>> print(f"Compacted {len(olc_ids)} cells to {len(compacted)} cells")
+        Sorted compacted OLC cell IDs.
     """
-    olc_ids = set(olc_ids)  # Remove duplicates
 
-    # Main loop for compaction
-    while True:
-        grouped_olc_ids = defaultdict(set)
+    def parent_fn(olc_id):
+        return olc.olc_parent(olc_id)
 
-        # Group cells by their parent
-        for olc_id in olc_ids:
-            parent = olc.olc_parent(olc_id)
-            grouped_olc_ids[parent].add(olc_id)
+    def children_fn(parent):
+        coord = olc.decode(parent)
+        if coord.codeLength <= 10:
+            next_res = coord.codeLength + 2
+        else:
+            next_res = coord.codeLength + 1
+        return olc.olc_children(parent, next_res)
 
-        new_olc_ids = set(olc_ids)
-        changed = False
-
-        # Check if we can replace children with parent
-        for parent, children in grouped_olc_ids.items():
-            coord = olc.decode(parent)
-            coord_len = coord.codeLength
-            if coord_len <= 10:
-                next_resolution = coord_len + 2
-            else:
-                next_resolution = coord_len + 1
-
-            # Generate the subcells for the parent at the next resolution
-            childcells_at_next_res = set(
-                childcell for childcell in olc.olc_children(parent, next_resolution)
-            )
-
-            # Check if the current children match the subcells at the next resolution
-            if children == childcells_at_next_res:
-                new_olc_ids.difference_update(children)  # Remove children
-                new_olc_ids.add(parent)  # Add the parent
-                changed = True  # A change occurred
-
-        if not changed:
-            break  # Stop if no more compaction is possible
-        olc_ids = new_olc_ids  # Continue compacting
-
-    return sorted(olc_ids)  # Sorted for consistency
+    return compact_cells(
+        olc_ids,
+        parent_fn,
+        children_fn,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
+        desc="Compacting OLC",
+    )
 
 
 def olccompact(
     input_data,
     olc_id=None,
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
+    verbose=True,
 ):
     """
-    Compact OLC cells to their minimal covering set.
+    Compact OLC cells to their covering set at a given parent depth.
 
-    Compacts a set of OLC cells by replacing complete sets of children with their parent cells,
-    repeating until no more compaction is possible. Supports flexible input and output formats.
+    Compacts a set of OLC cells by replacing complete sets of children with
+    their parent cells. ``depth`` limits how far up the hierarchy to merge.
+
+    When a complete sibling set is replaced by its parent, original child values
+    are combined with ``agg`` (same options as ``h3bin``). If ``agg`` is
+    ``"count"``, ``numeric_col`` is ignored and the output ``count`` is the
+    number of original input cells in each compacted cell.
 
     Parameters
     ----------
@@ -118,6 +123,17 @@ def olccompact(
         - List of OLC cell IDs
     olc_id : str, optional
         Name of the column containing OLC cell IDs. Defaults to "olc".
+    depth : int, default -1
+        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
+        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+    agg : str, default "count"
+        Aggregation applied to original child values when cells compact into a
+        parent. Same options as ``h3bin`` (``count``, ``min``, ``max``, ``sum``,
+        ``mean``, ``median``, ``std``, ``var``, ``range``, ``minority``,
+        ``majority``, ``variety``).
+    numeric_col : str, optional
+        Numeric field to aggregate. Required when ``agg`` is not ``"count"``;
+        ignored when ``agg`` is ``"count"``.
     output_format : str, default "gpd"
         Output format. Options:
         - "gpd": Returns GeoPandas GeoDataFrame (default)
@@ -127,6 +143,8 @@ def olccompact(
         - "parquet": Returns Parquet file path
         - "shapefile"/"shp": Returns Shapefile file path
         - "gpkg"/"geopackage": Returns GeoPackage file path
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
@@ -142,6 +160,12 @@ def olccompact(
     >>> # Compact from list
     >>> result = olccompact(["7P28QPG4+4P7", "7P28QPG4+4P8"])
 
+    >>> # Compact only one parent level
+    >>> result = olccompact(cells, depth=1)
+
+    >>> # Mean of a numeric field on compacted parents
+    >>> result = olccompact(cells, agg="mean", numeric_col="value")
+
     >>> # Compact to GeoJSON file
     >>> result = olccompact("cells.geojson", output_format="geojson")
     >>> print(f"Saved to: {result}")
@@ -149,29 +173,38 @@ def olccompact(
     if not olc_id:
         olc_id = "olc"
 
-    gdf = process_input_data_compact(input_data, olc_id)
-    olc_ids = gdf[olc_id].drop_duplicates().tolist()
-
-    if not olc_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        olc_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="OLC cells",
+    )
+    if bags is None:
         print(f"No OLC IDs found in <{olc_id}> field.")
         return
 
-    try:
-        olc_ids_compact = olc_compact(olc_ids)
-    except Exception:
-        raise Exception("Compact cells failed. Please check your OLC ID field.")
-
+    olc_ids_compact = olc_compact(
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+    )
     if not olc_ids_compact:
         return None
 
     rows = []
-    for olc_id_compact in olc_ids_compact:
+    for olc_id_compact in tqdm(
+        olc_ids_compact,
+        desc="Building OLC compact",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = olc2geo(olc_id_compact)
             cell_resolution = get_olc_resolution(olc_id_compact)
             row = graticule_dggs_to_geoseries(
                 "olc", olc_id_compact, cell_resolution, cell_polygon
             )
+            row[agg_col] = aggregate_values(bags.get(olc_id_compact, []), agg)
             rows.append(row)
         except Exception:
             continue
@@ -208,6 +241,35 @@ def olccompact_cli():
         choices=OUTPUT_FORMATS,
         help="Output format",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
 
     args = parser.parse_args()
     input_data = args.input
@@ -218,6 +280,10 @@ def olccompact_cli():
         input_data,
         olc_id=cellid,
         output_format=output_format,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
 
     if output_format in STRUCTURED_FORMATS:

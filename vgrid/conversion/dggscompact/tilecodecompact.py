@@ -4,7 +4,8 @@ Tilecode Compact Module
 This module provides functionality to compact and expand Tilecode cells with flexible input and output formats.
 
 Key Functions:
-    tilecodecompact: Compact a set of Tilecode cells to their minimal covering set
+    tilecode_compact: Compact a list of Tilecode IDs with an optional parent depth
+    tilecodecompact: Compact a set of Tilecode cells to their covering set
     tilecodeexpand: Expand (uncompact) a set of Tilecode cells to a target resolution
     tilecodecompact_cli: Command-line interface for compaction
     tilecodeexpand_cli: Command-line interface for expansion
@@ -14,90 +15,92 @@ import os
 import re
 import argparse
 import geopandas as gpd
-from collections import defaultdict
+from tqdm import tqdm
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import process_input_data_compact, convert_to_output_format
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.io import (
+    aggregate_values,
+    compact_cells,
+    convert_to_output_format,
+    prepare_compact_bags,
+    process_input_data_compact,
+)
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import tilecode
 from vgrid.dggs.tilecode import tilecode_resolution
 from vgrid.conversion.dggs2geo.tilecode2geo import tilecode2geo
 
 
-def tilecode_compact(tilecode_ids):
+def tilecode_compact(tilecode_ids, depth=-1, bags=None, verbose=True):
     """
-    Compact a list of Tilecode cell IDs to their minimal covering set.
+    Compact a list of Tilecode cell IDs by replacing complete child sets with parents.
 
-    Groups Tilecode cells by their parents and replaces complete sets of children
-    with their parent cells, repeating until no more compaction is possible.
+    Groups cells by their immediate parent and replaces a parent when every child
+    is present. Repeats until ``depth`` parent levels have been applied, or until
+    no further compaction is possible.
 
     Parameters
     ----------
     tilecode_ids : list of str
-        List of Tilecode cell IDs to compact.
+        Tilecode cell IDs to compact. Mixed resolutions are allowed.
+    depth : int, default -1
+        How many parent levels to climb:
+        - ``0``: do nothing (return the unique input cells)
+        - ``-1``: compact as far as possible
+        - ``1``: replace complete sibling sets with their direct parent
+        - ``2``: then compact those parents (grandparents), and so on
+    bags : dict of list, optional
+        Per-cell lists of original values. When a complete child set is replaced
+        by its parent, child lists are concatenated onto the parent. Mutated
+        in place so remaining keys match the compacted IDs.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
     list of str
-        Sorted list of compacted Tilecode cell IDs representing the minimal covering set.
-
-    Examples
-    --------
-    >>> tilecode_ids = ["z3x1y1", "z3x1y2", "z3x2y1", "z3x2y2"]
-    >>> compacted = tilecode_compact(tilecode_ids)
-    >>> print(f"Compacted {len(tilecode_ids)} cells to {len(compacted)} cells")
+        Sorted compacted Tilecode cell IDs.
     """
-    tilecode_ids = set(tilecode_ids)  # Remove duplicates
 
-    # Main loop for compaction
-    while True:
-        grouped_tilecode_ids = defaultdict(set)
+    def parent_fn(tilecode_id):
+        if not re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id):
+            return None
+        return tilecode.tilecode_parent(tilecode_id)
 
-        # Group cells by their parent
-        for tilecode_id in tilecode_ids:
-            match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
-            if match:  # Ensure there's a valid parent
-                parent = tilecode.tilecode_parent(tilecode_id)
-                grouped_tilecode_ids[parent].add(tilecode_id)
+    def children_fn(parent):
+        match = re.match(r"z(\d+)x(\d+)y(\d+)", parent)
+        parent_res = int(match.group(1))
+        return tilecode.tilecode_children(parent, parent_res + 1)
 
-        new_tilecode_ids = set(tilecode_ids)
-        changed = False
-
-        # Check if we can replace children with parent
-        for parent, children in grouped_tilecode_ids.items():
-            # Generate the subcells for the parent at the next resolution
-            match = re.match(r"z(\d+)x(\d+)y(\d+)", parent)
-            parent_resolution = int(match.group(1))
-
-            childcells_at_next_res = set(
-                childcell
-                for childcell in tilecode.tilecode_children(
-                    parent, parent_resolution + 1
-                )
-            )  # Collect subcells as strings
-
-            # Check if the current children match the subcells at the next resolution
-            if children == childcells_at_next_res:
-                new_tilecode_ids.difference_update(children)  # Remove children
-                new_tilecode_ids.add(parent)  # Add the parent
-                changed = True  # A change occurred
-
-        if not changed:
-            break  # Stop if no more compaction is possible
-        tilecode_ids = new_tilecode_ids  # Continue compacting
-
-    return sorted(tilecode_ids)  # Sorted for consistency
+    return compact_cells(
+        tilecode_ids,
+        parent_fn,
+        children_fn,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
+        desc="Compacting Tilecode",
+    )
 
 
 def tilecodecompact(
     input_data,
     tilecode_id="tilecode",
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
+    verbose=True,
 ):
     """
-    Compact Tilecode cells to their minimal covering set.
+    Compact Tilecode cells to their covering set at a given parent depth.
 
-    Compacts a set of Tilecode cells by replacing complete sets of children with their parent cells,
-    repeating until no more compaction is possible. Supports flexible input and output formats.
+    Compacts a set of Tilecode cells by replacing complete sets of children with
+    their parent cells. ``depth`` limits how far up the hierarchy to merge.
+
+    When a complete sibling set is replaced by its parent, original child values
+    are combined with ``agg`` (same options as ``h3bin``). If ``agg`` is
+    ``"count"``, ``numeric_col`` is ignored and the output ``count`` is the
+    number of original input cells in each compacted cell.
 
     Parameters
     ----------
@@ -110,6 +113,17 @@ def tilecodecompact(
         - List of Tilecode cell IDs
     tilecode_id : str, default "tilecode"
         Name of the column containing Tilecode cell IDs.
+    depth : int, default -1
+        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
+        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+    agg : str, default "count"
+        Aggregation applied to original child values when cells compact into a
+        parent. Same options as ``h3bin`` (``count``, ``min``, ``max``, ``sum``,
+        ``mean``, ``median``, ``std``, ``var``, ``range``, ``minority``,
+        ``majority``, ``variety``).
+    numeric_col : str, optional
+        Numeric field to aggregate. Required when ``agg`` is not ``"count"``;
+        ignored when ``agg`` is ``"count"``.
     output_format : str, default "gpd"
         Output format. Options:
         - "gpd": Returns GeoPandas GeoDataFrame (default)
@@ -119,6 +133,8 @@ def tilecodecompact(
         - "parquet": Returns Parquet file path
         - "shapefile"/"shp": Returns Shapefile file path
         - "gpkg"/"geopackage": Returns GeoPackage file path
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
@@ -134,34 +150,51 @@ def tilecodecompact(
     >>> # Compact from list
     >>> result = tilecodecompact(["z3x1y1", "z3x1y2", "z3x2y1", "z3x2y2"])
 
+    >>> # Compact only one parent level
+    >>> result = tilecodecompact(cells, depth=1)
+
+    >>> # Mean of a numeric field on compacted parents
+    >>> result = tilecodecompact(cells, agg="mean", numeric_col="value")
+
     >>> # Compact to GeoJSON file
     >>> result = tilecodecompact("cells.geojson", output_format="geojson")
     >>> print(f"Saved to: {result}")
     """
+    if not tilecode_id:
+        tilecode_id = "tilecode"
 
-    gdf = process_input_data_compact(input_data, tilecode_id)
-    tilecode_ids = gdf[tilecode_id].drop_duplicates().tolist()
-
-    if not tilecode_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        tilecode_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="Tilecode cells",
+    )
+    if bags is None:
         print(f"No Tilecode IDs found in <{tilecode_id}> field.")
         return
 
-    try:
-        tilecode_ids_compact = tilecode_compact(tilecode_ids)
-    except Exception:
-        raise Exception("Compact cells failed. Please check your Tilecode ID field.")
-
+    tilecode_ids_compact = tilecode_compact(
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+    )
     if not tilecode_ids_compact:
         return None
 
     rows = []
-    for tilecode_id_compact in tilecode_ids_compact:
+    for tilecode_id_compact in tqdm(
+        tilecode_ids_compact,
+        desc="Building Tilecode compact",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = tilecode2geo(tilecode_id_compact)
             cell_resolution = tilecode_resolution(tilecode_id_compact)
             row = graticule_dggs_to_geoseries(
                 "tilecode", tilecode_id_compact, cell_resolution, cell_polygon
             )
+            row[agg_col] = aggregate_values(bags.get(tilecode_id_compact, []), agg)
             rows.append(row)
         except Exception:
             continue
@@ -198,6 +231,35 @@ def tilecodecompact_cli():
         choices=OUTPUT_FORMATS,
         help="Output format",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
 
     args = parser.parse_args()
     input_data = args.input
@@ -208,6 +270,10 @@ def tilecodecompact_cli():
         input_data,
         tilecode_id=cellid,
         output_format=output_format,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
 
     if output_format in STRUCTURED_FORMATS:

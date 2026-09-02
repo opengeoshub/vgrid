@@ -25,7 +25,7 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.io import gars_num_cells
+from vgrid.utils.io import add_verbose_argument, gars_num_cells
 
 min_res = DGGS_TYPES["gars"]["min_res"]
 max_res = DGGS_TYPES["gars"]["max_res"]
@@ -139,7 +139,7 @@ def garsstats_cli():
     print(df)
 
 
-def garsinspect(resolution: int):  # length unit is km, area unit is km2
+def garsinspect(resolution: int, verbose=True):  # length unit is km, area unit is km2
     """
     Generate comprehensive inspection data for GARS DGGS cells at a given resolution.
 
@@ -149,6 +149,7 @@ def garsinspect(resolution: int):  # length unit is km, area unit is km2
     Args:
         resolution: GARS resolution level (0-4)
 
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing GARS cell inspection data with columns:
             - gars: GARS cell ID
@@ -161,7 +162,7 @@ def garsinspect(resolution: int):  # length unit is km, area unit is km2
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    gars_gdf = garsgrid(resolution, output_format="gpd")
+    gars_gdf = garsgrid(resolution, output_format="gpd", verbose=verbose)
     gars_gdf["crossed"] = gars_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = gars_gdf["cell_area"].mean()
     mean_area = AUTHALIC_AREA / gars_num_cells(resolution)
@@ -507,9 +508,10 @@ def garsinspect_cli():
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
-    print(garsinspect(resolution))
+    print(garsinspect(resolution, verbose=args.verbose))
 
 
 if __name__ == "__main__":
