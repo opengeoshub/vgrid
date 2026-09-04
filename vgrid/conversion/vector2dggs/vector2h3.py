@@ -19,6 +19,7 @@ from tqdm import tqdm
 import geopandas as gpd
 from shapely.geometry import box, MultiPoint
 from vgrid.conversion.dggs2geo.h32geo import h32geo
+from vgrid.conversion.dggscompact.h3compact import h3_compact
 import h3
 from vgrid.utils.geometry import (
     check_predicate,
@@ -29,6 +30,8 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.io import validate_h3_resolution
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
@@ -60,9 +63,6 @@ def point2h3(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
 ):
@@ -84,8 +84,6 @@ def point2h3(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable H3 compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2h3).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -140,9 +138,6 @@ def polyline2h3(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
 ):
@@ -217,9 +212,10 @@ def polygon2h3(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to H3 grid cells.
@@ -232,6 +228,8 @@ def polygon2h3(
         compact (bool, optional): Enable H3 compact mode to reduce cell count
         topology (bool, optional): Enable topology preserving mode (handled by geodataframe2h3)
         include_properties (bool, optional): Whether to include properties in output
+        depth (int, optional): Compaction depth when ``compact=True`` (default -1).
+            Ignored when ``compact=False``.
 
     Returns:
         list: List of dictionaries representing H3 cells based on predicate
@@ -269,7 +267,7 @@ def polygon2h3(
 
         # Apply compact after predicate check
         if compact:
-            filtered_cells = h3.compact_cells(filtered_cells)
+            filtered_cells = h3_compact(filtered_cells, depth=depth, verbose=verbose)
 
         # Convert filtered/compacted cells to rows
         for cell_id in filtered_cells:
@@ -293,9 +291,11 @@ def geodataframe2h3(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to H3 grid cells.
@@ -359,7 +359,7 @@ def geodataframe2h3(
 
     h3_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -377,9 +377,6 @@ def geodataframe2h3(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -391,8 +388,6 @@ def geodataframe2h3(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -405,8 +400,10 @@ def geodataframe2h3(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
     if not h3_rows:
@@ -420,9 +417,11 @@ def vector2h3(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -461,9 +460,11 @@ def vector2h3(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         fix_antimeridian=fix_antimeridian,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -509,6 +510,7 @@ def vector2h3_cli():
         action="store_true",
         help="Enable H3 compact mode for polygons",
     )
+    add_compact_depth_argument(parser)
     parser.add_argument(
         "-t", "--topology", action="store_true", help="Enable topology preserving mode"
     )
@@ -542,6 +544,7 @@ def vector2h3_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     fix_antimeridian = args.fix_antimeridian
     try:
@@ -554,6 +557,8 @@ def vector2h3_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             fix_antimeridian=fix_antimeridian,
+            verbose=args.verbose,
+            depth=args.depth,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

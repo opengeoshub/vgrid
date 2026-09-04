@@ -16,18 +16,20 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_quadkey_resolution,
     aggregate_joined,
+    validate_agg,
 )
-from vgrid.utils.constants import STATS_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
 def quadkey_bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
+    verbose=True,
     **kwargs,
 ):
     resolution = validate_quadkey_resolution(resolution)
@@ -47,13 +49,13 @@ def quadkey_bin(
     id_col = "quadkey"
     from vgrid.generator.quadkeygrid import quadkey_grid
 
-    grid_gdf = quadkey_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy))
+    grid_gdf = quadkey_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
 
     # Spatial join
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -64,7 +66,7 @@ def quadkey_bin(
 
     # Aggregate
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -81,17 +83,20 @@ def quadkey_bin(
 def quadkeybin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
+    verbose=True,
     **kwargs,
 ):
     resolution = validate_quadkey_resolution(resolution)
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = quadkey_bin(
-        data, resolution, stats, category_col, numeric_col, **kwargs
+        data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -122,11 +127,11 @@ def quadkeybin_cli():
         help="Resolution of the grid [0..29]",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -140,7 +145,7 @@ def quadkeybin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     # Removed -o/--output; output is saved in CWD with predefined name
     parser.add_argument(
@@ -150,15 +155,24 @@ def quadkeybin_cli():
         default="gpd",
         choices=OUTPUT_FORMATS,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
     try:
         result = quadkeybin(
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

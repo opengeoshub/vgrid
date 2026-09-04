@@ -10,6 +10,7 @@ import argparse
 import geopandas as gpd
 from a5.core.cell_info import get_num_cells, cell_area
 from vgrid.generator.a5grid import a5grid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -136,7 +137,10 @@ def a5stats_cli():
 
 
 def a5inspect(
-    resolution: int, options={"segments": 100}, split_antimeridian: bool = False
+    resolution: int,
+    options={"segments": 100},
+    split_antimeridian: bool = False,
+    verbose=True,
 ):
     """
     Generate comprehensive inspection data for A5 DGGS cells at a given resolution.
@@ -149,6 +153,7 @@ def a5inspect(
         options: Optional dictionary of options for grid generation
         split_antimeridian: When True, apply antimeridian splitting to the resulting polygons.
             Defaults to False when None or omitted.
+        verbose: Show progress bars. Defaults to True.
 
     Returns:
         geopandas.GeoDataFrame: DataFrame containing A5 cell inspection data with columns:
@@ -167,6 +172,7 @@ def a5inspect(
         output_format="gpd",
         options=options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
     a5_gdf["crossed"] = a5_gdf["geometry"].apply(check_crossing_geom)
     a5_gdf = a5_gdf[~a5_gdf["crossed"]]  # remove cells that cross the Antimeridian
@@ -528,6 +534,7 @@ def a5inspect_cli():
         help="JSON string of options to pass to a52geo. "
         "Example: '{\"segments\": 1000}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
 
@@ -542,7 +549,10 @@ def a5inspect_cli():
 
     print(
         a5inspect(
-            resolution, options=options, split_antimeridian=args.split_antimeridian
+            resolution,
+            options=options,
+            split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
         )
     )
 

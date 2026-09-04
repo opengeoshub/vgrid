@@ -27,11 +27,12 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_maidenhead_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.maidenhead2geo import maidenhead2geo
 
 
-def maidenhead_grid(resolution):
+def maidenhead_grid(resolution, verbose=True):
     resolution = validate_maidenhead_resolution(resolution)
     if resolution == 1:
         lon_width, lat_width = 20, 10
@@ -52,7 +53,7 @@ def maidenhead_grid(resolution):
 
     maidenhead_records = []
     with tqdm(
-        total=total_cells, desc="Generating Maidenhead DGGS", unit=" cells"
+        total=total_cells, desc="Generating Maidenhead DGGS", unit=" cells", disable=not verbose
     ) as pbar:
         for i in range(x_cells):
             for j in range(y_cells):
@@ -77,7 +78,7 @@ def maidenhead_grid(resolution):
     return gpd.GeoDataFrame(maidenhead_records, geometry="geometry", crs="EPSG:4326")
 
 
-def maidenhead_grid_within_bbox(resolution, bbox):
+def maidenhead_grid_within_bbox(resolution, bbox, verbose=True):
     resolution = validate_maidenhead_resolution(resolution)
     # Define the grid parameters based on the resolution
     if resolution == 1:
@@ -104,7 +105,7 @@ def maidenhead_grid_within_bbox(resolution, bbox):
 
     total_cells = (end_x - start_x + 1) * (end_y - start_y + 1)
 
-    with tqdm(total=total_cells, desc="Generating Maidenhead DGGS") as pbar:
+    with tqdm(total=total_cells, desc="Generating Maidenhead DGGS", disable=not verbose) as pbar:
         for x in range(start_x, end_x + 1):
             for y in range(start_y, end_y + 1):
                 # Calculate the cell bounds
@@ -140,7 +141,7 @@ def maidenhead_grid_within_bbox(resolution, bbox):
     return gpd.GeoDataFrame(maidenhead_records, geometry="geometry", crs="EPSG:4326")
 
 
-def maidenhead_grid_ids(resolution):
+def maidenhead_grid_ids(resolution, verbose=True):
     """
     Return a list of Maidenhead IDs for the whole world at the given resolution.
     """
@@ -162,7 +163,7 @@ def maidenhead_grid_ids(resolution):
 
     ids = []
     with tqdm(
-        total=x_cells * y_cells, desc="Generating Maidenhead IDs", unit=" cells"
+        total=x_cells * y_cells, desc="Generating Maidenhead IDs", unit=" cells", disable=not verbose
     ) as pbar:
         for i in range(x_cells):
             for j in range(y_cells):
@@ -182,7 +183,7 @@ def maidenhead_grid_ids(resolution):
     return ids
 
 
-def maidenhead_grid_within_bbox_ids(resolution, bbox):
+def maidenhead_grid_within_bbox_ids(resolution, bbox, verbose=True):
     """
     Return a list of Maidenhead IDs intersecting the given bbox at the given resolution.
     """
@@ -207,7 +208,7 @@ def maidenhead_grid_within_bbox_ids(resolution, bbox):
 
     ids = []
     total_cells = (end_x - start_x + 1) * (end_y - start_y + 1)
-    with tqdm(total=total_cells, desc="Generating Maidenhead IDs") as pbar:
+    with tqdm(total=total_cells, desc="Generating Maidenhead IDs", disable=not verbose) as pbar:
         for x in range(start_x, end_x + 1):
             for y in range(start_y, end_y + 1):
                 cell_min_lon = base_lon + x * lon_width
@@ -233,7 +234,7 @@ def maidenhead_grid_within_bbox_ids(resolution, bbox):
     return ids
 
 
-def maidenheadgrid(resolution, bbox=None, output_format="gpd"):
+def maidenheadgrid(resolution, bbox=None, output_format="gpd", verbose=True):
     """
     Generate Maidenhead grid for pure Python usage.
 
@@ -253,9 +254,9 @@ def maidenheadgrid(resolution, bbox=None, output_format="gpd"):
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = maidenhead_grid(resolution)
+        gdf = maidenhead_grid(resolution, verbose=verbose)
     else:
-        gdf = maidenhead_grid_within_bbox(resolution, bbox)
+        gdf = maidenhead_grid_within_bbox(resolution, bbox, verbose=verbose)
 
     output_name = f"maidenhead_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -285,10 +286,11 @@ def maidenheadgrid_cli():
         choices=OUTPUT_FORMATS,
         default="gpd",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
-        result = maidenheadgrid(args.resolution, args.bbox, args.output_format)
+        result = maidenheadgrid(args.resolution, args.bbox, args.output_format, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

@@ -18,6 +18,7 @@ from tqdm import tqdm
 from vgrid.conversion.dggs2geo.a52geo import a52geo
 from vgrid.utils.constants import AUTHALIC_AREA
 from vgrid.utils.geometry import geod
+from vgrid.utils.io import add_verbose_argument
 
 DEFAULT_A5_ID = "6361180000000000"
 DEFAULT_SEGMENTS = (1, 10, 100, 1000, 10000, 100000, 1000000)
@@ -28,6 +29,7 @@ def a5_segments(
     segments=None,
     output: str | None = None,
     split_antimeridian: bool = False,
+    verbose: bool = True,
 ) -> gpd.GeoDataFrame:
     """
     Build A5 polygons for a single cell across a sequence of ``segments`` values.
@@ -42,6 +44,8 @@ def a5_segments(
         Output GeoParquet path. Defaults to ``a5_segments_{a5_id}.parquet``.
     split_antimeridian : bool, default False
         Passed through to ``a52geo``.
+    verbose : bool, default True
+        Show a tqdm progress bar. Use ``False`` to hide it.
 
     Returns
     -------
@@ -58,7 +62,9 @@ def a5_segments(
     mean_area = AUTHALIC_AREA / get_num_cells(resolution)
 
     rows = []
-    for n_segments in tqdm(list(segments), desc="A5 segments", unit=" value"):
+    for n_segments in tqdm(
+        list(segments), desc="A5 segments", unit=" value", disable=not verbose
+    ):
         cell_polygon = a52geo(
             a5_id,
             options={"segments": int(n_segments)},
@@ -130,12 +136,14 @@ def a5_segments_cli():
         default=False,
         help="Enable antimeridian splitting",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     a5_segments(
         a5_id=args.a5_id,
         segments=args.segments,
         output=args.output,
         split_antimeridian=args.split_antimeridian,
+        verbose=args.verbose,
     )
 
 

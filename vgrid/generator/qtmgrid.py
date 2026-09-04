@@ -21,6 +21,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_bbox,
     validate_qtm_resolution,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.qtmcompact import qtm_compact
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
@@ -66,12 +67,12 @@ initial_facets = [
 ]
 
 
-def qtm_grid(resolution, compact=False):
+def qtm_grid(resolution, compact=False, verbose=True):
     resolution = validate_qtm_resolution(resolution)
     levelFacets = {}
     QTMID = {}
     qtm_ids = []
-    for lvl in tqdm(range(resolution), desc="Generating QTM DGGS"):
+    for lvl in tqdm(range(resolution), desc="Generating QTM DGGS", disable=not verbose):
         levelFacets[lvl] = []
         QTMID[lvl] = []
         if lvl == 0:
@@ -91,15 +92,15 @@ def qtm_grid(resolution, compact=False):
                         qtm_ids.append(new_id)
 
     if compact:
-        qtm_ids = qtm_compact(qtm_ids)
+        qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
-    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells"):
+    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
         qtm_rows.append(_qtm_row_from_id(qtm_id))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def qtm_grid_within_bbox(resolution, bbox, compact=False):
+def qtm_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
     resolution = validate_qtm_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     levelFacets = {}
@@ -114,7 +115,7 @@ def qtm_grid_within_bbox(resolution, bbox, compact=False):
             (min_lon, min_lat),
         ]
     )
-    for lvl in tqdm(range(resolution), desc="Generating QTM DGGS"):
+    for lvl in tqdm(range(resolution), desc="Generating QTM DGGS", disable=not verbose):
         levelFacets[lvl] = []
         QTMID[lvl] = []
         if lvl == 0:
@@ -147,20 +148,20 @@ def qtm_grid_within_bbox(resolution, bbox, compact=False):
                             qtm_ids.append(new_id)
 
     if compact:
-        qtm_ids = qtm_compact(qtm_ids)
+        qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
-    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells"):
+    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
         qtm_rows.append(_qtm_row_from_id(qtm_id))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def qtm_grid_ids(resolution, compact=False):
+def qtm_grid_ids(resolution, compact=False, verbose=True):
     resolution = validate_qtm_resolution(resolution)
     levelFacets = {}
     QTMID = {}
     ids = []
-    for lvl in tqdm(range(resolution), desc="Generating QTM IDs"):
+    for lvl in tqdm(range(resolution), desc="Generating QTM IDs", disable=not verbose):
         levelFacets[lvl] = []
         QTMID[lvl] = []
         if lvl == 0:
@@ -189,11 +190,11 @@ def qtm_grid_ids(resolution, compact=False):
                     if lvl == resolution - 1:
                         ids.append(new_id)
     if compact:
-        ids = qtm_compact(ids)
+        ids = qtm_compact(ids, verbose=verbose)
     return ids
 
 
-def qtm_grid_within_bbox_ids(resolution, bbox, compact=False):
+def qtm_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     resolution = validate_qtm_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     levelFacets = {}
@@ -208,7 +209,7 @@ def qtm_grid_within_bbox_ids(resolution, bbox, compact=False):
             (min_lon, min_lat),
         ]
     )
-    for lvl in tqdm(range(resolution), desc="Generating QTM IDs"):
+    for lvl in tqdm(range(resolution), desc="Generating QTM IDs", disable=not verbose):
         levelFacets[lvl] = []
         QTMID[lvl] = []
         if lvl == 0:
@@ -240,21 +241,21 @@ def qtm_grid_within_bbox_ids(resolution, bbox, compact=False):
                         if lvl == resolution - 1:
                             ids.append(new_id)
     if compact:
-        ids = qtm_compact(ids)
+        ids = qtm_compact(ids, verbose=verbose)
     return ids
 
 
-def qtmgrid(resolution, bbox=None, output_format="gpd", compact=False):
+def qtmgrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-        gdf = qtm_grid(resolution, compact=compact)
+        gdf = qtm_grid(resolution, compact=compact, verbose=verbose)
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
     else:
-        gdf = qtm_grid_within_bbox(resolution, bbox, compact=compact)
+        gdf = qtm_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
@@ -289,13 +290,14 @@ def qtmgrid_cli():
         action="store_true",
         help="Enable QTM compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
 
     try:
-        result = qtmgrid(resolution, bbox, args.output_format, compact=args.compact)
+        result = qtmgrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

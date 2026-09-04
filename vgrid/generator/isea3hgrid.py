@@ -29,6 +29,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_isea3h_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
 
@@ -117,16 +118,16 @@ def _isea3h_row_from_id(isea3h_id, fix_antimeridian=None):
     )
 
 
-def isea3h_grid(resolution, fix_antimeridian=None, compact=False):
+def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
     resolution = validate_isea3h_resolution(resolution)
     cell_ids = get_isea3h_children_cells(ISEA3H_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     records = []
-    for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells", disable=not verbose):
         try:
             records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
         except Exception as e:
@@ -135,7 +136,7 @@ def isea3h_grid(resolution, fix_antimeridian=None, compact=False):
     return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
-def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False):
+def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     resolution = validate_isea3h_resolution(resolution)
     accuracy = ISEA3H_RES_ACCURACY_DICT.get(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
@@ -152,25 +153,25 @@ def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
     )
     if bounding_children_cells:
         if compact:
-            bounding_children_cells = isea3h_compact(bounding_children_cells)
+            bounding_children_cells = isea3h_compact(bounding_children_cells, verbose=verbose)
         records = []
         for cell_id in bounding_children_cells:
             records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
         return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
-def isea3h_grid_ids(resolution, compact=False):
+def isea3h_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of ISEA3H cell IDs for the whole world at a given resolution.
     """
     resolution = validate_isea3h_resolution(resolution)
     cell_ids = get_isea3h_children_cells(ISEA3H_BASE_CELLS, resolution)
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     return [str(cid) for cid in cell_ids]
 
 
-def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False):
+def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of ISEA3H cell IDs intersecting the given bounding box at a given resolution.
     """
@@ -190,12 +191,12 @@ def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False):
     )
     cell_ids = list(bounding_children_cells or [])
     if compact:
-        cell_ids = isea3h_compact(cell_ids)
+        cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     return cell_ids
 
 
 def isea3hgrid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False
+    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
 ):
     """
     Generate ISEA3H grid for pure Python usage.
@@ -221,11 +222,11 @@ def isea3hgrid(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
         gdf = isea3h_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
     else:
         gdf = isea3h_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact
+            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
         )
 
     output_name = f"isea3h_grid_{resolution}"
@@ -272,6 +273,7 @@ def isea3hgrid_cli():
         action="store_true",
         help="Enable ISEA3H compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
@@ -284,6 +286,7 @@ def isea3hgrid_cli():
                 args.output_format,
                 fix_antimeridian=fix_antimeridian,
                 compact=args.compact,
+                verbose=args.verbose,
             )
             if args.output_format in STRUCTURED_FORMATS:
                 print(result)

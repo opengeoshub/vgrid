@@ -11,7 +11,7 @@ Key Functions:
 import argparse
 import sys
 import geopandas as gpd
-from vgrid.utils.io import dggal_convert_to_output_format
+from vgrid.utils.io import dggal_convert_to_output_format, add_verbose_argument
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS, DGGAL_TYPES
 from vgrid.utils.io import validate_bbox, validate_dggal_resolution, validate_dggal_type
 from vgrid.conversion.dggs2geo.dggal2geo import dggal2geo
@@ -34,6 +34,7 @@ def dggalgen(
     compact: bool = False,
     output_format: str | None = None,
     split_antimeridian: bool = False,
+    verbose: bool = True,
 ):
     """
     Generate a DGGAL grid using the dggal library directly.
@@ -101,7 +102,7 @@ def dggalgen(
     dggal_records = []
     options = {}
 
-    for zone in tqdm(zones, desc=f"Generating {dggs_type.upper()} DGGS"):
+    for zone in tqdm(zones, desc=f"Generating {dggs_type.upper()} DGGS", disable=not verbose):
         try:
             zone_id = dggrs.getZoneTextID(zone)
             zone_resolution = dggrs.getZoneLevel(zone)
@@ -164,6 +165,7 @@ def dggalgen_cli():
         "-f", "--output_format", type=str, default="gpd", choices=OUTPUT_FORMATS
     )
     # No custom output path; files are saved in current folder with predefined names
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     # Parse bbox if provided
@@ -188,6 +190,7 @@ def dggalgen_cli():
         resolution=args.resolution,
         bbox=bbox_tuple,
         compact=args.compact,
+        verbose=args.verbose,
     )
     if result is None:
         sys.exit(1)

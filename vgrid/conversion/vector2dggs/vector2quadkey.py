@@ -15,17 +15,21 @@ Key Functions:
 import sys
 import os
 import argparse
+from collections import deque
 from tqdm import tqdm
-from shapely.geometry import Polygon, MultiPoint
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
 import geopandas as gpd
 from vgrid.dggs import tilecode
 from vgrid.dggs import mercantile
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.conversion.dggscompact.quadkeycompact import quadkeycompact
+from vgrid.conversion.dggs2geo.quadkey2geo import quadkey2geo
+from vgrid.conversion.latlon2dggs import latlon2quadkey
 from vgrid.stats.quadkeystats import quadkey_metrics
 from vgrid.utils.geometry import (
     check_predicate,
     shortest_point_distance,
+    strip_duplicate_and_collinear_vertices,
 )
 from math import sqrt
 from vgrid.utils.io import (
@@ -33,6 +37,8 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -44,9 +50,6 @@ def point2quadkey(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -67,8 +70,6 @@ def point2quadkey(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable Quadkey compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2quadkey).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -125,72 +126,119 @@ def point2quadkey(
     return quadkey_rows
 
 
+def _quadkey_segment_cells(resolution, start_xy, end_xy):
+    """Walk Quadkey cells along one polyline segment via intersecting edge neighbors."""
+    start_x, start_y = start_xy
+    end_x, end_y = end_xy
+    segment = LineString([(start_x, start_y), (end_x, end_y)])
+    start_id = latlon2quadkey(start_y, start_x, resolution)
+    if segment.is_empty or segment.length == 0:
+        return [start_id]
+
+    end_id = latlon2quadkey(end_y, end_x, resolution)
+    end_pt = Point(end_x, end_y)
+
+    start_poly = quadkey2geo(start_id)
+    if start_poly is None:
+        return [end_id] if start_id != end_id else [start_id]
+
+    if start_id == end_id or start_poly.covers(end_pt):
+        ordered = [start_id]
+        if end_id != start_id:
+            ordered.append(end_id)
+        return ordered
+
+    ordered = []
+    visited = set()
+    queue = deque([start_id])
+    reached_endpoint = False
+
+    while queue:
+        cell_id = queue.popleft()
+        if cell_id in visited:
+            continue
+        visited.add(cell_id)
+
+        cell_polygon = quadkey2geo(cell_id)
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
+        if cell_id != start_id and not cell_polygon.intersects(segment):
+            continue
+
+        if not ordered or ordered[-1] != cell_id:
+            ordered.append(cell_id)
+
+        if cell_id == end_id or cell_polygon.covers(end_pt):
+            reached_endpoint = True
+            continue
+
+        for neighbor_id in tilecode.quadkey_edge_neighbors(cell_id):
+            if neighbor_id in visited:
+                continue
+            neighbor_polygon = quadkey2geo(neighbor_id)
+            if neighbor_polygon is None or neighbor_polygon.is_empty:
+                continue
+            if neighbor_polygon.intersects(segment):
+                queue.append(neighbor_id)
+
+    if not reached_endpoint and end_id not in visited:
+        ordered.append(end_id)
+    return ordered
+
+
 def polyline2quadkey(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
-    Convert a polyline geometry to Quadkey grid cells.
+    Convert each polyline to Quadkey cells by walking intersecting neighbors.
 
-    Args:
-        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Polyline geometry to convert
-        resolution (int): Quadkey resolution level [0..29]
-        feature_properties (dict, optional): Properties to include in output features
-        predicate (str, optional): Spatial predicate to apply (not used for polylines)
-        compact (bool, optional): Enable Quadkey compact mode (not used for polylines)
-        topology (bool, optional): Enable topology preserving mode (handled by geodataframe2quadkey)
-        include_properties (bool, optional): Whether to include properties in output
-
-    Returns:
-        list: List of dictionaries representing Quadkey cells intersecting the polyline
-
-    Example:
-        >>> from shapely.geometry import LineString
-        >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
-        >>> cells = polyline2quadkey(line, 10, {"name": "route"})
-        >>> len(cells) > 0
-        True
+    For each LineString or MultiLineString:
+    - Remove consecutive duplicate vertices and collinear intermediate vertices
+    - Split the cleaned polyline into segments
+    - Start from the cell containing each segment start
+    - If that cell already contains the endpoint, continue to the next segment
+    - Otherwise expand edge neighbors, keep those that intersect the segment, and
+      repeat until the endpoint cell is reached
     """
     quadkey_rows = []
-    if feature.geom_type in ("LineString"):
+    if feature.geom_type == "LineString":
         polylines = [feature]
-    elif feature.geom_type in ("MultiLineString"):
+    elif feature.geom_type == "MultiLineString":
         polylines = list(feature.geoms)
     else:
         return []
 
     for polyline in polylines:
-        min_lon, min_lat, max_lon, max_lat = polyline.bounds
-        tiles = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-        for tile in tiles:
-            z, x, y = tile.z, tile.x, tile.y
-            bounds = mercantile.bounds(x, y, z)
-            if bounds:
-                min_lat, min_lon = bounds.south, bounds.west
-                max_lat, max_lon = bounds.north, bounds.east
-                quadkey_id = mercantile.quadkey(tile)
-                cell_polygon = Polygon(
-                    [
-                        [min_lon, min_lat],
-                        [max_lon, min_lat],
-                        [max_lon, max_lat],
-                        [min_lon, max_lat],
-                        [min_lon, min_lat],
-                    ]
-                )
-                if cell_polygon.intersects(polyline):
-                    quadkey_row = graticule_dggs_to_geoseries(
-                        "quadkey", quadkey_id, resolution, cell_polygon
-                    )
-                    if include_properties and feature_properties:
-                        quadkey_row.update(feature_properties)
-                    quadkey_rows.append(quadkey_row)
+        coords = strip_duplicate_and_collinear_vertices(polyline)
+        if len(coords) < 2:
+            continue
 
+        ordered_cells = []
+        for i in range(len(coords) - 1):
+            segment_cells = _quadkey_segment_cells(
+                resolution,
+                coords[i],
+                coords[i + 1],
+            )
+            for cell_id in segment_cells:
+                if ordered_cells and ordered_cells[-1] == cell_id:
+                    continue
+                ordered_cells.append(cell_id)
+
+        for cell_id in ordered_cells:
+            cell_polygon = quadkey2geo(cell_id)
+            if cell_polygon is None:
+                continue
+            cell_resolution = len(cell_id)
+            quadkey_row = graticule_dggs_to_geoseries(
+                "quadkey", cell_id, cell_resolution, cell_polygon
+            )
+            if include_properties and feature_properties:
+                quadkey_row.update(feature_properties)
+            quadkey_rows.append(quadkey_row)
     return quadkey_rows
 
 
@@ -200,8 +248,9 @@ def polygon2quadkey(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to Quadkey grid cells.
@@ -267,8 +316,7 @@ def polygon2quadkey(
 
         # Use quadkeycompact function directly
         compacted_gdf = quadkeycompact(
-            temp_gdf, quadkey_id="quadkey", output_format="gpd"
-        )
+            temp_gdf, quadkey_id="quadkey", output_format="gpd", verbose=verbose, depth=depth)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -283,8 +331,10 @@ def geodataframe2quadkey(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to Quadkey grid cells.
@@ -348,7 +398,7 @@ def geodataframe2quadkey(
 
     quadkey_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -366,9 +416,6 @@ def geodataframe2quadkey(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                 )
             )
@@ -379,8 +426,6 @@ def geodataframe2quadkey(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                 )
             )
@@ -392,7 +437,9 @@ def geodataframe2quadkey(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(quadkey_rows, geometry="geometry", crs="EPSG:4326")
@@ -405,8 +452,10 @@ def vector2quadkey(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -441,7 +490,8 @@ def vector2quadkey(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2quadkey(
-        gdf, resolution, predicate, compact, topology, include_properties
+        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -508,6 +558,8 @@ def vector2quadkey_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_compact_depth_argument(parser)
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -516,9 +568,11 @@ def vector2quadkey_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

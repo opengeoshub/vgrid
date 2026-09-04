@@ -18,6 +18,7 @@ from vgrid.utils.constants import (
     VCENTER_HEX,
 )
 from vgrid.generator.isea3hgrid import isea3hgrid
+from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
     check_crossing_geom,
     characteristic_length_scale,
@@ -139,7 +140,7 @@ def isea3hstats_cli():
     print(df)
 
 
-def isea3hinspect(resolution: int, fix_antimeridian: None = None):
+def isea3hinspect(resolution: int, fix_antimeridian: None = None, verbose=True):
     """
     Generate comprehensive inspection data for ISEA3H DGGS cells at a given resolution.
 
@@ -149,6 +150,7 @@ def isea3hinspect(resolution: int, fix_antimeridian: None = None):
     Args:
         resolution: ISEA3H resolution level (0-40)
         fix_antimeridian: Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing ISEA3H cell inspection data with columns:
             - isea3h: ISEA3H cell ID
@@ -164,7 +166,7 @@ def isea3hinspect(resolution: int, fix_antimeridian: None = None):
     # Allow running on all platforms
 
     isea3h_gdf = isea3hgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian
+        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
     )  # remove cells that cross the Antimeridian
     isea3h_gdf["crossed"] = isea3h_gdf["geometry"].apply(check_crossing_geom)
     isea3h_gdf = isea3h_gdf[
@@ -524,10 +526,11 @@ def isea3hinspect_cli():
         default=False,  # default is False to avoid splitting the Antimeridian by default
         help="Enable antimeridian splitting",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     split_antimeridian = args.split_antimeridian
-    print(isea3hinspect(resolution, split_antimeridian=split_antimeridian))
+    print(isea3hinspect(resolution, split_antimeridian=split_antimeridian, verbose=args.verbose))
 
 
 if __name__ == "__main__":

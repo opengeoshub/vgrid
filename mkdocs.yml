@@ -123,6 +123,7 @@ nav:
               - Latlon to DGGS: api/conversion/latlon2dggs.md
               - DGGS to Geo: api/conversion/dggs2geo.md
               - Vector to DGGS: api/conversion/vector2dggs.md
+              - DGGS Compact / Expand: api/conversion/dggscompact.md
               - Raster to DGGS: api/conversion/raster2dggs.md
               - DGGS Resample: api/conversion/resampling.md
           - DGGS Binning: api/binning.md

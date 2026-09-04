@@ -27,6 +27,7 @@ from vgrid.utils.geometry import (
 from vgrid.generator.digipingrid import digipin_grid
 from vgrid.stats.digipinstats import digipin_metrics
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_digipin_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -87,22 +88,24 @@ def get_nearest_digipin_resolution(raster_path):
 
 
 def _raster2digipin_nearest_neighbour(
-    raster_path: str, resolution: int
+    raster_path: str, resolution: int,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     bbox = list(footprint.total_bounds)
-    grid_gdf = digipin_grid(resolution, bbox)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    grid_gdf = digipin_grid(resolution, bbox, verbose=verbose)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2digipin_binning(
-    raster_path: str, resolution: int, stats: str
+    raster_path: str, resolution: int, stats: str,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2digipin(lat, lon, resolution)
 
     digipin_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to DIGIPIN"
+        raster_path, cell_id, stats, desc="Binning raster blocks to DIGIPIN", verbose=verbose
     )
 
     properties = []
@@ -110,6 +113,7 @@ def _raster2digipin_binning(
         digipin_acc.items(),
         desc="Converting raster to DIGIPIN",
         unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = digipin2geo(digipin_id)
         if isinstance(cell_polygon, str):
@@ -131,6 +135,7 @@ def raster2digipin(
     output_format="gpd",
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to DIGIPIN DGGS format.
@@ -161,9 +166,9 @@ def raster2digipin(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2digipin_binning(raster_path, resolution, stats)
+        gdf = _raster2digipin_binning(raster_path, resolution, stats, verbose=verbose)
     else:
-        gdf = _raster2digipin_nearest_neighbour(raster_path, resolution)
+        gdf = _raster2digipin_nearest_neighbour(raster_path, resolution, verbose=verbose)
 
     if gdf.empty:
         raise ValueError("No DIGIPIN cells were produced from the raster.")
@@ -210,6 +215,7 @@ def raster2digipin_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -221,6 +227,7 @@ def raster2digipin_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

@@ -35,6 +35,8 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -46,9 +48,6 @@ def point2digipin(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -69,8 +68,6 @@ def point2digipin(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable DIGIPIN compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2digipin).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -126,9 +123,6 @@ def polyline2digipin(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -229,8 +223,9 @@ def polygon2digipin(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to DIGIPIN grid cells.
@@ -329,8 +324,7 @@ def polygon2digipin(
 
         # Use digipincompact function directly
         compacted_gdf = digipincompact(
-            temp_gdf, digipin_id="digipin", output_format="gpd"
-        )
+            temp_gdf, digipin_id="digipin", output_format="gpd", verbose=verbose, depth=depth)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -345,8 +339,10 @@ def geodataframe2digipin(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to DIGIPIN grid cells.
@@ -408,7 +404,7 @@ def geodataframe2digipin(
 
     digipin_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -426,9 +422,6 @@ def geodataframe2digipin(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                 )
             )
@@ -439,8 +432,6 @@ def geodataframe2digipin(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                 )
             )
@@ -452,7 +443,9 @@ def geodataframe2digipin(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(digipin_rows, geometry="geometry", crs="EPSG:4326")
@@ -465,8 +458,10 @@ def vector2digipin(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -501,7 +496,8 @@ def vector2digipin(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2digipin(
-        gdf, resolution, predicate, compact, topology, include_properties
+        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -568,6 +564,8 @@ def vector2digipin_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_compact_depth_argument(parser)
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -576,9 +574,11 @@ def vector2digipin_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

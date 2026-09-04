@@ -41,6 +41,7 @@ from vgrid.generator.dggridgen import dggridgen
 from dggrid4py import dggs_types
 from pyproj import Geod
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_dggrid_type,
     validate_dggrid_resolution,
     create_dggrid_instance,
@@ -204,6 +205,7 @@ def dggridinspect(
     split_antimeridian: bool = False,
     aggregate: bool = False,
     options={"densification": 30},
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     """
     Generate detailed inspection data for a DGGRID DGGS type at a given resolution.
@@ -218,6 +220,7 @@ def dggridinspect(
         options (dict, optional): Options to pass to grid_cell_polygons_for_extent.
             For example: {"densification": 2} to add densification points.
             Defaults to None.
+        verbose: Show progress bars. Defaults to True.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing inspection data with columns:
           - name (cell identifier from DGGRID)
@@ -240,6 +243,7 @@ def dggridinspect(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        verbose=verbose,
     )
 
     # Remove cells with null or invalid geometry
@@ -679,6 +683,7 @@ def dggridinspect_cli():
         help="JSON string of options to pass to grid_cell_polygons_for_extent. "
         "Example: '{\"densification\": 2}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
     dggs_type = args.dggs_type
@@ -701,6 +706,7 @@ def dggridinspect_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             options=options,
+            verbose=args.verbose,
         )
     )
 

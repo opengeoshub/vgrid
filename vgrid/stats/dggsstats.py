@@ -21,7 +21,7 @@ from vgrid.stats.dggalstats import dggalinspect
 
 # Import utilities
 from vgrid.utils.constants import DGGS_INSPECT
-from vgrid.utils.io import create_dggrid_instance
+from vgrid.utils.io import add_verbose_argument, create_dggrid_instance
 import warnings
 
 warnings.filterwarnings(
@@ -59,9 +59,12 @@ def _format_dggs_type_label(dggs_type: str) -> str:
     return _DGGS_TYPE_DISPLAY.get(key, key.upper())
 
 
-def dggsinspect():
+def dggsinspect(verbose=True):
     """
     Multi-DGGS cell inspection using DGGS_INSPECT configuration.
+
+    Args:
+        verbose: Show progress bars. Defaults to True.
 
     Returns:
         dict: Dictionary with DGGS types as keys and GeoDataFrames as values
@@ -172,15 +175,18 @@ def dggsinspect():
                         dggrid_instance,
                         dggs_type=config["dggs_type"],
                         resolution=res,
+                        verbose=verbose,
                     )
                 elif "dggs_type" in config:
                     # For dggal functions that need dggs_type parameter
                     gdf = config["inspect_func"](
-                        dggs_type=config["dggs_type"], resolution=res
+                        dggs_type=config["dggs_type"],
+                        resolution=res,
+                        verbose=verbose,
                     )
                 else:
                     # For standard inspect functions that take a `resolution` parameter
-                    gdf = config["inspect_func"](resolution=res)
+                    gdf = config["inspect_func"](resolution=res, verbose=verbose)
 
                 # Add dggs_type column
                 gdf["dggs_type"] = dggs_type
@@ -261,8 +267,13 @@ def dggsinspect_cli():
     """
     Command-line interface for multi-DGGS cell inspection using DGGS_INSPECT configuration.
     """
+    parser = argparse.ArgumentParser(
+        description="Multi-DGGS cell inspection using DGGS_INSPECT configuration."
+    )
+    add_verbose_argument(parser)
+    args = parser.parse_args()
     try:
-        results = dggsinspect()
+        results = dggsinspect(verbose=args.verbose)
         return results
     except Exception as e:
         print(f"Error: {e}")

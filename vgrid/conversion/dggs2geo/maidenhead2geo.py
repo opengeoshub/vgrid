@@ -51,7 +51,7 @@ def maidenhead2geo(maidenhead_ids):
     maidenhead_polygons = []
     for maidenhead_id in maidenhead_ids:
         try:
-            _, _, min_lat, min_lon, max_lat, max_lon, _ = maidenhead.maidenGrid(
+            _, _, min_lat, min_lon, max_lat, max_lon = maidenhead.maidenGrid(
                 maidenhead_id
             )
             cell_polygon = Polygon(

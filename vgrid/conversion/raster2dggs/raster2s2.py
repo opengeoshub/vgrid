@@ -17,6 +17,7 @@ from vgrid.dggs import s2
 from vgrid.stats.s2stats import s2_metrics
 from math import cos, radians
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_s2_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -112,17 +113,19 @@ def get_nearest_s2_resolution(raster_path):
 
 
 def _raster2s2_nearest_neighbour(
-    raster_path, resolution, fix_antimeridian=None
+    raster_path, resolution, fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "s2", resolution, fix_antimeridian=fix_antimeridian
+        footprint, "s2", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2s2_binning(
-    raster_path, resolution, stats, fix_antimeridian=None
+    raster_path, resolution, stats, fix_antimeridian=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         lat_lng = s2.LatLng.from_degrees(lat, lon)
@@ -130,12 +133,13 @@ def _raster2s2_binning(
         return s2.CellId.to_token(s2_id)
 
     s2_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to S2"
+        raster_path, cell_id, stats, desc="Binning raster blocks to S2", verbose=verbose
     )
 
     properties = []
     for s2_token, acc in tqdm(
-        s2_acc.items(), desc="Converting raster to S2", unit=" cells"
+        s2_acc.items(), desc="Converting raster to S2", unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = s22geo(s2_token, fix_antimeridian=fix_antimeridian)
         num_edges = 4
@@ -169,6 +173,7 @@ def raster2s2(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to S2 DGGS format.
@@ -233,11 +238,11 @@ def raster2s2(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2s2_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
     else:
         gdf = _raster2s2_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian
+            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -303,6 +308,7 @@ def raster2s2_cli():
         default="mean",
         help="Band statistic for binning method only",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -315,8 +321,9 @@ def raster2s2_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)
 
 

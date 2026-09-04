@@ -32,11 +32,13 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     DGGS_TYPES,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 
 from vgrid.conversion.latlon2dggs import latlon2a5
 from vgrid.conversion.dggs2geo.a52geo import a52geo, a52geo_u64
-from vgrid.conversion.dggscompact.a5compact import a5compact
+from vgrid.conversion.dggscompact.a5compact import a5_compact, a5compact
 from vgrid.stats.a5stats import a5_metrics
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -49,9 +51,6 @@ def point2a5(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     options=None,
     split_antimeridian=False,
@@ -74,8 +73,6 @@ def point2a5(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable A5 compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2a5).
     include_properties : bool, optional
         Whether to include properties in output.
     options : dict, optional
@@ -133,9 +130,6 @@ def polyline2a5(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     options=None,
     split_antimeridian=False,
@@ -229,10 +223,11 @@ def polygon2a5(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -300,9 +295,7 @@ def polygon2a5(
                         if neighbor_id not in covered_cells:
                             queue.append(neighbor_id)
 
-            for cell_id, cell_polygon in tqdm(
-                intersecting_cells.items(), desc="Generating A5 cells", unit=" cells"
-            ):
+            for cell_id, cell_polygon in intersecting_cells.items():
                 if check_predicate(cell_polygon, polygon, predicate):
                     cell_hex = a5.u64_to_hex(cell_id)
                     cell_resolution = a5.get_resolution(cell_id)
@@ -321,7 +314,7 @@ def polygon2a5(
                 temp_gdf = gpd.GeoDataFrame(
                     a5_rows, geometry="geometry", crs="EPSG:4326"
                 )
-                compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd")
+                compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd", verbose=verbose, depth=depth)
                 if compacted_gdf is not None:
                     a5_rows = compacted_gdf.to_dict("records")
 
@@ -334,10 +327,11 @@ def polygon2a5_new(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -414,10 +408,9 @@ def polygon2a5_new(
 
         # Apply compact after predicate check
         if compact and filtered_cells:
-            try:
-                filtered_cells = a5.compact(filtered_cells)
-            except Exception:
-                pass
+            hexes = [a5.u64_to_hex(cell_id) for cell_id in filtered_cells]
+            filtered_hexes = a5_compact(hexes, depth=depth, verbose=verbose)
+            filtered_cells = [a5.hex_to_u64(cell_id) for cell_id in filtered_hexes]
 
         # Convert filtered/compacted cells to rows
         for cell_id in filtered_cells:
@@ -446,10 +439,12 @@ def geodataframe2a5(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to A5 grid cells.
@@ -513,7 +508,7 @@ def geodataframe2a5(
 
     a5_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -531,9 +526,6 @@ def geodataframe2a5(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
@@ -546,8 +538,6 @@ def geodataframe2a5(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
@@ -561,9 +551,11 @@ def geodataframe2a5(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
+                    verbose=verbose,
                 )
             )
             # polygon2a5_new only supports predicate "centroid_within"
@@ -577,10 +569,12 @@ def vector2a5(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -621,10 +615,12 @@ def vector2a5(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         options,
         split_antimeridian=split_antimeridian,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -705,6 +701,8 @@ def vector2a5_cli():
         "Example: '{\"segments\": 1000}'",
     )
 
+    add_compact_depth_argument(parser)
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -722,11 +720,13 @@ def vector2a5_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
             options=options,
             split_antimeridian=args.split_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

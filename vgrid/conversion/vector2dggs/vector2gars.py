@@ -34,6 +34,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     process_input_data_vector,
     validate_gars_resolution,
+    add_verbose_argument,
 )
 
 min_res = DGGS_TYPES["gars"]["min_res"]
@@ -44,8 +45,6 @@ def point2gars(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Convert point or multipoint geometries to GARS cells at ``resolution``."""
@@ -71,8 +70,6 @@ def polyline2gars(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GARS cells at ``resolution`` that intersect the line geometry."""
@@ -111,7 +108,6 @@ def polygon2gars(
     resolution,
     feature_properties=None,
     predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GARS cells at ``resolution`` using ``predicate`` against the polygon."""
@@ -153,6 +149,7 @@ def geodataframe2gars(
     predicate=None,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """Convert a GeoDataFrame to GARS cells."""
     if topology:
@@ -183,7 +180,7 @@ def geodataframe2gars(
 
     geom_col = gdf.geometry.name
     gars_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -201,8 +198,6 @@ def geodataframe2gars(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -212,8 +207,6 @@ def geodataframe2gars(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -224,7 +217,6 @@ def geodataframe2gars(
                     resolution=resolution,
                     feature_properties=props,
                     predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -242,8 +234,9 @@ def vector2gars(
     resolution=None,
     predicate=None,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -258,7 +251,7 @@ def vector2gars(
         resolution = validate_gars_resolution(resolution)
 
     gdf = process_input_data_vector(vector_data, **kwargs)
-    result = geodataframe2gars(gdf, resolution, predicate, topology, include_properties)
+    result = geodataframe2gars(gdf, resolution, predicate, topology, include_properties, verbose=verbose)
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(vector_data, str):
@@ -312,6 +305,7 @@ def vector2gars_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -322,6 +316,7 @@ def vector2gars_cli():
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -16,9 +16,10 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_isea4t_resolution,
     aggregate_joined,
+    validate_agg,
 )
 from vgrid.utils.constants import (
-    STATS_OPTIONS,
+    AGG_OPTIONS,
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
     FIX_ANTIMERIDIAN_CHOICES,
@@ -28,12 +29,13 @@ from vgrid.utils.constants import (
 def isea4t_bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -62,13 +64,14 @@ def isea4t_bin(
         resolution=resolution,
         bbox=(minx, miny, maxx, maxy),
         fix_antimeridian=fix_antimeridian,
+        verbose=verbose,
     )
 
     # Spatial join points -> cells with only needed columns
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -79,7 +82,7 @@ def isea4t_bin(
 
     # Aggregate
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -96,23 +99,27 @@ def isea4t_bin(
 def isea4tbin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
     fix_antimeridian=None,
+    verbose=True,
     **kwargs,
 ):
     resolution = validate_isea4t_resolution(resolution)
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = isea4t_bin(
         data,
         resolution,
-        stats,
+        agg,
         category_col,
         numeric_col,
         fix_antimeridian=fix_antimeridian,
+        verbose=verbose,
         **kwargs,
     )
     output_name = None
@@ -144,11 +151,11 @@ def isea4tbin_cli():
         help="Resolution of the grid [0..25]",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -162,7 +169,7 @@ def isea4tbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     # Removed -o/--output; output is saved in CWD with predefined name
     parser.add_argument(
@@ -180,16 +187,25 @@ def isea4tbin_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
     try:
         result = isea4tbin(
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             fix_antimeridian=args.fix_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

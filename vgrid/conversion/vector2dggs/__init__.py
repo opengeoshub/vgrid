@@ -23,7 +23,6 @@ from .vector2tilecode import vector2tilecode
 from .vector2quadkey import vector2quadkey
 from .vector2digipin import vector2digipin
 from .vector2a5 import vector2a5
-from .vector2healpix import vector2healpix
 
 __all__ = [
     "vector2h3",
@@ -44,5 +43,4 @@ __all__ = [
     "vector2quadkey",
     "vector2digipin",
     "vector2a5",
-    "vector2healpix",
 ]

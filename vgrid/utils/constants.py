@@ -80,7 +80,7 @@ STRUCTURED_FORMATS = [
     "json_dict",
 ]
 
-STATS_OPTIONS = [
+AGG_OPTIONS = [
     "count",
     "min",
     "max",
@@ -192,7 +192,6 @@ DGGS_TYPES = {
     "h3": {"min_res": 0, "max_res": 15, "default_res": 10},
     "s2": {"min_res": 0, "max_res": 30, "default_res": 16},
     "a5": {"min_res": 0, "max_res": 30, "default_res": 15},
-    "healpix": {"min_res": 0, "max_res": 29, "default_res": 10},
     "rhealpix": {"min_res": 0, "max_res": 15, "default_res": 10},
     "isea4t": {"min_res": 0, "max_res": 39, "default_res": 16},
     "isea3h": {"min_res": 0, "max_res": 40, "default_res": 20},

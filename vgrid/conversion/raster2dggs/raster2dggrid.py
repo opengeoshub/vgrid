@@ -23,6 +23,7 @@ from vgrid.utils.geometry import (
     nearest_neighbour_from_grid,
 )
 from vgrid.utils.io import (
+    add_verbose_argument,
     convert_to_output_format,
     validate_dggrid_type,
     validate_dggrid_resolution,
@@ -99,15 +100,16 @@ def _raster2dggrid_nearest_neighbour(
     raster_path: str,
     resolution: int,
     split_antimeridian: bool = False,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
         footprint,
         f"dggrid_{dggs_type}",
         resolution,
-        split_antimeridian=split_antimeridian,
+        split_antimeridian=split_antimeridian, verbose=verbose
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
 def _raster2dggrid_binning(
@@ -119,6 +121,7 @@ def _raster2dggrid_binning(
     split_antimeridian: bool = False,
     aggregate: bool = False,
     options=None,
+    verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         try:
@@ -127,7 +130,7 @@ def _raster2dggrid_binning(
             return None
 
     dggrid_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to DGGRID"
+        raster_path, cell_id, stats, desc="Binning raster blocks to DGGRID", verbose=verbose
     )
 
     properties = []
@@ -135,6 +138,7 @@ def _raster2dggrid_binning(
         dggrid_acc.items(),
         desc="Converting raster to DGGRID",
         unit=" cells",
+        disable=not verbose,
     ):
         try:
             cell_polygon = dggrid2geo(
@@ -188,6 +192,7 @@ def raster2dggrid(
     options=None,
     method: str = "binning",
     stats: str = "mean",
+    verbose=True,
 ):
     """
     Convert raster data to DGGRID DGGS format.
@@ -223,7 +228,7 @@ def raster2dggrid(
             stats,
             split_antimeridian=split_antimeridian,
             aggregate=aggregate,
-            options=options,
+            options=options, verbose=verbose
         )
     else:
         gdf = _raster2dggrid_nearest_neighbour(
@@ -231,7 +236,7 @@ def raster2dggrid(
             dggs_type,
             raster_path,
             resolution,
-            split_antimeridian=split_antimeridian,
+            split_antimeridian=split_antimeridian, verbose=verbose
         )
 
     if gdf.empty:
@@ -307,6 +312,7 @@ def raster2dggrid_cli():
         default="mean",
         help="Band statistic for binning method only",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -333,6 +339,7 @@ def raster2dggrid_cli():
         options,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

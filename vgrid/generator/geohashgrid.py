@@ -28,6 +28,7 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_geohash_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggscompact.geohashcompact import (
     geohash_compact,
@@ -51,7 +52,7 @@ def expand_geohash(gh, target_length, geohashes):
         expand_geohash(gh + char, target_length, geohashes)
 
 
-def geohash_grid(resolution, compact=False):
+def geohash_grid(resolution, compact=False, verbose=True):
     """Generate GeoJSON for the entire world at the given geohash resolution."""
     resolution = validate_geohash_resolution(resolution)
     geohashes = set()
@@ -60,10 +61,10 @@ def geohash_grid(resolution, compact=False):
 
     geohash_ids = list(geohashes)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
 
     geohash_records = []
-    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells"):
+    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells", disable=not verbose):
         geohash_records.append(_geohash_row_from_id(gh))
     return gpd.GeoDataFrame(geohash_records, geometry="geometry", crs="EPSG:4326")
 
@@ -82,7 +83,7 @@ def expand_geohash_bbox(gh, target_length, geohashes, bbox_polygon):
         expand_geohash_bbox(gh + char, target_length, geohashes, bbox_polygon)
 
 
-def geohash_grid_within_bbox(resolution, bbox, compact=False):
+def geohash_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
     """Generate GeoJSON for geohashes within a bounding box at the given resolution."""
     resolution = validate_geohash_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
@@ -96,13 +97,13 @@ def geohash_grid_within_bbox(resolution, bbox, compact=False):
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
     geohash_ids = list(geohashes_bbox)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
-    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells"):
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
+    for gh in tqdm(geohash_ids, desc="Generating Geohash DGGS", unit=" cells", disable=not verbose):
         geohash_records.append(_geohash_row_from_id(gh))
     return gpd.GeoDataFrame(geohash_records, geometry="geometry", crs="EPSG:4326")
 
 
-def geohash_grid_ids(resolution, compact=False):
+def geohash_grid_ids(resolution, compact=False, verbose=True):
     """
     Return a list of Geohash IDs for the whole world at the given resolution.
     """
@@ -112,11 +113,11 @@ def geohash_grid_ids(resolution, compact=False):
         expand_geohash(gh, resolution, geohashes)
     geohash_ids = list(geohashes)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
     return geohash_ids
 
 
-def geohash_grid_within_bbox_ids(resolution, bbox, compact=False):
+def geohash_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     """
     Return a list of Geohash IDs intersecting the given bounding box at the given resolution.
     """
@@ -131,11 +132,11 @@ def geohash_grid_within_bbox_ids(resolution, bbox, compact=False):
         expand_geohash_bbox(gh, resolution, geohashes_bbox, bbox_polygon)
     geohash_ids = list(geohashes_bbox)
     if compact:
-        geohash_ids = geohash_compact(geohash_ids)
+        geohash_ids = geohash_compact(geohash_ids, verbose=verbose)
     return geohash_ids
 
 
-def geohashgrid(resolution, bbox=None, output_format="gpd", compact=False):
+def geohashgrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
     """
     Generate Geohash grid for pure Python usage.
 
@@ -155,9 +156,9 @@ def geohashgrid(resolution, bbox=None, output_format="gpd", compact=False):
             raise ValueError(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = geohash_grid(resolution, compact=compact)
+        gdf = geohash_grid(resolution, compact=compact, verbose=verbose)
     else:
-        gdf = geohash_grid_within_bbox(resolution, bbox, compact=compact)
+        gdf = geohash_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
     output_name = f"geohash_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -187,10 +188,11 @@ def geohashgrid_cli():
         action="store_true",
         help="Enable Geohash compact mode to reduce cell count",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     try:
         result = geohashgrid(
-            args.resolution, args.bbox, args.output_format, compact=args.compact
+            args.resolution, args.bbox, args.output_format, compact=args.compact, verbose=args.verbose
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

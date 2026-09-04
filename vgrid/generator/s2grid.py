@@ -30,24 +30,25 @@ from vgrid.utils.io import (
     validate_bbox,
     validate_s2_resolution,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.s22geo import s22geo
+from vgrid.conversion.dggscompact.s2compact import s2_compact
 
 
-def _s2_compact_cell_ids(cell_ids):
-    """Compact S2 cell IDs using CellUnion normalization."""
+def _s2_compact_cell_ids(cell_ids, verbose=True):
+    """Compact S2 CellIds via ``s2_compact``."""
     if not cell_ids:
         return []
+    tokens = [
+        cell_id.to_token() if hasattr(cell_id, "to_token") else str(cell_id)
+        for cell_id in cell_ids
+    ]
+    compacted = s2_compact(tokens, verbose=verbose)
+    return [s2.CellId.from_token(token) for token in compacted]
 
-    try:
-        covering = s2.CellUnion(cell_ids)
-        covering.normalize()
-        return list(covering.cell_ids())
-    except Exception:
-        return list(cell_ids)
 
-
-def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False):
+def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     """
     Generate an S2 DGGS grid for a given resolution and bounding box.
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
@@ -72,12 +73,12 @@ def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False):
 
     cell_ids = list(coverer.get_covering(region))
     if compact:
-        cell_ids = _s2_compact_cell_ids(cell_ids)
+        cell_ids = _s2_compact_cell_ids(cell_ids, verbose=verbose)
 
     s2_rows = []
     num_edges = 4
 
-    for cell_id in tqdm(cell_ids, desc="Generating DGGS", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating DGGS", unit=" cells", disable=not verbose):
         cell_polygon = s22geo(cell_id.to_token(), fix_antimeridian=fix_antimeridian)
         s2_token = cell_id.to_token()
         cell_resolution = cell_id.level()
@@ -89,7 +90,7 @@ def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False):
     return gpd.GeoDataFrame(s2_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False):
+def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
     """
     Return a list of S2 cell tokens for a given resolution and bounding box.
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
@@ -112,12 +113,12 @@ def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False):
     )
     cell_ids = list(coverer.get_covering(region))
     if compact:
-        cell_ids = _s2_compact_cell_ids(cell_ids)
+        cell_ids = _s2_compact_cell_ids(cell_ids, verbose=verbose)
     return [cell_id.to_token() for cell_id in cell_ids]
 
 
 def s2grid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False
+    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
 ):
     """
     Generate S2 grid for pure Python usage.
@@ -138,7 +139,7 @@ def s2grid(
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-    gdf = s2_grid(resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact)
+    gdf = s2_grid(resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose)
     output_name = f"s2_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -184,6 +185,7 @@ def s2grid_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     try:
         result = s2grid(
@@ -192,6 +194,7 @@ def s2grid_cli():
             args.output_format,
             fix_antimeridian=args.fix_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

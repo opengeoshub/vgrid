@@ -15,18 +15,27 @@ Key Functions:
 import sys
 import os
 import argparse
+from collections import deque
 from tqdm import tqdm
 import geopandas as gpd
-from shapely.geometry import MultiPoint
+from shapely.geometry import LineString, MultiPoint, Point
 from vgrid.dggs import s2
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import (
+    geodesic_dggs_to_geoseries,
+    check_predicate,
+    shortest_point_distance,
+    strip_duplicate_and_collinear_vertices,
+)
 from vgrid.conversion.dggs2geo.s22geo import s22geo
-from vgrid.utils.geometry import check_predicate, shortest_point_distance
+from vgrid.conversion.latlon2dggs import latlon2s2
+from vgrid.conversion.dggscompact.s2compact import s2_compact
 from vgrid.stats.s2stats import s2_metrics
 from vgrid.utils.io import (
     validate_s2_resolution,
     process_input_data_vector,
     convert_to_output_format,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import DGGS_TYPES
@@ -39,9 +48,6 @@ def point2s2(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
 ):
@@ -63,8 +69,6 @@ def point2s2(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable S2 compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2s2).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -115,69 +119,129 @@ def point2s2(
     return s2_rows
 
 
+def _s2_segment_cells(
+    resolution,
+    start_xy,
+    end_xy,
+    fix_antimeridian=None,
+):
+    """Walk S2 cells along one polyline segment via intersecting edge neighbors."""
+    start_x, start_y = start_xy
+    end_x, end_y = end_xy
+    segment = LineString([(start_x, start_y), (end_x, end_y)])
+    start_id = latlon2s2(start_y, start_x, resolution)
+    if segment.is_empty or segment.length == 0:
+        return [start_id]
+
+    end_id = latlon2s2(end_y, end_x, resolution)
+    end_pt = Point(end_x, end_y)
+
+    start_poly = s22geo(start_id, fix_antimeridian=fix_antimeridian)
+    if start_poly is None:
+        return [end_id] if start_id != end_id else [start_id]
+
+    if start_id == end_id or start_poly.covers(end_pt):
+        ordered = [start_id]
+        if end_id != start_id:
+            ordered.append(end_id)
+        return ordered
+
+    ordered = []
+    visited = set()
+    queue = deque([start_id])
+    reached_endpoint = False
+
+    while queue:
+        cell_id = queue.popleft()
+        if cell_id in visited:
+            continue
+        visited.add(cell_id)
+
+        cell_polygon = s22geo(cell_id, fix_antimeridian=fix_antimeridian)
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
+        if cell_id != start_id and not cell_polygon.intersects(segment):
+            continue
+
+        if not ordered or ordered[-1] != cell_id:
+            ordered.append(cell_id)
+
+        if cell_id == end_id or cell_polygon.covers(end_pt):
+            reached_endpoint = True
+            continue
+
+        cell = s2.CellId.from_token(cell_id)
+        for neighbor in cell.get_edge_neighbors():
+            neighbor_id = neighbor.to_token()
+            if neighbor_id in visited:
+                continue
+            neighbor_polygon = s22geo(
+                neighbor_id, fix_antimeridian=fix_antimeridian
+            )
+            if neighbor_polygon is None or neighbor_polygon.is_empty:
+                continue
+            if neighbor_polygon.intersects(segment):
+                queue.append(neighbor_id)
+
+    if not reached_endpoint and end_id not in visited:
+        ordered.append(end_id)
+    return ordered
+
+
 def polyline2s2(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
-    all_polylines=None,  # New parameter for topology preservation
+    all_polylines=None,
     fix_antimeridian=None,
 ):
     """
-    Convert a polyline geometry to S2 grid cells.
+    Convert each polyline to S2 cells by walking intersecting neighbors.
 
-    Args:
-        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Polyline geometry to convert
-        resolution (int): S2 resolution level [0..30]
-        feature_properties (dict, optional): Properties to include in output features
-        predicate (str, optional): Spatial predicate to apply (not used for polylines)
-        compact (bool, optional): Enable S2 compact mode (not used for polylines)
-        topology (bool, optional): Enable topology preserving mode (handled by geodataframe2s2)
-        include_properties (bool, optional): Whether to include properties in output
-        all_polylines (list, optional): List of all polylines for topology preservation (not used in this function)
-
-    Returns:
-        list: List of dictionaries representing S2 cells intersecting the polyline
-
-    Example:
-        >>> from shapely.geometry import LineString
-        >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
-        >>> cells = polyline2s2(line, 10, {"name": "route"})
-        >>> len(cells) > 0
-        True
+    For each LineString or MultiLineString:
+    - Remove consecutive duplicate vertices and collinear intermediate vertices
+    - Split the cleaned polyline into segments
+    - Start from the cell containing each segment start
+    - If that cell already contains the endpoint, continue to the next segment
+    - Otherwise expand edge neighbors, keep those that intersect the segment,
+      and repeat until the endpoint cell is reached
     """
     s2_rows = []
-    if feature.geom_type in ("LineString"):
+    if feature.geom_type == "LineString":
         polylines = [feature]
-    elif feature.geom_type in ("MultiLineString"):
+    elif feature.geom_type == "MultiLineString":
         polylines = list(feature.geoms)
     else:
         return []
 
     for polyline in polylines:
-        min_lng, min_lat, max_lng, max_lat = polyline.bounds
-        level = resolution
-        coverer = s2.RegionCoverer()
-        coverer.min_level = level
-        coverer.max_level = level
-        region = s2.LatLngRect(
-            s2.LatLng.from_degrees(min_lat, min_lng),
-            s2.LatLng.from_degrees(max_lat, max_lng),
-        )
-        covering = coverer.get_covering(region)
-        cell_ids = covering
-        for cell_id in cell_ids:
-            cell_polygon = s22geo(cell_id.to_token(), fix_antimeridian=fix_antimeridian)
-            if not cell_polygon.intersects(polyline):
+        coords = strip_duplicate_and_collinear_vertices(polyline)
+        if len(coords) < 2:
+            continue
+
+        ordered_cells = []
+        for i in range(len(coords) - 1):
+            segment_cells = _s2_segment_cells(
+                resolution,
+                coords[i],
+                coords[i + 1],
+                fix_antimeridian=fix_antimeridian,
+            )
+            for cell_id in segment_cells:
+                if ordered_cells and ordered_cells[-1] == cell_id:
+                    continue
+                ordered_cells.append(cell_id)
+
+        for cell_id in ordered_cells:
+            cell_polygon = s22geo(cell_id, fix_antimeridian=fix_antimeridian)
+            if cell_polygon is None:
                 continue
-            cell_token = s2.CellId.to_token(cell_id)
-            cell_resolution = cell_id.level()
+            cell = s2.CellId.from_token(cell_id)
+            cell_resolution = cell.level()
             num_edges = 4
             row = geodesic_dggs_to_geoseries(
-                "s2", cell_token, cell_resolution, cell_polygon, num_edges
+                "s2", cell_id, cell_resolution, cell_polygon, num_edges
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -191,10 +255,11 @@ def polygon2s2(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
-    all_polygons=None,  # New parameter for topology preservation
+    all_polygons=None,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to S2 grid cells.
@@ -255,34 +320,23 @@ def polygon2s2(
             polygon_rows.append(row)
 
         if compact and polygon_rows:
-            try:
-                polygon_cell_ids = [
-                    s2.CellId.from_token(row.get("s2"))
-                    for row in polygon_rows
-                    if row.get("s2")
-                ]
-            except Exception:
-                polygon_cell_ids = []
-
-            if polygon_cell_ids:
-                covering = s2.CellUnion(polygon_cell_ids)
-                covering.normalize()
-                compact_cell_ids = covering.cell_ids()
-                compact_rows = []
-                for compact_cell in compact_cell_ids:
-                    cell_polygon = s22geo(
-                        compact_cell.to_token(), fix_antimeridian=fix_antimeridian
-                    )
-                    cell_token = s2.CellId.to_token(compact_cell)
-                    cell_resolution = compact_cell.level()
-                    num_edges = 4
-                    row = geodesic_dggs_to_geoseries(
-                        "s2", cell_token, cell_resolution, cell_polygon, num_edges
-                    )
-                    if include_properties and feature_properties:
-                        row.update(feature_properties)
-                    compact_rows.append(row)
-                polygon_rows = compact_rows
+            tokens = [row.get("s2") for row in polygon_rows if row.get("s2")]
+            compact_tokens = s2_compact(tokens, depth=depth, verbose=verbose)
+            compact_rows = []
+            for cell_token in compact_tokens:
+                cell_polygon = s22geo(
+                    cell_token, fix_antimeridian=fix_antimeridian
+                )
+                compact_cell = s2.CellId.from_token(cell_token)
+                cell_resolution = compact_cell.level()
+                num_edges = 4
+                row = geodesic_dggs_to_geoseries(
+                    "s2", cell_token, cell_resolution, cell_polygon, num_edges
+                )
+                if include_properties and feature_properties:
+                    row.update(feature_properties)
+                compact_rows.append(row)
+            polygon_rows = compact_rows
 
         s2_rows.extend(polygon_rows)
 
@@ -294,9 +348,11 @@ def geodataframe2s2(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to S2 grid cells.
@@ -361,7 +417,7 @@ def geodataframe2s2(
 
     s2_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -379,9 +435,6 @@ def geodataframe2s2(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -393,8 +446,6 @@ def geodataframe2s2(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -407,8 +458,10 @@ def geodataframe2s2(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(s2_rows, geometry="geometry", crs="EPSG:4326")
@@ -421,9 +474,11 @@ def vector2s2(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     fix_antimeridian=None,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -462,9 +517,11 @@ def vector2s2(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         fix_antimeridian,
+        verbose=verbose,
     )
 
     output_name = None
@@ -543,6 +600,8 @@ def vector2s2_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_compact_depth_argument(parser)
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -551,10 +610,12 @@ def vector2s2_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

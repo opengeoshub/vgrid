@@ -581,40 +581,122 @@ def tilecode_siblings(tilecode_id):
 
 def tilecode_neighbors(tilecode_id):
     """
-    Finds the neighboring tilecodes of a given tilecode_id.
+    Return the 8 same-level neighbors (edge + diagonal).
+
+    x wraps around the antimeridian (Web Mercator tile ring). y does not wrap;
+    tiles beyond the north/south edge are omitted.
 
     Args:
-        tilecode (str): The tile code in the format 'zXxYyZ'.
+        tilecode_id (str): The tile code in the format 'zXxYyZ'.
 
     Returns:
-        list: A list of neighboring tilecodes.
+        list: Neighboring tilecodes (up to 8).
     """
-    # Extract z, x, y from the tilecode using regex
     match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
     if not match:
         raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
 
-    # Convert matched groups to integers
     z = int(match.group(1))
     x = int(match.group(2))
     y = int(match.group(3))
+    n = 1 << z
 
-    # Calculate the neighboring tiles (including the tile itself)
     neighbors = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            # Skip the center tile (the original tilecode)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
             if dx == 0 and dy == 0:
                 continue
-            # Calculate the new x and y
-            nx = x + dx
+            nx = (x + dx) % n
             ny = y + dy
-            # Ignore tiles with negative coordinates
-            if nx >= 0 and ny >= 0:
-                # Add the neighbor's tilecode to the list
+            if 0 <= ny < n:
                 neighbors.append(f"z{z}x{nx}y{ny}")
-
     return neighbors
+
+
+def tilecode_edge_neighbors(tilecode_id):
+    """
+    Return the 4 same-level edge-adjacent tilecodes.
+
+    x wraps around the antimeridian (Web Mercator tile ring). y does not wrap;
+    tiles beyond the north/south edge are omitted.
+
+    Args:
+        tilecode_id (str): The tile code in the format 'zXxYyZ'.
+
+    Returns:
+        list: Neighboring tilecodes (west, east, north, south when they exist).
+    """
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
+    if not match:
+        raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+
+    z = int(match.group(1))
+    x = int(match.group(2))
+    y = int(match.group(3))
+    n = 1 << z
+
+    neighbors = []
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        nx = (x + dx) % n
+        ny = y + dy
+        if 0 <= ny < n:
+            neighbors.append(f"z{z}x{nx}y{ny}")
+    return neighbors
+
+
+def tilecode_vertex_neighbors(tilecode_id):
+    """
+    Return the 4 same-level vertex-adjacent (diagonal) tilecodes.
+
+    x wraps around the antimeridian (Web Mercator tile ring). y does not wrap;
+    tiles beyond the north/south edge are omitted.
+
+    Args:
+        tilecode_id (str): The tile code in the format 'zXxYyZ'.
+
+    Returns:
+        list: Neighboring tilecodes that share only a corner.
+    """
+    match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
+    if not match:
+        raise ValueError("Invalid tilecode format. Expected format: 'zXxYyZ'")
+
+    z = int(match.group(1))
+    x = int(match.group(2))
+    y = int(match.group(3))
+    n = 1 << z
+
+    neighbors = []
+    for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        nx = (x + dx) % n
+        ny = y + dy
+        if 0 <= ny < n:
+            neighbors.append(f"z{z}x{nx}y{ny}")
+    return neighbors
+
+
+def quadkey_neighbors(quadkey_id):
+    """Return the 8 same-level neighbors (edge + diagonal)."""
+    return [
+        tilecode2quadkey(tid)
+        for tid in tilecode_neighbors(quadkey2tilecode(quadkey_id))
+    ]
+
+
+def quadkey_edge_neighbors(quadkey_id):
+    """Return the 4 same-level edge-adjacent quadkeys."""
+    return [
+        tilecode2quadkey(tid)
+        for tid in tilecode_edge_neighbors(quadkey2tilecode(quadkey_id))
+    ]
+
+
+def quadkey_vertex_neighbors(quadkey_id):
+    """Return the 4 same-level vertex-adjacent (diagonal) quadkeys."""
+    return [
+        tilecode2quadkey(tid)
+        for tid in tilecode_vertex_neighbors(quadkey2tilecode(quadkey_id))
+    ]
 
 
 def bbox_tilecodes(bbox, zoom):

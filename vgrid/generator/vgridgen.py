@@ -20,12 +20,13 @@ from vgrid.utils.io import (
     convert_to_output_format,
     validate_bbox,
     validate_vgrid_resolution,
+    add_verbose_argument,
 )
 from vgrid.dggs.vgrid import VGRID
 
 
 def vgrid_gen_ids(
-    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None
+    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None, verbose: bool = True
 ) -> list[str]:
     """
     Generate VGRID IDs for a given VGRID instance and bounding box.
@@ -60,6 +61,7 @@ def vgrid_gen_ids(
         total=len(tiles),
         desc=f"Generating VGRID IDs resolution {resolution}",
         unit=" cells",
+        disable=not verbose,
     ) as pbar:
         for res, tile_index in tiles:
             # Get the VGRID ID for this tile
@@ -71,7 +73,7 @@ def vgrid_gen_ids(
 
 
 def vgrid_gen(
-    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None
+    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None, verbose: bool = True
 ) -> gpd.GeoDataFrame:
     """
     Generate a VGRID grid for a given VGRID instance and bounding box.
@@ -120,6 +122,7 @@ def vgrid_gen(
         total=len(tiles),
         desc=f"Generating VGRID resolution {resolution}",
         unit=" cells",
+        disable=not verbose,
     ) as pbar:
         for res, tile_index in tiles:
             # Get the bottom-left corner of the tile
@@ -158,6 +161,7 @@ def vgridgen(
     resolution: int = 0,
     bbox: list[float] = None,
     output_format: str = "gpd",
+    verbose: bool = True,
 ):
     """
     Generate VGRID grid for pure Python usage.
@@ -187,10 +191,10 @@ def vgridgen(
 
     if output_format is None:
         # Return list of VGrid IDs
-        return vgrid_gen_ids(vgrid_instance, resolution, bbox)
+        return vgrid_gen_ids(vgrid_instance, resolution, bbox, verbose=verbose)
     else:
         # Return GeoDataFrame in specified format
-        gdf = vgrid_gen(vgrid_instance, resolution, bbox)
+        gdf = vgrid_gen(vgrid_instance, resolution, bbox, verbose=verbose)
         output_name = f"vgrid_grid_{resolution}"
         return convert_to_output_format(gdf, output_format, output_name)
 
@@ -234,6 +238,7 @@ def vgridgen_cli():
         help="Output format (default: geojson)",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -241,7 +246,7 @@ def vgridgen_cli():
         vgrid_instance = VGRID(args.cell_size, args.aperture)
 
         result = vgridgen(
-            vgrid_instance, args.resolution, args.bbox, args.output_format
+            vgrid_instance, args.resolution, args.bbox, args.output_format, verbose=args.verbose
         )
         if result is not None:
             print(f"VGRID grid generated successfully: {result}")

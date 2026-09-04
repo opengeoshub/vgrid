@@ -26,6 +26,7 @@ from vgrid.utils.geometry import (
 )
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
 from vgrid.utils.io import (
+    add_verbose_argument,
     validate_quadkey_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -110,23 +111,28 @@ def get_nearest_quadkey_resolution(raster_path):
     return cell_size, nearest_resolution
 
 
-def _raster2quadkey_nearest_neighbour(raster_path, resolution) -> gpd.GeoDataFrame:
+def _raster2quadkey_nearest_neighbour(raster_path, resolution,
+    verbose=True,
+) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
-    grid_gdf = generate_grid(footprint, "quadkey", resolution)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf)
+    grid_gdf = generate_grid(footprint, "quadkey", resolution, verbose=verbose)
+    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
 
 
-def _raster2quadkey_binning(raster_path, resolution, stats) -> gpd.GeoDataFrame:
+def _raster2quadkey_binning(raster_path, resolution, stats,
+    verbose=True,
+) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return tilecode.latlon2quadkey(lat, lon, resolution)
 
     quadkey_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to Quadkey"
+        raster_path, cell_id, stats, desc="Binning raster blocks to Quadkey", verbose=verbose
     )
 
     properties = []
     for quadkey_id, acc in tqdm(
-        quadkey_acc.items(), desc="Converting raster to Quadkey", unit=" cells"
+        quadkey_acc.items(), desc="Converting raster to Quadkey", unit=" cells",
+        disable=not verbose,
     ):
         tile = mercantile.quadkey_to_tile(quadkey_id)
         z = tile.z
@@ -156,7 +162,8 @@ def _raster2quadkey_binning(raster_path, resolution, stats) -> gpd.GeoDataFrame:
 
 
 def raster2quadkey(
-    raster_path, resolution=None, output_format="gpd", method="binning", stats="mean"
+    raster_path, resolution=None, output_format="gpd", method="binning", stats="mean",
+    verbose=True,
 ):
     """
     Convert raster data to Quadkey DGGS format.
@@ -218,9 +225,9 @@ def raster2quadkey(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2quadkey_binning(raster_path, resolution, stats)
+        gdf = _raster2quadkey_binning(raster_path, resolution, stats, verbose=verbose)
     else:
-        gdf = _raster2quadkey_nearest_neighbour(raster_path, resolution)
+        gdf = _raster2quadkey_nearest_neighbour(raster_path, resolution, verbose=verbose)
 
     if gdf.empty:
         raise ValueError("No Quadkey cells were produced from the raster.")
@@ -269,6 +276,7 @@ def raster2quadkey_cli():
         help="Band statistic for binning method only",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -280,6 +288,7 @@ def raster2quadkey_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

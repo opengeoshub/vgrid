@@ -32,6 +32,8 @@ from vgrid.utils.io import (
     process_input_data_vector,
     DGGS_TYPES,
     olc_resolutions,
+    add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
@@ -46,9 +48,6 @@ def point2olc(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -69,8 +68,6 @@ def point2olc(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable OLC compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2olc).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -119,9 +116,6 @@ def polyline2olc(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -210,8 +204,9 @@ def polygon2olc(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a polygon geometry to OLC grid cells.
@@ -299,7 +294,7 @@ def polygon2olc(
         temp_gdf = gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")
 
         # Use olccompact function directly
-        compacted_gdf = olccompact(temp_gdf, olc_id="olc", output_format="gpd")
+        compacted_gdf = olccompact(temp_gdf, olc_id="olc", output_format="gpd", verbose=verbose, depth=depth)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -314,8 +309,10 @@ def geodataframe2olc(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert a GeoDataFrame to OLC grid cells.
@@ -379,7 +376,7 @@ def geodataframe2olc(
 
     olc_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf)):
+    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
         geom = row.geometry
         if geom is None:
             continue
@@ -397,9 +394,6 @@ def geodataframe2olc(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                 )
             )
@@ -410,8 +404,6 @@ def geodataframe2olc(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                 )
             )
@@ -423,7 +415,9 @@ def geodataframe2olc(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")
@@ -436,8 +430,10 @@ def vector2olc(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
+    verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -472,7 +468,8 @@ def vector2olc(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2olc(
-        gdf, resolution, predicate, compact, topology, include_properties
+        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        verbose=verbose,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -539,6 +536,8 @@ def vector2olc_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_compact_depth_argument(parser)
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     try:
@@ -547,9 +546,11 @@ def vector2olc_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

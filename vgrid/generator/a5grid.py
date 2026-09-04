@@ -25,29 +25,25 @@ from vgrid.utils.io import (
     validate_a5_resolution,
     validate_bbox,
     convert_to_output_format,
+    add_verbose_argument,
 )
 from vgrid.conversion.dggs2geo.a52geo import a52geo_u64
+from vgrid.conversion.dggscompact.a5compact import a5_compact
 
 
-def _a5_compact_cell_ids(cell_ids):
-    """Compact cell IDs, capping before invalid pre-resolution-0 parents."""
+def _a5_compact_cell_ids(cell_ids, verbose=True):
+    """Compact A5 cell IDs via ``a5_compact``."""
     if not cell_ids:
         return []
-
-    try:
-        compacted = list(a5.compact(cell_ids))
-    except Exception:
-        return list(cell_ids)
-
-    valid = [cell_id for cell_id in compacted if a5.get_resolution(cell_id) >= 0]
-    if valid:
-        return valid
-
-    # a5.compact can overshoot to the invalid world parent (resolution -1).
-    return list(a5.get_res0_cells())
+    as_hex = isinstance(cell_ids[0], str)
+    hexes = list(cell_ids) if as_hex else [a5.u64_to_hex(cell_id) for cell_id in cell_ids]
+    compacted = a5_compact(hexes, verbose=verbose)
+    if as_hex:
+        return compacted
+    return [a5.hex_to_u64(cell_id) for cell_id in compacted]
 
 
-def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False):
+def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False, verbose=True):
     resolution = validate_a5_resolution(resolution)
     """
     Generate an A5 DGGS grid for a given resolution and bounding box.
@@ -112,10 +108,10 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
 
     cell_ids = list(intersecting_cells.keys())
     if compact:
-        cell_ids = _a5_compact_cell_ids(cell_ids)
+        cell_ids = _a5_compact_cell_ids(cell_ids, verbose=verbose)
 
     a5_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells"):
+    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells", disable=not verbose):
         cell_polygon = intersecting_cells.get(cell_id)
         if cell_polygon is None or cell_polygon.is_empty:
             cell_polygon = a52geo_u64(
@@ -138,7 +134,7 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
 
 
 def a5_grid_ids(
-    resolution, bbox=None, options=None, split_antimeridian=False, compact=False
+    resolution, bbox=None, options=None, split_antimeridian=False, compact=False, verbose=True
 ):
     """
     Return A5 cell IDs (hex strings) for the same cells as `a5_grid`.
@@ -198,7 +194,7 @@ def a5_grid_ids(
 
     cell_ids = list(intersecting_cells.keys())
     if compact:
-        cell_ids = _a5_compact_cell_ids(cell_ids)
+        cell_ids = _a5_compact_cell_ids(cell_ids, verbose=verbose)
     return [
         a5.u64_to_hex(cell_id)
         for cell_id in cell_ids
@@ -213,6 +209,7 @@ def a5grid(
     options=None,
     split_antimeridian=False,
     compact=False,
+    verbose=True,
 ):
     """
     Generate A5 grid for pure Python usage.
@@ -241,6 +238,7 @@ def a5grid(
         options=options,
         split_antimeridian=split_antimeridian,
         compact=compact,
+        verbose=verbose,
     )
 
     output_name = f"a5_grid_{resolution}"
@@ -289,6 +287,7 @@ def a5grid_cli():
         help="JSON string of options to pass to a52geo. "
         "Example: '{\"segments\": 1000}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     options = None
@@ -307,6 +306,7 @@ def a5grid_cli():
             options=options,
             split_antimeridian=args.split_antimeridian,
             compact=args.compact,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

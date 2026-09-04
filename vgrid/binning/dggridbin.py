@@ -21,9 +21,10 @@ from vgrid.utils.io import (
     validate_dggrid_resolution,
     create_dggrid_instance,
     aggregate_joined,
+    validate_agg,
 )
 from vgrid.utils.constants import (
-    STATS_OPTIONS,
+    AGG_OPTIONS,
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
     DGGRID_TYPES,
@@ -35,13 +36,14 @@ def dggrid_bin(
     dggs_type: str,
     data,
     resolution: int,
-    stats: str = "count",
+    agg: str = "count",
     category_col: str | None = None,
     numeric_col: str | None = None,
     lat_col: str = "lat",
     lon_col: str = "lon",
     split_antimeridian: bool = False,
     aggregate: bool = False,
+    verbose=True,
     **kwargs,
 ):
     """
@@ -58,7 +60,9 @@ def dggrid_bin(
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
@@ -82,6 +86,7 @@ def dggrid_bin(
         bbox=bbox,
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
+        verbose=verbose,
     )
     if grid_gdf.crs is None:
         grid_gdf = grid_gdf.set_crs(points_gdf.crs)
@@ -91,7 +96,7 @@ def dggrid_bin(
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -101,7 +106,7 @@ def dggrid_bin(
     )
 
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -120,27 +125,31 @@ def dggridbin(
     dggs_type: str,
     data,
     resolution: int,
-    stats: str = "count",
+    agg: str = "count",
     category_col: str | None = None,
     numeric_col: str | None = None,
     output_format: str = "gpd",
     split_antimeridian: bool = False,
     aggregate: bool = False,
+    verbose=True,
     **kwargs,
 ):
     """
     Bin point data into DGGRID cells and compute statistics from various input formats.
     """
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
     result_gdf = dggrid_bin(
         dggrid_instance=dggrid_instance,
         dggs_type=dggs_type,
         data=data,
         resolution=resolution,
-        stats=stats,
+        agg=agg,
         category_col=category_col,
         numeric_col=numeric_col,
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
+        verbose=verbose,
         **kwargs,
     )
 
@@ -180,11 +189,11 @@ def dggridbin_cli():
         help="Resolution (integer)",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -198,7 +207,7 @@ def dggridbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     parser.add_argument(
         "-f",
@@ -221,6 +230,14 @@ def dggridbin_cli():
         help="Aggregate the resulting polygons (dissolve by global_id when split_antimeridian is set)",
     )
 
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -229,12 +246,13 @@ def dggridbin_cli():
             dggs_type=args.dggs_type,
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

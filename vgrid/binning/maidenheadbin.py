@@ -20,7 +20,7 @@ from vgrid.generator.maidenheadgrid import maidenhead_grid_within_bbox
 from vgrid.utils.constants import (
     DGGS_TYPES,
     OUTPUT_FORMATS,
-    STATS_OPTIONS,
+    AGG_OPTIONS,
     STRUCTURED_FORMATS,
 )
 from vgrid.utils.io import (
@@ -28,6 +28,7 @@ from vgrid.utils.io import (
     process_input_data_bin,
     validate_maidenhead_resolution,
     aggregate_joined,
+    validate_agg,
 )
 
 min_res = DGGS_TYPES["maidenhead"]["min_res"]
@@ -38,11 +39,12 @@ default_res = DGGS_TYPES["maidenhead"]["default_res"]
 def maidenhead_bin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     lat_col="lat",
     lon_col="lon",
+    verbose=True,
     **kwargs,
 ):
     """
@@ -52,7 +54,9 @@ def maidenhead_bin(
     """
     resolution = validate_maidenhead_resolution(int(resolution))
 
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
 
     points_gdf = process_input_data_bin(
@@ -67,12 +71,12 @@ def maidenhead_bin(
 
     minx, miny, maxx, maxy = points_gdf.total_bounds
     id_col = "maidenhead"
-    grid_gdf = maidenhead_grid_within_bbox(resolution, bbox=(minx, miny, maxx, maxy))
+    grid_gdf = maidenhead_grid_within_bbox(resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
 
     join_cols = []
     if category_col and category_col in points_gdf.columns:
         join_cols.append(category_col)
-    if stats != "count" and numeric_col:
+    if agg != "count" and numeric_col:
         if numeric_col not in points_gdf.columns:
             raise ValueError(f"numeric_col '{numeric_col}' not found in input data")
         join_cols.append(numeric_col)
@@ -82,7 +86,7 @@ def maidenhead_bin(
     )
 
     grouped = aggregate_joined(
-        joined, id_col, stats=stats, category_col=category_col, numeric_col=numeric_col
+        joined, id_col, agg=agg, category_col=category_col, numeric_col=numeric_col
     )
     grouped = grouped.reset_index()
 
@@ -98,17 +102,20 @@ def maidenhead_bin(
 def maidenheadbin(
     data,
     resolution,
-    stats="count",
+    agg="count",
     category_col=None,
     numeric_col=None,
     output_format="gpd",
+    verbose=True,
     **kwargs,
 ):
     resolution = validate_maidenhead_resolution(resolution)
-    if stats != "count" and not numeric_col:
+    if not validate_agg(agg):
+        raise ValueError(f"Invalid aggregation '{agg}'")
+    if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = maidenhead_bin(
-        data, resolution, stats, category_col, numeric_col, **kwargs
+        data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -139,11 +146,11 @@ def maidenheadbin_cli():
         help=f"Maidenhead resolution [{min_res}..{max_res}]",
     )
     parser.add_argument(
-        "-stats",
-        "--statistics",
-        choices=STATS_OPTIONS,
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
         default="count",
-        help="Statistic option",
+        help="Aggregation option",
     )
     parser.add_argument(
         "-category",
@@ -157,7 +164,7 @@ def maidenheadbin_cli():
         "--numeric_col",
         dest="numeric_col",
         required=False,
-        help="Numeric field to compute statistics (required if stats != 'count')",
+        help="Numeric field to compute statistics (required if agg != 'count')",
     )
     parser.add_argument(
         "-f",
@@ -166,15 +173,24 @@ def maidenheadbin_cli():
         default="gpd",
         choices=OUTPUT_FORMATS,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
+
     args = parser.parse_args()
     try:
         result = maidenheadbin(
             data=args.input,
             resolution=args.resolution,
-            stats=args.statistics,
+            agg=args.agg,
             category_col=args.category_col,
             numeric_col=args.numeric_col,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

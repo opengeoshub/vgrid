@@ -3,7 +3,7 @@ Latitude/Longitude to DGGS Conversion Module
 
 This module provides functions to convert latitude and longitude coordinates to various
 Discrete Global Grid System (DGGS) cell identifiers. It supports multiple DGGS types
-including H3, S2, A5, HEALPix, RHEALPix, ISEA4T, ISEA3H, DGGRID, DGGAL, EASE, QTM, OLC,
+including H3, S2, A5, RHEALPix, ISEA4T, ISEA3H, DGGRID, DGGAL, EASE, QTM, OLC,
 Geohash, GEOREF, MGRS, Tilecode, Quadkey, Maidenhead, GARS, and DIGIPIN.
 
 Each DGGS type has its own resolution range and addressing scheme. The module includes
@@ -22,7 +22,6 @@ CLI Usage Examples:
 
 from vgrid.dggs import s2, olc, geohash, georef, mgrs, maidenhead, tilecode, qtm
 from vgrid.dggs.digipin import latlon_to_digipin
-from vgrid.dggs.healpix import lonLat2PixNest, order2nside, orderpix2uniq
 import h3
 import a5
 from dggal import *
@@ -57,7 +56,6 @@ from vgrid.utils.io import (
     validate_h3_resolution,
     validate_s2_resolution,
     validate_a5_resolution,
-    validate_healpix_resolution,
     validate_rhealpix_resolution,
     validate_isea4t_resolution,
     validate_isea3h_resolution,
@@ -246,60 +244,6 @@ def latlon2a5_cli():
 
     a5_hex = latlon2a5(lat, lon, res)
     print(a5_hex)
-
-
-def latlon2healpix(lat, lon, res=None):
-    """
-    Convert latitude and longitude to a HEALPix UNIQ cell ID.
-
-    The UNIQ scheme packs resolution (order) and nested pixel index into a
-    single integer, so downstream converters (e.g. healpix2geo) do not need a
-    separate resolution argument.
-
-    Args:
-        lat (float): Latitude in decimal degrees
-        lon (float): Longitude in decimal degrees
-        res (int): HEALPix resolution/order [0-29] (nside = 2^res)
-
-    Returns:
-        int: HEALPix UNIQ cell ID encoding both resolution and nested index
-
-    Example:
-        >>> latlon2healpix(10.775275567242561, 106.70679737574993, 10)
-        9941583
-    """
-    if res is None:
-        res = DGGS_TYPES["healpix"]["default_res"]
-    res = validate_healpix_resolution(res)
-    nside = order2nside(res)
-    ipix = lonLat2PixNest(nside, lon, lat)
-    return orderpix2uniq(res, ipix)
-
-
-def latlon2healpix_cli():
-    """
-    Command-line interface for latlon2healpix.
-    """
-    min_res = DGGS_TYPES["healpix"]["min_res"]
-    max_res = DGGS_TYPES["healpix"]["max_res"]
-    parser = argparse.ArgumentParser(
-        description="Convert Lat, Long to HEALPix UNIQ ID at a specific Resolution [0..29]. \
-                                     Usage: latlon2healpix <lat> <lon> <res> [0..29]. \
-                                     Ex: latlon2healpix 10.775275567242561 106.70679737574993 10"
-    )
-    parser.add_argument("lat", type=float, help="Input Latitude")
-    parser.add_argument("lon", type=float, help="Input Longitude")
-    parser.add_argument(
-        "res",
-        type=int,
-        default=DGGS_TYPES["healpix"]["default_res"],
-        choices=range(min_res, max_res + 1),
-        help=f"Input Resolution [{min_res}..{max_res}]",
-    )
-    args = parser.parse_args()
-
-    healpix_id = latlon2healpix(args.lat, args.lon, args.res)
-    print(healpix_id)
 
 
 def latlon2rhealpix(lat, lon, res):
@@ -539,13 +483,10 @@ def latlon2dggrid_cli():
     """
     Command-line interface for latlon2dggrid.
     """
-    dggs_type = args.dggs_type
-    min_res = DGGRID_TYPES[f"{dggs_type}"]["min_res"]
-    max_res = DGGRID_TYPES[f"{dggs_type}"]["max_res"]
     parser = argparse.ArgumentParser(
         description="Convert Lat, Long to DGGRID cell at a specific Resolution. \
-                                     Usage: latlon2dggrid <lat> <lon> <dggs_type> <res>. \
-                                     Ex: latlon2dggrid  10.775275567242561 106.70679737574993 ISEA7H 13"
+                                     Usage: latlon2dggrid <dggs_type> <lat> <lon> <res>. \
+                                     Ex: latlon2dggrid ISEA7H 10.775275567242561 106.70679737574993 13"
     )
     parser.add_argument(
         "dggs_type",
@@ -558,9 +499,7 @@ def latlon2dggrid_cli():
     parser.add_argument(
         "res",
         type=int,
-        default=DGGRID_TYPES[f"{dggs_type}"]["default_res"],
-        choices=range(min_res, max_res + 1),
-        help=f"Input Resolution [{min_res}..{max_res}]",
+        help="Input Resolution (range depends on dggs_type)",
     )
     parser.add_argument(
         "output_address_type",
@@ -1205,18 +1144,12 @@ def latlon2dggal_cli():
     parser.add_argument(
         "dggs_type", type=str, choices=DGGAL_TYPES.keys(), help="DGGAL type"
     )
-
-    dggs_type = args.dggs_type
-    min_res = DGGAL_TYPES[f"{dggs_type}"]["min_res"]
-    max_res = DGGAL_TYPES[f"{dggs_type}"]["max_res"]
     parser.add_argument("lat", type=float, help="Input Latitude")
     parser.add_argument("lon", type=float, help="Input Longitude")
     parser.add_argument(
         "res",
         type=int,
-        default=DGGAL_TYPES[f"{dggs_type}"]["default_res"],
-        choices=range(min_res, max_res + 1),
-        help=f"Input Resolution [{min_res}..{max_res}]",
+        help="Input Resolution (range depends on dggs_type)",
     )
 
     args = parser.parse_args()

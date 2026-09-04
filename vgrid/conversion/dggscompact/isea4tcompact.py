@@ -5,7 +5,7 @@ This module provides functionality to compact and expand ISEA4T cells with flexi
 
 Key Functions:
     isea4tcompact: Compact a set of ISEA4T cells to their minimal covering set
-    isea4texpand: Expand (uncompact) a set of ISEA4T cells to a target resolution
+    isea4texpand: Expand (uncompact) ISEA4T cells to a target resolution or by depth
     isea4tcompact_cli: Command-line interface for compaction
     isea4texpand_cli: Command-line interface for expansion
 
@@ -24,10 +24,21 @@ if platform.system() == "Windows":
 
     isea4t_dggs = Eaggr(Model.ISEA4T)
 
+from tqdm import tqdm
 from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
-from vgrid.utils.io import process_input_data_compact, convert_to_output_format
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.io import (
+    add_verbose_argument,
+    aggregate_values,
+    compact_cells,
+    convert_to_output_format,
+    prepare_compact_bags,
+    process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
+)
+from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
 
 # --- ISEA4T Compaction/Expansion Logic ---
@@ -54,96 +65,115 @@ def get_isea4t_cell_children(isea4t_cell, resolution):
     return expanded_cells
 
 
-def isea4t_compact(isea4t_ids):
+def isea4t_compact(isea4t_ids, depth=-1, bags=None, verbose=True):
     """
-    Compact a list of ISEA4T cell IDs to their minimal covering set.
+    Compact a list of ISEA4T cell IDs by replacing complete child sets with parents.
 
-    Groups ISEA4T cells by their parents and replaces complete sets of children
-    with their parent cells, repeating until no more compaction is possible.
+    Groups cells by their immediate parent and replaces a parent when every child
+    is present. Repeats until ``depth`` parent levels have been applied, or until
+    no further compaction is possible.
 
     Parameters
     ----------
     isea4t_ids : list of str
-        List of ISEA4T cell IDs to compact.
+        ISEA4T cell IDs to compact. Mixed resolutions are allowed.
+    depth : int, default -1
+        How many parent levels to climb:
+        - ``0``: do nothing (return the unique input cells)
+        - ``-1``: compact as far as possible
+        - ``1``: replace complete sibling sets with their direct parent
+        - ``2``: then compact those parents (grandparents), and so on
+    bags : dict of list, optional
+        Per-cell lists of original values. When a complete child set is replaced
+        by its parent, child lists are concatenated onto the parent. Mutated
+        in place so remaining keys match the compacted IDs.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
     list of str
-        Sorted list of compacted ISEA4T cell IDs representing the minimal covering set.
-
-    Examples
-    --------
-    >>> isea4t_ids = ["A0", "A1", "A2", "A3"]
-    >>> compacted = isea4t_compact(isea4t_ids)
-    >>> print(f"Compacted {len(isea4t_ids)} cells to {len(compacted)} cells")
+        Sorted compacted ISEA4T cell IDs.
     """
-    isea4t_ids = set(isea4t_ids)
-    while True:
-        grouped_isea4t_ids = {}
-        for isea4t_id in isea4t_ids:
-            if len(isea4t_id) > 2:
-                parent = isea4t_id[:-1]
-                grouped_isea4t_ids.setdefault(parent, set()).add(isea4t_id)
-        new_isea4t_ids = set(isea4t_ids)
-        changed = False
-        for parent, children in grouped_isea4t_ids.items():
-            parent_cell = DggsCell(parent)
-            children_at_next_res = set(
-                child.get_cell_id()
-                for child in isea4t_dggs.get_dggs_cell_children(parent_cell)
-            )
-            if children == children_at_next_res:
-                new_isea4t_ids.difference_update(children)
-                new_isea4t_ids.add(parent)
-                changed = True
-        if not changed:
-            break
-        isea4t_ids = new_isea4t_ids
-    return sorted(isea4t_ids)
+    depth = validate_dggs_compact_depth("isea4t", depth)
+
+    def parent_fn(cell_id):
+        if len(cell_id) > 2:
+            return cell_id[:-1]
+        return None
+
+    def children_fn(parent):
+        return {
+            child.get_cell_id()
+            for child in isea4t_dggs.get_dggs_cell_children(DggsCell(parent))
+        }
+
+    return compact_cells(
+        isea4t_ids,
+        parent_fn,
+        children_fn,
+        depth=depth,
+        bags=bags,
+        verbose=verbose,
+        desc="Compacting ISEA4T",
+    )
 
 
-def isea4t_expand(isea4t_ids, resolution):
+def isea4t_expand(isea4t_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of ISEA4T cells to the target resolution.
+    Expand ISEA4T cells to a target resolution, or by a relative child depth.
 
-    Takes ISEA4T cells and expands them to their children at the specified resolution.
+    When ``resolution`` is set, ``depth`` is ignored and all cells are expanded
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell is expanded ``depth`` levels down (``1`` = direct
+    children, ``2`` = grandchildren, and so on).
 
-    Parameters
-    ----------
-    isea4t_ids : list of str
-        List of ISEA4T cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded ISEA4T cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> isea4t_ids = ["A0"]
-    >>> expanded = isea4t_expand(isea4t_ids, 5)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 5")
+    Returns cell objects (callers typically map ``.get_cell_id()``).
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("isea4t", resolution)
+        expand_cells = []
+        for isea4t_id in tqdm(isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose):
+            isea4t_cell = DggsCell(isea4t_id)
+            expand_cells.extend(get_isea4t_cell_children(isea4t_cell, resolution))
+        return expand_cells
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("isea4t", depth)
     expand_cells = []
-    for isea4t_id in isea4t_ids:
-        isea4t_cell = DggsCell(isea4t_id)
-        expand_cells.extend(get_isea4t_cell_children(isea4t_cell, resolution))
+    for isea4t_id in tqdm(isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose):
+        try:
+            current = get_isea4t_resolution(isea4t_id)
+            expand_cells.extend(
+                get_isea4t_cell_children(DggsCell(isea4t_id), current + depth)
+            )
+        except Exception:
+            continue
     return expand_cells
 
 
 def isea4tcompact(
     input_data,
     isea4t_id=None,
+    depth=-1,
+    agg="count",
+    numeric_col=None,
     output_format="gpd",
     fix_antimeridian=None,
+    verbose=True,
 ):
     """
-    Compact ISEA4T cells to their minimal covering set.
+    Compact ISEA4T cells to their covering set at a given parent depth.
 
-    Compacts a set of ISEA4T cells by replacing complete sets of children with their parent cells,
-    repeating until no more compaction is possible. Supports flexible input and output formats.
+    Compacts a set of ISEA4T cells by replacing complete sets of children with their
+    parent cells. Mixed input resolutions are allowed and ``depth`` limits how far
+    up the hierarchy to merge.
+
+    When a complete sibling set is replaced by its parent, original child values
+    are combined with ``agg``. If ``agg`` is ``"count"``, ``numeric_col`` is
+    ignored and the output ``count`` is the number of original input cells in
+    each compacted cell.
 
     Parameters
     ----------
@@ -156,6 +186,16 @@ def isea4tcompact(
         - List of ISEA4T cell IDs
     isea4t_id : str, optional
         Name of the column containing ISEA4T cell IDs. Defaults to "isea4t".
+    depth : int, default -1
+        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
+        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+    agg : str, default "count"
+        Aggregation applied to original child values when cells compact into a
+        parent (``count``, ``min``, ``max``, ``sum``, ``mean``, ``median``,
+        ``std``, ``var``, ``range``, ``minority``, ``majority``, ``variety``).
+    numeric_col : str, optional
+        Numeric field to aggregate. Required when ``agg`` is not ``"count"``;
+        ignored when ``agg`` is ``"count"``.
     output_format : str, default "gpd"
         Output format. Options:
         - "gpd": Returns GeoPandas GeoDataFrame (default)
@@ -168,6 +208,8 @@ def isea4tcompact(
     fix_antimeridian : str, optional
         Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to None when omitted.
+    verbose : bool, default True
+        Show tqdm progress bars. Use ``False`` to hide them.
 
     Returns
     -------
@@ -183,25 +225,41 @@ def isea4tcompact(
     >>> # Compact from list
     >>> result = isea4tcompact(["A0", "A1", "A2", "A3"])
 
+    >>> # Compact only one parent level
+    >>> result = isea4tcompact(cells, depth=1)
+
+    >>> # Mean of a numeric field on compacted parents
+    >>> result = isea4tcompact(cells, agg="mean", numeric_col="value")
+
     >>> # Compact to GeoJSON file
     >>> result = isea4tcompact("cells.geojson", output_format="geojson")
     >>> print(f"Saved to: {result}")
     """
     if not isea4t_id:
         isea4t_id = "isea4t"
-    gdf = process_input_data_compact(input_data, isea4t_id)
-    isea4t_ids = gdf[isea4t_id].drop_duplicates().tolist()
-    if not isea4t_ids:
+    bags, agg_col = prepare_compact_bags(
+        input_data,
+        isea4t_id,
+        agg=agg,
+        numeric_col=numeric_col,
+        verbose=verbose,
+        label="ISEA4T cells",
+    )
+    if bags is None:
         print(f"No ISEA4T isea4t_ids found in <{isea4t_id}> field.")
         return
-    try:
-        isea4t_ids_compact = isea4t_compact(isea4t_ids)
-    except Exception:
-        raise Exception("Compact cells failed. Please check your ISEA4T ID field.")
+    isea4t_ids_compact = isea4t_compact(
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+    )
     if not isea4t_ids_compact:
         return None
     rows = []
-    for isea4t_id_compact in isea4t_ids_compact:
+    for isea4t_id_compact in tqdm(
+        isea4t_ids_compact,
+        desc="Building ISEA4T compact",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = isea4t2geo(
                 isea4t_id_compact, fix_antimeridian=fix_antimeridian
@@ -211,6 +269,7 @@ def isea4tcompact(
             row = geodesic_dggs_to_geoseries(
                 "isea4t", isea4t_id_compact, cell_resolution, cell_polygon, num_edges
             )
+            row[agg_col] = aggregate_values(bags.get(isea4t_id_compact, []), agg)
             rows.append(row)
         except Exception:
             continue
@@ -258,6 +317,35 @@ def isea4tcompact_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
+        "1 = direct parent, 2 = grandparent, ...",
+    )
+    parser.add_argument(
+        "-agg",
+        "--agg",
+        choices=AGG_OPTIONS,
+        default="count",
+        help="Aggregation option",
+    )
+    parser.add_argument(
+        "-numeric_col",
+        "--numeric_col",
+        dest="numeric_col",
+        required=False,
+        help="Numeric field to aggregate (required if agg != 'count')",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show progress bar (default: True). Use --no-verbose to hide it.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -267,6 +355,10 @@ def isea4tcompact_cli():
         isea4t_id=cellid,
         output_format=output_format,
         fix_antimeridian=args.fix_antimeridian,
+        depth=args.depth,
+        agg=args.agg,
+        numeric_col=args.numeric_col,
+        verbose=args.verbose,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -274,88 +366,62 @@ def isea4tcompact_cli():
 
 def isea4texpand(
     input_data,
-    resolution,
+    resolution=None,
     isea4t_id=None,
     output_format="gpd",
     fix_antimeridian=None,
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) ISEA4T cells to a target resolution.
+    Expand (uncompact) ISEA4T cells to a target resolution or by a relative depth.
 
-    Expands ISEA4T cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing ISEA4T cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of ISEA4T cell IDs
-    resolution : int
-        Target ISEA4T resolution to expand the cells to. Must be >= maximum input resolution.
-    isea4t_id : str, optional
-        Name of the column containing ISEA4T cell IDs. Defaults to "isea4t".
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-    fix_antimeridian : str, optional
-        Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
-        Defaults to None when omitted.
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded ISEA4T cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = isea4texpand("cells.geojson", resolution=5)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = isea4texpand(["A0"], resolution=5)
-
-    >>> # Expand to GeoJSON file
-    >>> result = isea4texpand("cells.geojson", resolution=5, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
     if isea4t_id is None:
         isea4t_id = "isea4t"
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("isea4t", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("isea4t", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
     gdf = process_input_data_compact(input_data, isea4t_id)
     isea4t_ids = gdf[isea4t_id].drop_duplicates().tolist()
     if not isea4t_ids:
         print(f"No ISEA4T IDs found in <{isea4t_id}> field.")
         return
     try:
-        max_res = max(get_isea4t_resolution(isea4t_id) for isea4t_id in isea4t_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-        isea4t_cells_expand = isea4t_expand(isea4t_ids, resolution)
+        if resolution is not None:
+            max_res = max(get_isea4t_resolution(cid) for cid in isea4t_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            isea4t_cells_expand = isea4t_expand(isea4t_ids, resolution=resolution, verbose=verbose)
+        else:
+            isea4t_cells_expand = isea4t_expand(isea4t_ids, depth=depth, verbose=verbose)
         isea4t_ids_expand = [c.get_cell_id() for c in isea4t_cells_expand]
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your ISEA4T ID field and resolution."
+            "Expand cells failed. Please check your ISEA4T ID field, resolution, or depth."
         )
     if not isea4t_ids_expand:
         return None
     rows = []
-    for isea4t_id_expand in isea4t_ids_expand:
+    for isea4t_id_expand in tqdm(
+        isea4t_ids_expand,
+        desc="Building ISEA4T expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = isea4t2geo(
                 isea4t_id_expand, fix_antimeridian=fix_antimeridian
             )
-            cell_resolution = resolution
+            cell_resolution = get_isea4t_resolution(isea4t_id_expand)
             num_edges = 3
             row = geodesic_dggs_to_geoseries(
                 "isea4t", isea4t_id_expand, cell_resolution, cell_polygon, num_edges
@@ -383,12 +449,21 @@ def isea4texpand_cli():
         required=True,
         help="Input ISEA4T (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target ISEA4T resolution to expand to (must be greater than input cells)",
+        help="Target ISEA4T resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= ISEA4T max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="ISEA4T ID field")
     parser.add_argument(
@@ -414,21 +489,19 @@ def isea4texpand_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-    fix_antimeridian = args.fix_antimeridian
     if platform.system() == "Windows":
         result = isea4texpand(
-            input_data,
-            resolution,
-            isea4t_id=cellid,
-            output_format=output_format,
-            fix_antimeridian=fix_antimeridian,
+            args.input,
+            resolution=args.resolution,
+            isea4t_id=args.cellid,
+            output_format=args.output_format,
+            fix_antimeridian=args.fix_antimeridian,
+            depth=args.depth,
+            verbose=args.verbose,
         )
-        if output_format in STRUCTURED_FORMATS:
+        if args.output_format in STRUCTURED_FORMATS:
             print(result)
     else:
         print("ISEA4T is only supported on Windows systems")
