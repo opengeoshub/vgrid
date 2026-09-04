@@ -35,6 +35,7 @@ from vgrid.utils.io import (
     process_input_data_vector,
     convert_to_output_format,
     add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 from vgrid.utils.io import DGGS_TYPES
@@ -48,12 +49,8 @@ def point2rhealpix(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
-    verbose=True,
 ):
     """
     Convert a point geometry to RHEALPix grid cells.
@@ -73,8 +70,6 @@ def point2rhealpix(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable RHEALPix compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2rhealpix).
     include_properties : bool, optional
         Whether to include properties in output.
     fix_antimeridian : str, optional
@@ -167,12 +162,8 @@ def polyline2rhealpix(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
-    verbose=True,
 ):
     """
     Convert a polyline geometry to rHEALPix grid cells using ``linetrace``.
@@ -248,7 +239,7 @@ def polygon2rhealpix(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
@@ -352,7 +343,7 @@ def polygon2rhealpix(
                 # Extract cell IDs from rhealpix_rows
                 cells_to_process = [row.get("rhealpix") for row in rhealpix_rows]
                 # Apply compact
-                cells_to_process = rhealpix_compact(cells_to_process, verbose=verbose)
+                cells_to_process = rhealpix_compact(cells_to_process, depth=depth, verbose=verbose)
                 # Rebuild rhealpix_rows with compacted cells
                 rhealpix_rows = []
                 for cell_id in cells_to_process:
@@ -381,6 +372,7 @@ def geodataframe2rhealpix(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
@@ -467,9 +459,6 @@ def geodataframe2rhealpix(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -481,8 +470,6 @@ def geodataframe2rhealpix(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -495,6 +482,7 @@ def geodataframe2rhealpix(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
@@ -510,10 +498,11 @@ def vector2rhealpix(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -554,6 +543,7 @@ def vector2rhealpix(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         fix_antimeridian=fix_antimeridian,
@@ -636,6 +626,7 @@ def vector2rhealpix_cli():
         ],
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_compact_depth_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()
 
@@ -645,6 +636,7 @@ def vector2rhealpix_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,

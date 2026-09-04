@@ -546,6 +546,8 @@ class CodeArea(object):
 # Added by Vgrid
 ################
 
+olc_resolutions = [2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
+
 
 def olc_to_latlon(olc_id):
     code_area = decode(olc_id)

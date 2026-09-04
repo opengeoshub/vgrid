@@ -6,7 +6,7 @@ with flexible input and output formats.
 
 Key Functions:
     dggridcompact: Compact a set of DGGRID cells to a coarser minimal covering set
-    dggridexpand: Expand (uncompact) a set of DGGRID cells to a target resolution
+    dggridexpand: Expand (uncompact) DGGRID cells to a target resolution or by depth
     dggridcompact_cli: Command-line interface for compaction
     dggridexpand_cli: Command-line interface for expansion
 """
@@ -20,6 +20,7 @@ from vgrid.generator.dggridgen import dggridgen
 from vgrid.conversion.dggs2geo.dggrid2geo import dggrid2geo
 from vgrid.utils.geometry import dggrid_num_edges, geodesic_dggs_metrics
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     convert_to_output_format,
     create_dggrid_instance,
@@ -27,6 +28,8 @@ from vgrid.utils.io import (
     process_input_data_compact,
     validate_dggrid_resolution,
     validate_dggrid_type,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
 )
 from vgrid.utils.constants import AGG_OPTIONS, DGGRID_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -136,6 +139,9 @@ def dggrid_compact(
     """
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
+    depth = validate_dggs_compact_depth(
+        dggs_type, depth, max_res=int(DGGRID_TYPES[dggs_type]["max_res"])
+    )
     min_res = int(DGGRID_TYPES[dggs_type]["min_res"])
 
     active_ids = set(str(v) for v in cell_ids)
@@ -243,14 +249,30 @@ def dggrid_expand(
     dggs_type,
     cell_ids,
     resolution,
-    target_resolution,
+    target_resolution=None,
+    depth=None,
+    verbose=True,
 ):
     """
-    Expand DGGRID cells to target resolution using spatial containment.
+    Expand DGGRID cells to a target resolution, or by a relative child depth.
+
+    When ``target_resolution`` is set, ``depth`` is ignored. When only
+    ``depth`` is set, the target is ``resolution + depth``.
     """
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
-    target_resolution = validate_dggrid_resolution(dggs_type, int(target_resolution))
+    max_res = int(DGGRID_TYPES[dggs_type]["max_res"])
+    if target_resolution is not None:
+        target_resolution = validate_dggrid_resolution(
+            dggs_type, int(target_resolution)
+        )
+    elif depth is not None:
+        depth = validate_dggs_expand_depth(dggs_type, depth, max_res=max_res)
+        target_resolution = validate_dggrid_resolution(
+            dggs_type, int(resolution + depth)
+        )
+    else:
+        raise ValueError("Either target_resolution or depth must be specified.")
     if target_resolution < resolution:
         raise ValueError(
             f"Target resolution ({target_resolution}) must be >= input resolution ({resolution})."
@@ -264,6 +286,8 @@ def dggrid_expand(
         dggs_type=dggs_type,
         cell_ids=cell_ids,
         resolution=resolution,
+        verbose=verbose,
+        desc="Expanding DGGRID",
     )
     if src_gdf.empty:
         return []
@@ -387,19 +411,36 @@ def dggridexpand(
     dggs_type,
     input_data,
     resolution,
-    target_resolution,
+    target_resolution=None,
     dggrid_id=None,
     output_format="gpd",
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) DGGRID cells to a target resolution.
+    Expand (uncompact) DGGRID cells to a target resolution or by a relative depth.
+
+    ``resolution`` is the input cell resolution. When ``target_resolution`` is
+    set, ``depth`` is ignored. When only ``depth`` is set, cells are expanded
+    to ``resolution + depth``.
     """
     dggs_type = validate_dggrid_type(dggs_type)
     resolution = validate_dggrid_resolution(dggs_type, int(resolution))
-    target_resolution = validate_dggrid_resolution(dggs_type, int(target_resolution))
+    max_res = int(DGGRID_TYPES[dggs_type]["max_res"])
+    if target_resolution is not None:
+        target_resolution = validate_dggrid_resolution(
+            dggs_type, int(target_resolution)
+        )
+    elif depth is not None:
+        depth = validate_dggs_expand_depth(dggs_type, depth, max_res=max_res)
+        target_resolution = validate_dggrid_resolution(
+            dggs_type, int(resolution + depth)
+        )
+    else:
+        raise ValueError("Either target_resolution or depth must be specified.")
     if dggrid_id is None:
         dggrid_id = f"dggrid_{dggs_type.lower()}"
 
@@ -415,6 +456,7 @@ def dggridexpand(
         cell_ids=cell_ids,
         resolution=resolution,
         target_resolution=target_resolution,
+        verbose=verbose,
     )
     if not expanded_ids:
         return None
@@ -427,6 +469,8 @@ def dggridexpand(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        verbose=verbose,
+        desc="Building DGGRID expand",
     )
 
     output_name = None
@@ -545,8 +589,19 @@ def dggridexpand_cli():
     parser.add_argument(
         "-r", "--resolution", type=int, required=True, help="Input resolution"
     )
-    parser.add_argument(
-        "-tr", "--target_resolution", type=int, required=True, help="Target resolution"
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "-tr",
+        "--target_resolution",
+        type=int,
+        help="Target resolution to expand to (must be >= --resolution). Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand by this many child levels from --resolution "
+        "(1 = direct children, 2 = grandchildren, ...). Ignores --target_resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="DGGRID ID field")
     parser.add_argument(
@@ -563,6 +618,7 @@ def dggridexpand_cli():
         default=None,
         help="JSON string options for dggrid2geo/dggridgen",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
 
     options = None
@@ -585,6 +641,8 @@ def dggridexpand_cli():
         split_antimeridian=args.split_antimeridian,
         aggregate=args.aggregate,
         options=options,
+        verbose=args.verbose,
+        depth=args.depth,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

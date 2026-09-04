@@ -6,7 +6,7 @@ This module provides functionality to compact and expand DIGIPIN cells with flex
 Key Functions:
     digipin_compact: Compact a list of DIGIPIN IDs with an optional parent depth
     digipincompact: Compact a set of DIGIPIN cells to their covering set
-    digipinexpand: Expand (uncompact) a set of DIGIPIN cells to a target resolution
+    digipinexpand: Expand (uncompact) DIGIPIN cells to a target resolution or by depth
     digipincompact_cli: Command-line interface for compaction
     digipinexpand_cli: Command-line interface for expansion
 """
@@ -17,11 +17,15 @@ import geopandas as gpd
 from tqdm import tqdm
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs.digipin import digipin_parent, digipin_children, digipin_resolution
@@ -58,6 +62,7 @@ def digipin_compact(digipin_ids, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted DIGIPIN cell IDs.
     """
+    depth = validate_dggs_compact_depth("digipin", depth)
 
     def parent_fn(digipin_id):
         parent = digipin_parent(digipin_id)
@@ -282,98 +287,67 @@ def digipincompact_cli():
         print(result)
 
 
-def digipin_expand(digipin_ids, resolution):
+def digipin_expand(digipin_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of DIGIPIN cells to the target resolution.
+    Expand DIGIPIN cell IDs to a target resolution, or by a relative child depth.
 
-    Takes DIGIPIN cells and expands them to their children at the specified resolution.
-
-    Parameters
-    ----------
-    digipin_ids : list of str
-        List of DIGIPIN cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded DIGIPIN cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> digipin_ids = ["F3K"]
-    >>> expanded = digipin_expand(digipin_ids, 5)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 5")
+    When ``resolution`` is set, ``depth`` is ignored and all cells are expanded
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell is expanded ``depth`` levels down (``1`` = direct
+    children, ``2`` = grandchildren, and so on).
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("digipin", resolution)
+        expand_cells = []
+        for digipin_id in tqdm(digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose):
+            current_resolution = digipin_resolution(digipin_id)
+            if isinstance(current_resolution, str):
+                raise ValueError("Invalid DIGIPIN format.")
+            if current_resolution >= resolution:
+                expand_cells.append(digipin_id)
+            else:
+                expand_cells.extend(digipin_children(digipin_id, resolution))
+        return expand_cells
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("digipin", depth)
     expand_cells = []
-    for digipin_id in digipin_ids:
-        current_resolution = digipin_resolution(digipin_id)
-        if isinstance(current_resolution, str):
-            raise ValueError("Invalid DIGIPIN format.")
-
-        if current_resolution >= resolution:
-            expand_cells.append(digipin_id)
-        else:
+    for digipin_id in tqdm(digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose):
+        try:
+            current_resolution = digipin_resolution(digipin_id)
+            if isinstance(current_resolution, str):
+                continue
             expand_cells.extend(
-                digipin_children(digipin_id, resolution)
-            )  # Expand to the target level
+                digipin_children(digipin_id, current_resolution + depth)
+            )
+        except Exception:
+            continue
     return expand_cells
 
 
 def digipinexpand(
     input_data,
-    resolution,
+    resolution=None,
     digipin_id="digipin",
     output_format="gpd",
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) DIGIPIN cells to a target resolution.
+    Expand (uncompact) DIGIPIN cells to a target resolution or by a relative depth.
 
-    Expands DIGIPIN cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing DIGIPIN cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of DIGIPIN cell IDs
-    resolution : int
-        Target DIGIPIN resolution to expand the cells to. Must be >= maximum input resolution.
-    digipin_id : str, default "digipin"
-        Name of the column containing DIGIPIN cell IDs.
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded DIGIPIN cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = digipinexpand("cells.geojson", resolution=5)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = digipinexpand(["F3K"], resolution=5)
-
-    >>> # Expand to GeoJSON file
-    >>> result = digipinexpand("cells.geojson", resolution=5, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("digipin", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("digipin", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
 
     gdf = process_input_data_compact(input_data, digipin_id)
     digipin_ids = gdf[digipin_id].drop_duplicates().tolist()
@@ -383,27 +357,34 @@ def digipinexpand(
         return
 
     try:
-        max_res = max(digipin_resolution(tid) for tid in digipin_ids)
-        if isinstance(max_res, str):
-            raise ValueError("Invalid DIGIPIN format.")
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-
-        digipin_ids_expand = digipin_expand(digipin_ids, resolution)
+        if resolution is not None:
+            max_res = max(digipin_resolution(tid) for tid in digipin_ids)
+            if isinstance(max_res, str):
+                raise ValueError("Invalid DIGIPIN format.")
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            digipin_ids_expand = digipin_expand(digipin_ids, resolution=resolution, verbose=verbose)
+        else:
+            digipin_ids_expand = digipin_expand(digipin_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your DIGIPIN ID field and resolution."
+            "Expand cells failed. Please check your DIGIPIN ID field, resolution, or depth."
         )
 
     if not digipin_ids_expand:
         return None
 
     rows = []
-    for digipin_id_expand in digipin_ids_expand:
+    for digipin_id_expand in tqdm(
+        digipin_ids_expand,
+        desc="Building DIGIPIN expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = digipin2geo(digipin_id_expand)
-            cell_resolution = resolution
+            cell_resolution = digipin_resolution(digipin_id_expand)
             row = graticule_dggs_to_geoseries(
                 "digipin", digipin_id_expand, cell_resolution, cell_polygon
             )
@@ -434,12 +415,21 @@ def digipinexpand_cli():
         required=True,
         help="Input DIGIPIN (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target DIGIPIN resolution to expand to (must be greater than input cells)",
+        help="Target DIGIPIN resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= DIGIPIN max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="DIGIPIN ID field")
     parser.add_argument(
@@ -451,18 +441,16 @@ def digipinexpand_cli():
         help="Output format",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-
     result = digipinexpand(
-        input_data,
-        resolution,
-        digipin_id=cellid,
-        output_format=output_format,
+        args.input,
+        resolution=args.resolution,
+        digipin_id=args.cellid,
+        output_format=args.output_format,
+        depth=args.depth,
+        verbose=args.verbose,
     )
 
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

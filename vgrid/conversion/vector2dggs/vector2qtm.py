@@ -35,6 +35,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     DGGS_TYPES,
     add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
 
@@ -46,9 +47,6 @@ def point2qtm(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -69,8 +67,6 @@ def point2qtm(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable QTM compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2qtm).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -125,9 +121,6 @@ def polyline2qtm(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -199,8 +192,9 @@ def polygon2qtm(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
+    verbose=True,
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to QTM grid cells.
@@ -266,6 +260,13 @@ def polygon2qtm(
                                 if include_properties and feature_properties:
                                     row.update(feature_properties)
                                 qtm_rows.append(row)
+    if compact and qtm_rows:
+        temp_gdf = gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
+        compacted_gdf = qtmcompact(
+            temp_gdf, qtm_id="qtm", output_format="gpd", verbose=verbose, depth=depth
+        )
+        if compacted_gdf is not None:
+            qtm_rows = compacted_gdf.to_dict("records")
     return qtm_rows
 
 
@@ -274,6 +275,7 @@ def geodataframe2qtm(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     verbose=True,
@@ -350,9 +352,6 @@ def geodataframe2qtm(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                 )
             )
@@ -363,8 +362,6 @@ def geodataframe2qtm(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                 )
             )
@@ -376,7 +373,9 @@ def geodataframe2qtm(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
+                    verbose=verbose,
                 )
             )
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
@@ -389,9 +388,10 @@ def vector2qtm(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -422,13 +422,9 @@ def vector2qtm(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2qtm(
-        gdf, resolution, predicate, compact, topology, include_properties,
+        gdf, resolution, predicate, compact, depth, topology, include_properties,
         verbose=verbose,
     )
-
-    # Apply compaction if requested
-    if compact:
-        result = qtmcompact(result, qtm_id="qtm", output_format="gpd", verbose=verbose)
 
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -487,6 +483,7 @@ def vector2qtm_cli():
         help="Output format (default: gpd).",
     )
 
+    add_compact_depth_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()
     args.resolution = validate_qtm_resolution(args.resolution)
@@ -496,6 +493,7 @@ def vector2qtm_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,

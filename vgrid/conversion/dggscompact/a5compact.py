@@ -6,7 +6,7 @@ This module provides functionality to compact and expand A5 cells with flexible 
 Key Functions:
     a5_compact: Compact a list of A5 hex IDs with an optional parent depth
     a5compact: Compact a set of A5 cells to their covering set
-    a5expand: Expand (uncompact) a set of A5 cells to a target resolution
+    a5expand: Expand (uncompact) A5 cells to a target resolution or by depth
     a5compact_cli: Command-line interface for compaction
     a5expand_cli: Command-line interface for expansion
 """
@@ -20,12 +20,15 @@ from tqdm import tqdm
 from vgrid.conversion.dggs2geo.a52geo import a52geo
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
-    validate_a5_resolution,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -55,7 +58,7 @@ def a5_compact(a5_hexes, depth=-1, bags=None, verbose=True):
     a5_hexes : list of str
         A5 hex string cell IDs to compact. Mixed resolutions are allowed.
     depth : int, default -1
-        How many parent levels to climb:
+        How many parent levels to climb (``-1`` to ``max_res``):
         - ``0``: do nothing (return the unique input cells)
         - ``-1``: compact as far as possible
         - ``1``: replace complete sibling sets with their direct parent
@@ -72,6 +75,7 @@ def a5_compact(a5_hexes, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted A5 hex string cell IDs.
     """
+    depth = validate_dggs_compact_depth("a5", depth)
     return compact_cells(
         a5_hexes,
         _a5_parent,
@@ -83,16 +87,28 @@ def a5_compact(a5_hexes, depth=-1, bags=None, verbose=True):
     )
 
 
-def a5_expand(a5_hexes, resolution):
+def a5_expand(a5_hexes, resolution=None, depth=None, verbose=True):
     """
-    Expand A5 hex strings to a target resolution.
+    Expand A5 hex strings to a target resolution, or by a relative child depth.
+
+    When ``resolution`` is set, ``depth`` is ignored and all cells are uncompacted
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell (at any resolution) is expanded to its descendants
+    ``depth`` levels down (``1`` = direct children, ``2`` = grandchildren, and
+    so on).
 
     Parameters
     ----------
     a5_hexes : list of str
-        List of A5 hex string cell IDs.
-    resolution : int
-        Target A5 resolution to expand the cells to.
+        List of A5 hex string cell IDs. Mixed resolutions are allowed when
+        expanding by depth.
+    resolution : int, optional
+        Target A5 resolution to expand all cells to. When set, ``depth`` is
+        ignored.
+    depth : int, optional
+        Relative expansion depth (``1 <= depth <= max_res``). Used when
+        ``resolution`` is not set. ``1`` expands each cell to its direct
+        children; ``2`` to the next level, and so on.
 
     Returns
     -------
@@ -103,12 +119,28 @@ def a5_expand(a5_hexes, resolution):
     --------
     >>> hexes = ["8e65b56628e0d07"]
     >>> expanded = a5_expand(hexes, resolution=5)
+    >>> children = a5_expand(hexes, depth=1)
+    >>> grandchildren = a5_expand(hexes, depth=2)
     """
-    # Convert hex strings to u64 (bigint) before expanding
-    a5_u64s = [a5.hex_to_u64(a5_hex) for a5_hex in a5_hexes]
-    a5_u64s_expand = a5.core.compact.uncompact(a5_u64s, resolution)
-    # Convert back to hex strings
-    a5_hexes_expand = [a5.u64_to_hex(u64) for u64 in a5_u64s_expand]
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("a5", resolution)
+        a5_u64s = [a5.hex_to_u64(a5_hex) for a5_hex in a5_hexes]
+        a5_u64s_expand = a5.core.compact.uncompact(a5_u64s, resolution)
+        return [a5.u64_to_hex(u64) for u64 in a5_u64s_expand]
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("a5", depth)
+    a5_hexes_expand = []
+    for a5_hex in tqdm(a5_hexes, desc="Expanding A5", unit=" cells", disable=not verbose):
+        try:
+            u = a5.hex_to_u64(a5_hex)
+            child_res = a5.get_resolution(u) + depth
+            a5_hexes_expand.extend(
+                a5.u64_to_hex(c) for c in a5.cell_to_children(u, child_res)
+            )
+        except Exception:
+            continue
     return a5_hexes_expand
 
 
@@ -147,8 +179,9 @@ def a5compact(
     a5_hex : str, optional
         Name of the column containing A5 cell IDs. Defaults to "a5".
     depth : int, default -1
-        Compaction depth: ``0`` leaves cells unchanged, ``-1`` compact as far as
-        possible, ``1`` merges to the direct parent, ``2`` to the grandparent, etc.
+        Compaction depth (``-1`` to ``max_res``): ``0`` leaves cells unchanged,
+        ``-1`` compact as far as possible, ``1`` merges to the direct parent,
+        ``2`` to the grandparent, etc.
     agg : str, default "count"
         Aggregation applied to original child values when cells compact into a
         parent. Same options as DGGS binning (``count``, ``min``, ``max``,
@@ -286,8 +319,8 @@ def a5compact_cli():
         "--depth",
         type=int,
         default=-1,
-        help="Compaction depth: 0 = no-op, -1 = compact fully (default), "
-        "1 = direct parent, 2 = grandparent, ...",
+        help="Compaction depth [-1, A5 max_res]: 0 = no-op, -1 = compact fully "
+        "(default), 1 = direct parent, 2 = grandparent, ...",
     )
     parser.add_argument(
         "-agg",
@@ -343,17 +376,22 @@ def a5compact_cli():
 
 def a5expand(
     input_data,
-    resolution,
+    resolution=None,
     a5_hex=None,
     output_format="gpd",
     options=None,
     split_antimeridian=False,
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) A5 cells to a target resolution.
+    Expand (uncompact) A5 cells to a target resolution or by a relative depth.
 
-    Expands A5 cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down
+    (``1`` = direct children, ``2`` = grandchildren, and so on).
 
     Parameters
     ----------
@@ -364,8 +402,9 @@ def a5expand(
         - GeoJSON dictionary
         - GeoDataFrame
         - List of A5 cell IDs
-    resolution : int
-        Target A5 resolution to expand the cells to. Must be >= maximum input resolution.
+    resolution : int, optional
+        Target A5 resolution to expand the cells to. Must be >= maximum input
+        resolution. When set, ``depth`` is ignored.
     a5_hex : str, optional
         Name of the column containing A5 cell IDs. Defaults to "a5".
     output_format : str, default "gpd"
@@ -382,6 +421,11 @@ def a5expand(
     split_antimeridian : bool, optional
         When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False when None or omitted.
+    depth : int, optional
+        Relative expansion depth (``1 <= depth <= max_res``). Used when
+        ``resolution`` is not set. Each input cell is expanded ``depth``
+        levels: ``1`` = direct children, ``2`` = grandchildren, and so on.
+
     Returns
     -------
     geopandas.GeoDataFrame or str or dict or None
@@ -396,37 +440,56 @@ def a5expand(
     >>> # Expand from list
     >>> result = a5expand(["8e65b56628e0d07"], resolution=5)
 
+    >>> # Expand mixed-resolution cells by relative depth
+    >>> result = a5expand(cells, depth=1)
+    >>> result = a5expand(cells, depth=2)
+
     >>> # Expand to GeoJSON file
     >>> result = a5expand("cells.geojson", resolution=5, output_format="geojson")
     >>> print(f"Saved to: {result}")
     """
     if a5_hex is None:
         a5_hex = "a5"
-    resolution = validate_a5_resolution(resolution)
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("a5", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("a5", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
     gdf = process_input_data_compact(input_data, a5_hex)
     a5_hexes = gdf[a5_hex].drop_duplicates().tolist()
     if not a5_hexes:
         print(f"No A5 Hexes found in <{a5_hex}> field.")
         return
     try:
-        max_res = max(a5.get_resolution(a5.hex_to_u64(a5_hex)) for a5_hex in a5_hexes)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-        a5_hexes_expand = a5_expand(a5_hexes, resolution)
+        if resolution is not None:
+            max_res = max(
+                a5.get_resolution(a5.hex_to_u64(a5_hex)) for a5_hex in a5_hexes
+            )
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            a5_hexes_expand = a5_expand(a5_hexes, resolution=resolution, verbose=verbose)
+        else:
+            a5_hexes_expand = a5_expand(a5_hexes, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your A5 ID field and resolution."
+            "Expand cells failed. Please check your A5 ID field, resolution, or depth."
         )
     if not a5_hexes_expand:
         return None
     rows = []
-    for a5_hex_expand in a5_hexes_expand:
+    for a5_hex_expand in tqdm(
+        a5_hexes_expand,
+        desc="Building A5 expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = a52geo(
                 a5_hex_expand, options, split_antimeridian=split_antimeridian
             )
-            cell_resolution = resolution
+            cell_resolution = a5.get_resolution(a5.hex_to_u64(a5_hex_expand))
             num_edges = 5  # A5 cells are pentagons
             if cell_resolution == 1:
                 num_edges = 3
@@ -459,12 +522,21 @@ def a5expand_cli():
         required=True,
         help="Input A5 (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target A5 resolution to expand to (must be greater than input cells)",
+        help="Target A5 resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= A5 max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="A5 Hex field")
     parser.add_argument(
@@ -490,6 +562,7 @@ def a5expand_cli():
         help="JSON string of options to pass to a52geo. "
         "Example: '{\"segments\": 1000}'",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
     input_data = args.input
     resolution = args.resolution
@@ -508,11 +581,13 @@ def a5expand_cli():
 
     result = a5expand(
         input_data,
-        resolution,
+        resolution=resolution,
         a5_hex=cellid,
         output_format=output_format,
         options=options,
         split_antimeridian=split_antimeridian,
+        depth=args.depth,
+        verbose=args.verbose,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)

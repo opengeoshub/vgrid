@@ -6,7 +6,7 @@ This module provides functionality to compact and expand Quadkey cells with flex
 Key Functions:
     quadkey_compact: Compact a list of Quadkey IDs with an optional parent depth
     quadkeycompact: Compact a set of Quadkey cells to their covering set
-    quadkeyexpand: Expand (uncompact) a set of Quadkey cells to a target resolution
+    quadkeyexpand: Expand (uncompact) Quadkey cells to a target resolution or by depth
     quadkeycompact_cli: Command-line interface for compaction
     quadkeyexpand_cli: Command-line interface for expansion
 """
@@ -18,11 +18,15 @@ from tqdm import tqdm
 
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import mercantile, tilecode
@@ -60,6 +64,7 @@ def quadkey_compact(quadkey_ids, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted Quadkey cell IDs.
     """
+    depth = validate_dggs_compact_depth("quadkey", depth)
 
     def parent_fn(quadkey_id):
         parent = tilecode.quadkey_parent(quadkey_id)
@@ -281,95 +286,64 @@ def quadkeycompact_cli():
         print(result)
 
 
-def quadkey_expand(quadkey_ids, resolution):
+def quadkey_expand(quadkey_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of Quadkey cells to the target resolution.
+    Expand Quadkey cell IDs to a target resolution, or by a relative child depth.
 
-    Takes Quadkey cells and expands them to their children at the specified resolution.
-
-    Parameters
-    ----------
-    quadkey_ids : list of str
-        List of Quadkey cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded Quadkey cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> quadkey_ids = ["13223011131020220011133"]
-    >>> expanded = quadkey_expand(quadkey_ids, 5)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 5")
+    When ``resolution`` is set, ``depth`` is ignored and all cells are expanded
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell is expanded ``depth`` levels down (``1`` = direct
+    children, ``2`` = grandchildren, and so on).
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("quadkey", resolution)
+        expand_cells = []
+        for quadkey_id in tqdm(quadkey_ids, desc="Expanding Quadkey", unit=" cells", disable=not verbose):
+            cell_resolution = len(quadkey_id)
+            if cell_resolution >= resolution:
+                expand_cells.append(quadkey_id)
+            else:
+                expand_cells.extend(
+                    tilecode.quadkey_children(quadkey_id, resolution)
+                )
+        return expand_cells
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("quadkey", depth)
     expand_cells = []
-    for quadkey_id in quadkey_ids:
-        cell_resolution = len(quadkey_id)
-        if cell_resolution >= resolution:
-            expand_cells.append(quadkey_id)
-        else:
+    for quadkey_id in tqdm(quadkey_ids, desc="Expanding Quadkey", unit=" cells", disable=not verbose):
+        try:
             expand_cells.extend(
-                tilecode.quadkey_children(quadkey_id, resolution)
-            )  # Expand to the target level
+                tilecode.quadkey_children(quadkey_id, len(quadkey_id) + depth)
+            )
+        except Exception:
+            continue
     return expand_cells
 
 
 def quadkeyexpand(
     input_data,
-    resolution,
+    resolution=None,
     quadkey_id="quadkey",
     output_format="gpd",
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) Quadkey cells to a target resolution.
+    Expand (uncompact) Quadkey cells to a target resolution or by a relative depth.
 
-    Expands Quadkey cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing Quadkey cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of Quadkey cell IDs
-    resolution : int
-        Target Quadkey resolution to expand the cells to. Must be >= maximum input resolution.
-    quadkey_id : str, default "quadkey"
-        Name of the column containing Quadkey cell IDs.
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded Quadkey cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = quadkeyexpand("cells.geojson", resolution=5)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = quadkeyexpand(["13223011131020220011133"], resolution=5)
-
-    >>> # Expand to GeoJSON file
-    >>> result = quadkeyexpand("cells.geojson", resolution=5, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("quadkey", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("quadkey", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
 
     gdf = process_input_data_compact(input_data, quadkey_id)
     quadkey_ids = gdf[quadkey_id].drop_duplicates().tolist()
@@ -379,25 +353,32 @@ def quadkeyexpand(
         return
 
     try:
-        max_res = max(len(quadkey_id) for quadkey_id in quadkey_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-
-        quadkey_ids_expand = quadkey_expand(quadkey_ids, resolution)
+        if resolution is not None:
+            max_res = max(len(qid) for qid in quadkey_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            quadkey_ids_expand = quadkey_expand(quadkey_ids, resolution=resolution, verbose=verbose)
+        else:
+            quadkey_ids_expand = quadkey_expand(quadkey_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your Quadkey ID field and resolution."
+            "Expand cells failed. Please check your Quadkey ID field, resolution, or depth."
         )
 
     if not quadkey_ids_expand:
         return None
 
     rows = []
-    for quadkey_id_expand in quadkey_ids_expand:
+    for quadkey_id_expand in tqdm(
+        quadkey_ids_expand,
+        desc="Building Quadkey expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = quadkey2geo(quadkey_id_expand)
-            cell_resolution = resolution
+            cell_resolution = len(quadkey_id_expand)
             row = graticule_dggs_to_geoseries(
                 "quadkey", quadkey_id_expand, cell_resolution, cell_polygon
             )
@@ -428,12 +409,21 @@ def quadkeyexpand_cli():
         required=True,
         help="Input Quadkey (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target Quadkey resolution to expand to (must be greater than input cells)",
+        help="Target Quadkey resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= Quadkey max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="Quadkey ID field")
     parser.add_argument(
@@ -445,18 +435,16 @@ def quadkeyexpand_cli():
         help="Output format",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-
     result = quadkeyexpand(
-        input_data,
-        resolution,
-        quadkey_id=cellid,
-        output_format=output_format,
+        args.input,
+        resolution=args.resolution,
+        quadkey_id=args.cellid,
+        output_format=args.output_format,
+        depth=args.depth,
+        verbose=args.verbose,
     )
 
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

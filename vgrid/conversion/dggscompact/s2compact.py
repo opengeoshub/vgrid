@@ -6,7 +6,7 @@ This module provides functionality to compact and expand S2 cells with flexible 
 Key Functions:
     s2_compact: Compact a list of S2 tokens with an optional parent depth
     s2compact: Compact a set of S2 cells to their covering set
-    s2expand: Expand (uncompact) S2 cells to a specified resolution
+    s2expand: Expand (uncompact) S2 cells to a target resolution or by depth
     s2compact_cli: Command-line interface for compaction
     s2expand_cli: Command-line interface for expansion
 """
@@ -19,12 +19,15 @@ from tqdm import tqdm
 from vgrid.dggs import s2
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
-    validate_s2_resolution,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.conversion.dggs2geo.s22geo import s22geo
@@ -72,6 +75,7 @@ def s2_compact(s2_tokens, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted S2 cell tokens.
     """
+    depth = validate_dggs_compact_depth("s2", depth)
     return compact_cells(
         s2_tokens,
         _s2_parent,
@@ -299,18 +303,53 @@ def s2compact_cli():
         print(result)
 
 
+def s2_expand(s2_tokens, resolution=None, depth=None, verbose=True):
+    """
+    Expand S2 cell tokens to a target resolution, or by a relative child depth.
+
+    When ``resolution`` is set, ``depth`` is ignored and all cells are uncompacted
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell (at any resolution) is expanded to its descendants
+    ``depth`` levels down (``1`` = direct children, ``2`` = grandchildren, and
+    so on).
+    """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("s2", resolution)
+        s2_cells = list({s2.CellId.from_token(token) for token in s2_tokens})
+        covering = s2.CellUnion(s2_cells, raw=False)
+        expanded_cells = covering.denormalize(resolution, 1)
+        return [cell_id.to_token() for cell_id in expanded_cells]
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("s2", depth)
+    expanded = []
+    for token in tqdm(s2_tokens, desc="Expanding S2", unit=" cells", disable=not verbose):
+        try:
+            cid = s2.CellId.from_token(str(token))
+            expanded.extend(c.to_token() for c in cid.children(cid.level() + depth))
+        except Exception:
+            continue
+    return expanded
+
+
 def s2expand(
     input_data,
-    resolution,
+    resolution=None,
     s2_token="s2",
     output_format="gpd",
     fix_antimeridian=None,
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) S2 cells to a target resolution.
+    Expand (uncompact) S2 cells to a target resolution or by a relative depth.
 
-    Expands S2 cells using CellUnion.denormalize(). The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down
+    (``1`` = direct children, ``2`` = grandchildren, and so on).
 
     Parameters
     ----------
@@ -321,8 +360,9 @@ def s2expand(
         - GeoJSON dictionary
         - GeoDataFrame
         - List of S2 cell tokens
-    resolution : int
-        Target S2 resolution to expand the cells to. Must be >= maximum input resolution.
+    resolution : int, optional
+        Target S2 resolution to expand the cells to. Must be >= maximum input
+        resolution. When set, ``depth`` is ignored.
     s2_token : str, default "s2"
         Name of the column containing S2 cell tokens.
     output_format : str, default "gpd"
@@ -334,6 +374,10 @@ def s2expand(
         - "parquet": Returns Parquet file path
         - "shapefile"/"shp": Returns Shapefile file path
         - "gpkg"/"geopackage": Returns GeoPackage file path
+    depth : int, optional
+        Relative expansion depth (``1 <= depth <= max_res``). Used when
+        ``resolution`` is not set. Each input cell is expanded ``depth``
+        levels: ``1`` = direct children, ``2`` = grandchildren, and so on.
 
     Returns
     -------
@@ -342,55 +386,50 @@ def s2expand(
 
     Examples
     --------
-    >>> # Expand from file
     >>> result = s2expand("cells.geojson", resolution=10)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
     >>> result = s2expand(["31752f45cc94"], resolution=10)
-
-    >>> # Expand to GeoJSON file
-    >>> result = s2expand("cells.geojson", resolution=10, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    >>> result = s2expand(cells, depth=1)
     """
-    resolution = validate_s2_resolution(resolution)
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("s2", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("s2", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
     gdf = process_input_data_compact(input_data, s2_token)
     s2_tokens = gdf[s2_token].drop_duplicates().tolist()
     if not s2_tokens:
         print(f"No S2 tokens found in <{s2_token}> field.")
         return
     try:
-        s2_cells = [s2.CellId.from_token(token) for token in s2_tokens]
-        s2_cells = list(set(s2_cells))
-        if not s2_cells:
-            print(f"No valid S2 tokens found in <{s2_token}> field.")
-            return
-        max_res = max(cell.level() for cell in s2_cells)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-        # Previous expand used CellId.children() per cell:
-        # expanded_cells = []
-        # for cell in s2_cells:
-        #     if cell.level() >= resolution:
-        #         expanded_cells.append(cell)
-        #     else:
-        #         expanded_cells.extend(cell.children(resolution))
-        covering = s2.CellUnion(s2_cells, raw=False)
-        expanded_cells = covering.denormalize(resolution, 1)
-        s2_tokens_expand = [cell_id.to_token() for cell_id in expanded_cells]
+        if resolution is not None:
+            s2_cells = [s2.CellId.from_token(token) for token in s2_tokens]
+            if not s2_cells:
+                print(f"No valid S2 tokens found in <{s2_token}> field.")
+                return
+            max_res = max(cell.level() for cell in s2_cells)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            s2_tokens_expand = s2_expand(s2_tokens, resolution=resolution, verbose=verbose)
+        else:
+            s2_tokens_expand = s2_expand(s2_tokens, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your S2 ID field and resolution."
+            "Expand cells failed. Please check your S2 ID field, resolution, or depth."
         )
     if not s2_tokens_expand:
         return None
-    # Build output GeoDataFrame
     rows = []
-    for s2_token_expand in s2_tokens_expand:
+    for s2_token_expand in tqdm(
+        s2_tokens_expand,
+        desc="Building S2 expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = s22geo(s2_token_expand, fix_antimeridian=fix_antimeridian)
-            cell_resolution = resolution
+            cell_resolution = s2.CellId.from_token(s2_token_expand).level()
             num_edges = 4
             row = geodesic_dggs_to_geoseries(
                 "s2", s2_token_expand, cell_resolution, cell_polygon, num_edges
@@ -400,7 +439,6 @@ def s2expand(
             continue
     out_gdf = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
-    # If output_format is file-based, set output_name as just the filename in current directory
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(input_data, str):
@@ -424,12 +462,21 @@ def s2expand_cli():
         required=True,
         help="Input S2 (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target S2 resolution to expand to (must be greater than input cells)",
+        help="Target S2 resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= S2 max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="S2 Token field")
     parser.add_argument(
@@ -455,18 +502,16 @@ def s2expand_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-    fix_antimeridian = args.fix_antimeridian
     result = s2expand(
-        input_data,
-        resolution,
-        s2_token=cellid,
-        output_format=output_format,
-        fix_antimeridian=fix_antimeridian,
+        args.input,
+        resolution=args.resolution,
+        s2_token=args.cellid,
+        output_format=args.output_format,
+        fix_antimeridian=args.fix_antimeridian,
+        depth=args.depth,
+        verbose=args.verbose,
     )
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

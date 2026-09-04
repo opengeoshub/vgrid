@@ -17,18 +17,22 @@ import sys
 import os
 import re
 import argparse
+from collections import deque
 from math import sqrt
 from tqdm import tqdm
-from shapely.geometry import Polygon, MultiPoint
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
 import geopandas as gpd
 from vgrid.dggs import tilecode
 from vgrid.dggs import mercantile
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.conversion.dggscompact.tilecodecompact import tilecodecompact
+from vgrid.conversion.dggs2geo.tilecode2geo import tilecode2geo
+from vgrid.conversion.latlon2dggs import latlon2tilecode
 from vgrid.stats.tilecodestats import tilecode_metrics
 from vgrid.utils.geometry import (
     check_predicate,
     shortest_point_distance,
+    strip_duplicate_and_collinear_vertices,
 )
 from vgrid.utils.io import (
     validate_tilecode_resolution,
@@ -36,6 +40,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     DGGS_TYPES,
     add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 
@@ -47,9 +52,6 @@ def point2tilecode(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
@@ -70,8 +72,6 @@ def point2tilecode(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable Tilecode compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2tilecode).
     include_properties : bool, optional
         Whether to include properties in output.
 
@@ -128,82 +128,120 @@ def point2tilecode(
     return tilecode_rows
 
 
+def _tilecode_segment_cells(resolution, start_xy, end_xy):
+    """Walk Tilecode cells along one polyline segment via intersecting edge neighbors."""
+    start_x, start_y = start_xy
+    end_x, end_y = end_xy
+    segment = LineString([(start_x, start_y), (end_x, end_y)])
+    start_id = latlon2tilecode(start_y, start_x, resolution)
+    if segment.is_empty or segment.length == 0:
+        return [start_id]
+
+    end_id = latlon2tilecode(end_y, end_x, resolution)
+    end_pt = Point(end_x, end_y)
+
+    start_poly = tilecode2geo(start_id)
+    if start_poly is None:
+        return [end_id] if start_id != end_id else [start_id]
+
+    if start_id == end_id or start_poly.covers(end_pt):
+        ordered = [start_id]
+        if end_id != start_id:
+            ordered.append(end_id)
+        return ordered
+
+    ordered = []
+    visited = set()
+    queue = deque([start_id])
+    reached_endpoint = False
+
+    while queue:
+        cell_id = queue.popleft()
+        if cell_id in visited:
+            continue
+        visited.add(cell_id)
+
+        cell_polygon = tilecode2geo(cell_id)
+        if cell_polygon is None or cell_polygon.is_empty:
+            continue
+        if cell_id != start_id and not cell_polygon.intersects(segment):
+            continue
+
+        if not ordered or ordered[-1] != cell_id:
+            ordered.append(cell_id)
+
+        if cell_id == end_id or cell_polygon.covers(end_pt):
+            reached_endpoint = True
+            continue
+
+        for neighbor_id in tilecode.tilecode_edge_neighbors(cell_id):
+            if neighbor_id in visited:
+                continue
+            neighbor_polygon = tilecode2geo(neighbor_id)
+            if neighbor_polygon is None or neighbor_polygon.is_empty:
+                continue
+            if neighbor_polygon.intersects(segment):
+                queue.append(neighbor_id)
+
+    if not reached_endpoint and end_id not in visited:
+        ordered.append(end_id)
+    return ordered
+
+
 def polyline2tilecode(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
 ):
     """
-    Convert a polyline geometry to Tilecode grid cells.
+    Convert each polyline to Tilecode cells by walking intersecting neighbors.
 
-    Args:
-        feature (shapely.geometry.LineString or shapely.geometry.MultiLineString): Polyline geometry to convert
-        resolution (int): Tilecode resolution level [0..29]
-        feature_properties (dict, optional): Properties to include in output features
-        predicate (str, optional): Spatial predicate to apply (not used for polylines)
-        compact (bool, optional): Enable Tilecode compact mode (not used for polylines)
-        topology (bool, optional): Enable topology preserving mode (handled by geodataframe2tilecode)
-        include_properties (bool, optional): Whether to include properties in output
-
-    Returns:
-        list: List of dictionaries representing Tilecode cells intersecting the polyline
-
-    Example:
-        >>> from shapely.geometry import LineString
-        >>> line = LineString([(-122.4194, 37.7749), (-122.4000, 37.7800)])
-        >>> cells = polyline2tilecode(line, 10, {"name": "route"})
-        >>> len(cells) > 0
-        True
+    For each LineString or MultiLineString:
+    - Remove consecutive duplicate vertices and collinear intermediate vertices
+    - Split the cleaned polyline into segments
+    - Start from the cell containing each segment start
+    - If that cell already contains the endpoint, continue to the next segment
+    - Otherwise expand edge neighbors, keep those that intersect the segment, and
+      repeat until the endpoint cell is reached
     """
     tilecode_rows = []
-    if feature.geom_type in ("LineString"):
+    if feature.geom_type == "LineString":
         polylines = [feature]
-    elif feature.geom_type in ("MultiLineString"):
+    elif feature.geom_type == "MultiLineString":
         polylines = list(feature.geoms)
     else:
         return []
 
     for polyline in polylines:
-        min_lon, min_lat, max_lon, max_lat = polyline.bounds
-        tilecodes = mercantile.tiles(min_lon, min_lat, max_lon, max_lat, resolution)
-        tilecode_ids = []
-        for tile in tilecodes:
-            tilecode_id = f"z{tile.z}x{tile.x}y{tile.y}"
-            tilecode_ids.append(tilecode_id)
-        for tilecode_id in tilecode_ids:
-            match = re.match(r"z(\d+)x(\d+)y(\d+)", tilecode_id)
-            if not match:
-                raise ValueError(
-                    "Invalid tilecode output_format. Expected output_format: 'zXxYyZ'"
-                )
-            cell_resolution = int(match.group(1))
-            z = int(match.group(1))
-            x = int(match.group(2))
-            y = int(match.group(3))
-            bounds = mercantile.bounds(x, y, z)
-            if bounds:
-                min_lat, min_lon = bounds.south, bounds.west
-                max_lat, max_lon = bounds.north, bounds.east
-                cell_polygon = Polygon(
-                    [
-                        [min_lon, min_lat],
-                        [max_lon, min_lat],
-                        [max_lon, max_lat],
-                        [min_lon, max_lat],
-                        [min_lon, min_lat],
-                    ]
-                )
-                if cell_polygon.intersects(polyline):
-                    tilecode_row = graticule_dggs_to_geoseries(
-                        "tilecode", tilecode_id, cell_resolution, cell_polygon
-                    )
-                    if feature_properties:
-                        tilecode_row.update(feature_properties)
-                    tilecode_rows.append(tilecode_row)
+        coords = strip_duplicate_and_collinear_vertices(polyline)
+        if len(coords) < 2:
+            continue
+
+        ordered_cells = []
+        for i in range(len(coords) - 1):
+            segment_cells = _tilecode_segment_cells(
+                resolution,
+                coords[i],
+                coords[i + 1],
+            )
+            for cell_id in segment_cells:
+                if ordered_cells and ordered_cells[-1] == cell_id:
+                    continue
+                ordered_cells.append(cell_id)
+
+        for cell_id in ordered_cells:
+            cell_polygon = tilecode2geo(cell_id)
+            if cell_polygon is None:
+                continue
+            match = re.match(r"z(\d+)x(\d+)y(\d+)", cell_id)
+            cell_resolution = int(match.group(1)) if match else resolution
+            tilecode_row = graticule_dggs_to_geoseries(
+                "tilecode", cell_id, cell_resolution, cell_polygon
+            )
+            if include_properties and feature_properties:
+                tilecode_row.update(feature_properties)
+            tilecode_rows.append(tilecode_row)
     return tilecode_rows
 
 
@@ -213,7 +251,7 @@ def polygon2tilecode(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     verbose=True,
 ):
@@ -292,7 +330,7 @@ def polygon2tilecode(
 
         # Use tilecodecompact function directly
         compacted_gdf = tilecodecompact(
-            temp_gdf, tilecode_id="tilecode", output_format="gpd", verbose=verbose)
+            temp_gdf, tilecode_id="tilecode", output_format="gpd", verbose=verbose, depth=depth)
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -307,6 +345,7 @@ def geodataframe2tilecode(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     verbose=True,
@@ -389,9 +428,6 @@ def geodataframe2tilecode(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                 )
             )
@@ -402,8 +438,6 @@ def geodataframe2tilecode(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                 )
             )
@@ -415,6 +449,7 @@ def geodataframe2tilecode(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
                 )
@@ -429,9 +464,10 @@ def vector2tilecode(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -466,7 +502,7 @@ def vector2tilecode(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2tilecode(
-        gdf, resolution, predicate, compact, topology, include_properties,
+        gdf, resolution, predicate, compact, depth, topology, include_properties,
         verbose=verbose,
     )
     output_name = None
@@ -534,6 +570,7 @@ def vector2tilecode_cli():
         default="gpd",
         help="Output format (default: gpd).",
     )
+    add_compact_depth_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()
 
@@ -543,6 +580,7 @@ def vector2tilecode_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             output_format=args.output_format,
             include_properties=args.include_properties,

@@ -6,7 +6,7 @@ This module provides functionality to compact and expand EASE cells with flexibl
 Key Functions:
     ease_compact: Compact a list of EASE IDs with an optional parent depth
     easecompact: Compact a set of EASE cells to their covering set
-    easeexpand: Expand (uncompact) a set of EASE cells to a target resolution
+    easeexpand: Expand (uncompact) EASE cells to a target resolution or by depth
     easecompact_cli: Command-line interface for compaction
     easeexpand_cli: Command-line interface for expansion
 """
@@ -19,11 +19,15 @@ from tqdm import tqdm
 from vgrid.conversion.dggs2geo.ease2geo import ease2geo
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries, get_ease_resolution
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from ease_dggs.dggs.hierarchy import _parent_to_children
@@ -81,6 +85,7 @@ def ease_compact(ease_ids, depth=-1, bags=None, verbose=True):
     >>> compacted = ease_compact(ease_ids)
     >>> print(f"Compacted {len(ease_ids)} cells to {len(compacted)} cells")
     """
+    depth = validate_dggs_compact_depth("ease", depth)
     return compact_cells(
         ease_ids,
         _ease_parent,
@@ -292,98 +297,68 @@ def easecompact_cli():
         print(result)
 
 
-def ease_expand(ease_ids, resolution):
+def ease_expand(ease_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of EASE cells to the target resolution.
+    Expand EASE cell IDs to a target resolution, or by a relative child depth.
 
-    Takes EASE cells and expands them to their children at the specified resolution.
-
-    Parameters
-    ----------
-    ease_ids : list of str
-        List of EASE cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded EASE cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> ease_ids = ["L4.165767.02.02.20.71"]
-    >>> expanded = ease_expand(ease_ids, 5)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 5")
+    When ``resolution`` is set, ``depth`` is ignored. When only ``depth`` is
+    set, each cell is expanded ``depth`` levels down (``1`` = direct children,
+    ``2`` = grandchildren, and so on).
     """
-    uncompacted_cells = []
-    for ease_id in ease_ids:
-        ease_resolution = int(ease_id[1])
-        if ease_resolution >= resolution:
-            uncompacted_cells.append(ease_id)
-        else:
-            uncompacted_cells.extend(
-                _parent_to_children(ease_id, ease_resolution + 1)
-            )  # Expand to the target level
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("ease", resolution)
+        uncompacted_cells = []
+        for ease_id in tqdm(ease_ids, desc="Expanding EASE", unit=" cells", disable=not verbose):
+            ease_resolution = int(ease_id[1])
+            if ease_resolution >= resolution:
+                uncompacted_cells.append(ease_id)
+            else:
+                uncompacted_cells.extend(
+                    _parent_to_children(ease_id, ease_resolution + 1)
+                )
+        return uncompacted_cells
 
-    return uncompacted_cells
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("ease", depth)
+    cells = list(ease_ids)
+    for _ in range(depth):
+        nxt = []
+        for ease_id in tqdm(cells, desc="Expanding EASE", unit=" cells", disable=not verbose):
+            try:
+                match = re.match(r"L(\d+)\..+", ease_id)
+                res = int(match.group(1))
+                nxt.extend(_parent_to_children(ease_id, res + 1))
+            except Exception:
+                continue
+        cells = nxt
+    return cells
 
 
 def easeexpand(
     input_data,
-    resolution,
+    resolution=None,
     ease_id=None,
     output_format="gpd",
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) EASE cells to a target resolution.
+    Expand (uncompact) EASE cells to a target resolution or by a relative depth.
 
-    Expands EASE cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing EASE cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of EASE cell IDs
-    resolution : int
-        Target EASE resolution to expand the cells to. Must be >= maximum input resolution.
-    ease_id : str, optional
-        Name of the column containing EASE cell IDs. Defaults to "ease".
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded EASE cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = easeexpand("cells.geojson", resolution=5)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = easeexpand(["L4.165767.02.02.20.71"], resolution=5)
-
-    >>> # Expand to GeoJSON file
-    >>> result = easeexpand("cells.geojson", resolution=5, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
     if ease_id is None:
         ease_id = "ease"
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("ease", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("ease", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
 
     gdf = process_input_data_compact(input_data, ease_id)
     ease_ids = gdf[ease_id].drop_duplicates().tolist()
@@ -393,26 +368,33 @@ def easeexpand(
         return
 
     try:
-        max_res = max(int(ease_id[1]) for ease_id in ease_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-
-        ease_ids_expand = ease_expand(ease_ids, resolution)
+        if resolution is not None:
+            max_res = max(int(eid[1]) for eid in ease_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            ease_ids_expand = ease_expand(ease_ids, resolution=resolution, verbose=verbose)
+        else:
+            ease_ids_expand = ease_expand(ease_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your EASE ID field and resolution."
+            "Expand cells failed. Please check your EASE ID field, resolution, or depth."
         )
 
     if not ease_ids_expand:
         return None
 
     rows = []
-    for ease_id_expand in ease_ids_expand:
+    for ease_id_expand in tqdm(
+        ease_ids_expand,
+        desc="Building EASE expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = ease2geo(ease_id_expand)
-            cell_resolution = resolution
-            num_edges = 4  # EASE cells are rectangular
+            cell_resolution = get_ease_resolution(ease_id_expand)
+            num_edges = 4
             row = geodesic_dggs_to_geoseries(
                 "ease", ease_id_expand, cell_resolution, cell_polygon, num_edges
             )
@@ -443,12 +425,21 @@ def easeexpand_cli():
         required=True,
         help="Input EASE (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target EASE resolution to expand to (must be greater than input cells)",
+        help="Target EASE resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= EASE max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="EASE ID field")
     parser.add_argument(
@@ -460,18 +451,16 @@ def easeexpand_cli():
         help="Output format",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-
     result = easeexpand(
-        input_data,
-        resolution,
-        ease_id=cellid,
-        output_format=output_format,
+        args.input,
+        resolution=args.resolution,
+        ease_id=args.cellid,
+        output_format=args.output_format,
+        depth=args.depth,
+        verbose=args.verbose,
     )
 
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

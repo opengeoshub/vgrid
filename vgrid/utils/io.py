@@ -44,6 +44,18 @@ def add_verbose_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_compact_depth_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``-d`` / ``--depth`` (default -1). Used only when ``--compact`` is set."""
+    parser.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=-1,
+        help="Compaction depth when --compact is set: 0 = no-op, -1 = compact fully "
+        "(default), 1 = direct parent, 2 = grandparent, .... Ignored unless --compact.",
+    )
+
+
 def compact_cells(
     cell_ids,
     parent_fn,
@@ -989,6 +1001,63 @@ def validate_dggs_resolution(dggs_type: str, resolution: int) -> int:
     return resolution
 
 
+def validate_dggs_expand_resolution(
+    dggs_type: str, resolution: int, max_res: int = None
+) -> int:
+    """
+    Validate an expand target resolution: must be ``<=`` the DGGS ``max_res``.
+
+    Unlike ``validate_dggs_resolution``, this does not require resolution to be
+    ``>= min_res``. The lower bound is typically the input cells' resolution.
+
+    When ``max_res`` is omitted, it is taken from ``DGGS_TYPES``. Pass
+    ``max_res`` explicitly for DGGAL or DGGRID types.
+    """
+    if max_res is None:
+        dggs_type = validate_dggs_type(dggs_type)
+        max_res = int(DGGS_TYPES[dggs_type]["max_res"])
+    if not isinstance(resolution, int) or resolution > max_res:
+        raise ValueError(
+            f"Expand resolution for '{dggs_type}' must be <= {max_res}, got {resolution}"
+        )
+    return resolution
+
+
+def validate_dggs_expand_depth(
+    dggs_type: str, depth: int, max_res: int = None
+) -> int:
+    """Validate expand depth: ``1 <= depth <= max_res``.
+
+    When ``max_res`` is omitted, it is taken from ``DGGS_TYPES``. Pass
+    ``max_res`` explicitly for DGGAL or DGGRID types.
+    """
+    if max_res is None:
+        dggs_type = validate_dggs_type(dggs_type)
+        max_res = int(DGGS_TYPES[dggs_type]["max_res"])
+    if not isinstance(depth, int) or depth < 1 or depth > max_res:
+        raise ValueError(
+            f"Expand depth for '{dggs_type}' must be in range [1, {max_res}], got {depth}"
+        )
+    return depth
+
+
+def validate_dggs_compact_depth(dggs_type: str, depth: int, max_res: int = None) -> int:
+    """Validate compact depth: ``-1 <= depth <= max_res``.
+
+    When ``max_res`` is omitted, it is taken from ``DGGS_TYPES``. Pass
+    ``max_res`` explicitly for DGGAL or DGGRID types whose bounds live in
+    ``DGGAL_TYPES`` / ``DGGRID_TYPES``.
+    """
+    if max_res is None:
+        dggs_type = validate_dggs_type(dggs_type)
+        max_res = int(DGGS_TYPES[dggs_type]["max_res"])
+    if not isinstance(depth, int) or depth < -1 or depth > max_res:
+        raise ValueError(
+            f"Compact depth for '{dggs_type}' must be in range [-1, {max_res}], got {depth}"
+        )
+    return depth
+
+
 def validate_coordinate(min_lon, min_lat, max_lon, max_lat):
     if min_lat < -90:
         min_lat = -90
@@ -1081,10 +1150,6 @@ def validate_s2_resolution(resolution: int) -> int:
 
 def validate_a5_resolution(resolution: int) -> int:
     return validate_dggs_resolution("a5", resolution)
-
-
-def validate_healpix_resolution(resolution: int) -> int:
-    return validate_dggs_resolution("healpix", resolution)
 
 
 def validate_rhealpix_resolution(resolution: int) -> int:

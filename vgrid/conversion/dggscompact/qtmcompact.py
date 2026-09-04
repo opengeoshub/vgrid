@@ -6,7 +6,7 @@ This module provides functionality to compact and expand QTM cells with flexible
 Key Functions:
     qtm_compact: Compact a list of QTM IDs with an optional parent depth
     qtmcompact: Compact a set of QTM cells to their covering set
-    qtmexpand: Expand (uncompact) a set of QTM cells to a target resolution
+    qtmexpand: Expand (uncompact) QTM cells to a target resolution or by depth
     qtmcompact_cli: Command-line interface for compaction
     qtmexpand_cli: Command-line interface for expansion
 """
@@ -19,11 +19,15 @@ from tqdm import tqdm
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import qtm
@@ -68,6 +72,7 @@ def qtm_compact(qtm_ids, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted QTM cell IDs.
     """
+    depth = validate_dggs_compact_depth("qtm", depth)
 
     def parent_fn(qtm_id):
         parent = qtm.qtm_parent(qtm_id)
@@ -288,97 +293,62 @@ def qtmcompact_cli():
         print(result)
 
 
-def qtm_expand(qtm_ids, resolution):
+def qtm_expand(qtm_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of QTM cells to the target resolution.
+    Expand QTM cell IDs to a target resolution, or by a relative child depth.
 
-    Takes QTM cells and expands them to their children at the specified resolution.
-
-    Parameters
-    ----------
-    qtm_ids : list of str
-        List of QTM cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded QTM cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> qtm_ids = ["A0"]
-    >>> expanded = qtm_expand(qtm_ids, 3)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 3")
+    When ``resolution`` is set, ``depth`` is ignored and all cells are expanded
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell is expanded ``depth`` levels down (``1`` = direct
+    children, ``2`` = grandchildren, and so on).
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("qtm", resolution)
+        expand_cells = []
+        for qtm_id in tqdm(qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose):
+            cell_resolution = len(qtm_id)
+            if cell_resolution >= resolution:
+                expand_cells.append(qtm_id)
+            else:
+                expand_cells.extend(qtm.qtm_children(qtm_id, resolution))
+        return expand_cells
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("qtm", depth)
     expand_cells = []
-    for qtm_id in qtm_ids:
-        cell_resolution = len(qtm_id)
-        if cell_resolution >= resolution:
-            expand_cells.append(qtm_id)
-        else:
-            expand_cells.extend(
-                qtm.qtm_children(qtm_id, resolution)
-            )  # Expand to the target level
+    for qtm_id in tqdm(qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose):
+        try:
+            expand_cells.extend(qtm.qtm_children(qtm_id, len(qtm_id) + depth))
+        except Exception:
+            continue
     return expand_cells
 
 
 def qtmexpand(
     input_data,
-    resolution,
+    resolution=None,
     qtm_id="qtm",
     output_format="gpd",
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) QTM cells to a target resolution.
+    Expand (uncompact) QTM cells to a target resolution or by a relative depth.
 
-    Expands QTM cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing QTM cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of QTM cell IDs
-    resolution : int
-        Target QTM resolution to expand the cells to. Must be >= maximum input resolution.
-    qtm_id : str, default "qtm"
-        Name of the column containing QTM cell IDs.
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded QTM cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = qtmexpand("cells.geojson", resolution=3)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = qtmexpand(["A0"], resolution=3)
-
-    >>> # Expand to GeoJSON file
-    >>> result = qtmexpand("cells.geojson", resolution=3, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
     if qtm_id is None:
         qtm_id = "qtm"
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("qtm", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("qtm", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
 
     gdf = process_input_data_compact(input_data, qtm_id)
     qtm_ids = gdf[qtm_id].drop_duplicates().tolist()
@@ -388,26 +358,33 @@ def qtmexpand(
         return
 
     try:
-        max_res = max(len(qtm_id) for qtm_id in qtm_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-
-        qtm_ids_expand = qtm_expand(qtm_ids, resolution)
+        if resolution is not None:
+            max_res = max(len(qid) for qid in qtm_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            qtm_ids_expand = qtm_expand(qtm_ids, resolution=resolution, verbose=verbose)
+        else:
+            qtm_ids_expand = qtm_expand(qtm_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your QTM ID field and resolution."
+            "Expand cells failed. Please check your QTM ID field, resolution, or depth."
         )
 
     if not qtm_ids_expand:
         return None
 
     rows = []
-    for qtm_id_expand in qtm_ids_expand:
+    for qtm_id_expand in tqdm(
+        qtm_ids_expand,
+        desc="Building QTM expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = qtm2geo(qtm_id_expand)
-            cell_resolution = resolution
-            num_edges = 3  # QTM cells are triangular
+            cell_resolution = len(qtm_id_expand)
+            num_edges = 3
             row = geodesic_dggs_to_geoseries(
                 "qtm", qtm_id_expand, cell_resolution, cell_polygon, num_edges
             )
@@ -438,12 +415,21 @@ def qtmexpand_cli():
         required=True,
         help="Input QTM (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target QTM resolution to expand to (must be greater than input cells)",
+        help="Target QTM resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= QTM max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="QTM ID field")
     parser.add_argument(
@@ -455,18 +441,16 @@ def qtmexpand_cli():
         help="Output format",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-
     result = qtmexpand(
-        input_data,
-        resolution,
-        qtm_id=cellid,
-        output_format=output_format,
+        args.input,
+        resolution=args.resolution,
+        qtm_id=args.cellid,
+        output_format=args.output_format,
+        depth=args.depth,
+        verbose=args.verbose,
     )
 
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

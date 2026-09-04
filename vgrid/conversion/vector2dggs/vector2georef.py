@@ -47,8 +47,6 @@ def point2georef(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Convert point or multipoint geometries to GEOREF cells at ``resolution``."""
@@ -74,8 +72,6 @@ def polyline2georef(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GEOREF cells at ``resolution`` that intersect the line geometry."""
@@ -111,7 +107,6 @@ def polygon2georef(
     resolution,
     feature_properties=None,
     predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GEOREF cells at ``resolution`` using ``predicate`` against the polygon."""
@@ -199,8 +194,6 @@ def geodataframe2georef(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -210,8 +203,6 @@ def geodataframe2georef(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -222,7 +213,6 @@ def geodataframe2georef(
                     resolution=resolution,
                     feature_properties=props,
                     predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -240,7 +230,7 @@ def vector2georef(
     resolution=None,
     predicate=None,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     verbose=True,
     **kwargs,

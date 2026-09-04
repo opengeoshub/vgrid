@@ -104,8 +104,6 @@ def point2maidenhead(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Convert point or multipoint geometries to Maidenhead cells at ``resolution``."""
@@ -133,8 +131,6 @@ def polyline2maidenhead(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect cells from the bbox Maidenhead lattice that intersect the line."""
@@ -169,7 +165,6 @@ def polygon2maidenhead(
     resolution,
     feature_properties=None,
     predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect cells from the bbox Maidenhead lattice, filtered by ``predicate``."""
@@ -254,8 +249,6 @@ def geodataframe2maidenhead(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -265,8 +258,6 @@ def geodataframe2maidenhead(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -277,7 +268,6 @@ def geodataframe2maidenhead(
                     resolution=resolution,
                     feature_properties=props,
                     predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -295,7 +285,7 @@ def vector2maidenhead(
     resolution=None,
     predicate=None,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     verbose=True,
     **kwargs,

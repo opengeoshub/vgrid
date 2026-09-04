@@ -6,7 +6,7 @@ This module provides functionality to compact and expand H3 cells with flexible 
 Key Functions:
     h3_compact: Compact a list of H3 IDs with an optional parent depth
     h3compact: Compact a set of H3 cells to their covering set
-    h3expand: Expand (uncompact) H3 cells to a specified resolution
+    h3expand: Expand (uncompact) H3 cells to a target resolution or by depth
     h3compact_cli: Command-line interface for compaction
     h3expand_cli: Command-line interface for expansion
 """
@@ -19,12 +19,15 @@ import h3
 from tqdm import tqdm
 from vgrid.utils.geometry import geodesic_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
-    validate_h3_resolution,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.conversion.dggs2geo.h32geo import h32geo
@@ -61,6 +64,8 @@ def h3_compact(h3_ids, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted H3 cell IDs.
     """
+    depth = validate_dggs_compact_depth("h3", depth)
+
     def parent_fn(h3_id):
         cell_res = h3.get_resolution(h3_id)
         if cell_res <= 0:
@@ -76,6 +81,58 @@ def h3_compact(h3_ids, depth=-1, bags=None, verbose=True):
         verbose=verbose,
         desc="Compacting H3",
     )
+
+
+def h3_expand(h3_ids, resolution=None, depth=None, verbose=True):
+    """
+    Expand H3 cell IDs to a target resolution, or by a relative child depth.
+
+    When ``resolution`` is set, ``depth`` is ignored and all cells are uncompacted
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell (at any resolution) is expanded to its descendants
+    ``depth`` levels down (``1`` = direct children, ``2`` = grandchildren, and
+    so on).
+
+    Parameters
+    ----------
+    h3_ids : list of str
+        H3 cell IDs to expand. Mixed resolutions are allowed when expanding
+        by depth.
+    resolution : int, optional
+        Target H3 resolution to expand all cells to. When set, ``depth`` is
+        ignored.
+    depth : int, optional
+        Relative expansion depth (``1 <= depth <= max_res``). Used when
+        ``resolution`` is not set. ``1`` expands each cell to its direct
+        children; ``2`` to the next level, and so on.
+
+    Returns
+    -------
+    list of str
+        Expanded H3 cell IDs.
+
+    Examples
+    --------
+    >>> h3_ids = ["83754efffffffff"]
+    >>> expanded = h3_expand(h3_ids, resolution=5)
+    >>> children = h3_expand(h3_ids, depth=1)
+    >>> grandchildren = h3_expand(h3_ids, depth=2)
+    """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("h3", resolution)
+        return list(h3.uncompact_cells(h3_ids, resolution))
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("h3", depth)
+    h3_ids_expand = []
+    for h3_id in tqdm(h3_ids, desc="Expanding H3", unit=" cells", disable=not verbose):
+        try:
+            child_res = h3.get_resolution(h3_id) + depth
+            h3_ids_expand.extend(h3.cell_to_children(h3_id, child_res))
+        except Exception:
+            continue
+    return h3_ids_expand
 
 
 def h3compact(
@@ -299,18 +356,21 @@ def h3compact_cli():
 
 def h3expand(
     input_data,
-    resolution,
+    resolution=None,
     h3_id=None,
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) H3 cells to a target resolution.
+    Expand (uncompact) H3 cells to a target resolution or by a relative depth.
 
-    Expands H3 cells to their children at the specified resolution using the H3 library's
-    uncompact functionality. The target resolution must be greater than or equal to the
-    maximum resolution of the input cells.
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down
+    (``1`` = direct children, ``2`` = grandchildren, and so on).
 
     Parameters
     ----------
@@ -321,8 +381,9 @@ def h3expand(
         - GeoJSON dictionary
         - GeoDataFrame
         - List of H3 cell IDs
-    resolution : int
-        Target H3 resolution to expand the cells to. Must be >= maximum input resolution.
+    resolution : int, optional
+        Target H3 resolution to expand the cells to. Must be >= maximum input
+        resolution. When set, ``depth`` is ignored.
     h3_id : str, optional
         Name of the column containing H3 cell IDs. Defaults to "h3".
     output_format : str, default "gpd"
@@ -336,6 +397,10 @@ def h3expand(
         - "gpkg"/"geopackage": Returns GeoPackage file path
     verbose : bool, default True
         Show tqdm progress bars. Use ``False`` to hide them.
+    depth : int, optional
+        Relative expansion depth (``1 <= depth <= max_res``). Used when
+        ``resolution`` is not set. Each input cell is expanded ``depth``
+        levels: ``1`` = direct children, ``2`` = grandchildren, and so on.
 
     Returns
     -------
@@ -349,7 +414,11 @@ def h3expand(
     >>> print(f"Expanded to {len(result)} cells")
 
     >>> # Expand from list
-    >>> result = h3expand(["8e65b56628e0d07"], resolution=5)
+    >>> result = h3expand(["83754efffffffff"], resolution=5)
+
+    >>> # Expand mixed-resolution cells by relative depth
+    >>> result = h3expand(cells, depth=1)
+    >>> result = h3expand(cells, depth=2)
 
     >>> # Expand to GeoJSON file
     >>> result = h3expand("cells.geojson", resolution=5, output_format="geojson")
@@ -357,21 +426,29 @@ def h3expand(
     """
     if h3_id is None:
         h3_id = "h3"
-    resolution = validate_h3_resolution(resolution)
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("h3", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("h3", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
     gdf = process_input_data_compact(input_data, h3_id)
     h3_ids = gdf[h3_id].drop_duplicates().tolist()
     if not h3_ids:
         print(f"No H3 IDs found in <{h3_id}> field.")
         return
     try:
-        max_res = max(h3.get_resolution(hid) for hid in h3_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-        h3_ids_expand = h3.uncompact_cells(h3_ids, resolution)
+        if resolution is not None:
+            max_res = max(h3.get_resolution(hid) for hid in h3_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            h3_ids_expand = h3_expand(h3_ids, resolution=resolution, verbose=verbose)
+        else:
+            h3_ids_expand = h3_expand(h3_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your H3 ID field and resolution."
+            "Expand cells failed. Please check your H3 ID field, resolution, or depth."
         )
     if not h3_ids_expand:
         return None
@@ -420,12 +497,21 @@ def h3expand_cli():
         required=True,
         help="Input H3 (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target H3 resolution to expand to (must be greater than input cells)",
+        help="Target H3 resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= H3 max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="H3 ID field")
     parser.add_argument(
@@ -467,11 +553,12 @@ def h3expand_cli():
 
     result = h3expand(
         input_data,
-        resolution,
+        resolution=resolution,
         h3_id=cellid,
         output_format=output_format,
         fix_antimeridian=args.fix_antimeridian,
         verbose=args.verbose,
+        depth=args.depth,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)

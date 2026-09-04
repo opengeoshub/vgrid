@@ -48,7 +48,15 @@ from vgrid.conversion.vector2dggs.vector2isea4t import vector2isea4t
 
 file_path = ("https://raw.githubusercontent.com/opengeoshub/vopendata/main/shape/polygon.geojson")
 
-vector_to_isea4t = vector2isea4t(file_path, resolution=16, compact=False, predicate = "centroid_within", output_format="gpd")
+vector_to_isea4t = vector2isea4t(
+    file_path,
+    resolution=16,
+    compact=False,
+    depth=-1,  # used when compact=True; -1: full compact
+    predicate="centroid_within",
+    output_format="gpd",
+    verbose=True,
+)
 ```
 
 ### DGGS Compact
@@ -56,7 +64,12 @@ vector_to_isea4t = vector2isea4t(file_path, resolution=16, compact=False, predic
 ```python
 from vgrid.conversion.dggscompact.isea4tcompact import isea4tcompact
 
-isea4t_compacted = isea4tcompact(vector_to_isea4t,output_format="gpd")
+isea4t_compacted = isea4tcompact(
+    vector_to_isea4t,
+    depth=-1,  # -1: full compact
+    output_format="gpd",
+    verbose=True,
+)
 ```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggscompact_isea4t.png">
@@ -68,7 +81,13 @@ isea4t_compacted = isea4tcompact(vector_to_isea4t,output_format="gpd")
 ```python
 from vgrid.conversion.dggscompact.isea4tcompact import isea4texpand
 
-isea4t_expanded = isea4texpand(isea4t_compacted, resolution=17, output_format="gpd")   
+isea4t_expanded = isea4texpand(
+    isea4t_compacted,
+    resolution=17,  # if set, depth is ignored
+    # depth=1,  # 1: children
+    output_format="gpd",
+    verbose=True,
+)
 ```
 
 <div align="center">
@@ -84,7 +103,7 @@ from vgrid.conversion.dggsresample.dggsresample import dggsresample
 from vgrid.conversion.vector2dggs.vector2h3 import vector2h3
 
 file_path = "https://raw.githubusercontent.com/opengeoshub/vopendata/main/shape/polygon.geojson"
-h3_cells = vector2h3(file_path, resolution=10, output_format="gpd")
+h3_cells = vector2h3(file_path, resolution=10, output_format="gpd", verbose=True)
 s2_resampled = dggsresample(
     h3_cells,
     dggs_from="h3",
@@ -93,6 +112,7 @@ s2_resampled = dggsresample(
     method="area_weighted",
     predicate="centroid_within",
     output_format="gpd",
+    verbose=True,
 )
 ```
 
@@ -109,7 +129,7 @@ agg="count"
 h3_bin = h3bin(file_path, resolution=10, agg=agg, 
                 # numeric_col="confidence",
                 # category="category",
-                output_format="gpd")
+                output_format="gpd", verbose=True)
 ```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsbinning_h3.png">
@@ -124,7 +144,7 @@ from vgrid.utils.io import download_file
 
 raster_url = ("https://raw.githubusercontent.com/opengeoshub/vopendata/main/raster/rgb.tif")
 raster_file = download_file(raster_url)
-raster_to_h3 =  raster2h3(raster_file,output_format="gpd")
+raster_to_h3 = raster2h3(raster_file, output_format="gpd", verbose=True)
 ```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/raster2dggs_h3.png">
@@ -136,7 +156,7 @@ raster_to_h3 =  raster2h3(raster_file,output_format="gpd")
 ```python
 from vgrid.generator.h3grid import h3grid
 
-h3_grid = h3grid(resolution=0, output_format="gpd")
+h3_grid = h3grid(resolution=0, output_format="gpd", verbose=True)
 ```
 <div align="center">
   <img src="https://raw.githubusercontent.com/thangqd/vgridtools/main/images/readme/dggsgenerator_h3.png">

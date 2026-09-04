@@ -45,8 +45,6 @@ def point2gars(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Convert point or multipoint geometries to GARS cells at ``resolution``."""
@@ -72,8 +70,6 @@ def polyline2gars(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GARS cells at ``resolution`` that intersect the line geometry."""
@@ -112,7 +108,6 @@ def polygon2gars(
     resolution,
     feature_properties=None,
     predicate=None,
-    topology=False,
     include_properties=True,
 ):
     """Collect GARS cells at ``resolution`` using ``predicate`` against the polygon."""
@@ -203,8 +198,6 @@ def geodataframe2gars(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -214,8 +207,6 @@ def geodataframe2gars(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -226,7 +217,6 @@ def geodataframe2gars(
                     resolution=resolution,
                     feature_properties=props,
                     predicate=predicate,
-                    topology=topology,
                     include_properties=include_properties,
                 )
             )
@@ -244,7 +234,7 @@ def vector2gars(
     resolution=None,
     predicate=None,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     verbose=True,
     **kwargs,

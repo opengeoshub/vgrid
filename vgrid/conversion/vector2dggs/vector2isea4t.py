@@ -28,6 +28,7 @@ from vgrid.utils.io import (
     convert_to_output_format,
     DGGS_TYPES,
     add_verbose_argument,
+    add_compact_depth_argument,
 )
 import platform
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
@@ -54,12 +55,8 @@ def point2isea4t(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
-    verbose=True,
 ):
     """
     Convert a point geometry to ISEA4T grid cells.
@@ -79,8 +76,6 @@ def point2isea4t(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable ISEA4T compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by geodataframe2isea4t).
     include_properties : bool, optional
         Whether to include properties in output.
     fix_antimeridian (str, optional): Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
@@ -133,12 +128,8 @@ def polyline2isea4t(
     feature,
     resolution,
     feature_properties=None,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     fix_antimeridian=None,
-    verbose=True,
 ):
     """
     Convert a polyline geometry to ISEA4T grid cells.
@@ -205,7 +196,7 @@ def polygon2isea4t(
     feature_properties=None,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
@@ -272,7 +263,7 @@ def polygon2isea4t(
             # Extract cell IDs from isea4t_rows
             cells_to_process = [row.get("isea4t") for row in isea4t_rows]
             # Apply compact
-            cells_to_process = isea4t_compact(cells_to_process, verbose=verbose)
+            cells_to_process = isea4t_compact(cells_to_process, depth=depth, verbose=verbose)
             # Rebuild isea4t_rows with compacted cells
             isea4t_rows = []
             for cell_id in cells_to_process:
@@ -293,6 +284,7 @@ def geodataframe2isea4t(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
     fix_antimeridian=None,
@@ -379,9 +371,6 @@ def geodataframe2isea4t(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
-                    topology=topology,  # Topology already processed above
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -393,8 +382,6 @@ def geodataframe2isea4t(
                     feature=geom,
                     resolution=resolution,
                     feature_properties=props,
-                    predicate=predicate,
-                    compact=compact,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                 )
@@ -407,6 +394,7 @@ def geodataframe2isea4t(
                     feature_properties=props,
                     predicate=predicate,
                     compact=compact,
+                    depth=depth,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
@@ -426,10 +414,11 @@ def vector2isea4t(
     predicate=None,
     compact=False,
     topology=False,
-    output_format="gpd",
+    output_format='gpd',
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -469,6 +458,7 @@ def vector2isea4t(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         fix_antimeridian,
@@ -553,6 +543,7 @@ def vector2isea4t_cli():
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_compact_depth_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()
 
@@ -564,6 +555,7 @@ def vector2isea4t_cli():
                 resolution=args.resolution,
                 predicate=args.predicate,
                 compact=args.compact,
+            depth=args.depth,
                 topology=args.topology,
                 output_format=args.output_format,
                 include_properties=args.include_properties,

@@ -1,0 +1,15 @@
+::: vgrid.conversion.dggscompact
+::: vgrid.conversion.dggscompact.h3compact
+::: vgrid.conversion.dggscompact.s2compact
+::: vgrid.conversion.dggscompact.a5compact
+::: vgrid.conversion.dggscompact.rhealpixcompact
+::: vgrid.conversion.dggscompact.dggalcompact
+::: vgrid.conversion.dggscompact.isea4tcompact
+::: vgrid.conversion.dggscompact.isea3hcompact
+::: vgrid.conversion.dggscompact.easecompact
+::: vgrid.conversion.dggscompact.qtmcompact
+::: vgrid.conversion.dggscompact.olccompact
+::: vgrid.conversion.dggscompact.geohashcompact
+::: vgrid.conversion.dggscompact.tilecodecompact
+::: vgrid.conversion.dggscompact.quadkeycompact
+::: vgrid.conversion.dggscompact.digipincompact

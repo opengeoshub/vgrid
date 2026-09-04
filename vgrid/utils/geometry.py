@@ -699,6 +699,17 @@ def accumulate_raster_pixels(
     return acc, band_count
 
 
+def strip_duplicate_and_collinear_vertices(polyline):
+    """Drop consecutive duplicate vertices, then collinear vertices (Shapely)."""
+    cleaned = shapely.remove_repeated_points(polyline, tolerance=0)
+    if cleaned.is_empty:
+        return []
+    cleaned = cleaned.simplify(0, preserve_topology=False)
+    if cleaned.is_empty:
+        return []
+    return list(cleaned.coords)
+
+
 def shortest_point_distance(points):
     """
     Calculate distances between points in a Shapely geometry.

@@ -6,7 +6,7 @@ This module provides functionality to compact and expand Geohash cells with flex
 Key Functions:
     geohash_compact: Compact a list of Geohash IDs with an optional parent depth
     geohashcompact: Compact a set of Geohash cells to their covering set
-    geohashexpand: Expand (uncompact) a set of Geohash cells to a target resolution
+    geohashexpand: Expand (uncompact) Geohash cells to a target resolution or by depth
     geohashcompact_cli: Command-line interface for compaction
     geohashexpand_cli: Command-line interface for expansion
 """
@@ -19,11 +19,15 @@ from tqdm import tqdm
 from vgrid.conversion.dggs2geo.geohash2geo import geohash2geo
 from vgrid.utils.geometry import graticule_dggs_to_geoseries
 from vgrid.utils.io import (
+    add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
     prepare_compact_bags,
     process_input_data_compact,
+    validate_dggs_compact_depth,
+    validate_dggs_expand_depth,
+    validate_dggs_expand_resolution,
 )
 from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import geohash
@@ -65,6 +69,7 @@ def geohash_compact(geohash_ids, depth=-1, bags=None, verbose=True):
     list of str
         Sorted compacted Geohash cell IDs.
     """
+    depth = validate_dggs_compact_depth("geohash", depth)
 
     def parent_fn(geohash_id):
         if len(geohash_id) <= 1:
@@ -283,97 +288,66 @@ def geohashcompact_cli():
         print(result)
 
 
-def geohash_expand(geohash_ids, resolution):
+def geohash_expand(geohash_ids, resolution=None, depth=None, verbose=True):
     """
-    Expand a list of Geohash cells to the target resolution.
+    Expand Geohash cell IDs to a target resolution, or by a relative child depth.
 
-    Takes Geohash cells and expands them to their children at the specified resolution.
-
-    Parameters
-    ----------
-    geohash_ids : list of str
-        List of Geohash cell IDs to expand.
-    resolution : int
-        Target resolution to expand the cells to.
-
-    Returns
-    -------
-    list of str
-        List of expanded Geohash cell IDs at the target resolution.
-
-    Examples
-    --------
-    >>> geohash_ids = ["w3gvk1td8"]
-    >>> expanded = geohash_expand(geohash_ids, 5)
-    >>> print(f"Expanded to {len(expanded)} cells at resolution 5")
+    When ``resolution`` is set, ``depth`` is ignored and all cells are expanded
+    to that absolute resolution. When only ``depth`` is set, ``resolution`` is
+    ignored and each cell is expanded ``depth`` levels down (``1`` = direct
+    children, ``2`` = grandchildren, and so on).
     """
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("geohash", resolution)
+        expand_cells = []
+        for geohash_id in tqdm(geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose):
+            cell_resolution = len(geohash_id)
+            if cell_resolution >= resolution:
+                expand_cells.append(geohash_id)
+            else:
+                expand_cells.extend(
+                    geohash.geohash_children(geohash_id, resolution)
+                )
+        return expand_cells
+
+    if depth is None:
+        raise ValueError("Either resolution or depth must be specified.")
+    depth = validate_dggs_expand_depth("geohash", depth)
     expand_cells = []
-    for geohash_id in geohash_ids:
-        cell_resolution = len(geohash_id)
-        if cell_resolution >= resolution:
-            expand_cells.append(geohash_id)
-        else:
+    for geohash_id in tqdm(geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose):
+        try:
             expand_cells.extend(
-                geohash.geohash_children(geohash_id, resolution)
-            )  # Expand to the target level
+                geohash.geohash_children(geohash_id, len(geohash_id) + depth)
+            )
+        except Exception:
+            continue
     return expand_cells
 
 
 def geohashexpand(
     input_data,
-    resolution,
+    resolution=None,
     geohash_id=None,
     output_format="gpd",
+    verbose=True,
+    depth=None,
 ):
     """
-    Expand (uncompact) Geohash cells to a target resolution.
+    Expand (uncompact) Geohash cells to a target resolution or by a relative depth.
 
-    Expands Geohash cells to their children at the specified resolution. The target resolution
-    must be greater than or equal to the maximum resolution of the input cells.
-
-    Parameters
-    ----------
-    input_data : str, dict, geopandas.GeoDataFrame, or list
-        Input data containing Geohash cell IDs. Can be:
-        - File path (GeoJSON, Shapefile, CSV, Parquet)
-        - URL to a file
-        - GeoJSON dictionary
-        - GeoDataFrame
-        - List of Geohash cell IDs
-    resolution : int
-        Target Geohash resolution to expand the cells to. Must be >= maximum input resolution.
-    geohash_id : str, optional
-        Name of the column containing Geohash cell IDs. Defaults to "geohash".
-    output_format : str, default "gpd"
-        Output format. Options:
-        - "gpd": Returns GeoPandas GeoDataFrame (default)
-        - "csv": Returns CSV file path
-        - "geojson": Returns GeoJSON file path
-        - "geojson_dict": Returns GeoJSON FeatureCollection as Python dict
-        - "parquet": Returns Parquet file path
-        - "shapefile"/"shp": Returns Shapefile file path
-        - "gpkg"/"geopackage": Returns GeoPackage file path
-
-    Returns
-    -------
-    geopandas.GeoDataFrame or str or dict or None
-        The expanded Geohash cells in the specified format, or None if expansion fails.
-
-    Examples
-    --------
-    >>> # Expand from file
-    >>> result = geohashexpand("cells.geojson", resolution=5)
-    >>> print(f"Expanded to {len(result)} cells")
-
-    >>> # Expand from list
-    >>> result = geohashexpand(["w3gvk1td8"], resolution=5)
-
-    >>> # Expand to GeoJSON file
-    >>> result = geohashexpand("cells.geojson", resolution=5, output_format="geojson")
-    >>> print(f"Saved to: {result}")
+    When ``resolution`` is set, ``depth`` is ignored and cells are expanded to
+    that absolute resolution (must be >= the maximum input resolution). When
+    only ``depth`` is set, ``resolution`` is ignored: mixed-resolution input is
+    allowed and each cell is expanded to its descendants ``depth`` levels down.
     """
     if geohash_id is None:
         geohash_id = "geohash"
+    if resolution is not None:
+        resolution = validate_dggs_expand_resolution("geohash", resolution)
+    elif depth is not None:
+        depth = validate_dggs_expand_depth("geohash", depth)
+    else:
+        raise ValueError("Either resolution or depth must be specified.")
 
     gdf = process_input_data_compact(input_data, geohash_id)
     geohash_ids = gdf[geohash_id].drop_duplicates().tolist()
@@ -383,25 +357,32 @@ def geohashexpand(
         return
 
     try:
-        max_res = max(len(geohash_id) for geohash_id in geohash_ids)
-        if resolution < max_res:
-            print(f"Target expand resolution ({resolution}) must >= {max_res}.")
-            return None
-
-        geohash_ids_expand = geohash_expand(geohash_ids, resolution)
+        if resolution is not None:
+            max_res = max(len(gid) for gid in geohash_ids)
+            if resolution < max_res:
+                print(f"Target expand resolution ({resolution}) must >= {max_res}.")
+                return None
+            geohash_ids_expand = geohash_expand(geohash_ids, resolution=resolution, verbose=verbose)
+        else:
+            geohash_ids_expand = geohash_expand(geohash_ids, depth=depth, verbose=verbose)
     except Exception:
         raise Exception(
-            "Expand cells failed. Please check your Geohash ID field and resolution."
+            "Expand cells failed. Please check your Geohash ID field, resolution, or depth."
         )
 
     if not geohash_ids_expand:
         return None
 
     rows = []
-    for geohash_id_expand in geohash_ids_expand:
+    for geohash_id_expand in tqdm(
+        geohash_ids_expand,
+        desc="Building Geohash expand",
+        unit=" cells",
+        disable=not verbose,
+    ):
         try:
             cell_polygon = geohash2geo(geohash_id_expand)
-            cell_resolution = resolution
+            cell_resolution = len(geohash_id_expand)
             row = graticule_dggs_to_geoseries(
                 "geohash", geohash_id_expand, cell_resolution, cell_polygon
             )
@@ -432,12 +413,21 @@ def geohashexpand_cli():
         required=True,
         help="Input Geohash (GeoJSON, Shapefile, CSV, Parquet, or pickled GeoDataFrame .gpd/.geopandas)",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "-r",
         "--resolution",
         type=int,
-        required=True,
-        help="Target Geohash resolution to expand to (must be greater than input cells)",
+        help="Target Geohash resolution to expand to (must be >= maximum input resolution). "
+        "Ignores --depth.",
+    )
+    mode.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        help="Expand each cell by this many child levels (1 = direct children, "
+        "2 = grandchildren, ...; 1 <= depth <= Geohash max_res). "
+        "Mixed input resolutions are allowed. Ignores --resolution.",
     )
     parser.add_argument("-cellid", "--cellid", type=str, help="Geohash ID field")
     parser.add_argument(
@@ -449,18 +439,16 @@ def geohashexpand_cli():
         help="Output format",
     )
 
+    add_verbose_argument(parser)
     args = parser.parse_args()
-    input_data = args.input
-    resolution = args.resolution
-    cellid = args.cellid
-    output_format = args.output_format
-
     result = geohashexpand(
-        input_data,
-        resolution,
-        geohash_id=cellid,
-        output_format=output_format,
+        args.input,
+        resolution=args.resolution,
+        geohash_id=args.cellid,
+        output_format=args.output_format,
+        depth=args.depth,
+        verbose=args.verbose,
     )
 
-    if output_format in STRUCTURED_FORMATS:
+    if args.output_format in STRUCTURED_FORMATS:
         print(result)

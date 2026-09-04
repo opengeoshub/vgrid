@@ -27,6 +27,7 @@ from vgrid.utils.io import (
     validate_dggrid_resolution,
     create_dggrid_instance,
     add_verbose_argument,
+    add_compact_depth_argument,
 )
 from vgrid.conversion.latlon2dggs import latlon2dggrid
 from vgrid.conversion.dggs2geo.dggrid2geo import dggrid2geo
@@ -39,6 +40,7 @@ from vgrid.stats.dggridstats import dggrid_metrics, dggridstats
 from dggrid4py.dggrid_runner import output_address_types
 from vgrid.utils.io import process_input_data_vector, convert_to_output_format
 from vgrid.utils.constants import DGGRID_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.conversion.dggscompact.dggridcompact import dggridcompact
 
 geod = Geod(ellps="WGS84")
 
@@ -99,12 +101,9 @@ def point2dggrid(
     dggs_type,
     feature,
     resolution,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     feature_properties=None,
-    output_address_type="SEQNUM",
+    output_address_type='SEQNUM',
     split_antimeridian=False,
     aggregate=False,
     options=None,
@@ -129,8 +128,6 @@ def point2dggrid(
         Spatial predicate to apply (not used for points).
     compact : bool, optional
         Enable DGGRID compact mode (not used for points).
-    topology : bool, optional
-        Enable topology preserving mode (handled by ``geodataframe2dggrid``).
     include_properties : bool, optional
         Whether to include properties in output.
     feature_properties : dict, optional
@@ -205,12 +202,9 @@ def polyline2dggrid(
     dggs_type,
     feature,
     resolution,
-    predicate=None,
-    compact=False,
-    topology=False,
     include_properties=True,
     feature_properties=None,
-    output_address_type="SEQNUM ",
+    output_address_type='SEQNUM ',
     split_antimeridian=False,
     aggregate=False,
     options=None,
@@ -318,13 +312,14 @@ def polygon2dggrid(
     resolution,
     predicate=None,
     compact=False,
-    topology=False,
+    depth=-1,
     include_properties=True,
     feature_properties=None,
-    output_address_type="SEQNUM",
+    output_address_type='SEQNUM',
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    verbose=True,
 ):
     """
     Generate DGGRID cells intersecting with a given polygon or multipolygon geometry.
@@ -425,6 +420,27 @@ def polygon2dggrid(
     if split_antimeridian:
         if aggregate:
             final_grid = final_grid.dissolve(by="global_id", as_index=False)
+    if compact and not final_grid.empty:
+        id_col = (
+            output_address_type.lower()
+            if output_address_type != "SEQNUM"
+            else "seqnum"
+        )
+        compacted = dggridcompact(
+            dggrid_instance,
+            dggs_type,
+            final_grid,
+            resolution,
+            dggrid_id=id_col,
+            depth=depth,
+            output_format="gpd",
+            split_antimeridian=split_antimeridian,
+            aggregate=aggregate,
+            options=options,
+            verbose=verbose,
+        )
+        if compacted is not None:
+            final_grid = compacted
     return final_grid
 
 
@@ -435,9 +451,10 @@ def geodataframe2dggrid(
     resolution=None,
     predicate=None,
     compact=False,
+    depth=-1,
     topology=False,
     include_properties=True,
-    output_address_type="SEQNUM",
+    output_address_type='SEQNUM',
     split_antimeridian=False,
     aggregate=False,
     options=None,
@@ -527,9 +544,6 @@ def geodataframe2dggrid(
                 dggs_type,
                 geom,
                 resolution,
-                predicate=predicate,
-                compact=compact,
-                topology=False,  # topology already processed above
                 include_properties=include_properties,
                 feature_properties=props,
                 output_address_type=output_address_type,
@@ -546,12 +560,9 @@ def geodataframe2dggrid(
                 dggs_type,
                 geom,
                 resolution,
-                predicate,
-                compact,
-                topology,
-                include_properties,
-                props,
-                output_address_type,
+                include_properties=include_properties,
+                feature_properties=props,
+                output_address_type=output_address_type,
                 split_antimeridian=split_antimeridian,
                 aggregate=aggregate,
                 options=options,
@@ -567,13 +578,14 @@ def geodataframe2dggrid(
                 resolution,
                 predicate,
                 compact,
-                topology,
-                include_properties,
-                props,
-                output_address_type,
+                depth=depth,
+                include_properties=include_properties,
+                feature_properties=props,
+                output_address_type=output_address_type,
                 split_antimeridian=split_antimeridian,
                 aggregate=aggregate,
                 options=options,
+                verbose=verbose,
             )
             if not gdf_result.empty:
                 dggrid_rows.append(gdf_result)
@@ -597,12 +609,13 @@ def vector2dggrid(
     compact=False,
     topology=False,
     include_properties=True,
-    output_address_type="SEQNUM",
-    output_format="gpd",
+    output_address_type='SEQNUM',
+    output_format='gpd',
     split_antimeridian=False,
     aggregate=False,
     options=None,
     verbose=True,
+    depth=-1,
     **kwargs,
 ):
     """
@@ -639,6 +652,7 @@ def vector2dggrid(
         resolution,
         predicate,
         compact,
+        depth,
         topology,
         include_properties,
         output_address_type,
@@ -740,6 +754,7 @@ def vector2dggrid_cli():
         help="JSON string of options to pass to grid_cell_polygons_for_extent or grid_cell_polygons_from_cellids. "
         "Example: '{\"densification\": 2}'",
     )
+    add_compact_depth_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
@@ -761,6 +776,7 @@ def vector2dggrid_cli():
             resolution=args.resolution,
             predicate=args.predicate,
             compact=args.compact,
+            depth=args.depth,
             topology=args.topology,
             include_properties=args.include_properties,
             output_address_type=args.output_address_type,
