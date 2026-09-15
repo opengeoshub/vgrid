@@ -193,7 +193,6 @@ def polyline2s2(
     resolution,
     feature_properties=None,
     include_properties=True,
-    all_polylines=None,
     fix_antimeridian=None,
 ):
     """
@@ -257,7 +256,6 @@ def polygon2s2(
     compact=False,
     depth=-1,
     include_properties=True,
-    all_polygons=None,
     fix_antimeridian=None,
     verbose=True,
 ):
@@ -270,9 +268,7 @@ def polygon2s2(
         feature_properties (dict, optional): Properties to include in output features
         predicate (str, optional): Spatial predicate to apply ('intersect', 'within', 'centroid_within', 'largest_overlap')
         compact (bool, optional): Enable S2 compact mode to reduce cell count
-        topology (bool, optional): Enable topology preserving mode (handled by geodataframe2s2)
         include_properties (bool, optional): Whether to include properties in output
-        all_polygons (list, optional): List of all polygons for topology preservation (not used in this function)
 
     Returns:
         list: List of dictionaries representing S2 cells based on predicate
