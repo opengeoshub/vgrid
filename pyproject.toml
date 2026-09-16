@@ -15,7 +15,7 @@ authors = [
 ]
 urls = {Homepage = "https://github.com/opengeoshub/vgrid"}
 dependencies = [
-    "tqdm>=4.70.0",
+    "tqdm>=4.70.1",
     "h3>=4.5.0",
     "pya5>=0.10.0",
     "dggal~=0.0.6",
