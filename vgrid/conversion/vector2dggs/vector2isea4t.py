@@ -31,7 +31,11 @@ from vgrid.utils.io import (
     add_compact_depth_argument,
 )
 import platform
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 
 min_res = DGGS_TYPES["isea4t"]["min_res"]
 max_res = DGGS_TYPES["isea4t"]["max_res"]
@@ -43,7 +47,7 @@ if platform.system() == "Windows":
     from vgrid.dggs.eaggr.shapes.lat_long_point import LatLongPoint
     from vgrid.generator.isea4tgrid import get_isea4t_children_cells_within_bbox
     from vgrid.utils.constants import ISEA4T_RES_ACCURACY_DICT
-    from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+    from vgrid.utils.geometry import dggs_cell_row
     from vgrid.conversion.dggscompact.isea4tcompact import isea4t_compact
     from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
     from vgrid.stats.isea4tstats import isea4t_metrics
@@ -57,6 +61,7 @@ def point2isea4t(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to ISEA4T grid cells.
@@ -115,8 +120,13 @@ def point2isea4t(
         isea4t_id = isea4t_cell.get_cell_id()
         cell_polygon = isea4t2geo(isea4t_id, fix_antimeridian=fix_antimeridian)
         num_edges = 3
-        row = geodesic_dggs_to_geoseries(
-            "isea4t", isea4t_id, resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "isea4t",
+            isea4t_id,
+            resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         if include_properties and feature_properties:
             row.update(feature_properties)
@@ -130,6 +140,7 @@ def polyline2isea4t(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to ISEA4T grid cells.
@@ -181,8 +192,13 @@ def polyline2isea4t(
             if cell_polygon.intersects(polyline):
                 num_edges = 3
                 cell_resolution = len(isea4t_id) - 2
-                row = geodesic_dggs_to_geoseries(
-                    "isea4t", isea4t_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea4t",
+                    isea4t_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -200,6 +216,7 @@ def polygon2isea4t(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to ISEA4T grid cells.
@@ -251,8 +268,13 @@ def polygon2isea4t(
             if check_predicate(cell_polygon, polygon, predicate):
                 num_edges = 3
                 cell_resolution = len(isea4t_id) - 2
-                row = geodesic_dggs_to_geoseries(
-                    "isea4t", isea4t_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea4t",
+                    isea4t_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -263,15 +285,22 @@ def polygon2isea4t(
             # Extract cell IDs from isea4t_rows
             cells_to_process = [row.get("isea4t") for row in isea4t_rows]
             # Apply compact
-            cells_to_process = isea4t_compact(cells_to_process, depth=depth, verbose=verbose)
+            cells_to_process = isea4t_compact(
+                cells_to_process, depth=depth, verbose=verbose
+            )
             # Rebuild isea4t_rows with compacted cells
             isea4t_rows = []
             for cell_id in cells_to_process:
                 cell_polygon = isea4t2geo(cell_id, fix_antimeridian=fix_antimeridian)
                 num_edges = 3
                 cell_resolution = len(cell_id) - 2
-                row = geodesic_dggs_to_geoseries(
-                    "isea4t", cell_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea4t",
+                    cell_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -289,6 +318,7 @@ def geodataframe2isea4t(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to ISEA4T grid cells.
@@ -353,7 +383,9 @@ def geodataframe2isea4t(
 
     isea4t_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -373,6 +405,7 @@ def geodataframe2isea4t(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -384,6 +417,7 @@ def geodataframe2isea4t(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -398,6 +432,7 @@ def geodataframe2isea4t(
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -414,11 +449,12 @@ def vector2isea4t(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -463,6 +499,7 @@ def vector2isea4t(
         include_properties,
         fix_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -532,19 +569,19 @@ def vector2isea4t_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     # Allow running on all platforms
@@ -555,12 +592,13 @@ def vector2isea4t_cli():
                 resolution=args.resolution,
                 predicate=args.predicate,
                 compact=args.compact,
-            depth=args.depth,
+                depth=args.depth,
                 topology=args.topology,
                 output_format=args.output_format,
                 include_properties=args.include_properties,
                 fix_antimeridian=args.fix_antimeridian,
                 verbose=args.verbose,
+                cell_metrics=args.cell_metrics,
             )
             if args.output_format in STRUCTURED_FORMATS:
                 print(result)

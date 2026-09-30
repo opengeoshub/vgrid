@@ -66,6 +66,7 @@ def _format_norm_area_colorbar(cb_ax, vmin: float, vmax: float, vcenter: float =
         cb_ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
     cb_ax.tick_params(labelsize=14)
 
+
 # Import dggal library
 from dggal import *
 
@@ -335,11 +336,13 @@ def dggalinspect(
         resolution,
         output_format="gpd",
         split_antimeridian=split_antimeridian,
+        cell_metrics=True,
         verbose=verbose,
     )
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggal_gdf.crs.is_geographic:
+
         def _geod_area_perimeter(g):
             cell_area_perimeter = geod.geometry_area_perimeter(g)
             return pd.Series(
@@ -496,7 +499,9 @@ def dggal_norm_area(
     ax.axis("off")
     cb_ax = fig.axes[1]
     _format_norm_area_colorbar(cb_ax, vmin, vmax, vcenter)
-    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} Normalized Area", fontsize=14)
+    cb_ax.set_xlabel(
+        xlabel=f"{_format_dggs_type_label(dggs_type)} Normalized Area", fontsize=14
+    )
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -541,7 +546,9 @@ def dggal_compactness_ipq(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14)
+    cb_ax.set_xlabel(
+        xlabel=f"{_format_dggs_type_label(dggs_type)} IPQ Compactness", fontsize=14
+    )
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()
@@ -655,7 +662,9 @@ def dggal_compactness_cvh(
     ax.axis("off")
     cb_ax = fig.axes[1]
     cb_ax.tick_params(labelsize=14)
-    cb_ax.set_xlabel(xlabel=f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14)
+    cb_ax.set_xlabel(
+        xlabel=f"{_format_dggs_type_label(dggs_type)} CVH Compactness", fontsize=14
+    )
     ax.margins(0)
     ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
     plt.tight_layout()

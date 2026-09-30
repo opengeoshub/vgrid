@@ -11,6 +11,7 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 from vgrid.utils.io import (
     process_input_data_bin,
     convert_to_output_format,
@@ -30,6 +31,7 @@ def qtm_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_qtm_resolution(resolution)
@@ -50,7 +52,10 @@ def qtm_bin(
     from vgrid.generator.qtmgrid import qtm_grid_within_bbox
 
     grid_gdf = qtm_grid_within_bbox(
-        resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose
+        resolution=resolution,
+        bbox=(minx, miny, maxx, maxy),
+        cell_metrics=cell_metrics,
+        verbose=verbose,
     )
 
     # Spatial join points -> cells with only needed columns
@@ -79,7 +84,11 @@ def qtm_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def qtmbin(
@@ -90,6 +99,7 @@ def qtmbin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_qtm_resolution(resolution)
@@ -97,7 +107,16 @@ def qtmbin(
         raise ValueError(f"Invalid aggregation '{agg}'")
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
-    result_gdf = qtm_bin(data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs)
+    result_gdf = qtm_bin(
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
+    )
     output_name = None
     if output_format in OUTPUT_FORMATS:
         import os
@@ -162,6 +181,14 @@ def qtmbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = qtmbin(
@@ -172,6 +199,7 @@ def qtmbin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

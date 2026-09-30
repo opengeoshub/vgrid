@@ -17,7 +17,7 @@ import geopandas as gpd
 import re
 from tqdm import tqdm
 from vgrid.conversion.dggs2geo.ease2geo import ease2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries, get_ease_resolution
+from vgrid.utils.geometry import dggs_cell_row, get_ease_resolution
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -105,6 +105,7 @@ def easecompact(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact EASE cells to their covering set at a given parent depth.
@@ -208,8 +209,13 @@ def easecompact(
             cell_polygon = ease2geo(ease_id_compact)
             cell_resolution = get_ease_resolution(ease_id_compact)
             num_edges = 4  # EASE cells are rectangular
-            row = geodesic_dggs_to_geoseries(
-                "ease", ease_id_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "ease",
+                ease_id_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(ease_id_compact, []), agg)
             rows.append(row)
@@ -278,6 +284,13 @@ def easecompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -291,6 +304,7 @@ def easecompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if output_format in STRUCTURED_FORMATS:
@@ -308,7 +322,9 @@ def ease_expand(ease_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("ease", resolution)
         uncompacted_cells = []
-        for ease_id in tqdm(ease_ids, desc="Expanding EASE", unit=" cells", disable=not verbose):
+        for ease_id in tqdm(
+            ease_ids, desc="Expanding EASE", unit=" cells", disable=not verbose
+        ):
             ease_resolution = int(ease_id[1])
             if ease_resolution >= resolution:
                 uncompacted_cells.append(ease_id)
@@ -324,7 +340,9 @@ def ease_expand(ease_ids, resolution=None, depth=None, verbose=True):
     cells = list(ease_ids)
     for _ in range(depth):
         nxt = []
-        for ease_id in tqdm(cells, desc="Expanding EASE", unit=" cells", disable=not verbose):
+        for ease_id in tqdm(
+            cells, desc="Expanding EASE", unit=" cells", disable=not verbose
+        ):
             try:
                 match = re.match(r"L(\d+)\..+", ease_id)
                 res = int(match.group(1))
@@ -342,6 +360,7 @@ def easeexpand(
     output_format="gpd",
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) EASE cells to a target resolution or by a relative depth.
@@ -373,7 +392,9 @@ def easeexpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            ease_ids_expand = ease_expand(ease_ids, resolution=resolution, verbose=verbose)
+            ease_ids_expand = ease_expand(
+                ease_ids, resolution=resolution, verbose=verbose
+            )
         else:
             ease_ids_expand = ease_expand(ease_ids, depth=depth, verbose=verbose)
     except Exception:
@@ -395,8 +416,13 @@ def easeexpand(
             cell_polygon = ease2geo(ease_id_expand)
             cell_resolution = get_ease_resolution(ease_id_expand)
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "ease", ease_id_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "ease",
+                ease_id_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -452,6 +478,13 @@ def easeexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = easeexpand(
         args.input,
@@ -460,6 +493,7 @@ def easeexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if args.output_format in STRUCTURED_FORMATS:

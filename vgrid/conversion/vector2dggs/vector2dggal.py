@@ -30,7 +30,7 @@ from vgrid.utils.io import (
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS, DGGAL_TYPES
 from vgrid.utils.geometry import (
     check_predicate,
-    geodesic_dggs_to_geoseries,
+    dggs_cell_row,
     shortest_point_distance,
     strip_duplicate_and_collinear_vertices,
 )
@@ -73,6 +73,7 @@ def point2dggal(
     feature_properties=None,
     include_properties=True,
     split_antimeridian=False,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to DGGAL grid cells.
@@ -139,8 +140,13 @@ def point2dggal(
         cell_polygon = dggal2geo(
             dggs_type, zone_id, split_antimeridian=split_antimeridian
         )
-        row = geodesic_dggs_to_geoseries(
-            f"dggal_{dggs_type}", zone_id, cell_resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            f"dggal_{dggs_type}",
+            zone_id,
+            cell_resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         # Add properties if requested
         if include_properties and feature_properties:
@@ -170,9 +176,7 @@ def _dggal_segment_cells(
     end_id = latlon2dggal(dggs_type, end_y, end_x, resolution)
     end_pt = ShapelyPoint(end_x, end_y)
 
-    start_poly = dggal2geo(
-        dggs_type, start_id, split_antimeridian=split_antimeridian
-    )
+    start_poly = dggal2geo(dggs_type, start_id, split_antimeridian=split_antimeridian)
     if start_poly is None:
         return [end_id] if start_id != end_id else [start_id]
 
@@ -235,6 +239,7 @@ def polyline2dggal(
     feature_properties=None,
     include_properties=True,
     split_antimeridian=False,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to DGGAL cells by walking intersecting neighbors.
@@ -287,12 +292,13 @@ def polyline2dggal(
             zone = dggrs.getZoneFromTextID(cell_id)
             cell_resolution = dggrs.getZoneLevel(zone)
             num_edges = dggrs.countZoneEdges(zone)
-            row = geodesic_dggs_to_geoseries(
+            row = dggs_cell_row(
                 f"dggal_{dggs_type}",
                 cell_id,
                 cell_resolution,
                 cell_polygon,
                 num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -302,7 +308,7 @@ def polyline2dggal(
 
 
 def polygon2dggal(
-    dggs_type: str | None=None,
+    dggs_type: str | None = None,
     feature=None,
     resolution=None,
     feature_properties=None,
@@ -312,6 +318,7 @@ def polygon2dggal(
     include_properties=True,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     dggs_class_name = DGGAL_TYPES[dggs_type]["class_name"]
     dggrs = globals()[dggs_class_name]()
@@ -340,12 +347,13 @@ def polygon2dggal(
                     continue
                 cell_resolution = dggrs.getZoneLevel(zone)
                 num_edges = dggrs.countZoneEdges(zone)
-                row = geodesic_dggs_to_geoseries(
+                row = dggs_cell_row(
                     f"dggal_{dggs_type}",
                     zone_id,
                     cell_resolution,
                     cell_polygon,
                     num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -357,7 +365,9 @@ def polygon2dggal(
         # Create a GeoDataFrame from the current results
         temp_gdf = gpd.GeoDataFrame(dggal_rows, geometry="geometry", crs="EPSG:4326")
         # Use a5compact function directly
-        compacted_gdf = dggalcompact(dggs_type, temp_gdf, output_format="gpd", verbose=verbose, depth=depth)
+        compacted_gdf = dggalcompact(
+            dggs_type, temp_gdf, output_format="gpd", verbose=verbose, depth=depth
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -371,13 +381,14 @@ def geodataframe2dggal(
     dggs_type: str,
     gdf,
     resolution=None,
-    predicate: str | None=None,
-    compact: bool=False,
+    predicate: str | None = None,
+    compact: bool = False,
     depth=-1,
-    topology: bool=False,
-    include_properties: bool=True,
-    split_antimeridian: bool=False,
+    topology: bool = False,
+    include_properties: bool = True,
+    split_antimeridian: bool = False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to DGGAL grid cells.
@@ -440,7 +451,9 @@ def geodataframe2dggal(
     resolution = validate_dggal_resolution(dggs_type, resolution)
 
     dggal_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -461,6 +474,7 @@ def geodataframe2dggal(
                     props,
                     include_properties=include_properties,
                     split_antimeridian=split_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -473,6 +487,7 @@ def geodataframe2dggal(
                     props,
                     include_properties=include_properties,
                     split_antimeridian=split_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -488,6 +503,7 @@ def geodataframe2dggal(
                     include_properties=include_properties,
                     split_antimeridian=split_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(dggal_rows, geometry="geometry", crs="EPSG:4326")
@@ -497,14 +513,15 @@ def vector2dggal(
     dggs_type: str,
     vector_data,
     resolution=None,
-    predicate: str | None=None,
-    compact: bool=False,
-    topology: bool=False,
-    include_properties: bool=True,
-    output_format: str='gpd',
-    split_antimeridian: bool=False,
+    predicate: str | None = None,
+    compact: bool = False,
+    topology: bool = False,
+    include_properties: bool = True,
+    output_format: str = "gpd",
+    split_antimeridian: bool = False,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -551,6 +568,7 @@ def vector2dggal(
         include_properties,
         split_antimeridian=split_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     # Return or export
@@ -614,6 +632,13 @@ def vector2dggal_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -628,6 +653,7 @@ def vector2dggal_cli():
             include_properties=args.include_properties,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

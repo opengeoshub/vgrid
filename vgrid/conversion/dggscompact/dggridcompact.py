@@ -18,7 +18,7 @@ import geopandas as gpd
 from tqdm import tqdm
 from vgrid.generator.dggridgen import dggridgen
 from vgrid.conversion.dggs2geo.dggrid2geo import dggrid2geo
-from vgrid.utils.geometry import dggrid_num_edges, geodesic_dggs_metrics
+from vgrid.utils.geometry import dggrid_num_edges, dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -31,7 +31,12 @@ from vgrid.utils.io import (
     validate_dggs_compact_depth,
     validate_dggs_expand_depth,
 )
-from vgrid.utils.constants import AGG_OPTIONS, DGGRID_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    DGGRID_TYPES,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+)
 
 
 def _extract_geom(cell_gdf):
@@ -83,12 +88,11 @@ def _cells_to_gdf(
     options=None,
     verbose=True,
     desc="Building DGGRID cells",
+    cell_metrics=False,
 ):
     rows = []
     id_col = f"dggrid_{dggs_type.lower()}"
-    for cell_id in tqdm(
-        cell_ids, desc=desc, unit=" cells", disable=not verbose
-    ):
+    for cell_id in tqdm(cell_ids, desc=desc, unit=" cells", disable=not verbose):
         try:
             geom, cell_resolution = _resolve_cell_geometry(
                 dggrid_instance,
@@ -101,20 +105,15 @@ def _cells_to_gdf(
             )
             if geom is None or cell_resolution is None:
                 continue
-            centroid_lat, centroid_lon, avg_edge_len, cell_area, cell_perimeter = (
-                geodesic_dggs_metrics(geom, dggrid_num_edges(dggs_type))
-            )
             rows.append(
-                {
-                    id_col: cell_id,
-                    "resolution": cell_resolution,
-                    "center_lat": centroid_lat,
-                    "center_lon": centroid_lon,
-                    "avg_edge_len": avg_edge_len,
-                    "cell_area": cell_area,
-                    "cell_perimeter": cell_perimeter,
-                    "geometry": geom,
-                }
+                dggs_cell_row(
+                    id_col,
+                    cell_id,
+                    cell_resolution,
+                    geom,
+                    dggrid_num_edges(dggs_type),
+                    cell_metrics=cell_metrics,
+                )
             )
         except Exception:
             continue
@@ -343,6 +342,7 @@ def dggridcompact(
     aggregate=False,
     options=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact DGGRID cells to their covering set at a given parent depth.
@@ -389,6 +389,7 @@ def dggridcompact(
         options=options,
         verbose=verbose,
         desc="Building DGGRID compact",
+        cell_metrics=cell_metrics,
     )
     id_col = f"dggrid_{dggs_type.lower()}"
     if not out_gdf.empty and id_col in out_gdf.columns:
@@ -419,6 +420,7 @@ def dggridexpand(
     options=None,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) DGGRID cells to a target resolution or by a relative depth.
@@ -471,6 +473,7 @@ def dggridexpand(
         options=options,
         verbose=verbose,
         desc="Building DGGRID expand",
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -543,6 +546,13 @@ def dggridcompact_cli():
         default=True,
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     options = None
@@ -568,6 +578,7 @@ def dggridcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)
@@ -619,6 +630,13 @@ def dggridexpand_cli():
         help="JSON string options for dggrid2geo/dggridgen",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     options = None
@@ -643,6 +661,7 @@ def dggridexpand_cli():
         options=options,
         verbose=args.verbose,
         depth=args.depth,
+        cell_metrics=args.cell_metrics,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

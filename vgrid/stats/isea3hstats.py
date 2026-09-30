@@ -166,7 +166,11 @@ def isea3hinspect(resolution: int, fix_antimeridian: None = None, verbose=True):
     # Allow running on all platforms
 
     isea3h_gdf = isea3hgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
+        resolution,
+        output_format="gpd",
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=True,
+        verbose=verbose,
     )  # remove cells that cross the Antimeridian
     isea3h_gdf["crossed"] = isea3h_gdf["geometry"].apply(check_crossing_geom)
     isea3h_gdf = isea3h_gdf[
@@ -530,7 +534,11 @@ def isea3hinspect_cli():
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     split_antimeridian = args.split_antimeridian
-    print(isea3hinspect(resolution, split_antimeridian=split_antimeridian, verbose=args.verbose))
+    print(
+        isea3hinspect(
+            resolution, split_antimeridian=split_antimeridian, verbose=args.verbose
+        )
+    )
 
 
 if __name__ == "__main__":

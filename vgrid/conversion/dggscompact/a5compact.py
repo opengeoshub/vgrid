@@ -18,7 +18,7 @@ import geopandas as gpd
 import a5
 from tqdm import tqdm
 from vgrid.conversion.dggs2geo.a52geo import a52geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -132,7 +132,9 @@ def a5_expand(a5_hexes, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("a5", depth)
     a5_hexes_expand = []
-    for a5_hex in tqdm(a5_hexes, desc="Expanding A5", unit=" cells", disable=not verbose):
+    for a5_hex in tqdm(
+        a5_hexes, desc="Expanding A5", unit=" cells", disable=not verbose
+    ):
         try:
             u = a5.hex_to_u64(a5_hex)
             child_res = a5.get_resolution(u) + depth
@@ -154,6 +156,7 @@ def a5compact(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact A5 cells to their covering set at a given parent depth.
@@ -265,8 +268,13 @@ def a5compact(
             num_edges = 5  # A5 cells are pentagons
             if cell_resolution == 1:
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "a5", a5_hex_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "a5",
+                a5_hex_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(a5_hex_compact, []), agg)
             rows.append(row)
@@ -344,6 +352,13 @@ def a5compact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -369,6 +384,7 @@ def a5compact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -383,6 +399,7 @@ def a5expand(
     split_antimeridian=False,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) A5 cells to a target resolution or by a relative depth.
@@ -469,7 +486,9 @@ def a5expand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            a5_hexes_expand = a5_expand(a5_hexes, resolution=resolution, verbose=verbose)
+            a5_hexes_expand = a5_expand(
+                a5_hexes, resolution=resolution, verbose=verbose
+            )
         else:
             a5_hexes_expand = a5_expand(a5_hexes, depth=depth, verbose=verbose)
     except Exception:
@@ -493,8 +512,13 @@ def a5expand(
             num_edges = 5  # A5 cells are pentagons
             if cell_resolution == 1:
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "a5", a5_hex_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "a5",
+                a5_hex_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -563,6 +587,13 @@ def a5expand_cli():
         "Example: '{\"segments\": 1000}'",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     resolution = args.resolution
@@ -588,6 +619,7 @@ def a5expand_cli():
         split_antimeridian=split_antimeridian,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)

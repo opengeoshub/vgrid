@@ -15,7 +15,7 @@ import geopandas as gpd
 from tqdm import tqdm
 from vgrid.dggs import mercantile
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_bbox,
     validate_quadkey_resolution,
@@ -35,20 +35,26 @@ def _quadkey_ids_for_bbox(resolution, bbox):
     ]
 
 
-def quadkey_grid(resolution, bbox, compact=False, verbose=True):
+def quadkey_grid(resolution, bbox, compact=False, cell_metrics=False, verbose=True):
     resolution = validate_quadkey_resolution(resolution)
     quadkey_ids = _quadkey_ids_for_bbox(resolution, bbox)
     if compact:
         quadkey_ids = quadkey_compact(quadkey_ids, verbose=verbose)
 
     quadkey_records = []
-    for quadkey_id in tqdm(quadkey_ids, desc="Generating Quadkey DGGS", unit=" cells", disable=not verbose):
+    for quadkey_id in tqdm(
+        quadkey_ids, desc="Generating Quadkey DGGS", unit=" cells", disable=not verbose
+    ):
         cell_polygon = quadkey2geo(quadkey_id)
         if cell_polygon is None or cell_polygon.is_empty:
             continue
         cell_resolution = quadkey_resolution(quadkey_id)
-        quadkey_record = graticule_dggs_to_geoseries(
-            "quadkey", quadkey_id, cell_resolution, cell_polygon
+        quadkey_record = dggs_cell_row(
+            "quadkey",
+            quadkey_id,
+            cell_resolution,
+            cell_polygon,
+            cell_metrics=cell_metrics,
         )
         quadkey_records.append(quadkey_record)
     return gpd.GeoDataFrame(quadkey_records, geometry="geometry", crs="EPSG:4326")
@@ -77,7 +83,14 @@ def quadkey_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     return quadkey_ids
 
 
-def quadkeygrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
+def quadkeygrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     """
     Generate Quadkey grid for pure Python usage.
 
@@ -98,7 +111,9 @@ def quadkeygrid(resolution, bbox=None, output_format="gpd", compact=False, verbo
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = quadkey_grid(resolution, bbox, compact=compact, verbose=verbose)
+    gdf = quadkey_grid(
+        resolution, bbox, compact=compact, cell_metrics=cell_metrics, verbose=verbose
+    )
 
     output_name = f"quadkey_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -130,6 +145,14 @@ def quadkeygrid_cli():
         help="Enable Quadkey compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180.0, -85.05112878, 180.0, 85.05112878]
@@ -144,7 +167,14 @@ def quadkeygrid_cli():
             print("Please select a smaller resolution and try again.")
             return
     try:
-        result = quadkeygrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
+        result = quadkeygrid(
+            resolution,
+            bbox,
+            args.output_format,
+            compact=args.compact,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

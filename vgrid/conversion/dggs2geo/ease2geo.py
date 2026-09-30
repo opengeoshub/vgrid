@@ -17,7 +17,7 @@ import argparse
 from shapely.geometry import Polygon
 from ease_dggs.constants import levels_specs
 from ease_dggs.dggs.grid_addressing import grid_ids_to_geos
-from vgrid.utils.geometry import geodesic_dggs_to_feature, get_ease_resolution
+from vgrid.utils.geometry import dggs_geojson_feature, get_ease_resolution
 
 
 def ease2geo(ease_ids):
@@ -98,7 +98,7 @@ def ease2geo_cli():
     return polys
 
 
-def ease2geojson(ease_ids):
+def ease2geojson(ease_ids, cell_metrics=False):
     """
     Convert a list of EASE-DGGS codes to GeoJSON FeatureCollection.
 
@@ -136,8 +136,8 @@ def ease2geojson(ease_ids):
             cell_polygon = ease2geo(ease_id)
             resolution = get_ease_resolution(ease_id)
             num_edges = 4
-            ease_feature = geodesic_dggs_to_feature(
-                "ease", ease_id, resolution, cell_polygon, num_edges
+            ease_feature = dggs_geojson_feature(
+                "ease", ease_id, resolution, cell_polygon, cell_metrics, num_edges
             )
             ease_features.append(ease_feature)
         except Exception:
@@ -155,6 +155,13 @@ def ease2geojson_cli():
         nargs="+",
         help="Input EASE-DGGS code(s), e.g., ease2geojson L4.165767.02.02.20.71 ...",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(ease2geojson(args.ease))
+    geojson_data = json.dumps(ease2geojson(args.ease, cell_metrics=args.cell_metrics))
     print(geojson_data)

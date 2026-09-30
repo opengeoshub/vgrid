@@ -165,7 +165,9 @@ def maidenheadinspect(resolution: int, verbose=True):
             - zsc: Zonal Standardized Compactness
     """
     resolution = validate_maidenhead_resolution(resolution)
-    maidenhead_gdf = maidenheadgrid(resolution, output_format="gpd", verbose=verbose)
+    maidenhead_gdf = maidenheadgrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     maidenhead_gdf["crossed"] = maidenhead_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = maidenhead_gdf["cell_area"].mean()
     mean_area = AUTHALIC_AREA / maidenhead.num_cells(resolution)

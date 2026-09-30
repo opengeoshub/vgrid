@@ -10,6 +10,7 @@ Key Functions:
 """
 
 from shapely.geometry import box
+from vgrid.utils.geometry import apply_bin_cell_metrics, dggrid_num_edges
 import argparse
 import json
 import geopandas as gpd
@@ -49,6 +50,7 @@ def generate_grid(
     aggregate=False,
     options=None,
     compact=False,
+    cell_metrics=False,
     verbose=True,
 ):
     dggs_type = validate_dggrid_type(dggs_type)
@@ -103,7 +105,9 @@ def generate_grid(
         )
 
         cell_ids = dggrid_gdf["global_id"].tolist()
-        compact_ids = dggrid_compact(dggrid_instance, dggs_type, cell_ids, resolution, verbose=verbose)
+        compact_ids = dggrid_compact(
+            dggrid_instance, dggs_type, cell_ids, resolution, verbose=verbose
+        )
         dggrid_gdf = _cells_to_gdf(
             dggrid_instance,
             dggs_type,
@@ -118,6 +122,32 @@ def generate_grid(
         if id_col in dggrid_gdf.columns:
             dggrid_gdf = dggrid_gdf.rename(columns={id_col: "global_id"})
 
+    if (
+        cell_metrics
+        and dggrid_gdf is not None
+        and not getattr(dggrid_gdf, "empty", True)
+    ):
+        id_col = next(
+            (
+                name
+                for name in (
+                    f"dggrid_{str(dggs_type).lower()}",
+                    "global_id",
+                    "seqnum",
+                    "name",
+                )
+                if name in dggrid_gdf.columns
+            ),
+            None,
+        )
+        dggrid_gdf = apply_bin_cell_metrics(
+            dggrid_gdf,
+            True,
+            geodesic=True,
+            num_edges=dggrid_num_edges(dggs_type),
+            id_col=id_col,
+            resolution=resolution,
+        )
     return dggrid_gdf
 
 
@@ -132,6 +162,7 @@ def dggridgen(
     aggregate=False,
     options=None,
     compact=False,
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -166,6 +197,7 @@ def dggridgen(
         aggregate=aggregate,
         options=options,
         compact=compact,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
     output_name = f"dggrid_{dggs_type}_{resolution}"
@@ -233,6 +265,14 @@ def dggridgen_cli():
         help="Enable DGGRID compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     dggrid_instance = create_dggrid_instance()
@@ -263,6 +303,7 @@ def dggridgen_cli():
             aggregate=args.aggregate,
             options=options,
             compact=args.compact,
+            cell_metrics=args.cell_metrics,
             verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:

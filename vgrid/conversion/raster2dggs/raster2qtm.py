@@ -20,6 +20,8 @@ from vgrid.stats.qtmstats import qtm_metrics
 from vgrid.conversion.latlon2dggs import latlon2qtm
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 from vgrid.utils.geometry import (
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
     nearest_neighbour_from_grid,
@@ -111,31 +113,52 @@ def get_nearest_qtm_resolution(raster_path):
     return cell_size, nearest_resolution
 
 
-def _raster2qtm_nearest_neighbour(raster_path, resolution,
+def _raster2qtm_nearest_neighbour(
+    raster_path,
+    resolution,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
-    grid_gdf = generate_grid(footprint, "qtm", resolution, verbose=verbose)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    grid_gdf = generate_grid(
+        footprint, "qtm", resolution, cell_metrics=cell_metrics, verbose=verbose
+    )
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
-def _raster2qtm_binning(raster_path, resolution, stats,
+def _raster2qtm_binning(
+    raster_path,
+    resolution,
+    stats,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return latlon2qtm(lat, lon, resolution)
 
     qtm_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to QTM", verbose=verbose
+        raster_path,
+        cell_id,
+        stats,
+        desc="Binning raster blocks to QTM",
+        verbose=verbose,
     )
 
     properties = []
     for qtm_id, acc in tqdm(
-        qtm_acc.items(), desc="Converting raster to QTM", unit=" cells",
+        qtm_acc.items(),
+        desc="Converting raster to QTM",
+        unit=" cells",
         disable=not verbose,
     ):
         cell_polygon = qtm2geo(qtm_id)
-        base_props = {"qtm": qtm_id, "geometry": cell_polygon}
+        base_props = dggs_cell_row(
+            "qtm", qtm_id, resolution, cell_polygon, 3, cell_metrics=cell_metrics
+        )
         band_values = finalize_dggs_band_values(acc, stats)
         band_props = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
         base_props.update(band_props)
@@ -147,7 +170,12 @@ def _raster2qtm_binning(raster_path, resolution, stats,
 
 
 def raster2qtm(
-    raster_path, resolution=None, output_format="gpd", method="binning", stats="mean",
+    raster_path,
+    resolution=None,
+    output_format="gpd",
+    method="binning",
+    stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -210,9 +238,13 @@ def raster2qtm(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2qtm_binning(raster_path, resolution, stats, verbose=verbose)
+        gdf = _raster2qtm_binning(
+            raster_path, resolution, stats, cell_metrics=cell_metrics, verbose=verbose
+        )
     else:
-        gdf = _raster2qtm_nearest_neighbour(raster_path, resolution, verbose=verbose)
+        gdf = _raster2qtm_nearest_neighbour(
+            raster_path, resolution, cell_metrics=cell_metrics, verbose=verbose
+        )
 
     if gdf.empty:
         raise ValueError("No QTM cells were produced from the raster.")
@@ -261,6 +293,14 @@ def raster2qtm_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -272,6 +312,7 @@ def raster2qtm_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

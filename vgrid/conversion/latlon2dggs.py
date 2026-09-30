@@ -27,9 +27,6 @@ import a5
 from dggal import *
 
 from gars_field.garsgrid import GARSGrid
-from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.dggs.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
-
 import platform
 import argparse
 
@@ -246,7 +243,7 @@ def latlon2a5_cli():
     print(a5_hex)
 
 
-def latlon2rhealpix(lat, lon, res):
+def latlon2rhealpix(lat, lon, res, N_side=3):
     """
     Convert latitude and longitude to RHEALPix cell identifier.
 
@@ -254,6 +251,7 @@ def latlon2rhealpix(lat, lon, res):
         lat (float): Latitude in decimal degrees
         lon (float): Longitude in decimal degrees
         res (int): RHEALPix resolution level [0-15]
+        N_side (int, optional): Children per cell edge (2 or 3). Defaults to 3.
 
     Returns:
         str: RHEALPix cell identifier
@@ -262,9 +260,10 @@ def latlon2rhealpix(lat, lon, res):
         >>> latlon2rhealpix(10.775275567242561, 106.70679737574993, 8)
         'N:1:8:1:2:3:4:5:6:7:8'
     """
+    from vgrid.utils.io import get_rhealpix_dggs
+
     res = validate_rhealpix_resolution(res)
-    E = WGS84_ELLIPSOID
-    rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     point = (lon, lat)
     rhealpix_cell = rhealpix_dggs.cell_from_point(res, point, plane=False)
     rhealpix_id = str(rhealpix_cell)
@@ -275,6 +274,8 @@ def latlon2rhealpix_cli():
     """
     Command-line interface for latlon2rhealpix.
     """
+    from vgrid.utils.io import add_rhealpix_n_side_argument
+
     min_res = DGGS_TYPES["rhealpix"]["min_res"]
     max_res = DGGS_TYPES["rhealpix"]["max_res"]
     parser = argparse.ArgumentParser(
@@ -291,13 +292,14 @@ def latlon2rhealpix_cli():
         choices=range(min_res, max_res + 1),
         help=f"Input Resolution [{min_res}..{max_res}]",
     )
+    add_rhealpix_n_side_argument(parser)
     args = parser.parse_args()
 
     res = args.res
     lat = args.lat
     lon = args.lon
 
-    rhealpix_id = latlon2rhealpix(lat, lon, res)
+    rhealpix_id = latlon2rhealpix(lat, lon, res, N_side=args.N_side)
     print(rhealpix_id)
 
 

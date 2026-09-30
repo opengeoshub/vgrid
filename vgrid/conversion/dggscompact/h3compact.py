@@ -17,7 +17,7 @@ import argparse
 import geopandas as gpd
 import h3
 from tqdm import tqdm
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -29,7 +29,12 @@ from vgrid.utils.io import (
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.conversion.dggs2geo.h32geo import h32geo
 
 
@@ -144,6 +149,7 @@ def h3compact(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact H3 cells to their covering set at a given parent depth.
@@ -248,8 +254,13 @@ def h3compact(
             num_edges = 6
             if h3.is_pentagon(h3_id_compact):
                 num_edges = 5
-            row = geodesic_dggs_to_geoseries(
-                "h3", h3_id_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "h3",
+                h3_id_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(h3_id_compact, []), agg)
             rows.append(row)
@@ -293,14 +304,7 @@ def h3compact_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Enable Antimeridian fixing",
     )
@@ -326,14 +330,15 @@ def h3compact_cli():
         required=False,
         help="Numeric field to aggregate (required if agg != 'count')",
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Show progress bar (default: True). Use --no-verbose to hide it.",
-    )
+    add_verbose_argument(parser)
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     fix_antimeridian = args.fix_antimeridian
     input_data = args.input
@@ -349,6 +354,7 @@ def h3compact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -362,6 +368,7 @@ def h3expand(
     fix_antimeridian=None,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) H3 cells to a target resolution or by a relative depth.
@@ -465,8 +472,13 @@ def h3expand(
             num_edges = 6
             if h3.is_pentagon(h3_id_expand):
                 num_edges = 5
-            row = geodesic_dggs_to_geoseries(
-                "h3", h3_id_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "h3",
+                h3_id_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -526,25 +538,19 @@ def h3expand_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Enable Antimeridian fixing",
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Show progress bar (default: True). Use --no-verbose to hide it.",
-    )
+    add_verbose_argument(parser)
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     resolution = args.resolution
@@ -559,6 +565,7 @@ def h3expand_cli():
         fix_antimeridian=args.fix_antimeridian,
         verbose=args.verbose,
         depth=args.depth,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)

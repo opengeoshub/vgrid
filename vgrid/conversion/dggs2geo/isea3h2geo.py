@@ -14,7 +14,6 @@ Note: This module is only supported on Windows systems due to OpenEaggr dependen
 
 import json
 import argparse
-from shapely.geometry import mapping
 import platform
 
 if platform.system() == "Windows":
@@ -27,6 +26,7 @@ if platform.system() == "Windows":
 
 from pyproj import Geod
 from vgrid.utils.geometry import (
+    dggs_geojson_feature,
     isea3h_cell_to_polygon,
     shift_balanced,
     shift_west,
@@ -35,6 +35,7 @@ from vgrid.utils.geometry import (
 
 geod = Geod(ellps="WGS84")
 from vgrid.utils.antimeridian import fix_polygon
+from vgrid.utils.constants import FIX_ANTIMERIDIAN_CHOICES
 
 
 def isea3h2geo(isea3h_ids, fix_antimeridian=None):
@@ -108,14 +109,7 @@ def isea3h2geo_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -127,7 +121,7 @@ def isea3h2geo_cli():
         print("ISEA3H is only supported on Windows systems")
 
 
-def isea3h2geojson(isea3h_ids, fix_antimeridian=None):
+def isea3h2geojson(isea3h_ids, fix_antimeridian=None, cell_metrics=False):
     """
     Convert ISEA3H cell IDs to GeoJSON FeatureCollection.
 
@@ -168,11 +162,7 @@ def isea3h2geojson(isea3h_ids, fix_antimeridian=None):
             cell_polygon = isea3h2geo(isea3h_id)
             if fix_antimeridian:
                 cell_polygon = fix_polygon(cell_polygon)
-            cell_centroid = cell_polygon.centroid
-            center_lat = cell_centroid.y
-            center_lon = cell_centroid.x
             cell_area_perimeter = geod.geometry_area_perimeter(cell_polygon)
-            cell_area = abs(cell_area_perimeter[0])
             cell_perimeter = abs(cell_area_perimeter[1])
             isea3h2point = isea3h_dggs.convert_dggs_cell_to_point(isea3h_cell)
             cell_accuracy = isea3h2point._accuracy
@@ -197,18 +187,15 @@ def isea3h2geojson(isea3h_ids, fix_antimeridian=None):
                     cell_resolution = 39
                 elif round(avg_edge_len, 3) <= 0.001:
                     cell_resolution = 40
-            feature = {
-                "type": "Feature",
-                "geometry": mapping(cell_polygon),
-                "properties": {
-                    "isea3h": isea3h_id,
-                    "resolution": cell_resolution,
-                    "center_lat": center_lat,
-                    "center_lon": center_lon,
-                    "avg_edge_len": round(avg_edge_len, 3),
-                    "cell_area": cell_area,
-                },
-            }
+            num_edges = 3 if cell_resolution == 0 else 6
+            feature = dggs_geojson_feature(
+                "isea3h",
+                isea3h_id,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics,
+                num_edges,
+            )
             features.append(feature)
         except Exception:
             continue
@@ -230,21 +217,25 @@ def isea3h2geojson_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
+    )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
     )
     args = parser.parse_args()
     if platform.system() == "Windows":
         geojson_data = json.dumps(
-            isea3h2geojson(args.isea3h, fix_antimeridian=args.fix_antimeridian)
+            isea3h2geojson(
+                args.isea3h,
+                fix_antimeridian=args.fix_antimeridian,
+                cell_metrics=args.cell_metrics,
+            )
         )
         print(geojson_data)
     else:

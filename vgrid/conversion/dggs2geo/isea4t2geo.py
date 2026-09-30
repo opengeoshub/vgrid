@@ -23,9 +23,10 @@ if platform.system() == "Windows":
 
     isea4t_dggs = Eaggr(Model.ISEA4T)
 
-from vgrid.utils.geometry import isea4t_cell_to_polygon, geodesic_dggs_to_feature
+from vgrid.utils.geometry import isea4t_cell_to_polygon, dggs_geojson_feature
 from vgrid.utils.geometry import shift_balanced, shift_west, shift_east
 from vgrid.utils.antimeridian import fix_polygon
+from vgrid.utils.constants import FIX_ANTIMERIDIAN_CHOICES
 
 
 def isea4t2geo(isea4t_ids, fix_antimeridian=None):
@@ -111,14 +112,7 @@ def isea4t2geo_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -130,7 +124,7 @@ def isea4t2geo_cli():
         print("ISEA4T is only supported on Windows systems")
 
 
-def isea4t2geojson(isea4t_ids, fix_antimeridian=None):
+def isea4t2geojson(isea4t_ids, fix_antimeridian=None, cell_metrics=False):
     """
     Convert ISEA4T cell IDs to GeoJSON FeatureCollection.
 
@@ -169,8 +163,8 @@ def isea4t2geojson(isea4t_ids, fix_antimeridian=None):
             cell_polygon = isea4t2geo(isea4t_id, fix_antimeridian=fix_antimeridian)
             resolution = len(isea4t_id) - 2
             num_edges = 3
-            isea4t_feature = geodesic_dggs_to_feature(
-                "isea4t", isea4t_id, resolution, cell_polygon, num_edges
+            isea4t_feature = dggs_geojson_feature(
+                "isea4t", isea4t_id, resolution, cell_polygon, cell_metrics, num_edges
             )
             isea4t_features.append(isea4t_feature)
         except Exception:
@@ -194,21 +188,25 @@ def isea4t2geojson_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
+    )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
     )
     args = parser.parse_args()
     if platform.system() == "Windows":
         geojson_data = json.dumps(
-            isea4t2geojson(args.isea4t, fix_antimeridian=args.fix_antimeridian)
+            isea4t2geojson(
+                args.isea4t,
+                fix_antimeridian=args.fix_antimeridian,
+                cell_metrics=args.cell_metrics,
+            )
         )
         print(geojson_data)
     else:

@@ -11,10 +11,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
 from vgrid.utils.constants import (
     AUTHALIC_AREA,
+    DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     VMIN_TRI,
     VMAX_TRI,
     VCENTER_TRI,
-    DGGS_TYPES,
 )
 from vgrid.generator.isea4tgrid import isea4tgrid
 from vgrid.utils.io import add_verbose_argument, validate_isea4t_resolution
@@ -160,7 +161,11 @@ def isea4tinspect(resolution, fix_antimeridian: None = None, verbose=True):
     # Allow running on all platforms
     resolution = validate_isea4t_resolution(resolution)
     isea4t_gdf = isea4tgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
+        resolution,
+        output_format="gpd",
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=True,
+        verbose=verbose,
     )
     isea4t_gdf["crossed"] = isea4t_gdf["geometry"].apply(check_crossing_geom)
     isea4t_gdf = isea4t_gdf[
@@ -521,14 +526,7 @@ def isea4tinspect_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -536,7 +534,11 @@ def isea4tinspect_cli():
     args = parser.parse_args()
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(isea4tinspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
+    print(
+        isea4tinspect(
+            resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose
+        )
+    )
 
 
 if __name__ == "__main__":

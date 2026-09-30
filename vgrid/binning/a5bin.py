@@ -13,6 +13,7 @@ import os
 import argparse
 import json
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 from vgrid.generator.a5grid import a5_grid
 from vgrid.utils.io import (
     process_input_data_bin,
@@ -35,6 +36,7 @@ def a5_bin(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -74,6 +76,7 @@ def a5_bin(
         bbox=(minx, miny, maxx, maxy),
         options=options,
         split_antimeridian=split_antimeridian,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
 
@@ -103,7 +106,11 @@ def a5_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def a5bin(
@@ -116,6 +123,7 @@ def a5bin(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -209,6 +217,7 @@ def a5bin(
         options=options,
         split_antimeridian=split_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
         **kwargs,
     )
 
@@ -316,6 +325,14 @@ def a5bin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -339,6 +356,7 @@ def a5bin_cli():
             options=options,
             split_antimeridian=args.split_antimeridian,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

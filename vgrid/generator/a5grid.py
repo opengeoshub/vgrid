@@ -20,7 +20,7 @@ from shapely.geometry import box
 import a5
 from a5.core.cell_info import get_num_cells
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_a5_resolution,
     validate_bbox,
@@ -36,14 +36,24 @@ def _a5_compact_cell_ids(cell_ids, verbose=True):
     if not cell_ids:
         return []
     as_hex = isinstance(cell_ids[0], str)
-    hexes = list(cell_ids) if as_hex else [a5.u64_to_hex(cell_id) for cell_id in cell_ids]
+    hexes = (
+        list(cell_ids) if as_hex else [a5.u64_to_hex(cell_id) for cell_id in cell_ids]
+    )
     compacted = a5_compact(hexes, verbose=verbose)
     if as_hex:
         return compacted
     return [a5.hex_to_u64(cell_id) for cell_id in compacted]
 
 
-def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=False, verbose=True):
+def a5_grid(
+    resolution,
+    bbox,
+    options=None,
+    split_antimeridian=False,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     resolution = validate_a5_resolution(resolution)
     """
     Generate an A5 DGGS grid for a given resolution and bounding box.
@@ -74,12 +84,13 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
         num_edges = 5
         if cell_resolution == 1:
             num_edges = 3
-        row = geodesic_dggs_to_geoseries(
+        row = dggs_cell_row(
             "a5",
             a5.u64_to_hex(seed_cell_id),
             cell_resolution,
             seed_cell_polygon,
             num_edges,
+            cell_metrics=cell_metrics,
         )
         return gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:4326")
 
@@ -111,7 +122,9 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
         cell_ids = _a5_compact_cell_ids(cell_ids, verbose=verbose)
 
     a5_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating A5 cells", unit=" cells", disable=not verbose):
+    for cell_id in tqdm(
+        cell_ids, desc="Generating A5 cells", unit=" cells", disable=not verbose
+    ):
         cell_polygon = intersecting_cells.get(cell_id)
         if cell_polygon is None or cell_polygon.is_empty:
             cell_polygon = a52geo_u64(
@@ -125,8 +138,13 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
         num_edges = 5
         if cell_resolution == 1:
             num_edges = 3
-        row = geodesic_dggs_to_geoseries(
-            "a5", a5.u64_to_hex(cell_id), cell_resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "a5",
+            a5.u64_to_hex(cell_id),
+            cell_resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         a5_rows.append(row)
 
@@ -134,7 +152,12 @@ def a5_grid(resolution, bbox, options=None, split_antimeridian=False, compact=Fa
 
 
 def a5_grid_ids(
-    resolution, bbox=None, options=None, split_antimeridian=False, compact=False, verbose=True
+    resolution,
+    bbox=None,
+    options=None,
+    split_antimeridian=False,
+    compact=False,
+    verbose=True,
 ):
     """
     Return A5 cell IDs (hex strings) for the same cells as `a5_grid`.
@@ -209,6 +232,7 @@ def a5grid(
     options=None,
     split_antimeridian=False,
     compact=False,
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -238,6 +262,7 @@ def a5grid(
         options=options,
         split_antimeridian=split_antimeridian,
         compact=compact,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
 
@@ -288,6 +313,14 @@ def a5grid_cli():
         "Example: '{\"segments\": 1000}'",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     options = None
@@ -306,6 +339,7 @@ def a5grid_cli():
             options=options,
             split_antimeridian=args.split_antimeridian,
             compact=args.compact,
+            cell_metrics=args.cell_metrics,
             verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:

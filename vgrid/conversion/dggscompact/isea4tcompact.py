@@ -26,7 +26,7 @@ if platform.system() == "Windows":
 
 from tqdm import tqdm
 from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -38,7 +38,12 @@ from vgrid.utils.io import (
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 
 
 # --- ISEA4T Compaction/Expansion Logic ---
@@ -133,7 +138,9 @@ def isea4t_expand(isea4t_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("isea4t", resolution)
         expand_cells = []
-        for isea4t_id in tqdm(isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose):
+        for isea4t_id in tqdm(
+            isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose
+        ):
             isea4t_cell = DggsCell(isea4t_id)
             expand_cells.extend(get_isea4t_cell_children(isea4t_cell, resolution))
         return expand_cells
@@ -142,7 +149,9 @@ def isea4t_expand(isea4t_ids, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("isea4t", depth)
     expand_cells = []
-    for isea4t_id in tqdm(isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose):
+    for isea4t_id in tqdm(
+        isea4t_ids, desc="Expanding ISEA4T", unit=" cells", disable=not verbose
+    ):
         try:
             current = get_isea4t_resolution(isea4t_id)
             expand_cells.extend(
@@ -162,6 +171,7 @@ def isea4tcompact(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact ISEA4T cells to their covering set at a given parent depth.
@@ -266,8 +276,13 @@ def isea4tcompact(
             )
             cell_resolution = get_isea4t_resolution(isea4t_id_compact)
             num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "isea4t", isea4t_id_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "isea4t",
+                isea4t_id_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(isea4t_id_compact, []), agg)
             rows.append(row)
@@ -306,14 +321,7 @@ def isea4tcompact_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -346,6 +354,13 @@ def isea4tcompact_cli():
         default=True,
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -359,6 +374,7 @@ def isea4tcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -372,6 +388,7 @@ def isea4texpand(
     fix_antimeridian=None,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) ISEA4T cells to a target resolution or by a relative depth.
@@ -400,9 +417,13 @@ def isea4texpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            isea4t_cells_expand = isea4t_expand(isea4t_ids, resolution=resolution, verbose=verbose)
+            isea4t_cells_expand = isea4t_expand(
+                isea4t_ids, resolution=resolution, verbose=verbose
+            )
         else:
-            isea4t_cells_expand = isea4t_expand(isea4t_ids, depth=depth, verbose=verbose)
+            isea4t_cells_expand = isea4t_expand(
+                isea4t_ids, depth=depth, verbose=verbose
+            )
         isea4t_ids_expand = [c.get_cell_id() for c in isea4t_cells_expand]
     except Exception:
         raise Exception(
@@ -423,8 +444,13 @@ def isea4texpand(
             )
             cell_resolution = get_isea4t_resolution(isea4t_id_expand)
             num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "isea4t", isea4t_id_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "isea4t",
+                isea4t_id_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -478,18 +504,18 @@ def isea4texpand_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     if platform.system() == "Windows":
         result = isea4texpand(
@@ -500,6 +526,7 @@ def isea4texpand_cli():
             fix_antimeridian=args.fix_antimeridian,
             depth=args.depth,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

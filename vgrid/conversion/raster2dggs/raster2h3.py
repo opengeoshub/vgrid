@@ -23,7 +23,8 @@ from pyproj import datadir
 from vgrid.utils.geometry import (
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
-    geodesic_dggs_to_geoseries,
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     nearest_neighbour_from_grid,
 )
 from vgrid.utils.io import (
@@ -35,12 +36,13 @@ from vgrid.utils.io import (
     finalize_dggs_band_values,
 )
 from vgrid.utils.constants import (
-    OUTPUT_FORMATS,
-    STRUCTURED_FORMATS,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     MIN_CELL_AREA,
+    OUTPUT_FORMATS,
     RASTER_STATS_OPTIONS,
     RASTER2DGGS_METHODS,
+    STRUCTURED_FORMATS,
 )
 from vgrid.conversion.dggs2geo.h32geo import h32geo
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
@@ -96,13 +98,23 @@ def _raster2h3_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     h3_gdf = generate_grid(
-        footprint, "h3", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+        footprint,
+        "h3",
+        resolution,
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
     )
-    return nearest_neighbour_from_grid(raster_path, h3_gdf, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, h3_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def _raster2h3_binning(
@@ -110,6 +122,7 @@ def _raster2h3_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     """Bin pixel centroids into H3 cells and aggregate band values with ``stats``."""
@@ -123,15 +136,17 @@ def _raster2h3_binning(
 
     properties = []
     for h3_id, acc in tqdm(
-        h3_acc.items(), desc="Converting raster to H3", unit=" cells",
+        h3_acc.items(),
+        desc="Converting raster to H3",
+        unit=" cells",
         disable=not verbose,
     ):
         cell_polygon = h32geo(h3_id, fix_antimeridian=fix_antimeridian)
         num_edges = 6
         if h3.is_pentagon(h3_id):
             num_edges = 5
-        base_props = geodesic_dggs_to_geoseries(
-            "h3", h3_id, resolution, cell_polygon, num_edges
+        base_props = dggs_cell_row(
+            "h3", h3_id, resolution, cell_polygon, num_edges, cell_metrics=cell_metrics
         )
         band_values = finalize_dggs_band_values(acc, stats)
         band_properties = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
@@ -151,6 +166,7 @@ def raster2h3(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -187,11 +203,20 @@ def raster2h3(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2h3_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            stats,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = _raster2h3_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     if gdf.empty:
@@ -237,14 +262,7 @@ def raster2h3_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method",
     )
@@ -258,6 +276,14 @@ def raster2h3_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -270,6 +296,7 @@ def raster2h3_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

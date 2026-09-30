@@ -11,6 +11,7 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 from vgrid.utils.io import (
     process_input_data_bin,
     convert_to_output_format,
@@ -36,6 +37,7 @@ def isea4t_bin(
     lon_col="lon",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -64,6 +66,7 @@ def isea4t_bin(
         resolution=resolution,
         bbox=(minx, miny, maxx, maxy),
         fix_antimeridian=fix_antimeridian,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
 
@@ -93,7 +96,11 @@ def isea4t_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def isea4tbin(
@@ -105,6 +112,7 @@ def isea4tbin(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_isea4t_resolution(resolution)
@@ -120,6 +128,7 @@ def isea4tbin(
         numeric_col,
         fix_antimeridian=fix_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
         **kwargs,
     )
     output_name = None
@@ -195,6 +204,14 @@ def isea4tbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = isea4tbin(
@@ -206,6 +223,7 @@ def isea4tbin_cli():
             output_format=args.output_format,
             fix_antimeridian=args.fix_antimeridian,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

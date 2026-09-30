@@ -38,7 +38,8 @@ from vgrid.conversion.dggs2geo.a52geo import a52geo
 from vgrid.utils.geometry import (
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
-    geodesic_dggs_metrics,
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     nearest_neighbour_from_grid,
 )
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
@@ -117,6 +118,7 @@ def _raster2a5_nearest_neighbour(
     resolution,
     options=None,
     split_antimeridian=False,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
@@ -126,9 +128,14 @@ def _raster2a5_nearest_neighbour(
         resolution,
         a5_options=options,
         split_antimeridian=split_antimeridian,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def _raster2a5_binning(
@@ -137,6 +144,7 @@ def _raster2a5_binning(
     stats,
     options=None,
     split_antimeridian=False,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
@@ -148,27 +156,24 @@ def _raster2a5_binning(
 
     properties = []
     for a5_hex, acc in tqdm(
-        a5_acc.items(), desc="Converting raster to A5", unit=" cells",
+        a5_acc.items(),
+        desc="Converting raster to A5",
+        unit=" cells",
         disable=not verbose,
     ):
         try:
             cell_polygon = a52geo(
                 a5_hex, options, split_antimeridian=split_antimeridian
             )
-            num_edges = 5
-            centroid_lat, centroid_lon, avg_edge_len, cell_area, cell_perimeter = (
-                geodesic_dggs_metrics(cell_polygon, num_edges)
+            num_edges = 3 if resolution == 1 else 5
+            base_props = dggs_cell_row(
+                "a5",
+                a5_hex,
+                resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
-            base_props = {
-                "a5": a5_hex,
-                "resolution": resolution,
-                "center_lat": centroid_lat,
-                "center_lon": centroid_lon,
-                "avg_edge_len": avg_edge_len,
-                "cell_area": cell_area,
-                "cell_perimeter": cell_perimeter,
-                "geometry": cell_polygon,
-            }
             band_values = finalize_dggs_band_values(acc, stats)
             band_properties = {
                 f"band_{i + 1}": band_values[i] for i in range(band_count)
@@ -191,6 +196,7 @@ def raster2a5(
     split_antimeridian=False,
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -261,14 +267,18 @@ def raster2a5(
             resolution,
             stats,
             options=options,
-            split_antimeridian=split_antimeridian, verbose=verbose
+            split_antimeridian=split_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = _raster2a5_nearest_neighbour(
             raster_path,
             resolution,
             options=options,
-            split_antimeridian=split_antimeridian, verbose=verbose
+            split_antimeridian=split_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     if gdf.empty:
@@ -336,6 +346,14 @@ def raster2a5_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -357,6 +375,7 @@ def raster2a5_cli():
         split_antimeridian=args.split_antimeridian,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

@@ -18,6 +18,8 @@ os.environ["PROJ_LIB"] = datadir.get_data_dir()
 from vgrid.conversion.dggs2geo.georef2geo import georef2geo
 from vgrid.conversion.latlon2dggs import latlon2georef
 from vgrid.utils.geometry import (
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
     nearest_neighbour_from_grid,
@@ -90,17 +92,26 @@ def _georef_polygon(georef_id):
 
 
 def _raster2georef_nearest_neighbour(
-    raster_path: str, resolution: int,
+    raster_path: str,
+    resolution: int,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     bbox = list(footprint.total_bounds)
-    grid_gdf = georef_grid(resolution, bbox, verbose=verbose)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    grid_gdf = georef_grid(resolution, bbox, cell_metrics=cell_metrics, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=False,
+    )
 
 
 def _raster2georef_binning(
-    raster_path: str, resolution: int, stats: str,
+    raster_path: str,
+    resolution: int,
+    stats: str,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
@@ -108,18 +119,26 @@ def _raster2georef_binning(
         return None if georef_id == "INVALID" else georef_id
 
     georef_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to GEOREF", verbose=verbose
+        raster_path,
+        cell_id,
+        stats,
+        desc="Binning raster blocks to GEOREF",
+        verbose=verbose,
     )
 
     properties = []
     for georef_id, acc in tqdm(
-        georef_acc.items(), desc="Converting raster to GEOREF", unit=" cells",
+        georef_acc.items(),
+        desc="Converting raster to GEOREF",
+        unit=" cells",
         disable=not verbose,
     ):
         cell_polygon = _georef_polygon(georef_id)
         if cell_polygon is None:
             continue
-        base_props = {"georef": georef_id, "geometry": cell_polygon}
+        base_props = dggs_cell_row(
+            "georef", georef_id, resolution, cell_polygon, cell_metrics=cell_metrics
+        )
         band_values = finalize_dggs_band_values(acc, stats)
         band_props = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
         base_props.update(band_props)
@@ -136,6 +155,7 @@ def raster2georef(
     output_format="gpd",
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -161,9 +181,13 @@ def raster2georef(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2georef_binning(raster_path, resolution, stats, verbose=verbose)
+        gdf = _raster2georef_binning(
+            raster_path, resolution, stats, cell_metrics=cell_metrics, verbose=verbose
+        )
     else:
-        gdf = _raster2georef_nearest_neighbour(raster_path, resolution, verbose=verbose)
+        gdf = _raster2georef_nearest_neighbour(
+            raster_path, resolution, cell_metrics=cell_metrics, verbose=verbose
+        )
 
     if gdf.empty:
         raise ValueError("No GEOREF cells were produced from the raster.")
@@ -211,6 +235,14 @@ def raster2georef_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -222,6 +254,7 @@ def raster2georef_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

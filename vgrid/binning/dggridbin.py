@@ -13,6 +13,7 @@ Key Functions:
 import os
 import argparse
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics, dggrid_num_edges
 from vgrid.generator.dggridgen import dggridgen
 from vgrid.utils.io import (
     process_input_data_bin,
@@ -44,6 +45,7 @@ def dggrid_bin(
     split_antimeridian: bool = False,
     aggregate: bool = False,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -86,6 +88,7 @@ def dggrid_bin(
         bbox=bbox,
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
     if grid_gdf.crs is None:
@@ -117,7 +120,14 @@ def dggrid_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=True,
+        num_edges=dggrid_num_edges(dggs_type),
+        id_col=f"dggrid_{dggs_type.lower()}",
+        resolution=resolution,
+    )
 
 
 def dggridbin(
@@ -132,6 +142,7 @@ def dggridbin(
     split_antimeridian: bool = False,
     aggregate: bool = False,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -150,6 +161,7 @@ def dggridbin(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         verbose=verbose,
+        cell_metrics=cell_metrics,
         **kwargs,
     )
 
@@ -238,6 +250,14 @@ def dggridbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -253,6 +273,7 @@ def dggridbin_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -10,6 +10,7 @@ import geopandas as gpd
 from vgrid.utils.constants import (
     AUTHALIC_AREA,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     VMIN_QUAD,
     VMAX_QUAD,
     VCENTER_QUAD,
@@ -32,7 +33,7 @@ max_res = DGGS_TYPES["rhealpix"]["max_res"]
 
 
 def rhealpix_metrics(
-    resolution: int, unit: str = "m"
+    resolution: int, unit: str = "m", N_side: int = 3
 ):  # length unit is km, area unit is km2
     """
     Calculate metrics for rHEALPix DGGS cells at a given resolution.
@@ -40,16 +41,20 @@ def rhealpix_metrics(
     Args:
         resolution: Resolution level (0-30)
         unit: 'm' or 'km' for length; area will be 'm^2' or 'km^2'
+        N_side: Children per cell edge (2 or 3). Defaults to 3.
 
     Returns:
         tuple: (num_cells, edge_length_in_unit, cell_area_in_unit_squared)
     """
+    from vgrid.utils.io import validate_rhealpix_n_side
+
     # normalize and validate unit
     unit = unit.strip().lower()
     if unit not in {"m", "km"}:
         raise ValueError("unit must be one of {'m','km'}")
 
-    num_cells = 6 * 9 ** (resolution)
+    N_side = validate_rhealpix_n_side(N_side)
+    num_cells = 6 * (N_side**2) ** (resolution)
 
     # Calculate area in km² first
     avg_cell_area = AUTHALIC_AREA / num_cells  # area in m2
@@ -63,12 +68,13 @@ def rhealpix_metrics(
     return num_cells, avg_edge_len, avg_cell_area, cls
 
 
-def rhealpixstats(unit: str = "m"):
+def rhealpixstats(unit: str = "m", N_side: int = 3):
     """
     Generate statistics for rHEALPix DGGS cells.
 
     Args:
         unit: 'm' or 'km' for length; area will be 'm^2' or 'km^2'
+        N_side: Children per cell edge (2 or 3). Defaults to 3.
 
     Returns:
         pandas.DataFrame: DataFrame containing rHEALPix DGGS statistics with columns:
@@ -90,7 +96,7 @@ def rhealpixstats(unit: str = "m"):
     cls_list = []
     for res in range(min_res, max_res + 1):
         num_cells, avg_edge_len, avg_cell_area, cls = rhealpix_metrics(
-            res, unit=unit
+            res, unit=unit, N_side=N_side
         )  # length unit is km, area unit is km2
         resolutions.append(res)
         num_cells_list.append(num_cells)
@@ -122,23 +128,29 @@ def rhealpixstats_cli():
 
     CLI options:
       -unit, --unit {m,km}
+      -n, --N_side {2,3}
     """
+    from vgrid.utils.io import add_rhealpix_n_side_argument
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "-unit", "--unit", dest="unit", choices=["m", "km"], default="m"
     )
+    add_rhealpix_n_side_argument(parser)
     args = parser.parse_args()  # type: ignore
 
     unit = args.unit
 
     # Get the DataFrame
-    df = rhealpixstats(unit=unit)
+    df = rhealpixstats(unit=unit, N_side=args.N_side)
 
     # Display the DataFrame
     print(df)
 
 
-def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None, verbose=True):
+def rhealpixinspect(
+    resolution: int = 0, fix_antimeridian: str = None, verbose=True, N_side: int = 3
+):
     """
     Generate comprehensive inspection data for rHEALPix DGGS cells at a given resolution.
 
@@ -150,6 +162,7 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None, verbose=T
         fix_antimeridian: Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to False to avoid splitting the Antimeridian by default.
         verbose: Show progress bars. Defaults to True.
+        N_side: Children per cell edge (2 or 3). Defaults to 3.
     Returns:
         geopandas.GeoDataFrame: DataFrame containing rHEALPix cell inspection data with columns:
             - rhealpix: rHEALPix cell ID
@@ -164,14 +177,22 @@ def rhealpixinspect(resolution: int = 0, fix_antimeridian: str = None, verbose=T
             - cvh: Convex Hull Compactness
     """
     rhealpix_gdf = rhealpixgrid(
-        resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose
+        resolution,
+        output_format="gpd",
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=True,
+        verbose=verbose,
+        N_side=N_side,
     )  # type: ignore
     rhealpix_gdf["crossed"] = rhealpix_gdf["geometry"].apply(check_crossing_geom)
     rhealpix_gdf = rhealpix_gdf[
         ~rhealpix_gdf["crossed"]
     ]  # remove cells that cross the Antimeridian
     # mean_area = rhealpix_gdf["cell_area"].mean()
-    num_cells = 6 * 9 ** (resolution)
+    from vgrid.utils.io import validate_rhealpix_n_side
+
+    N_side = validate_rhealpix_n_side(N_side)
+    num_cells = 6 * (N_side**2) ** (resolution)
     mean_area = AUTHALIC_AREA / num_cells
     # Calculate normalized area
     rhealpix_gdf["norm_area"] = rhealpix_gdf["cell_area"] / mean_area
@@ -519,29 +540,33 @@ def rhealpixinspect_cli():
     CLI options:
       -r, --resolution: rHEALPix resolution level (0-15)
       -fix, --fix_antimeridian: Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none (default: none)
+      -n, --N_side: Children per cell edge (2 or 3; default 3)
     """
+    from vgrid.utils.io import add_rhealpix_n_side_argument
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-r", "--resolution", dest="resolution", type=int, default=0)
     parser.add_argument(
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none (default: none)",
     )
+    add_rhealpix_n_side_argument(parser)
     add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(rhealpixinspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
+    print(
+        rhealpixinspect(
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            verbose=args.verbose,
+            N_side=args.N_side,
+        )
+    )
 
 
 if __name__ == "__main__":

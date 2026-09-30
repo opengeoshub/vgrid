@@ -14,7 +14,7 @@ import json
 import argparse
 from shapely.geometry import Polygon
 from vgrid.dggs import geohash
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def geohash2geo(geohash_ids):
@@ -88,7 +88,7 @@ def geohash2geo_cli():
     return polys
 
 
-def geohash2geojson(geohash_ids):
+def geohash2geojson(geohash_ids, cell_metrics=False):
     """
     Convert Geohash cell IDs to GeoJSON FeatureCollection.
 
@@ -125,8 +125,8 @@ def geohash2geojson(geohash_ids):
         try:
             cell_polygon = geohash2geo(geohash_id)
             resolution = len(geohash_id)
-            geohash_feature = graticule_dggs_to_feature(
-                "geohash", geohash_id, resolution, cell_polygon
+            geohash_feature = dggs_geojson_feature(
+                "geohash", geohash_id, resolution, cell_polygon, cell_metrics
             )
             geohash_features.append(geohash_feature)
         except Exception:
@@ -146,6 +146,15 @@ def geohash2geojson_cli():
         nargs="+",
         help="Input Geohash cell ID(s), e.g., geohash2geojson w3gvk1td8 ...",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(geohash2geojson(args.geohash))
+    geojson_data = json.dumps(
+        geohash2geojson(args.geohash, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

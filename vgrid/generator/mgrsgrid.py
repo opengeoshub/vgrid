@@ -19,8 +19,12 @@ from shapely.geometry import shape, Polygon
 from shapely.ops import transform
 from pyproj import CRS, Transformer
 from tqdm import tqdm
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
-from vgrid.utils.io import validate_mgrs_resolution, convert_to_output_format, add_verbose_argument
+from vgrid.utils.geometry import dggs_cell_row
+from vgrid.utils.io import (
+    validate_mgrs_resolution,
+    convert_to_output_format,
+    add_verbose_argument,
+)
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.dggs import mgrs
 
@@ -31,7 +35,7 @@ def is_valid_gzd(gzd):
     return bool(re.match(pattern, gzd))
 
 
-def mgrs_grid(gzd, resolution, verbose=True):
+def mgrs_grid(gzd, resolution, cell_metrics=False, verbose=True):
     resolution = validate_mgrs_resolution(resolution)
     # Reference: https://www.maptools.com/tutorials/utm/details
     cell_size = 100_000 // (10**resolution)
@@ -73,7 +77,9 @@ def mgrs_grid(gzd, resolution, verbose=True):
     x_coords = np.arange(min_x, max_x, cell_size)
     y_coords = np.arange(min_y, max_y, cell_size)
     num_cells = len(x_coords) * len(y_coords)
-    with tqdm(total=num_cells, desc="Generating MGRS DGGS", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=num_cells, desc="Generating MGRS DGGS", unit=" cells", disable=not verbose
+    ) as pbar:
         for x in x_coords:
             for y in y_coords:
                 cell_polygon_utm = Polygon(
@@ -93,8 +99,12 @@ def mgrs_grid(gzd, resolution, verbose=True):
                         cell_polygon.centroid.x,
                     )
                     mgrs_id = mgrs.toMgrs(centroid_lat, centroid_lon, resolution)
-                    mgrs_record = graticule_dggs_to_geoseries(
-                        "mgrs", mgrs_id, resolution, cell_polygon
+                    mgrs_record = dggs_cell_row(
+                        "mgrs",
+                        mgrs_id,
+                        resolution,
+                        cell_polygon,
+                        cell_metrics=cell_metrics,
                     )
                     # clip inside GZD:
                     if not gzd_geom.contains(cell_polygon):
@@ -109,11 +119,12 @@ def mgrs_grid(gzd, resolution, verbose=True):
                                 intersected_centroid_lon,
                                 resolution,
                             )
-                            mgrs_record = graticule_dggs_to_geoseries(
+                            mgrs_record = dggs_cell_row(
                                 "mgrs",
                                 interescted_mgrs_id,
                                 resolution,
                                 intersected_polygon,
+                                cell_metrics=cell_metrics,
                             )
                     mgrs_records.append(mgrs_record)
                 pbar.update(1)
@@ -165,7 +176,9 @@ def mgrs_grid_ids(gzd, resolution, verbose=True):
     x_coords = np.arange(min_x, max_x, cell_size)
     y_coords = np.arange(min_y, max_y, cell_size)
     num_cells = len(x_coords) * len(y_coords)
-    with tqdm(total=num_cells, desc="Generating MGRS IDs", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=num_cells, desc="Generating MGRS IDs", unit=" cells", disable=not verbose
+    ) as pbar:
         for x in x_coords:
             for y in y_coords:
                 cell_polygon_utm = Polygon(
@@ -203,7 +216,7 @@ def mgrs_grid_ids(gzd, resolution, verbose=True):
     return ids
 
 
-def mgrsgrid(gzd, resolution, output_format="gpd", verbose=True):
+def mgrsgrid(gzd, resolution, output_format="gpd", cell_metrics=False, verbose=True):
     """
     Generate MGRS grid for pure Python usage.
 
@@ -217,7 +230,7 @@ def mgrsgrid(gzd, resolution, output_format="gpd", verbose=True):
     """
     if not is_valid_gzd(gzd):
         raise ValueError("Invalid GZD. Please input a valid GZD.")
-    gdf = mgrs_grid(gzd, resolution, verbose=verbose)
+    gdf = mgrs_grid(gzd, resolution, cell_metrics=cell_metrics, verbose=verbose)
 
     output_name = f"mgrs_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -248,6 +261,14 @@ def mgrsgrid_cli():
         default="gpd",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     gzd = args.gzd
@@ -257,7 +278,13 @@ def mgrsgrid_cli():
     resolution = args.resolution
 
     try:
-        result = mgrsgrid(gzd, resolution, args.output_format, verbose=args.verbose)
+        result = mgrsgrid(
+            gzd,
+            resolution,
+            args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

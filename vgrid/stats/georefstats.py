@@ -164,7 +164,9 @@ def georefinspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    georef_gdf = georefgrid(resolution, output_format="gpd", verbose=verbose)
+    georef_gdf = georefgrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     georef_gdf["crossed"] = georef_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = georef_gdf["cell_area"].mean()
     grid_size_deg = GEOREF_RESOLUTION_DEGREES.get(resolution)

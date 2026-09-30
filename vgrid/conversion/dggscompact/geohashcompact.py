@@ -17,7 +17,7 @@ import geopandas as gpd
 from tqdm import tqdm
 
 from vgrid.conversion.dggs2geo.geohash2geo import geohash2geo
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -98,6 +98,7 @@ def geohashcompact(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact Geohash cells to their covering set at a given parent depth.
@@ -199,8 +200,12 @@ def geohashcompact(
         try:
             cell_polygon = geohash2geo(geohash_id_compact)
             cell_resolution = get_geohash_resolution(geohash_id_compact)
-            row = graticule_dggs_to_geoseries(
-                "geohash", geohash_id_compact, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "geohash",
+                geohash_id_compact,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(geohash_id_compact, []), agg)
             rows.append(row)
@@ -269,6 +274,13 @@ def geohashcompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -282,6 +294,7 @@ def geohashcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if output_format in STRUCTURED_FORMATS:
@@ -300,21 +313,23 @@ def geohash_expand(geohash_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("geohash", resolution)
         expand_cells = []
-        for geohash_id in tqdm(geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose):
+        for geohash_id in tqdm(
+            geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose
+        ):
             cell_resolution = len(geohash_id)
             if cell_resolution >= resolution:
                 expand_cells.append(geohash_id)
             else:
-                expand_cells.extend(
-                    geohash.geohash_children(geohash_id, resolution)
-                )
+                expand_cells.extend(geohash.geohash_children(geohash_id, resolution))
         return expand_cells
 
     if depth is None:
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("geohash", depth)
     expand_cells = []
-    for geohash_id in tqdm(geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose):
+    for geohash_id in tqdm(
+        geohash_ids, desc="Expanding Geohash", unit=" cells", disable=not verbose
+    ):
         try:
             expand_cells.extend(
                 geohash.geohash_children(geohash_id, len(geohash_id) + depth)
@@ -331,6 +346,7 @@ def geohashexpand(
     output_format="gpd",
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) Geohash cells to a target resolution or by a relative depth.
@@ -362,9 +378,13 @@ def geohashexpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            geohash_ids_expand = geohash_expand(geohash_ids, resolution=resolution, verbose=verbose)
+            geohash_ids_expand = geohash_expand(
+                geohash_ids, resolution=resolution, verbose=verbose
+            )
         else:
-            geohash_ids_expand = geohash_expand(geohash_ids, depth=depth, verbose=verbose)
+            geohash_ids_expand = geohash_expand(
+                geohash_ids, depth=depth, verbose=verbose
+            )
     except Exception:
         raise Exception(
             "Expand cells failed. Please check your Geohash ID field, resolution, or depth."
@@ -383,8 +403,12 @@ def geohashexpand(
         try:
             cell_polygon = geohash2geo(geohash_id_expand)
             cell_resolution = len(geohash_id_expand)
-            row = graticule_dggs_to_geoseries(
-                "geohash", geohash_id_expand, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "geohash",
+                geohash_id_expand,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -440,6 +464,13 @@ def geohashexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = geohashexpand(
         args.input,
@@ -448,6 +479,7 @@ def geohashexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if args.output_format in STRUCTURED_FORMATS:

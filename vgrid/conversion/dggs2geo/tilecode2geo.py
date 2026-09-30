@@ -15,7 +15,7 @@ import re
 import argparse
 from shapely.geometry import Polygon
 from vgrid.dggs import mercantile
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def tilecode2geo(tilecode_ids):
@@ -94,7 +94,7 @@ def tilecode2geo_cli():
     return polys
 
 
-def tilecode2geojson(tilecode_ids):
+def tilecode2geojson(tilecode_ids, cell_metrics=False):
     """
     Convert Tilecode cell IDs to GeoJSON FeatureCollection.
 
@@ -151,8 +151,8 @@ def tilecode2geojson(tilecode_ids):
                     ]
                 )
                 resolution = z
-                tilecode_feature = graticule_dggs_to_feature(
-                    "tilecode_id", tilecode_id, resolution, cell_polygon
+                tilecode_feature = dggs_geojson_feature(
+                    "tilecode_id", tilecode_id, resolution, cell_polygon, cell_metrics
                 )
                 tilecode_features.append(tilecode_feature)
         except Exception:
@@ -168,6 +168,15 @@ def tilecode2geojson_cli():
     parser.add_argument(
         "tilecode_id", nargs="+", help="Input Tilecode(s), e.g. z0x0y0 z1x1y1"
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(tilecode2geojson(args.tilecode_id))
+    geojson_data = json.dumps(
+        tilecode2geojson(args.tilecode_id, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

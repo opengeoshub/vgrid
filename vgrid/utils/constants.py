@@ -9,6 +9,8 @@ import math
 MAX_CELLS = 10_000_000
 CHUNK_SIZE = 100_000
 MIN_CELL_AREA = 0.1  # m^2
+MERCATOR_TILE_SIZE = 512  # MapLibre world width in pixels at zoom 0
+ROW_GROUP_ROWS = 262_144  # Parquet row group size for Cloud Optimized GeoParquet
 
 AUTHALIC_RADIUS = 6_371_007.180918473897976252  # m, ref: https://github.com/ecere/dggal/blob/7c496d4a8dff94821a38f33b4c37ad6abf459725/src/dggrs.ec#L29C24-L29C50
 AUTHALIC_AREA = 4 * math.pi * AUTHALIC_RADIUS * AUTHALIC_RADIUS  # m^2

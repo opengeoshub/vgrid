@@ -20,9 +20,8 @@ from collections import deque
 from shapely.geometry import MultiPoint
 import geopandas as gpd
 from tqdm import tqdm
-from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
 from vgrid.dggs.rhealpixdggs.rhp_wrappers import linetrace
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggscompact.rhealpixcompact import rhealpix_compact
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
 from vgrid.utils.geometry import check_predicate
@@ -36,13 +35,19 @@ from vgrid.utils.io import (
     convert_to_output_format,
     add_verbose_argument,
     add_compact_depth_argument,
+    add_rhealpix_n_side_argument,
+    get_rhealpix_dggs,
+    rhealpix_cell_from_id,
 )
-from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
+from vgrid.utils.constants import (
+    STRUCTURED_FORMATS,
+    OUTPUT_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.utils.io import DGGS_TYPES
 
 min_res = DGGS_TYPES["rhealpix"]["min_res"]
 max_res = DGGS_TYPES["rhealpix"]["max_res"]
-rhealpix_dggs = RHEALPixDGGS()
 
 
 def point2rhealpix(
@@ -51,6 +56,8 @@ def point2rhealpix(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to RHEALPix grid cells.
@@ -96,6 +103,7 @@ def point2rhealpix(
     >>> len(cells)
     2
     """
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     rhealpix_rows = []
     if feature.geom_type in ("Point"):
         points = [feature]
@@ -111,25 +119,24 @@ def point2rhealpix(
 
         seed_cell_id = str(seed_cell)
         seed_cell_polygon = rhealpix2geo(
-            seed_cell_id, fix_antimeridian=fix_antimeridian
+            seed_cell_id, fix_antimeridian=fix_antimeridian, N_side=N_side
         )
         if seed_cell_polygon:
             num_edges = 4
-            if seed_cell.ellipsoidal_shape() == "dart":
+            if seed_cell.ellipsoidal_shape == "dart":
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "rhealpix", seed_cell_id, resolution, seed_cell_polygon, num_edges
+            row = dggs_cell_row(
+                "rhealpix",
+                seed_cell_id,
+                resolution,
+                seed_cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
             rhealpix_rows.append(row)
     return rhealpix_rows
-
-
-def _rhealpix_cell_from_id(cell_id):
-    """Return an rHEALPix Cell from its string id (e.g. ``N45``)."""
-    rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-    return rhealpix_dggs.cell(rhealpix_uids)
 
 
 def _rhealpix_rows_from_cell_ids(
@@ -138,19 +145,31 @@ def _rhealpix_rows_from_cell_ids(
     feature_properties,
     include_properties,
     fix_antimeridian,
+    N_side=3,
+    dggs=None,
+    cell_metrics=False,
 ):
     """Build geoseries rows from rHEALPix cell id strings (polyline / linetrace)."""
+    if dggs is None:
+        dggs = get_rhealpix_dggs(N_side=N_side)
     rows = []
     for cell_id in cell_ids:
-        cell_polygon = rhealpix2geo(cell_id, fix_antimeridian=fix_antimeridian)
+        cell_polygon = rhealpix2geo(
+            cell_id, fix_antimeridian=fix_antimeridian, N_side=dggs.N_side
+        )
         if cell_polygon is None or cell_polygon.is_empty:
             continue
-        cell = _rhealpix_cell_from_id(cell_id)
+        cell = rhealpix_cell_from_id(cell_id, dggs=dggs)
         num_edges = 4
-        if cell.ellipsoidal_shape() == "dart":
+        if cell.ellipsoidal_shape == "dart":
             num_edges = 3
-        row = geodesic_dggs_to_geoseries(
-            "rhealpix", cell_id, resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "rhealpix",
+            cell_id,
+            resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         if include_properties and feature_properties:
             row.update(feature_properties)
@@ -164,6 +183,8 @@ def polyline2rhealpix(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to rHEALPix grid cells using ``linetrace``.
@@ -210,6 +231,7 @@ def polyline2rhealpix(
     else:
         return []
 
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     seen_ids = set()
     ordered_cell_ids = []
     for polyline in polylines:
@@ -230,6 +252,9 @@ def polyline2rhealpix(
         feature_properties,
         include_properties,
         fix_antimeridian,
+        N_side=N_side,
+        dggs=rhealpix_dggs,
+        cell_metrics=cell_metrics,
     )
 
 
@@ -243,6 +268,8 @@ def polygon2rhealpix(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to rHEALPix grid cells.
@@ -268,6 +295,7 @@ def polygon2rhealpix(
         >>> len(cells) > 0
         True
     """
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     rhealpix_rows = []
     polygons = []
     if feature.geom_type in ("Polygon"):
@@ -281,15 +309,20 @@ def polygon2rhealpix(
         seed_cell = rhealpix_dggs.cell_from_point(resolution, seed_point, plane=False)
         seed_cell_id = str(seed_cell)
         seed_cell_polygon = rhealpix2geo(
-            seed_cell_id, fix_antimeridian=fix_antimeridian
+            seed_cell_id, fix_antimeridian=fix_antimeridian, N_side=N_side
         )
         if seed_cell_polygon.contains(polygon):
             num_edges = 4
-            if seed_cell.ellipsoidal_shape() == "dart":
+            if seed_cell.ellipsoidal_shape == "dart":
                 num_edges = 3
             cell_resolution = resolution
-            row = geodesic_dggs_to_geoseries(
-                "rhealpix", seed_cell_id, cell_resolution, seed_cell_polygon, num_edges
+            row = dggs_cell_row(
+                "rhealpix",
+                seed_cell_id,
+                cell_resolution,
+                seed_cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -307,7 +340,7 @@ def polygon2rhealpix(
                 covered_cells.add(current_cell_id)
 
                 cell_polygon = rhealpix2geo(
-                    current_cell_id, fix_antimeridian=fix_antimeridian
+                    current_cell_id, fix_antimeridian=fix_antimeridian, N_side=N_side
                 )
 
                 if not cell_polygon.intersects(polygon):
@@ -320,19 +353,25 @@ def polygon2rhealpix(
                         queue.append(neighbor)
 
             for cell_id in covered_cells:
-                cell_polygon = rhealpix2geo(cell_id, fix_antimeridian=fix_antimeridian)
-                rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-                rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+                cell_polygon = rhealpix2geo(
+                    cell_id, fix_antimeridian=fix_antimeridian, N_side=N_side
+                )
+                rhealpix_cell = rhealpix_cell_from_id(cell_id, dggs=rhealpix_dggs)
                 cell_resolution = rhealpix_cell.resolution
 
                 if not check_predicate(cell_polygon, polygon, predicate):
                     continue
 
                 num_edges = 4
-                if rhealpix_cell.ellipsoidal_shape() == "dart":
+                if rhealpix_cell.ellipsoidal_shape == "dart":
                     num_edges = 3
-                row = geodesic_dggs_to_geoseries(
-                    "rhealpix", cell_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "rhealpix",
+                    cell_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -343,22 +382,28 @@ def polygon2rhealpix(
                 # Extract cell IDs from rhealpix_rows
                 cells_to_process = [row.get("rhealpix") for row in rhealpix_rows]
                 # Apply compact
-                cells_to_process = rhealpix_compact(cells_to_process, depth=depth, verbose=verbose)
+                cells_to_process = rhealpix_compact(
+                    cells_to_process, depth=depth, verbose=verbose, N_side=N_side
+                )
                 # Rebuild rhealpix_rows with compacted cells
                 rhealpix_rows = []
                 for cell_id in cells_to_process:
                     cell_polygon = rhealpix2geo(
-                        cell_id, fix_antimeridian=fix_antimeridian
+                        cell_id, fix_antimeridian=fix_antimeridian, N_side=N_side
                     )
-                    rhealpix_uids = (cell_id[0],) + tuple(map(int, cell_id[1:]))
-                    rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+                    rhealpix_cell = rhealpix_cell_from_id(cell_id, dggs=rhealpix_dggs)
                     cell_resolution = rhealpix_cell.resolution
 
                     num_edges = 4
-                    if rhealpix_cell.ellipsoidal_shape() == "dart":
+                    if rhealpix_cell.ellipsoidal_shape == "dart":
                         num_edges = 3
-                    row = geodesic_dggs_to_geoseries(
-                        "rhealpix", cell_id, cell_resolution, cell_polygon, num_edges
+                    row = dggs_cell_row(
+                        "rhealpix",
+                        cell_id,
+                        cell_resolution,
+                        cell_polygon,
+                        num_edges,
+                        cell_metrics=cell_metrics,
                     )
                     if include_properties and feature_properties:
                         row.update(feature_properties)
@@ -377,6 +422,8 @@ def geodataframe2rhealpix(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to rHEALPix grid cells.
@@ -390,6 +437,7 @@ def geodataframe2rhealpix(
         include_properties (bool, optional): Whether to include properties in output
         fix_antimeridian (str, optional): Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to None when omitted.
+        N_side (int, optional): Children per cell edge (2 or 3). Defaults to 3.
 
     Returns:
         geopandas.GeoDataFrame: GeoDataFrame with rHEALPix grid cells
@@ -429,7 +477,7 @@ def geodataframe2rhealpix(
             # This ensures disjoint points have disjoint rHEALPix cells
             if shortest_distance > 0:
                 for res in range(min_res, max_res + 1):
-                    _, avg_edge_length, _, _ = rhealpix_metrics(res)
+                    _, avg_edge_length, _, _ = rhealpix_metrics(res, N_side=N_side)
                     cell_diameter = avg_edge_length * math.sqrt(2)
                     if cell_diameter < shortest_distance:
                         estimated_resolution = res
@@ -441,7 +489,9 @@ def geodataframe2rhealpix(
 
     rhealpix_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -461,6 +511,8 @@ def geodataframe2rhealpix(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    N_side=N_side,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -472,6 +524,8 @@ def geodataframe2rhealpix(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    N_side=N_side,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -486,6 +540,8 @@ def geodataframe2rhealpix(
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
+                    N_side=N_side,
+                    cell_metrics=cell_metrics,
                 )
             )
             #   void using native rhp polyfill because it only supports "within" predicate
@@ -498,11 +554,13 @@ def vector2rhealpix(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
     depth=-1,
+    N_side=3,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -518,6 +576,7 @@ def vector2rhealpix(
         include_properties (bool, optional): Whether to include properties in output
         fix_antimeridian (str, optional): Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         Defaults to None when omitted.
+        N_side (int, optional): Children per cell edge (2 or 3). Defaults to 3.
         **kwargs: Additional arguments passed to process_input_data_vector
 
     Returns:
@@ -548,6 +607,8 @@ def vector2rhealpix(
         include_properties,
         fix_antimeridian=fix_antimeridian,
         verbose=verbose,
+        N_side=N_side,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -616,18 +677,19 @@ def vector2rhealpix_cli():
         "-fix",
         "--fix-antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_compact_depth_argument(parser)
+    add_rhealpix_n_side_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -642,6 +704,8 @@ def vector2rhealpix_cli():
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
             verbose=args.verbose,
+            N_side=args.N_side,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

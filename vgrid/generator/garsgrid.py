@@ -16,7 +16,7 @@ from shapely.geometry import Polygon
 import numpy as np
 from gars_field.garsgrid import GARSGrid  # Ensure the correct import path
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_gars_resolution,
     convert_to_output_format,
@@ -28,7 +28,7 @@ from vgrid.utils.constants import GARS_RESOLUTION_MINUTES
 from vgrid.utils.io import validate_bbox
 
 
-def gars_grid(resolution, bbox=None, verbose=True):
+def gars_grid(resolution, bbox=None, cell_metrics=False, verbose=True):
     resolution = validate_gars_resolution(resolution)
     # Default to the whole world if no bounding box is provided
     if bbox is None:
@@ -47,7 +47,12 @@ def gars_grid(resolution, bbox=None, verbose=True):
 
     gars_records = []
     # Loop over longitudes and latitudes with tqdm progress bar
-    with tqdm(total=total_cells, desc="Generating GARS DGGS", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=total_cells,
+        desc="Generating GARS DGGS",
+        unit=" cells",
+        disable=not verbose,
+    ) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 # Create the GARS grid code
@@ -57,8 +62,12 @@ def gars_grid(resolution, bbox=None, verbose=True):
                 if wkt_polygon:
                     cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
                     gars_id = gars_cell.gars_id
-                    gars_record = graticule_dggs_to_geoseries(
-                        "gars", gars_id, resolution, cell_polygon
+                    gars_record = dggs_cell_row(
+                        "gars",
+                        gars_id,
+                        resolution,
+                        cell_polygon,
+                        cell_metrics=cell_metrics,
                     )
                     gars_records.append(gars_record)
                     pbar.update(1)
@@ -84,7 +93,12 @@ def gars_grid_ids(resolution, bbox=None, verbose=True):
 
     total_cells = len(longitudes) * len(latitudes)
     ids = []
-    with tqdm(total=total_cells, desc="Generating GARS IDs", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=total_cells,
+        desc="Generating GARS IDs",
+        unit=" cells",
+        disable=not verbose,
+    ) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 cell = GARSGrid.from_latlon(lat, lon, resolution_minutes)
@@ -94,7 +108,9 @@ def gars_grid_ids(resolution, bbox=None, verbose=True):
     return ids
 
 
-def garsgrid(resolution, bbox=None, output_format="gpd", verbose=True):
+def garsgrid(
+    resolution, bbox=None, output_format="gpd", cell_metrics=False, verbose=True
+):
     """
     Generate GARS grid for pure Python usage.
 
@@ -113,9 +129,9 @@ def garsgrid(resolution, bbox=None, output_format="gpd", verbose=True):
             raise ValueError(
                 f"Resolution level {resolution} ({resolution_minutes} minutes) will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = gars_grid(resolution, verbose=verbose)
+        gdf = gars_grid(resolution, cell_metrics=cell_metrics, verbose=verbose)
     else:
-        gdf = gars_grid(resolution, bbox, verbose=verbose)
+        gdf = gars_grid(resolution, bbox, cell_metrics=cell_metrics, verbose=verbose)
     output_name = f"gars_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -145,11 +161,25 @@ def garsgrid_cli():
         default="gpd",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
     try:
-        result = garsgrid(resolution, bbox, args.output_format, verbose=args.verbose)
+        result = garsgrid(
+            resolution,
+            bbox,
+            args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

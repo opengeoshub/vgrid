@@ -12,6 +12,7 @@ Key Functions:
 import argparse
 import os
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 from vgrid.generator.geohashgrid import geohash_grid_within_bbox
 from vgrid.utils.io import (
     process_input_data_bin,
@@ -32,6 +33,7 @@ def geohash_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -63,7 +65,10 @@ def geohash_bin(
     minx, miny, maxx, maxy = points_gdf.total_bounds  # lon/lat order
     id_col = "geohash"
     grid_gdf = geohash_grid_within_bbox(
-        resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose
+        resolution=resolution,
+        bbox=(minx, miny, maxx, maxy),
+        cell_metrics=cell_metrics,
+        verbose=verbose,
     )
 
     # 3) Spatial join points -> cells with only needed columns
@@ -92,7 +97,11 @@ def geohash_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=False,
+    )
 
 
 def geohashbin(
@@ -103,6 +112,7 @@ def geohashbin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_geohash_resolution(resolution)
@@ -111,7 +121,14 @@ def geohashbin(
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = geohash_bin(
-        data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -176,6 +193,14 @@ def geohashbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = geohashbin(
@@ -186,6 +211,7 @@ def geohashbin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

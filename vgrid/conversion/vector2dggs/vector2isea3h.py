@@ -44,12 +44,16 @@ if platform.system() == "Windows":
 
     isea3h_dggs = Eaggr(Model.ISEA3H)
 
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.generator.isea3hgrid import (
     get_isea3h_children_cells_within_bbox,
 )
 from vgrid.conversion.dggscompact.isea3hcompact import isea3h_compact
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
 
 min_res = DGGS_TYPES["isea3h"]["min_res"]
@@ -62,6 +66,7 @@ def point2isea3h(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to ISEA3H grid cells.
@@ -124,8 +129,13 @@ def point2isea3h(
         if cell_polygon:
             cell_resolution = resolution
             num_edges = 3 if cell_resolution == 0 else 6
-            row = geodesic_dggs_to_geoseries(
-                "isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "isea3h",
+                isea3h_id,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -139,6 +149,7 @@ def polyline2isea3h(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to ISEA3H grid cells.
@@ -194,8 +205,13 @@ def polyline2isea3h(
                 cell_accuracy = isea3h2point._accuracy
                 cell_resolution = ISEA3H_ACCURACY_RES_DICT.get(cell_accuracy)
                 num_edges = 3 if cell_resolution == 0 else 6
-                row = geodesic_dggs_to_geoseries(
-                    "isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea3h",
+                    isea3h_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -213,6 +229,7 @@ def polygon2isea3h(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to ISEA3H grid cells.
@@ -268,8 +285,13 @@ def polygon2isea3h(
                 cell_accuracy = isea3h2point._accuracy
                 cell_resolution = ISEA3H_ACCURACY_RES_DICT.get(cell_accuracy)
                 num_edges = 3 if cell_resolution == 0 else 6
-                row = geodesic_dggs_to_geoseries(
-                    "isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea3h",
+                    isea3h_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -280,7 +302,9 @@ def polygon2isea3h(
             # Extract cell IDs from isea3h_rows
             cells_to_process = [row.get("isea3h") for row in isea3h_rows]
             # Apply compact
-            cells_to_process = isea3h_compact(cells_to_process, depth=depth, verbose=verbose)
+            cells_to_process = isea3h_compact(
+                cells_to_process, depth=depth, verbose=verbose
+            )
             # Rebuild isea3h_rows with compacted cells
             isea3h_rows = []
             for cell_id in cells_to_process:
@@ -290,8 +314,13 @@ def polygon2isea3h(
                 cell_accuracy = isea3h2point._accuracy
                 cell_resolution = ISEA3H_ACCURACY_RES_DICT.get(cell_accuracy)
                 num_edges = 3 if cell_resolution == 0 else 6
-                row = geodesic_dggs_to_geoseries(
-                    "isea3h", cell_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "isea3h",
+                    cell_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -309,6 +338,7 @@ def geodataframe2isea3h(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to ISEA3H grid cells.
@@ -374,7 +404,9 @@ def geodataframe2isea3h(
 
     isea3h_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -394,6 +426,7 @@ def geodataframe2isea3h(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -405,6 +438,7 @@ def geodataframe2isea3h(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -419,6 +453,7 @@ def geodataframe2isea3h(
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -437,11 +472,12 @@ def vector2isea3h(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -487,6 +523,7 @@ def vector2isea3h(
         include_properties,
         fix_antimeridian=fix_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -556,19 +593,19 @@ def vector2isea3h_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     fix_antimeridian = args.fix_antimeridian
     # Allow running on all platforms
@@ -579,12 +616,13 @@ def vector2isea3h_cli():
                 resolution=args.resolution,
                 predicate=args.predicate,
                 compact=args.compact,
-            depth=args.depth,
+                depth=args.depth,
                 topology=args.topology,
                 output_format=args.output_format,
                 include_properties=args.include_properties,
                 fix_antimeridian=fix_antimeridian,
                 verbose=args.verbose,
+                cell_metrics=args.cell_metrics,
             )
             if args.output_format in STRUCTURED_FORMATS:
                 print(result)

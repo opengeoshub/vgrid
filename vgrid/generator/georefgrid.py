@@ -14,7 +14,7 @@ import argparse
 from tqdm import tqdm
 import numpy as np
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 import geopandas as gpd
 from vgrid.utils.io import (
     validate_bbox,
@@ -27,7 +27,7 @@ from vgrid.conversion.latlon2dggs import latlon2georef
 from vgrid.conversion.dggs2geo.georef2geo import georef2geo
 
 
-def georef_grid(resolution, bbox=None, verbose=True):
+def georef_grid(resolution, bbox=None, cell_metrics=False, verbose=True):
     resolution = validate_georef_resolution(resolution)
     if bbox is None:
         min_lon, min_lat, max_lon, max_lat = -180, -90, 180, 90
@@ -40,13 +40,22 @@ def georef_grid(resolution, bbox=None, verbose=True):
 
     georef_records = []
 
-    with tqdm(total=num_cells, desc="Generating GEOREF DGGS", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=num_cells,
+        desc="Generating GEOREF DGGS",
+        unit=" cells",
+        disable=not verbose,
+    ) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 georef_id = latlon2georef(lat, lon, resolution)
                 cell_polygon = georef2geo(georef_id)
-                georef_record = graticule_dggs_to_geoseries(
-                    "georef", georef_id, resolution, cell_polygon
+                georef_record = dggs_cell_row(
+                    "georef",
+                    georef_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
                 )
                 georef_records.append(georef_record)
                 pbar.update(1)
@@ -76,7 +85,12 @@ def georef_grid_ids(resolution, bbox=None, verbose=True):
 
     num_cells = len(longitudes) * len(latitudes)
     ids = []
-    with tqdm(total=num_cells, desc="Generating GEOREF IDs", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=num_cells,
+        desc="Generating GEOREF IDs",
+        unit=" cells",
+        disable=not verbose,
+    ) as pbar:
         for lon in longitudes:
             for lat in latitudes:
                 georef_id = latlon2georef(lat, lon, resolution)
@@ -86,7 +100,9 @@ def georef_grid_ids(resolution, bbox=None, verbose=True):
     return ids
 
 
-def georefgrid(resolution, bbox=None, output_format="gpd", verbose=True):
+def georefgrid(
+    resolution, bbox=None, output_format="gpd", cell_metrics=False, verbose=True
+):
     """
     Generate GEOREF grid for pure Python usage.
 
@@ -100,7 +116,7 @@ def georefgrid(resolution, bbox=None, output_format="gpd", verbose=True):
     """
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-    gdf = georef_grid(resolution, bbox, verbose=verbose)
+    gdf = georef_grid(resolution, bbox, cell_metrics=cell_metrics, verbose=verbose)
     output_name = f"georef_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -125,9 +141,23 @@ def georefgrid_cli():
         default="gpd",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
-        result = georefgrid(args.resolution, args.bbox, args.output_format, verbose=args.verbose)
+        result = georefgrid(
+            args.resolution,
+            args.bbox,
+            args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

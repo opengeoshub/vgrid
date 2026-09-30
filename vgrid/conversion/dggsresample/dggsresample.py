@@ -13,6 +13,7 @@ Target cells are kept according to a source–target predicate:
 from __future__ import annotations
 
 import argparse
+import builtins
 import json
 import math
 import os
@@ -29,8 +30,6 @@ import pandas as pd
 from tqdm import tqdm
 
 from vgrid.dggs import s2, olc, mercantile
-from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.dggs.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 from vgrid.generator.a5grid import a5_grid
 from vgrid.generator.geohashgrid import geohash_grid_within_bbox
 from vgrid.generator.h3grid import h3_grid_within_bbox
@@ -53,6 +52,7 @@ from vgrid.stats.dggridstats import dggridstats
 from vgrid.utils.constants import (
     DGGAL_TYPES,
     DGGRID_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
 )
@@ -77,8 +77,6 @@ from vgrid.generator.dggridgen import generate_grid as dggrid_generate_polygons
 from vgrid.conversion.dggscompact.dggridcompact import _resolve_cell_geometry
 
 import dggal
-
-E = WGS84_ELLIPSOID
 
 if platform.system() == "Windows":
     from vgrid.generator.isea4tgrid import isea4t_grid_within_bbox
@@ -122,10 +120,14 @@ def get_nearest_resolution(
     from_dggs: str,
     to_dggs: str,
     from_col: Optional[str] = None,
+    verbose: bool = False,
 ) -> int:
     """
     Match mean cell area of the first source cell to the closest ``to_dggs``
     resolution (same search as the QGIS plugin).
+
+    When ``verbose`` is True, prints source resolution/area and the matched
+    target resolution/area.
     """
     if from_col is None:
         from_col = from_dggs
@@ -154,11 +156,10 @@ def get_nearest_resolution(
             _, _, from_area, _ = a5_metrics(from_resolution)
 
         elif from_dggs == "rhealpix":
-            rhealpix_uids = (from_dggs_id[0],) + tuple(map(int, from_dggs_id[1:]))
-            rhealpix_dggs = RHEALPixDGGS(
-                ellipsoid=E, north_square=1, south_square=3, N_side=3
-            )
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            from vgrid.utils.io import get_rhealpix_dggs, rhealpix_cell_from_id
+
+            rhealpix_dggs = get_rhealpix_dggs(N_side=3)
+            rhealpix_cell = rhealpix_cell_from_id(from_dggs_id, dggs=rhealpix_dggs)
             from_resolution = rhealpix_cell.resolution
             _, _, from_area, _ = rhealpix_metrics(from_resolution)
 
@@ -239,7 +240,8 @@ def get_nearest_resolution(
     except Exception as e:
         raise ValueError(f"Failed to calculate area from {from_dggs}: {e}") from e
 
-    nearest_resolution: int
+    nearest_resolution: Optional[int] = None
+    nearest_area: Optional[float] = None
     min_diff = float("inf")
 
     try:
@@ -250,6 +252,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "s2":
             for res in range(31):
@@ -258,6 +261,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "a5":
             for res in range(30):
@@ -266,6 +270,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "rhealpix":
             for res in range(16):
@@ -274,6 +279,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "isea4t":
             if platform.system() != "Windows":
@@ -286,6 +292,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "qtm":
             for res in range(1, 25):
@@ -294,6 +301,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "olc":
             for res in olc_resolutions:
@@ -302,6 +310,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "geohash":
             for res in range(1, 11):
@@ -310,6 +319,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "tilecode":
             for res in range(30):
@@ -318,6 +328,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif to_dggs == "quadkey":
             for res in range(30):
@@ -326,6 +337,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif (dt := _dggal_short_type(to_dggs)) is not None:
             dt = validate_dggal_type(dt)
@@ -337,6 +349,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         elif (dt := _dggrid_short_type(to_dggs)) is not None:
             dt = validate_dggrid_type(dt)
@@ -353,6 +366,7 @@ def get_nearest_resolution(
                 if diff < min_diff:
                     min_diff = diff
                     nearest_resolution = res
+                    nearest_area = avg_area
 
         else:
             raise ValueError(f"Unsupported to_dggs type for area match: {to_dggs}")
@@ -361,6 +375,20 @@ def get_nearest_resolution(
         raise ValueError(
             f"Failed to calculate nearest resolution for {to_dggs}: {e}"
         ) from e
+
+    if nearest_resolution is None:
+        raise ValueError(f"No matching resolution found for {to_dggs}.")
+
+    if verbose:
+        area_txt = f"{nearest_area:,.2f} m²" if nearest_area is not None else "n/a"
+        print(
+            f"Source: {from_dggs} resolution {from_resolution} "
+            f"(mean cell area {from_area:,.2f} m²)"
+        )
+        print(
+            f"Target resolution (automatic): {to_dggs} {nearest_resolution} "
+            f"(mean cell area {area_txt})"
+        )
 
     return nearest_resolution
 
@@ -375,6 +403,8 @@ def generate_grid(
     aggregate: bool = False,
     dggrid_options: Optional[dict] = None,
     a5_options: Optional[dict] = None,
+    rhealpix_n_side: int = 3,
+    cell_metrics=False,
     verbose: bool = True,
 ) -> gpd.GeoDataFrame:
     """
@@ -388,11 +418,19 @@ def generate_grid(
 
     if to_dggs == "h3":
         gdf = h3_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     elif to_dggs == "s2":
         gdf = s2_grid(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     elif to_dggs == "a5":
         gdf = a5_grid(
@@ -400,28 +438,46 @@ def generate_grid(
             bbox,
             options=a5_options,
             split_antimeridian=split_antimeridian,
+            cell_metrics=cell_metrics,
             verbose=verbose,
         )
     elif to_dggs == "rhealpix":
         gdf = rhealpix_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
+            N_side=rhealpix_n_side,
         )
     elif to_dggs == "isea4t":
         if platform.system() != "Windows":
             raise ValueError("isea4t grid generation requires Windows in this build.")
         gdf = isea4t_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     elif to_dggs == "qtm":
-        gdf = qtm_grid_within_bbox(resolution, bbox, verbose=verbose)
+        gdf = qtm_grid_within_bbox(
+            resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
     elif to_dggs == "olc":
-        gdf = olc_grid_within_bbox(resolution, bbox, verbose=verbose)
+        gdf = olc_grid_within_bbox(
+            resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
     elif to_dggs == "geohash":
-        gdf = geohash_grid_within_bbox(resolution, bbox, verbose=verbose)
+        gdf = geohash_grid_within_bbox(
+            resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
     elif to_dggs == "tilecode":
-        gdf = tilecode_grid(resolution, bbox, verbose=verbose)
+        gdf = tilecode_grid(
+            resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
     elif to_dggs == "quadkey":
-        gdf = quadkey_grid(resolution, bbox, verbose=verbose)
+        gdf = quadkey_grid(resolution, bbox, cell_metrics=cell_metrics, verbose=verbose)
     elif (dt := _dggal_short_type(to_dggs)) is not None:
         dt = validate_dggal_type(dt)
         bbox_t = (float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
@@ -433,6 +489,7 @@ def generate_grid(
             compact=False,
             output_format="gpd",
             split_antimeridian=use_split,
+            cell_metrics=cell_metrics,
             verbose=verbose,
         )
         if gdf is None or getattr(gdf, "empty", True):
@@ -469,9 +526,7 @@ def _geom_has_nonfinite(geom: BaseGeometry) -> bool:
         coords = get_coordinates(geom)
     except Exception:
         return True
-    return coords.size > 0 and not all(
-        math.isfinite(float(v)) for v in coords.ravel()
-    )
+    return coords.size > 0 and not all(math.isfinite(float(v)) for v in coords.ravel())
 
 
 def _ensure_valid_geometry(geom: BaseGeometry) -> BaseGeometry:
@@ -612,7 +667,17 @@ def _resampling_area_weighted(
     resample_col: str,
     verbose=True,
     predicate: str = "centroid_within",
+    round: bool = False,
 ) -> gpd.GeoDataFrame:
+    """
+    Area-weighted transfer of ``resample_col`` onto target cells.
+
+    Parameters
+    ----------
+    round
+        If True, store resampled values as integers (nearest int).
+        If False (default), keep three decimal places.
+    """
     if source_gdf.empty or target_gdf.empty:
         return gpd.GeoDataFrame(columns=target_gdf.columns, crs=target_gdf.crs)
 
@@ -675,7 +740,10 @@ def _resampling_area_weighted(
     out_rows: list[dict] = []
     for target_idx, resampled_value in acc.items():
         rec = target_gdf.loc[target_idx].to_dict()
-        rec[resample_col] = round(resampled_value, 3)
+        if round:
+            rec[resample_col] = int(builtins.round(resampled_value))
+        else:
+            rec[resample_col] = builtins.round(resampled_value, 3)
         out_rows.append(rec)
 
     return gpd.GeoDataFrame(out_rows, crs=target_gdf.crs)
@@ -743,6 +811,7 @@ def resampling(
     method: str = "nearest",
     verbose=True,
     predicate: str = "centroid_within",
+    round: bool = False,
 ) -> gpd.GeoDataFrame:
     """
     Transfer ``resample_col`` from source cells onto target cells.
@@ -767,6 +836,9 @@ def resampling(
 
         ``\"intersects\"`` — keep a target cell if it intersects at least one
         source cell.
+    round
+        If True and ``method`` is area-weighted, store resampled values as
+        integers. Ignored for nearest-neighbour.
     """
     if resample_col not in source_gdf.columns:
         raise ValueError(
@@ -783,6 +855,7 @@ def resampling(
             resample_col,
             verbose=verbose,
             predicate=predicate,
+            round=round,
         )
     if norm in ("nearest", "nn", "nearest_neighbour", "nearest_neighbor"):
         return _resampling_nearest(
@@ -809,12 +882,14 @@ def dggsresample(
     output_name: Optional[str] = None,
     method: str = "area_weighted",
     predicate: str = "centroid_within",
+    round: bool = False,
     *,
     fix_antimeridian: Optional[str] = None,
     a5_options: Optional[dict] = None,
     split_antimeridian: bool = False,
     aggregate: bool = False,
     dggrid_options: Optional[dict] = None,
+    cell_metrics=False,
     verbose: bool = True,
 ) -> Union[gpd.GeoDataFrame, str, dict, list, None]:
     """
@@ -837,7 +912,9 @@ def dggsresample(
         ``\"isea4t\"`` remains the Windows EAGGR grid, not DGGRID.
     resolution
         Target resolution (int), or ``None`` / ``-1`` to pick the nearest level
-        by mean cell area.
+        by mean cell area. When ``verbose`` is True, prints whether the
+        resolution was automatic or user-set (and source/target area match
+        details for the automatic case).
     dggs_col
         Column holding source cell ids; defaults to ``dggs_from``. For DGGRID
         sources, if a canonical ``dggrid_<type>`` column exists (lowercase type,
@@ -853,6 +930,9 @@ def dggsresample(
         Source–target keep filter: ``\"centroid_within\"`` (default) keeps
         target cells that contain a source centroid; ``\"intersects\"`` keeps
         target cells that intersect any source cell.
+    round
+        If True and ``method`` is area-weighted, store resampled values as
+        integers (nearest int). Default keeps three decimal places.
     output_format
         Output format; see :func:`~vgrid.utils.io.convert_to_output_format`.
     output_name
@@ -886,9 +966,13 @@ def dggsresample(
         raise ValueError(f"Missing '{dggs_col}' in input data.")
 
     if resolution is None or resolution == -1:
-        res = get_nearest_resolution(source_gdf, dggs_from, dggs_to, dggs_col)
+        res = get_nearest_resolution(
+            source_gdf, dggs_from, dggs_to, dggs_col, verbose=verbose
+        )
     else:
-        res = resolution
+        res = int(resolution)
+        if verbose:
+            print(f"Target resolution (user-set): {dggs_to} {res}")
 
     target_gdf = generate_grid(
         source_gdf,
@@ -899,6 +983,7 @@ def dggsresample(
         aggregate=aggregate,
         dggrid_options=dggrid_options,
         a5_options=a5_options,  # for A5 grid generation
+        cell_metrics=cell_metrics,
         verbose=verbose,
     )
 
@@ -914,6 +999,7 @@ def dggsresample(
             method=method,
             verbose=verbose,
             predicate=predicate,
+            round=round,
         )
 
     if output_name is None and output_format in OUTPUT_FORMATS:
@@ -1009,6 +1095,14 @@ def dggsresample_cli():
         ),
     )
     parser.add_argument(
+        "--round",
+        action="store_true",
+        help=(
+            "Round area-weighted resampled values to integers "
+            "(ignored for nearest-neighbour)"
+        ),
+    )
+    parser.add_argument(
         "-f",
         "--output_format",
         type=str,
@@ -1027,14 +1121,7 @@ def dggsresample_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method for supported grids",
     )
@@ -1068,6 +1155,14 @@ def dggsresample_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     a5_options = None
@@ -1098,11 +1193,13 @@ def dggsresample_cli():
             output_name=args.output_name,
             method=args.method,
             predicate=args.predicate,
+            round=args.round,
             fix_antimeridian=args.fix_antimeridian,
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             dggrid_options=dggrid_options,
             a5_options=a5_options,  # for A5 grid generation
+            cell_metrics=args.cell_metrics,
             verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:

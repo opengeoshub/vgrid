@@ -17,7 +17,7 @@ import argparse
 import geopandas as gpd
 from tqdm import tqdm
 from vgrid.dggs import s2
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -29,7 +29,12 @@ from vgrid.utils.io import (
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.conversion.dggs2geo.s22geo import s22geo
 
 
@@ -96,6 +101,7 @@ def s2compact(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact S2 cells to their covering set at a given parent depth.
@@ -198,8 +204,13 @@ def s2compact(
             cell_polygon = s22geo(s2_token_compact, fix_antimeridian=fix_antimeridian)
             cell_resolution = s2.CellId.from_token(s2_token_compact).level()
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "s2", s2_token_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "s2",
+                s2_token_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(s2_token_compact, []), agg)
             rows.append(row)
@@ -243,14 +254,7 @@ def s2compact_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -284,6 +288,13 @@ def s2compact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -298,6 +309,7 @@ def s2compact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -324,7 +336,9 @@ def s2_expand(s2_tokens, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("s2", depth)
     expanded = []
-    for token in tqdm(s2_tokens, desc="Expanding S2", unit=" cells", disable=not verbose):
+    for token in tqdm(
+        s2_tokens, desc="Expanding S2", unit=" cells", disable=not verbose
+    ):
         try:
             cid = s2.CellId.from_token(str(token))
             expanded.extend(c.to_token() for c in cid.children(cid.level() + depth))
@@ -341,6 +355,7 @@ def s2expand(
     fix_antimeridian=None,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) S2 cells to a target resolution or by a relative depth.
@@ -411,7 +426,9 @@ def s2expand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            s2_tokens_expand = s2_expand(s2_tokens, resolution=resolution, verbose=verbose)
+            s2_tokens_expand = s2_expand(
+                s2_tokens, resolution=resolution, verbose=verbose
+            )
         else:
             s2_tokens_expand = s2_expand(s2_tokens, depth=depth, verbose=verbose)
     except Exception:
@@ -431,8 +448,13 @@ def s2expand(
             cell_polygon = s22geo(s2_token_expand, fix_antimeridian=fix_antimeridian)
             cell_resolution = s2.CellId.from_token(s2_token_expand).level()
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "s2", s2_token_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "s2",
+                s2_token_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -491,18 +513,18 @@ def s2expand_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = s2expand(
         args.input,
@@ -512,6 +534,7 @@ def s2expand_cli():
         fix_antimeridian=args.fix_antimeridian,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

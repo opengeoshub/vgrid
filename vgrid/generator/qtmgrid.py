@@ -14,7 +14,7 @@ from shapely.geometry import shape, Polygon
 import argparse
 import geopandas as gpd
 from vgrid.dggs import qtm
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import (
@@ -27,10 +27,12 @@ from vgrid.conversion.dggscompact.qtmcompact import qtm_compact
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 
 
-def _qtm_row_from_id(qtm_id):
+def _qtm_row_from_id(qtm_id, cell_metrics=False):
     cell_polygon = qtm2geo(qtm_id)
     cell_resolution = len(qtm_id)
-    return geodesic_dggs_to_geoseries("qtm", qtm_id, cell_resolution, cell_polygon, 3)
+    return dggs_cell_row(
+        "qtm", qtm_id, cell_resolution, cell_polygon, 3, cell_metrics=cell_metrics
+    )
 
 
 p90_n180, p90_n90, p90_p0, p90_p90, p90_p180 = (
@@ -67,7 +69,7 @@ initial_facets = [
 ]
 
 
-def qtm_grid(resolution, compact=False, verbose=True):
+def qtm_grid(resolution, compact=False, cell_metrics=False, verbose=True):
     resolution = validate_qtm_resolution(resolution)
     levelFacets = {}
     QTMID = {}
@@ -95,12 +97,16 @@ def qtm_grid(resolution, compact=False, verbose=True):
         qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
-    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
-        qtm_rows.append(_qtm_row_from_id(qtm_id))
+    for qtm_id in tqdm(
+        qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose
+    ):
+        qtm_rows.append(_qtm_row_from_id(qtm_id, cell_metrics=cell_metrics))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def qtm_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
+def qtm_grid_within_bbox(
+    resolution, bbox, compact=False, cell_metrics=False, verbose=True
+):
     resolution = validate_qtm_resolution(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
     levelFacets = {}
@@ -151,8 +157,10 @@ def qtm_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
         qtm_ids = qtm_compact(qtm_ids, verbose=verbose)
 
     qtm_rows = []
-    for qtm_id in tqdm(qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose):
-        qtm_rows.append(_qtm_row_from_id(qtm_id))
+    for qtm_id in tqdm(
+        qtm_ids, desc="Building QTM cells", unit=" cells", disable=not verbose
+    ):
+        qtm_rows.append(_qtm_row_from_id(qtm_id, cell_metrics=cell_metrics))
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
 
 
@@ -245,17 +253,32 @@ def qtm_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     return ids
 
 
-def qtmgrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
+def qtmgrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-        gdf = qtm_grid(resolution, compact=compact, verbose=verbose)
+        gdf = qtm_grid(
+            resolution, compact=compact, cell_metrics=cell_metrics, verbose=verbose
+        )
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
     else:
-        gdf = qtm_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
+        gdf = qtm_grid_within_bbox(
+            resolution,
+            bbox,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
+        )
         num_cells = len(gdf)
         if num_cells > MAX_CELLS:
             raise ValueError(
@@ -291,13 +314,28 @@ def qtmgrid_cli():
         help="Enable QTM compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
 
     try:
-        result = qtmgrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
+        result = qtmgrid(
+            resolution,
+            bbox,
+            args.output_format,
+            compact=args.compact,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

@@ -19,7 +19,7 @@ from vgrid.utils.constants import (
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
 )
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 import geopandas as gpd
 from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin
@@ -34,17 +34,23 @@ from vgrid.conversion.dggscompact.digipincompact import digipin_compact
 from vgrid.dggs.digipin import digipin_resolution
 
 
-def _digipin_row_from_id(digipin_code):
+def _digipin_row_from_id(digipin_code, cell_metrics=False):
     cell_polygon = digipin2geo(digipin_code)
     if isinstance(cell_polygon, str):
         raise ValueError(f"Invalid DIGIPIN cell: {digipin_code}")
     cell_resolution = digipin_resolution(digipin_code)
-    return graticule_dggs_to_geoseries(
-        "digipin", digipin_code, cell_resolution, cell_polygon
+    return dggs_cell_row(
+        "digipin",
+        digipin_code,
+        cell_resolution,
+        cell_polygon,
+        cell_metrics=cell_metrics,
     )
 
 
-def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
+def digipin_grid(
+    resolution, bbox=None, compact=False, cell_metrics=False, verbose=True
+):
     """
     Generate DIGIPIN grid at the given resolution.
 
@@ -63,7 +69,9 @@ def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
     gpd.GeoDataFrame
         GeoDataFrame containing DIGIPIN cells with geometries and metadata
     """
-    digipin_ids = digipin_grid_ids(resolution, bbox=bbox, compact=False, verbose=verbose)
+    digipin_ids = digipin_grid_ids(
+        resolution, bbox=bbox, compact=False, verbose=verbose
+    )
     if compact:
         digipin_ids = digipin_compact(digipin_ids, verbose=verbose)
 
@@ -72,7 +80,9 @@ def digipin_grid(resolution, bbox=None, compact=False, verbose=True):
         digipin_ids, desc="Generating DIGIPIN DGGS", unit=" cells", disable=not verbose
     ):
         try:
-            digipin_records.append(_digipin_row_from_id(digipin_code))
+            digipin_records.append(
+                _digipin_row_from_id(digipin_code, cell_metrics=cell_metrics)
+            )
         except Exception:
             continue
 
@@ -149,7 +159,14 @@ def digipin_grid_ids(resolution, bbox=None, compact=False, verbose=True):
     return ids
 
 
-def digipingrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
+def digipingrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     """
     Generate DIGIPIN grid for pure Python usage.
 
@@ -194,7 +211,13 @@ def digipingrid(resolution, bbox=None, output_format="gpd", compact=False, verbo
                 f"which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = digipin_grid(resolution, bbox=bbox, compact=compact, verbose=verbose)
+    gdf = digipin_grid(
+        resolution,
+        bbox=bbox,
+        compact=compact,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+    )
 
     output_name = f"digipin_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -231,11 +254,24 @@ def digipingrid_cli():
         help="Enable DIGIPIN compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     try:
         result = digipingrid(
-            args.resolution, args.bbox, args.output_format, compact=args.compact, verbose=args.verbose
+            args.resolution,
+            args.bbox,
+            args.output_format,
+            compact=args.compact,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

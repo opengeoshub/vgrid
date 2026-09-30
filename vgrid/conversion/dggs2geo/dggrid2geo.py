@@ -15,6 +15,7 @@ import argparse
 
 from dggrid4py import dggs_types
 from dggrid4py.dggrid_runner import output_address_types
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.utils.io import (
     validate_dggrid_type,
     validate_dggrid_resolution,
@@ -222,6 +223,7 @@ def dggrid2geojson(
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    cell_metrics=False,
 ):
     """
     Convert DGGRID cell IDs to GeoJSON FeatureCollection.
@@ -289,10 +291,23 @@ def dggrid2geojson(
             # DGGRID can emit custom authalic CRS metadata; keep coordinates and
             # mark as EPSG:4326 for interoperable GeoJSON output.
             gdf = gdf.set_crs("EPSG:4326", allow_override=True)
-    # Convert GeoDataFrame to GeoJSON dictionary
-    geojson_dict = json.loads(gdf.to_json())
+    id_col = f"dggrid_{dggs_type.lower()}"
+    if not cell_metrics:
+        return json.loads(gdf.to_json())
 
-    return geojson_dict
+    features = []
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.is_empty:
+            continue
+        ring_geom = geom if geom.geom_type == "Polygon" else geom.geoms[0]
+        num_edges = max(len(ring_geom.exterior.coords) - 1, 1)
+        features.append(
+            dggs_geojson_feature(
+                id_col, row[id_col], resolution, geom, cell_metrics, num_edges
+            )
+        )
+    return {"type": "FeatureCollection", "features": features}
 
 
 def dggrid2geojson_cli():
@@ -340,6 +355,13 @@ def dggrid2geojson_cli():
         help="JSON string of options to pass to grid_cell_polygons_from_cellids. "
         "Example: '{\"densification\": 2}'",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
 
@@ -362,6 +384,7 @@ def dggrid2geojson_cli():
             split_antimeridian=args.split_antimeridian,
             aggregate=args.aggregate,
             options=options,
+            cell_metrics=args.cell_metrics,
         )
     )
     print(geojson_data)

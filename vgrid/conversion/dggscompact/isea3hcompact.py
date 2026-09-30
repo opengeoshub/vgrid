@@ -27,7 +27,7 @@ if platform.system() == "Windows":
     isea3h_dggs = Eaggr(Model.ISEA3H)
 
 from vgrid.conversion.dggs2geo.isea3h2geo import isea3h2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -39,7 +39,12 @@ from vgrid.utils.io import (
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from pyproj import Geod
 
 geod = Geod(ellps="WGS84")
@@ -168,6 +173,7 @@ def isea3hcompact(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact ISEA3H cells to their covering set at a given parent depth.
@@ -275,8 +281,13 @@ def isea3hcompact(
             )
             cell_resolution = get_isea3h_resolution(isea3h_id_compact)
             num_edges = 6  # ISEA3H cells are hexagonal
-            row = geodesic_dggs_to_geoseries(
-                "isea3h", isea3h_id_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "isea3h",
+                isea3h_id_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(isea3h_id_compact, []), agg)
             rows.append(row)
@@ -319,14 +330,7 @@ def isea3hcompact_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -359,6 +363,13 @@ def isea3hcompact_cli():
         default=True,
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -373,6 +384,7 @@ def isea3hcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -392,7 +404,9 @@ def isea3h_expand(isea3h_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("isea3h", resolution)
         expand_cells = []
-        for isea3h_id in tqdm(isea3h_ids, desc="Expanding ISEA3H", unit=" cells", disable=not verbose):
+        for isea3h_id in tqdm(
+            isea3h_ids, desc="Expanding ISEA3H", unit=" cells", disable=not verbose
+        ):
             isea3h_cell = DggsCell(isea3h_id)
             expand_cells.extend(get_isea3h_cell_children(isea3h_cell, resolution))
         return expand_cells
@@ -401,7 +415,9 @@ def isea3h_expand(isea3h_ids, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("isea3h", depth)
     expand_cells = []
-    for isea3h_id in tqdm(isea3h_ids, desc="Expanding ISEA3H", unit=" cells", disable=not verbose):
+    for isea3h_id in tqdm(
+        isea3h_ids, desc="Expanding ISEA3H", unit=" cells", disable=not verbose
+    ):
         try:
             current = get_isea3h_resolution(isea3h_id)
             expand_cells.extend(
@@ -420,6 +436,7 @@ def isea3hexpand(
     fix_antimeridian=None,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) ISEA3H cells to a target resolution or by a relative depth.
@@ -451,9 +468,13 @@ def isea3hexpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            isea3h_cells_expand = isea3h_expand(isea3h_ids, resolution=resolution, verbose=verbose)
+            isea3h_cells_expand = isea3h_expand(
+                isea3h_ids, resolution=resolution, verbose=verbose
+            )
         else:
-            isea3h_cells_expand = isea3h_expand(isea3h_ids, depth=depth, verbose=verbose)
+            isea3h_cells_expand = isea3h_expand(
+                isea3h_ids, depth=depth, verbose=verbose
+            )
         isea3h_ids_expand = [cell.get_cell_id() for cell in isea3h_cells_expand]
     except Exception:
         raise Exception(
@@ -476,8 +497,13 @@ def isea3hexpand(
             )
             cell_resolution = get_isea3h_resolution(isea3h_id_expand)
             num_edges = 6
-            row = geodesic_dggs_to_geoseries(
-                "isea3h", isea3h_id_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "isea3h",
+                isea3h_id_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -544,19 +570,19 @@ def isea3hexpand_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     output_format = args.output_format
@@ -569,6 +595,7 @@ def isea3hexpand_cli():
             fix_antimeridian=args.fix_antimeridian,
             depth=args.depth,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
 
         if output_format is None:
@@ -604,4 +631,3 @@ def isea3hexpand_cli():
             print("ISEA3H expand completed.")
     else:
         print("ISEA3H is only supported on Windows systems")
-

@@ -243,6 +243,7 @@ def dggridinspect(
         split_antimeridian=split_antimeridian,
         aggregate=aggregate,
         options=options,
+        cell_metrics=True,
         verbose=verbose,
     )
 
@@ -259,6 +260,7 @@ def dggridinspect(
 
     # Determine whether current CRS is geographic; compute metrics accordingly
     if dggrid_gdf.crs.is_geographic:
+
         def _geod_area_perimeter(g):
             cell_area_perimeter = geod.geometry_area_perimeter(g)
             return pd.Series(

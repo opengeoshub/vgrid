@@ -31,7 +31,12 @@ import numpy as np
 from shapely.ops import transform
 import pyproj
 import geopandas as gpd
-from vgrid.utils.constants import AUTHALIC_AREA, DGGS_TYPES, GEOREF_RESOLUTION_DEGREES
+from vgrid.utils.constants import (
+    AUTHALIC_AREA,
+    DGGS_TYPES,
+    GEOREF_RESOLUTION_DEGREES,
+    MERCATOR_TILE_SIZE,
+)
 from vgrid.dggs import maidenhead
 
 if platform.system() == "Windows":
@@ -367,6 +372,162 @@ def geodesic_dggs_to_geoseries(dggs_type, cell_id, resolution, cell_polygon, num
         "cell_perimeter": cell_perimeter,
         "geometry": cell_polygon,
     }
+
+
+def dggs_cell_row(
+    dggs_type,
+    cell_id,
+    resolution,
+    cell_polygon,
+    num_edges=None,
+    cell_metrics=False,
+):
+    """Row for a vector-to-DGGS cell.
+
+    When ``cell_metrics`` is true, the row comes from ``geodesic_dggs_to_geoseries``
+    if ``num_edges`` is set, otherwise from ``graticule_dggs_to_geoseries``.
+    Otherwise the row is the cell id, resolution, and geometry.
+    """
+    if cell_metrics:
+        if num_edges is None:
+            return graticule_dggs_to_geoseries(
+                dggs_type, cell_id, resolution, cell_polygon
+            )
+        return geodesic_dggs_to_geoseries(
+            dggs_type, cell_id, resolution, cell_polygon, num_edges
+        )
+    return {
+        dggs_type: str(cell_id),
+        "resolution": resolution,
+        "geometry": cell_polygon,
+    }
+
+
+# Columns from geodesic_dggs_to_geoseries (H3, S2, A5, rHEALPix, EASE, QTM, ISEA3H, ISEA4T, DGGAL, DGGRID).
+GEODESIC_METRIC_COLUMNS = (
+    "center_lat",
+    "center_lon",
+    "avg_edge_len",
+    "cell_area",
+    "cell_perimeter",
+)
+# Columns from graticule_dggs_to_geoseries (tilecode, quadkey, geohash, OLC, GEOREF, GARS, DIGIPIN, Maidenhead).
+GRATICULE_METRIC_COLUMNS = (
+    "center_lat",
+    "center_lon",
+    "cell_width",
+    "cell_height",
+    "cell_area",
+    "cell_perimeter",
+)
+BIN_METRIC_COLUMNS = tuple(
+    dict.fromkeys((*GEODESIC_METRIC_COLUMNS, *GRATICULE_METRIC_COLUMNS))
+)
+
+
+def _bin_metric_rows(gdf, num_edges, id_col, resolution):
+    rows = []
+    for _, row in gdf.iterrows():
+        cell_resolution = row["resolution"] if "resolution" in gdf.columns else resolution
+        cell_row = dggs_cell_row(
+            id_col,
+            row[id_col],
+            cell_resolution,
+            row.geometry,
+            num_edges,
+            cell_metrics=True,
+        )
+        for col, value in row.items():
+            if col not in cell_row:
+                cell_row[col] = value
+        rows.append(cell_row)
+    return gpd.GeoDataFrame(rows, geometry="geometry", crs=gdf.crs)
+
+
+def apply_bin_cell_metrics(
+    gdf,
+    cell_metrics=False,
+    num_edges=None,
+    id_col=None,
+    resolution=None,
+    geodesic=None,
+):
+    """Keep or drop DGGS cell metric columns on a binned grid.
+
+    Geodesic DGGS such as H3 keep the ``geodesic_dggs_to_geoseries`` columns:
+    center_lat, center_lon, avg_edge_len, cell_area, cell_perimeter.
+    Graticule DGGS such as tilecode keep the ``graticule_dggs_to_geoseries``
+    columns: center_lat, center_lon, cell_width, cell_height, cell_area,
+    cell_perimeter. When ``cell_metrics`` is false those columns are removed,
+    leaving the cell id, resolution, geometry, and aggregation columns.
+    """
+    if gdf is None:
+        return gdf
+    if not cell_metrics:
+        drop = [name for name in BIN_METRIC_COLUMNS if name in gdf.columns]
+        if not drop:
+            return gdf
+        return gdf.drop(columns=drop)
+    if gdf.empty:
+        return gdf
+
+    if geodesic is None:
+        if "cell_width" in gdf.columns or "cell_height" in gdf.columns:
+            geodesic = False
+        elif "avg_edge_len" in gdf.columns or num_edges is not None:
+            geodesic = True
+
+    if geodesic is True:
+        has_own = "avg_edge_len" in gdf.columns
+        other = ("cell_width", "cell_height")
+        edges = num_edges
+    elif geodesic is False:
+        has_own = "cell_width" in gdf.columns or "cell_height" in gdf.columns
+        other = ("avg_edge_len",)
+        edges = None
+    else:
+        return gdf
+
+    can_build = id_col and id_col in gdf.columns and (geodesic is False or edges is not None)
+    if not has_own and can_build:
+        return _bin_metric_rows(gdf, edges, id_col, resolution)
+
+    drop = [name for name in other if name in gdf.columns]
+    if not drop:
+        return gdf
+    return gdf.drop(columns=drop)
+
+
+def dggs_geojson_feature(
+    dggs_type,
+    cell_id,
+    resolution,
+    cell_polygon,
+    cell_metrics=False,
+    num_edges=None,
+):
+    """GeoJSON feature for one DGGS cell.
+
+    When ``cell_metrics`` is true, properties come from
+    ``geodesic_dggs_to_geoseries`` if ``num_edges`` is set, otherwise from
+    ``graticule_dggs_to_geoseries``. Otherwise properties are only the cell id
+    and resolution.
+    """
+    if cell_metrics:
+        if num_edges is None:
+            row = graticule_dggs_to_geoseries(
+                dggs_type, cell_id, resolution, cell_polygon
+            )
+        else:
+            row = geodesic_dggs_to_geoseries(
+                dggs_type, cell_id, resolution, cell_polygon, num_edges
+            )
+        geometry = mapping(row.pop("geometry"))
+        properties = row
+    else:
+        geometry = mapping(cell_polygon)
+        properties = {dggs_type: str(cell_id), "resolution": resolution}
+    return {"type": "Feature", "geometry": geometry, "properties": properties}
 
 
 def raster_bbox_wgs84(raster_path: str) -> list[float]:
@@ -1467,20 +1628,23 @@ def get_s2_resolution_from_scale_denominator(
     )
 
 
-def get_rhealpix_resolution_from_area(meters_squared, relative_depth=5):
+def get_rhealpix_resolution_from_area(meters_squared, relative_depth=5, N_side=3):
+    from vgrid.utils.io import validate_rhealpix_n_side
+
     min_res = DGGS_TYPES["rhealpix"]["min_res"]
     max_res = DGGS_TYPES["rhealpix"]["max_res"] + relative_depth
     target_cell_count = AUTHALIC_AREA / meters_squared
+    N_side = validate_rhealpix_n_side(N_side)
     res = 0
     for res in range(min_res, max_res + 1):
-        cell_count = 6 * 9 ** (res)
+        cell_count = 6 * (N_side**2) ** (res)
         if cell_count >= target_cell_count:
             return res
     return res
 
 
 def get_rhealpix_resolution_from_scale_denominator(
-    scale_denominator, relative_depth=5, mm_per_pixel=0.28
+    scale_denominator, relative_depth=5, mm_per_pixel=0.28, N_side=3
 ):
     display_meters_per_pixel = (
         mm_per_pixel / 1000.0 if mm_per_pixel else STANDARD_METERS_PER_PIXEL
@@ -1489,7 +1653,9 @@ def get_rhealpix_resolution_from_scale_denominator(
     return max(
         0,
         get_rhealpix_resolution_from_area(
-            physical_meters_per_cell * physical_meters_per_cell, relative_depth
+            physical_meters_per_cell * physical_meters_per_cell,
+            relative_depth,
+            N_side=N_side,
         )
         - relative_depth,
     )
@@ -1697,3 +1863,11 @@ def get_maidenhead_resolution_from_scale_denominator(
         )
         - relative_depth,
     )
+
+
+def degrees_per_pixel(zoom):
+    """Degrees per pixel at a Web Mercator zoom.
+
+    The world is ``MERCATOR_TILE_SIZE`` pixels wide at zoom 0.
+    """
+    return 360.0 / (MERCATOR_TILE_SIZE * (2.0**zoom))

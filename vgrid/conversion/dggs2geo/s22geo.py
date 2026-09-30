@@ -13,10 +13,11 @@ Key Functions:
 import json
 import argparse
 from shapely.geometry import Polygon
-from vgrid.utils.geometry import geodesic_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.dggs import s2
 from vgrid.utils.antimeridian import fix_polygon
 from vgrid.utils.geometry import shift_balanced, shift_west, shift_east
+from vgrid.utils.constants import FIX_ANTIMERIDIAN_CHOICES
 
 
 def s22geo(s2_tokens, fix_antimeridian=None):
@@ -109,7 +110,7 @@ def s22geo_cli():
     return polys
 
 
-def s22geojson(s2_tokens, fix_antimeridian=None):
+def s22geojson(s2_tokens, fix_antimeridian=None, cell_metrics=False):
     """
     Convert S2 cell tokens to GeoJSON FeatureCollection.
 
@@ -148,8 +149,8 @@ def s22geojson(s2_tokens, fix_antimeridian=None):
             cell_polygon = s22geo(s2_token, fix_antimeridian=fix_antimeridian)
             resolution = cell_id.level()
             num_edges = 4
-            s2_feature = geodesic_dggs_to_feature(
-                "s2", s2_token, resolution, cell_polygon, num_edges
+            s2_feature = dggs_geojson_feature(
+                "s2", s2_token, resolution, cell_polygon, cell_metrics, num_edges
             )
             s2_features.append(s2_feature)
         except Exception:
@@ -171,18 +172,24 @@ def s22geojson_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     fix_antimeridian = args.fix_antimeridian
-    geojson_data = json.dumps(s22geojson(args.s2, fix_antimeridian=fix_antimeridian))
+    geojson_data = json.dumps(
+        s22geojson(
+            args.s2,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=args.cell_metrics,
+        )
+    )
     print(geojson_data)

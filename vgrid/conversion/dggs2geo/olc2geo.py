@@ -13,7 +13,7 @@ Key Functions:
 import json
 import argparse
 from shapely.geometry import Polygon
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.dggs import olc
 
 
@@ -88,7 +88,7 @@ def olc2geo_cli():
     return polys
 
 
-def olc2geojson(olc_ids):
+def olc2geojson(olc_ids, cell_metrics=False):
     """
     Convert OLC (Open Location Code) cell IDs to GeoJSON FeatureCollection.
 
@@ -126,8 +126,8 @@ def olc2geojson(olc_ids):
             cell_polygon = olc2geo(olc_id)
             coord = olc.decode(olc_id)
             resolution = coord.codeLength
-            olc_feature = graticule_dggs_to_feature(
-                "olc", olc_id, resolution, cell_polygon
+            olc_feature = dggs_geojson_feature(
+                "olc", olc_id, resolution, cell_polygon, cell_metrics
             )
             olc_features.append(olc_feature)
         except Exception:
@@ -147,6 +147,13 @@ def olc2geojson_cli():
         nargs="+",
         help="Input OLC(s), e.g., olc2geojson 7P28QPG4+4P7 7P28QPG4+4P8",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(olc2geojson(args.olc))
+    geojson_data = json.dumps(olc2geojson(args.olc, cell_metrics=args.cell_metrics))
     print(geojson_data)

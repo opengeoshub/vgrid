@@ -15,6 +15,7 @@ import argparse
 import os
 
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 
 from vgrid.generator.georefgrid import georef_grid
 from vgrid.utils.constants import (
@@ -45,6 +46,7 @@ def georef_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -71,7 +73,12 @@ def georef_bin(
 
     minx, miny, maxx, maxy = points_gdf.total_bounds
     id_col = "georef"
-    grid_gdf = georef_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
+    grid_gdf = georef_grid(
+        resolution=resolution,
+        bbox=(minx, miny, maxx, maxy),
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+    )
 
     join_cols = []
     if category_col and category_col in points_gdf.columns:
@@ -96,7 +103,11 @@ def georef_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=False,
+    )
 
 
 def georefbin(
@@ -107,6 +118,7 @@ def georefbin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_georef_resolution(resolution)
@@ -115,7 +127,14 @@ def georefbin(
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = georef_bin(
-        data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -179,6 +198,14 @@ def georefbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = georefbin(
@@ -189,6 +216,7 @@ def georefbin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

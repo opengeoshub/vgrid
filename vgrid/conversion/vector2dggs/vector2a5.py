@@ -22,7 +22,7 @@ from pyproj import Geod
 import geopandas as gpd
 from shapely.geometry import MultiPoint
 import a5
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.geometry import (
     check_predicate,
     shortest_point_distance,
@@ -54,6 +54,7 @@ def point2a5(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to A5 grid cells.
@@ -114,8 +115,13 @@ def point2a5(
         num_edges = 5
         if cell_resolution == 1:
             num_edges = 3
-        row = geodesic_dggs_to_geoseries(
-            "a5", a5_hex, cell_resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "a5",
+            a5_hex,
+            cell_resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
 
         # Add properties if requested
@@ -133,6 +139,7 @@ def polyline2a5(
     include_properties=True,
     options=None,
     split_antimeridian=False,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to an A5 path along its vertices.
@@ -207,8 +214,13 @@ def polyline2a5(
             num_edges = 5
             if cell_resolution == 1:
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "a5", cell_hex, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "a5",
+                cell_hex,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -228,6 +240,7 @@ def polygon2a5(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -260,8 +273,13 @@ def polygon2a5(
             num_edges = 5
             if seed_cell_resolution == 1:
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "a5", seed_cell_id, seed_cell_resolution, seed_cell_polygon, num_edges
+            row = dggs_cell_row(
+                "a5",
+                seed_cell_id,
+                seed_cell_resolution,
+                seed_cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -302,8 +320,13 @@ def polygon2a5(
                     num_edges = 5
                     if cell_resolution == 1:
                         num_edges = 3
-                    row = geodesic_dggs_to_geoseries(
-                        "a5", cell_hex, cell_resolution, cell_polygon, num_edges
+                    row = dggs_cell_row(
+                        "a5",
+                        cell_hex,
+                        cell_resolution,
+                        cell_polygon,
+                        num_edges,
+                        cell_metrics=cell_metrics,
                     )
                     if include_properties and feature_properties:
                         row.update(feature_properties)
@@ -314,7 +337,13 @@ def polygon2a5(
                 temp_gdf = gpd.GeoDataFrame(
                     a5_rows, geometry="geometry", crs="EPSG:4326"
                 )
-                compacted_gdf = a5compact(temp_gdf, a5_hex="a5", output_format="gpd", verbose=verbose, depth=depth)
+                compacted_gdf = a5compact(
+                    temp_gdf,
+                    a5_hex="a5",
+                    output_format="gpd",
+                    verbose=verbose,
+                    depth=depth,
+                )
                 if compacted_gdf is not None:
                     a5_rows = compacted_gdf.to_dict("records")
 
@@ -332,6 +361,7 @@ def polygon2a5_new(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to A5 grid cells.
@@ -424,8 +454,13 @@ def polygon2a5_new(
             num_edges = 5
             if cell_resolution == 1:
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "a5", cell_hex, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "a5",
+                cell_hex,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -445,6 +480,7 @@ def geodataframe2a5(
     options=None,
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to A5 grid cells.
@@ -508,7 +544,9 @@ def geodataframe2a5(
 
     a5_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -529,6 +567,7 @@ def geodataframe2a5(
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -541,6 +580,7 @@ def geodataframe2a5(
                     include_properties=include_properties,
                     options=options,
                     split_antimeridian=split_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -556,6 +596,7 @@ def geodataframe2a5(
                     options=options,
                     split_antimeridian=split_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
             # polygon2a5_new only supports predicate "centroid_within"
@@ -569,12 +610,13 @@ def vector2a5(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     options=None,
     split_antimeridian=False,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -621,6 +663,7 @@ def vector2a5(
         options,
         split_antimeridian=split_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -703,6 +746,13 @@ def vector2a5_cli():
 
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -727,6 +777,7 @@ def vector2a5_cli():
             options=options,
             split_antimeridian=args.split_antimeridian,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

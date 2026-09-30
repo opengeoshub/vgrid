@@ -15,8 +15,9 @@ import argparse
 import h3
 from shapely.geometry import Polygon
 from vgrid.utils.geometry import shift_balanced, shift_west, shift_east
-from vgrid.utils.geometry import geodesic_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.utils.antimeridian import fix_polygon
+from vgrid.utils.constants import FIX_ANTIMERIDIAN_CHOICES
 
 
 def h32geo(h3_ids, fix_antimeridian: str = None):
@@ -103,14 +104,7 @@ def h32geo_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -119,7 +113,7 @@ def h32geo_cli():
     return polys
 
 
-def h32geojson(h3_ids, fix_antimeridian=None):
+def h32geojson(h3_ids, fix_antimeridian=None, cell_metrics=False):
     """
     Convert H3 cell IDs to GeoJSON FeatureCollection.
 
@@ -166,8 +160,13 @@ def h32geojson(h3_ids, fix_antimeridian=None):
             num_edges = 6
             if h3.is_pentagon(h3_id):
                 num_edges = 5
-            h3_feature = geodesic_dggs_to_feature(
-                "h3", h3_id, cell_resolution, cell_polygon, num_edges
+            h3_feature = dggs_geojson_feature(
+                "h3",
+                h3_id,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics,
+                num_edges,
             )
             h3_features.append(h3_feature)
         except Exception:
@@ -189,20 +188,24 @@ def h32geojson_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     geojson_data = json.dumps(
-        h32geojson(args.h3, fix_antimeridian=args.fix_antimeridian)
+        h32geojson(
+            args.h3,
+            fix_antimeridian=args.fix_antimeridian,
+            cell_metrics=args.cell_metrics,
+        )
     )
     print(geojson_data)
 

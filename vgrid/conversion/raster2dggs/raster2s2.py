@@ -25,12 +25,13 @@ from vgrid.utils.io import (
     finalize_dggs_band_values,
 )
 from vgrid.utils.constants import (
-    OUTPUT_FORMATS,
-    STRUCTURED_FORMATS,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     MIN_CELL_AREA,
+    OUTPUT_FORMATS,
     RASTER_STATS_OPTIONS,
     RASTER2DGGS_METHODS,
+    STRUCTURED_FORMATS,
 )
 import geopandas as gpd
 from pyproj import datadir
@@ -38,7 +39,8 @@ from vgrid.conversion.dggs2geo.s22geo import s22geo
 from vgrid.utils.geometry import (
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
-    geodesic_dggs_metrics,
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     nearest_neighbour_from_grid,
 )
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
@@ -113,18 +115,34 @@ def get_nearest_s2_resolution(raster_path):
 
 
 def _raster2s2_nearest_neighbour(
-    raster_path, resolution, fix_antimeridian=None,
+    raster_path,
+    resolution,
+    fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "s2", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+        footprint,
+        "s2",
+        resolution,
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def _raster2s2_binning(
-    raster_path, resolution, stats, fix_antimeridian=None,
+    raster_path,
+    resolution,
+    stats,
+    fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
@@ -138,24 +156,21 @@ def _raster2s2_binning(
 
     properties = []
     for s2_token, acc in tqdm(
-        s2_acc.items(), desc="Converting raster to S2", unit=" cells",
+        s2_acc.items(),
+        desc="Converting raster to S2",
+        unit=" cells",
         disable=not verbose,
     ):
         cell_polygon = s22geo(s2_token, fix_antimeridian=fix_antimeridian)
         num_edges = 4
-        centroid_lat, centroid_lon, avg_edge_len, cell_area, cell_perimeter = (
-            geodesic_dggs_metrics(cell_polygon, num_edges)
+        base_props = dggs_cell_row(
+            "s2",
+            s2_token,
+            resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
-        base_props = {
-            "s2": s2_token,
-            "resolution": resolution,
-            "center_lat": centroid_lat,
-            "center_lon": centroid_lon,
-            "avg_edge_len": avg_edge_len,
-            "cell_area": cell_area,
-            "cell_perimeter": cell_perimeter,
-            "geometry": cell_polygon,
-        }
         band_values = finalize_dggs_band_values(acc, stats)
         band_properties = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
         base_props.update(band_properties)
@@ -173,6 +188,7 @@ def raster2s2(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -238,11 +254,20 @@ def raster2s2(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2s2_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            stats,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = _raster2s2_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     if gdf.empty:
@@ -289,14 +314,7 @@ def raster2s2_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -309,6 +327,14 @@ def raster2s2_cli():
         help="Band statistic for binning method only",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -321,6 +347,7 @@ def raster2s2_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

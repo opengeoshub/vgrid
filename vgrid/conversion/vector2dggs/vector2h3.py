@@ -24,7 +24,7 @@ import h3
 from vgrid.utils.geometry import (
     check_predicate,
     shortest_point_distance,
-    geodesic_dggs_to_geoseries,
+    dggs_cell_row,
 )
 from vgrid.utils.io import (
     process_input_data_vector,
@@ -34,15 +34,20 @@ from vgrid.utils.io import (
     add_compact_depth_argument,
 )
 from vgrid.utils.io import validate_h3_resolution
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 
 min_res = DGGS_TYPES["h3"]["min_res"]
 max_res = DGGS_TYPES["h3"]["max_res"]
 
 
-def _empty_h3_gdf():
-    return gpd.GeoDataFrame(
-        columns=[
+def _empty_h3_gdf(cell_metrics=False):
+    columns = ["h3", "resolution", "geometry"]
+    if cell_metrics:
+        columns = [
             "h3",
             "resolution",
             "center_lat",
@@ -51,10 +56,8 @@ def _empty_h3_gdf():
             "cell_area",
             "cell_perimeter",
             "geometry",
-        ],
-        geometry="geometry",
-        crs="EPSG:4326",
-    )
+        ]
+    return gpd.GeoDataFrame(columns=columns, geometry="geometry", crs="EPSG:4326")
 
 
 # Function to generate grid for Point
@@ -65,6 +68,7 @@ def point2h3(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to H3 grid cells.
@@ -122,8 +126,13 @@ def point2h3(
         num_edges = 6
         if h3.is_pentagon(h3_id):
             num_edges = 5
-        row = geodesic_dggs_to_geoseries(
-            "h3", h3_id, cell_resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "h3",
+            h3_id,
+            cell_resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
 
         # Add properties if requested
@@ -140,6 +149,7 @@ def polyline2h3(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to an H3 path using all vertices.
@@ -193,8 +203,13 @@ def polyline2h3(
             if h3.is_pentagon(cell_id):
                 num_edges = 5
 
-            row = geodesic_dggs_to_geoseries(
-                "h3", cell_id, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "h3",
+                cell_id,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
 
             if include_properties and feature_properties:
@@ -216,6 +231,7 @@ def polygon2h3(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to H3 grid cells.
@@ -276,8 +292,13 @@ def polygon2h3(
             num_edges = 6
             if h3.is_pentagon(cell_id):
                 num_edges = 5
-            row = geodesic_dggs_to_geoseries(
-                "h3", cell_id, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "h3",
+                cell_id,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -296,6 +317,7 @@ def geodataframe2h3(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to H3 grid cells.
@@ -359,7 +381,9 @@ def geodataframe2h3(
 
     h3_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -379,6 +403,7 @@ def geodataframe2h3(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -390,6 +415,7 @@ def geodataframe2h3(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -404,10 +430,11 @@ def geodataframe2h3(
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     if not h3_rows:
-        return _empty_h3_gdf()
+        return _empty_h3_gdf(cell_metrics=cell_metrics)
     return gpd.GeoDataFrame(h3_rows, geometry="geometry", crs="EPSG:4326")
 
 
@@ -417,11 +444,12 @@ def vector2h3(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -465,6 +493,7 @@ def vector2h3(
         include_properties,
         fix_antimeridian=fix_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -533,18 +562,18 @@ def vector2h3_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     fix_antimeridian = args.fix_antimeridian
     try:
@@ -559,6 +588,7 @@ def vector2h3_cli():
             fix_antimeridian=fix_antimeridian,
             verbose=args.verbose,
             depth=args.depth,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

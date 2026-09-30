@@ -23,7 +23,7 @@ import geopandas as gpd
 from vgrid.dggs.digipin import BOUNDS
 from vgrid.conversion.latlon2dggs import latlon2digipin
 from vgrid.conversion.dggs2geo.digipin2geo import digipin2geo
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggscompact.digipincompact import digipincompact
 from vgrid.stats.digipinstats import digipin_metrics
 from vgrid.utils.geometry import (
@@ -49,6 +49,7 @@ def point2digipin(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to DIGIPIN grid cells.
@@ -110,8 +111,12 @@ def point2digipin(
         if isinstance(cell_polygon, str):
             continue
 
-        digipin_row = graticule_dggs_to_geoseries(
-            "digipin", digipin_id, resolution, cell_polygon
+        digipin_row = dggs_cell_row(
+            "digipin",
+            digipin_id,
+            resolution,
+            cell_polygon,
+            cell_metrics=cell_metrics,
         )
         if include_properties and feature_properties:
             digipin_row.update(feature_properties)
@@ -124,6 +129,7 @@ def polyline2digipin(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to DIGIPIN grid cells.
@@ -201,8 +207,12 @@ def polyline2digipin(
 
                     # Check if cell intersects with polyline
                     if cell_polygon.intersects(polyline):
-                        digipin_row = graticule_dggs_to_geoseries(
-                            "digipin", digipin_id, resolution, cell_polygon
+                        digipin_row = dggs_cell_row(
+                            "digipin",
+                            digipin_id,
+                            resolution,
+                            cell_polygon,
+                            cell_metrics=cell_metrics,
                         )
                         if include_properties and feature_properties:
                             digipin_row.update(feature_properties)
@@ -226,6 +236,7 @@ def polygon2digipin(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to DIGIPIN grid cells.
@@ -303,8 +314,12 @@ def polygon2digipin(
                         continue
                     # Check spatial predicate
                     if check_predicate(cell_polygon, polygon, predicate):
-                        digipin_row = graticule_dggs_to_geoseries(
-                            "digipin", digipin_id, resolution, cell_polygon
+                        digipin_row = dggs_cell_row(
+                            "digipin",
+                            digipin_id,
+                            resolution,
+                            cell_polygon,
+                            cell_metrics=cell_metrics,
                         )
                         if include_properties and feature_properties:
                             digipin_row.update(feature_properties)
@@ -324,7 +339,12 @@ def polygon2digipin(
 
         # Use digipincompact function directly
         compacted_gdf = digipincompact(
-            temp_gdf, digipin_id="digipin", output_format="gpd", verbose=verbose, depth=depth)
+            temp_gdf,
+            digipin_id="digipin",
+            output_format="gpd",
+            verbose=verbose,
+            depth=depth,
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -343,6 +363,7 @@ def geodataframe2digipin(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to DIGIPIN grid cells.
@@ -404,7 +425,9 @@ def geodataframe2digipin(
 
     digipin_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -423,6 +446,7 @@ def geodataframe2digipin(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -433,6 +457,7 @@ def geodataframe2digipin(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -446,6 +471,7 @@ def geodataframe2digipin(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(digipin_rows, geometry="geometry", crs="EPSG:4326")
@@ -458,10 +484,11 @@ def vector2digipin(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -496,8 +523,15 @@ def vector2digipin(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2digipin(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -566,6 +600,13 @@ def vector2digipin_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -579,6 +620,7 @@ def vector2digipin_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

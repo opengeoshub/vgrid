@@ -14,6 +14,7 @@ import argparse
 import os
 
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 
 from vgrid.generator.garsgrid import gars_grid
 from vgrid.utils.constants import (
@@ -44,6 +45,7 @@ def gars_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -70,7 +72,12 @@ def gars_bin(
 
     minx, miny, maxx, maxy = points_gdf.total_bounds
     id_col = "gars"
-    grid_gdf = gars_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
+    grid_gdf = gars_grid(
+        resolution=resolution,
+        bbox=(minx, miny, maxx, maxy),
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+    )
 
     join_cols = []
     if category_col and category_col in points_gdf.columns:
@@ -95,7 +102,11 @@ def gars_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=False,
+    )
 
 
 def garsbin(
@@ -106,6 +117,7 @@ def garsbin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_gars_resolution(resolution)
@@ -113,7 +125,16 @@ def garsbin(
         raise ValueError(f"Invalid aggregation '{agg}'")
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
-    result_gdf = gars_bin(data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs)
+    result_gdf = gars_bin(
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
+    )
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(data, str):
@@ -176,6 +197,14 @@ def garsbin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = garsbin(
@@ -186,6 +215,7 @@ def garsbin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

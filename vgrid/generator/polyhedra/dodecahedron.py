@@ -15,14 +15,16 @@ from dggal import *
 from tqdm import tqdm
 from vgrid.utils.constants import DGGAL_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
 from vgrid.utils.io import dggal_convert_to_output_format, add_verbose_argument
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggs2geo.dggal2geo import dggal2geo
 
 app = Application(appGlobals=globals())
 pydggal_setup(app)
 
 
-def dodecahedron(output_format="gpd", split_antimeridian=False, verbose=True):
+def dodecahedron(
+    output_format="gpd", split_antimeridian=False, cell_metrics=False, verbose=True
+):
     """
     Generate a DGGAL grid using the dggal library directly.
 
@@ -56,9 +58,13 @@ def dodecahedron(output_format="gpd", split_antimeridian=False, verbose=True):
                 dggs_type, zone_id, split_antimeridian=split_antimeridian
             )
 
-            # Create record using geodesic_dggs_to_geoseries
-            record = geodesic_dggs_to_geoseries(
-                f"dggal_{dggs_type}", zone_id, zone_resolution, cell_polygon, num_edges
+            record = dggs_cell_row(
+                f"dggal_{dggs_type}",
+                zone_id,
+                zone_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             dggal_records.append(record)
 
@@ -85,9 +91,21 @@ def dodecahedron_cli():
         default="gpd",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
-        result = dodecahedron(output_format=args.output_format, verbose=args.verbose)
+        result = dodecahedron(
+            output_format=args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

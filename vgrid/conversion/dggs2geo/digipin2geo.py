@@ -14,7 +14,7 @@ import json
 import argparse
 from shapely.geometry import Polygon
 from vgrid.dggs.digipin import digipin_to_bounds
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def digipin2geo(digipin_ids):
@@ -91,7 +91,7 @@ def digipin2geo_cli():
     return polys
 
 
-def digipin2geojson(digipin_ids):
+def digipin2geojson(digipin_ids, cell_metrics=False):
     """
     Convert DIGIPIN cell IDs to GeoJSON FeatureCollection.
 
@@ -146,8 +146,8 @@ def digipin2geojson(digipin_ids):
             # Calculate resolution from DIGIPIN code length (excluding dashes)
             clean_id = digipin_id.replace("-", "")
             resolution = len(clean_id)
-            digipin_feature = graticule_dggs_to_feature(
-                "digipin_id", digipin_id, resolution, cell_polygon
+            digipin_feature = dggs_geojson_feature(
+                "digipin_id", digipin_id, resolution, cell_polygon, cell_metrics
             )
             digipin_features.append(digipin_feature)
         except Exception:
@@ -163,6 +163,15 @@ def digipin2geojson_cli():
     parser.add_argument(
         "digipin_id", nargs="+", help="Input DIGIPIN code(s), e.g. F3K 39J-438-TJC7"
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(digipin2geojson(args.digipin_id))
+    geojson_data = json.dumps(
+        digipin2geojson(args.digipin_id, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

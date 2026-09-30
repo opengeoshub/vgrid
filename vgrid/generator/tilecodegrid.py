@@ -15,7 +15,7 @@ import geopandas as gpd
 from tqdm import tqdm
 from vgrid.dggs import mercantile
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_bbox,
     validate_tilecode_resolution,
@@ -35,7 +35,7 @@ def _tilecode_ids_for_bbox(resolution, bbox):
     ]
 
 
-def tilecode_grid(resolution, bbox, compact=False, verbose=True):
+def tilecode_grid(resolution, bbox, compact=False, cell_metrics=False, verbose=True):
     resolution = validate_tilecode_resolution(resolution)
     tilecode_ids = _tilecode_ids_for_bbox(resolution, bbox)
     if compact:
@@ -43,14 +43,21 @@ def tilecode_grid(resolution, bbox, compact=False, verbose=True):
 
     tilecode_records = []
     for tilecode_id in tqdm(
-        tilecode_ids, desc="Generating Tilecode DGGS", unit=" cells", disable=not verbose
+        tilecode_ids,
+        desc="Generating Tilecode DGGS",
+        unit=" cells",
+        disable=not verbose,
     ):
         cell_polygon = tilecode2geo(tilecode_id)
         if cell_polygon is None or cell_polygon.is_empty:
             continue
         cell_resolution = tilecode_resolution(tilecode_id)
-        tilecode_record = graticule_dggs_to_geoseries(
-            "tilecode", tilecode_id, cell_resolution, cell_polygon
+        tilecode_record = dggs_cell_row(
+            "tilecode",
+            tilecode_id,
+            cell_resolution,
+            cell_polygon,
+            cell_metrics=cell_metrics,
         )
         tilecode_records.append(tilecode_record)
 
@@ -80,7 +87,14 @@ def tilecode_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True)
     return tilecode_ids
 
 
-def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
+def tilecodegrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     """
     Generate Tilecode grid for pure Python usage.
 
@@ -101,7 +115,9 @@ def tilecodegrid(resolution, bbox=None, output_format="gpd", compact=False, verb
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
 
-    gdf = tilecode_grid(resolution, bbox, compact=compact, verbose=verbose)
+    gdf = tilecode_grid(
+        resolution, bbox, compact=compact, cell_metrics=cell_metrics, verbose=verbose
+    )
 
     output_name = f"tilecode_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -133,6 +149,14 @@ def tilecodegrid_cli():
         help="Enable Tilecode compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180.0, -85.05112878, 180.0, 85.05112878]
@@ -148,7 +172,12 @@ def tilecodegrid_cli():
             return
     try:
         result = tilecodegrid(
-            resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose
+            resolution,
+            bbox,
+            args.output_format,
+            compact=args.compact,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

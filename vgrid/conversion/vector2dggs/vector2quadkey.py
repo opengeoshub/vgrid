@@ -21,7 +21,7 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 import geopandas as gpd
 from vgrid.dggs import tilecode
 from vgrid.dggs import mercantile
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggscompact.quadkeycompact import quadkeycompact
 from vgrid.conversion.dggs2geo.quadkey2geo import quadkey2geo
 from vgrid.conversion.latlon2dggs import latlon2quadkey
@@ -51,6 +51,7 @@ def point2quadkey(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to Quadkey grid cells.
@@ -117,8 +118,12 @@ def point2quadkey(
                     [min_lon, min_lat],
                 ]
             )
-            quadkey_row = graticule_dggs_to_geoseries(
-                "quadkey", quadkey_id, resolution, cell_polygon
+            quadkey_row = dggs_cell_row(
+                "quadkey",
+                quadkey_id,
+                resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 quadkey_row.update(feature_properties)
@@ -191,6 +196,7 @@ def polyline2quadkey(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to Quadkey cells by walking intersecting neighbors.
@@ -233,8 +239,12 @@ def polyline2quadkey(
             if cell_polygon is None:
                 continue
             cell_resolution = len(cell_id)
-            quadkey_row = graticule_dggs_to_geoseries(
-                "quadkey", cell_id, cell_resolution, cell_polygon
+            quadkey_row = dggs_cell_row(
+                "quadkey",
+                cell_id,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 quadkey_row.update(feature_properties)
@@ -251,6 +261,7 @@ def polygon2quadkey(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to Quadkey grid cells.
@@ -302,8 +313,12 @@ def polygon2quadkey(
                     ]
                 )
                 if check_predicate(cell_polygon, polygon, predicate):
-                    quadkey_row = graticule_dggs_to_geoseries(
-                        "quadkey", quadkey_id, resolution, cell_polygon
+                    quadkey_row = dggs_cell_row(
+                        "quadkey",
+                        quadkey_id,
+                        resolution,
+                        cell_polygon,
+                        cell_metrics=cell_metrics,
                     )
                     if include_properties and feature_properties:
                         quadkey_row.update(feature_properties)
@@ -316,7 +331,12 @@ def polygon2quadkey(
 
         # Use quadkeycompact function directly
         compacted_gdf = quadkeycompact(
-            temp_gdf, quadkey_id="quadkey", output_format="gpd", verbose=verbose, depth=depth)
+            temp_gdf,
+            quadkey_id="quadkey",
+            output_format="gpd",
+            verbose=verbose,
+            depth=depth,
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -335,6 +355,7 @@ def geodataframe2quadkey(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to Quadkey grid cells.
@@ -398,7 +419,9 @@ def geodataframe2quadkey(
 
     quadkey_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -417,6 +440,7 @@ def geodataframe2quadkey(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -427,6 +451,7 @@ def geodataframe2quadkey(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -440,6 +465,7 @@ def geodataframe2quadkey(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(quadkey_rows, geometry="geometry", crs="EPSG:4326")
@@ -452,10 +478,11 @@ def vector2quadkey(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -490,8 +517,15 @@ def vector2quadkey(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2quadkey(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -560,6 +594,13 @@ def vector2quadkey_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -573,6 +614,7 @@ def vector2quadkey_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

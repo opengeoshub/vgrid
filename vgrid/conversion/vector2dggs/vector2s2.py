@@ -21,7 +21,7 @@ import geopandas as gpd
 from shapely.geometry import LineString, MultiPoint, Point
 from vgrid.dggs import s2
 from vgrid.utils.geometry import (
-    geodesic_dggs_to_geoseries,
+    dggs_cell_row,
     check_predicate,
     shortest_point_distance,
     strip_duplicate_and_collinear_vertices,
@@ -37,7 +37,11 @@ from vgrid.utils.io import (
     add_verbose_argument,
     add_compact_depth_argument,
 )
-from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.utils.io import DGGS_TYPES
 
 min_res = DGGS_TYPES["s2"]["min_res"]
@@ -50,6 +54,7 @@ def point2s2(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to S2 grid cells.
@@ -110,8 +115,13 @@ def point2s2(
             cell_polygon = s22geo(cell_token, fix_antimeridian=fix_antimeridian)
             cell_resolution = cell_id.level()
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "s2", cell_token, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "s2",
+                cell_token,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -175,9 +185,7 @@ def _s2_segment_cells(
             neighbor_id = neighbor.to_token()
             if neighbor_id in visited:
                 continue
-            neighbor_polygon = s22geo(
-                neighbor_id, fix_antimeridian=fix_antimeridian
-            )
+            neighbor_polygon = s22geo(neighbor_id, fix_antimeridian=fix_antimeridian)
             if neighbor_polygon is None or neighbor_polygon.is_empty:
                 continue
             if neighbor_polygon.intersects(segment):
@@ -194,6 +202,7 @@ def polyline2s2(
     feature_properties=None,
     include_properties=True,
     fix_antimeridian=None,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to S2 cells by walking intersecting neighbors.
@@ -239,8 +248,13 @@ def polyline2s2(
             cell = s2.CellId.from_token(cell_id)
             cell_resolution = cell.level()
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "s2", cell_id, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "s2",
+                cell_id,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -258,6 +272,7 @@ def polygon2s2(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to S2 grid cells.
@@ -308,8 +323,13 @@ def polygon2s2(
             cell_token = s2.CellId.to_token(cell_id)
             cell_resolution = cell_id.level()
             num_edges = 4
-            row = geodesic_dggs_to_geoseries(
-                "s2", cell_token, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "s2",
+                cell_token,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -320,14 +340,17 @@ def polygon2s2(
             compact_tokens = s2_compact(tokens, depth=depth, verbose=verbose)
             compact_rows = []
             for cell_token in compact_tokens:
-                cell_polygon = s22geo(
-                    cell_token, fix_antimeridian=fix_antimeridian
-                )
+                cell_polygon = s22geo(cell_token, fix_antimeridian=fix_antimeridian)
                 compact_cell = s2.CellId.from_token(cell_token)
                 cell_resolution = compact_cell.level()
                 num_edges = 4
-                row = geodesic_dggs_to_geoseries(
-                    "s2", cell_token, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "s2",
+                    cell_token,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -349,6 +372,7 @@ def geodataframe2s2(
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to S2 grid cells.
@@ -413,7 +437,9 @@ def geodataframe2s2(
 
     s2_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -433,6 +459,7 @@ def geodataframe2s2(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -444,6 +471,7 @@ def geodataframe2s2(
                     feature_properties=props,
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -458,6 +486,7 @@ def geodataframe2s2(
                     include_properties=include_properties,
                     fix_antimeridian=fix_antimeridian,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(s2_rows, geometry="geometry", crs="EPSG:4326")
@@ -470,11 +499,12 @@ def vector2s2(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     fix_antimeridian=None,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -518,6 +548,7 @@ def vector2s2(
         include_properties,
         fix_antimeridian,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -585,19 +616,19 @@ def vector2s2_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -612,6 +643,7 @@ def vector2s2_cli():
             include_properties=args.include_properties,
             fix_antimeridian=args.fix_antimeridian,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -141,9 +141,9 @@ def dggsinspect(verbose=True):
         #     "dggs_type": "ivea9r",
         # },
         "dggal_rhealpix": {
-             "inspect_func": dggalinspect,
-             "cell_id_col": "rhealpix",
-             "dggs_type": "rhealpix",         
+            "inspect_func": dggalinspect,
+            "cell_id_col": "rhealpix",
+            "dggs_type": "rhealpix",
         },
     }
 

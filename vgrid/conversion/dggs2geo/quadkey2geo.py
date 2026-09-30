@@ -14,7 +14,7 @@ import json
 import argparse
 from shapely.geometry import Polygon
 from vgrid.dggs import mercantile
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def quadkey2geo(quadkey_ids):
@@ -90,7 +90,7 @@ def quadkey2geo_cli():
     return polys
 
 
-def quadkey2geojson(quadkey_ids):
+def quadkey2geojson(quadkey_ids, cell_metrics=False):
     """
     Convert Quadkey cell IDs to GeoJSON FeatureCollection.
 
@@ -143,8 +143,8 @@ def quadkey2geojson(quadkey_ids):
                     ]
                 )
                 resolution = z
-                quadkey_feature = graticule_dggs_to_feature(
-                    "quadkey", quadkey_id, resolution, cell_polygon
+                quadkey_feature = dggs_geojson_feature(
+                    "quadkey", quadkey_id, resolution, cell_polygon, cell_metrics
                 )
                 quadkey_features.append(quadkey_feature)
         except Exception:
@@ -160,6 +160,15 @@ def quadkey2geojson_cli():
     parser.add_argument(
         "quadkey", nargs="+", help="Input Quadkey(s), e.g. 13223011131020220011133 ..."
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(quadkey2geojson(args.quadkey))
+    geojson_data = json.dumps(
+        quadkey2geojson(args.quadkey, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

@@ -14,7 +14,7 @@ import json
 import os
 import argparse
 from shapely.geometry import Polygon, shape
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.dggs import mgrs
 
 
@@ -109,7 +109,7 @@ def mgrs2geo_cli():
     return polys
 
 
-def mgrs2geojson(mgrs_ids):
+def mgrs2geojson(mgrs_ids, cell_metrics=False):
     """
     Convert MGRS cell IDs to GeoJSON FeatureCollection.
 
@@ -154,8 +154,8 @@ def mgrs2geojson(mgrs_ids):
                     (min_lon, min_lat),
                 ]
             )
-            mgrs_feature = graticule_dggs_to_feature(
-                "mgrs", mgrs_id, resolution, cell_polygon
+            mgrs_feature = dggs_geojson_feature(
+                "mgrs", mgrs_id, resolution, cell_polygon, cell_metrics
             )
             try:
                 gzd_json_path = os.path.join(
@@ -176,8 +176,12 @@ def mgrs2geojson(mgrs_ids):
                     ):
                         intersected_polygon = cell_polygon.intersection(gzd_geom)
                         if intersected_polygon:
-                            mgrs_feature = graticule_dggs_to_feature(
-                                "mgrs", mgrs_id, resolution, intersected_polygon
+                            mgrs_feature = dggs_geojson_feature(
+                                "mgrs",
+                                mgrs_id,
+                                resolution,
+                                intersected_polygon,
+                                cell_metrics,
                             )
             except Exception:
                 pass
@@ -197,6 +201,13 @@ def mgrs2geojson_cli():
         nargs="+",
         help="Input MGRS cell ID(s), e.g., mgrs2geojson 48PXS866916 ...",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(mgrs2geojson(args.mgrs))
+    geojson_data = json.dumps(mgrs2geojson(args.mgrs, cell_metrics=args.cell_metrics))
     print(geojson_data)

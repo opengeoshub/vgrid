@@ -15,7 +15,7 @@ import geopandas as gpd
 from tqdm import tqdm
 from vgrid.conversion.latlon2dggs import latlon2ease
 from vgrid.conversion.dggs2geo.ease2geo import ease2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import apply_bin_cell_metrics, dggs_cell_row
 from vgrid.utils.io import (
     process_input_data_bin,
     convert_to_output_format,
@@ -35,6 +35,7 @@ def ease_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -59,7 +60,11 @@ def ease_bin(
 
     id_col = "ease"
     if points_gdf.empty:
-        return gpd.GeoDataFrame(columns=[id_col, "geometry"], crs="EPSG:4326")
+        return apply_bin_cell_metrics(
+            gpd.GeoDataFrame(columns=[id_col, "geometry"], crs="EPSG:4326"),
+            cell_metrics,
+            geodesic=True,
+        )
 
     points_gdf = points_gdf.copy()
     points_gdf[id_col] = [
@@ -88,8 +93,8 @@ def ease_bin(
         disable=not verbose,
     ):
         cell_polygon = ease2geo(ease_id)
-        row = geodesic_dggs_to_geoseries(
-            "ease", ease_id, resolution, cell_polygon, num_edges=4
+        row = dggs_cell_row(
+            "ease", ease_id, resolution, cell_polygon, 4, cell_metrics=cell_metrics
         )
         ease_rows.append(row)
     grid_gdf = gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
@@ -100,7 +105,11 @@ def ease_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def easebin(
@@ -111,6 +120,7 @@ def easebin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_ease_resolution(resolution)
@@ -118,7 +128,16 @@ def easebin(
         raise ValueError(f"Invalid aggregation '{agg}'")
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
-    result_gdf = ease_bin(data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs)
+    result_gdf = ease_bin(
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
+    )
     output_name = None
     if output_format in OUTPUT_FORMATS:
         import os
@@ -183,6 +202,14 @@ def easebin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = easebin(
@@ -193,6 +220,7 @@ def easebin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

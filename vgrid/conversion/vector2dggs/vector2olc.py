@@ -36,7 +36,7 @@ from vgrid.utils.io import (
     add_compact_depth_argument,
 )
 from vgrid.utils.constants import STRUCTURED_FORMATS, OUTPUT_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggs2geo.olc2geo import olc2geo
 from vgrid.conversion.dggscompact.olccompact import olccompact
 
@@ -49,6 +49,7 @@ def point2olc(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to OLC grid cells.
@@ -103,8 +104,12 @@ def point2olc(
         olc_id = olc.encode(point.y, point.x, resolution)
         cell_polygon = olc2geo(olc_id)
         if cell_polygon:
-            olc_row = graticule_dggs_to_geoseries(
-                "olc", olc_id, resolution, cell_polygon
+            olc_row = dggs_cell_row(
+                "olc",
+                olc_id,
+                resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 olc_row.update(feature_properties)
@@ -117,6 +122,7 @@ def polyline2olc(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to OLC grid cells.
@@ -150,7 +156,7 @@ def polyline2olc(
 
     for polyline in polylines:
         base_resolution = 2
-        base_cells = olc_grid(base_resolution, verbose=False)
+        base_cells = olc_grid(base_resolution, cell_metrics=cell_metrics, verbose=False)
         seed_cells = []
         for idx, base_cell in base_cells.iterrows():
             base_cell_poly = base_cell["geometry"]
@@ -164,7 +170,11 @@ def polyline2olc(
             else:
                 refined_features.extend(
                     olc_refine_cell(
-                        seed_cell_poly.bounds, base_resolution, resolution, polyline
+                        seed_cell_poly.bounds,
+                        base_resolution,
+                        resolution,
+                        polyline,
+                        cell_metrics=cell_metrics,
                     )
                 )
         # refined_features may be a mix of GeoDataFrame rows and dicts from refine_cell
@@ -188,8 +198,12 @@ def polyline2olc(
             olc_id = resolution_feature["olc"]
             if olc_id not in seen_olc_codes:
                 cell_polygon = olc2geo(olc_id)
-                olc_row = graticule_dggs_to_geoseries(
-                    "olc", olc_id, resolution, cell_polygon
+                olc_row = dggs_cell_row(
+                    "olc",
+                    olc_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     olc_row.update(feature_properties)
@@ -207,6 +221,7 @@ def polygon2olc(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to OLC grid cells.
@@ -240,7 +255,7 @@ def polygon2olc(
 
     for polygon in polygons:
         base_resolution = 2
-        base_cells = olc_grid(base_resolution, verbose=False)
+        base_cells = olc_grid(base_resolution, cell_metrics=cell_metrics, verbose=False)
         seed_cells = []
         for idx, base_cell in base_cells.iterrows():
             base_cell_poly = base_cell["geometry"]
@@ -254,7 +269,11 @@ def polygon2olc(
             else:
                 refined_features.extend(
                     olc_refine_cell(
-                        seed_cell_poly.bounds, base_resolution, resolution, polygon
+                        seed_cell_poly.bounds,
+                        base_resolution,
+                        resolution,
+                        polygon,
+                        cell_metrics=cell_metrics,
                     )
                 )
         # refined_features may be a mix of GeoDataFrame rows and dicts from refine_cell
@@ -280,8 +299,12 @@ def polygon2olc(
                 cell_geom = olc2geo(olc_id)
                 if not check_predicate(cell_geom, polygon, predicate):
                     continue
-                olc_row = graticule_dggs_to_geoseries(
-                    "olc", olc_id, resolution, cell_geom
+                olc_row = dggs_cell_row(
+                    "olc",
+                    olc_id,
+                    resolution,
+                    cell_geom,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     olc_row.update(feature_properties)
@@ -294,7 +317,9 @@ def polygon2olc(
         temp_gdf = gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")
 
         # Use olccompact function directly
-        compacted_gdf = olccompact(temp_gdf, olc_id="olc", output_format="gpd", verbose=verbose, depth=depth)
+        compacted_gdf = olccompact(
+            temp_gdf, olc_id="olc", output_format="gpd", verbose=verbose, depth=depth
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -313,6 +338,7 @@ def geodataframe2olc(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to OLC grid cells.
@@ -376,7 +402,9 @@ def geodataframe2olc(
 
     olc_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -395,6 +423,7 @@ def geodataframe2olc(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -405,6 +434,7 @@ def geodataframe2olc(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -418,6 +448,7 @@ def geodataframe2olc(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(olc_rows, geometry="geometry", crs="EPSG:4326")
@@ -430,10 +461,11 @@ def vector2olc(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -468,8 +500,15 @@ def vector2olc(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2olc(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -538,6 +577,13 @@ def vector2olc_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -551,6 +597,7 @@ def vector2olc_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

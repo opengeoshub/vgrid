@@ -16,7 +16,7 @@ from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS, DGGAL_TYPE
 from vgrid.utils.io import validate_bbox, validate_dggal_resolution, validate_dggal_type
 from vgrid.conversion.dggs2geo.dggal2geo import dggal2geo
 
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from tqdm import tqdm
 
 # Import dggal library
@@ -34,6 +34,7 @@ def dggalgen(
     compact: bool = False,
     output_format: str | None = None,
     split_antimeridian: bool = False,
+    cell_metrics=False,
     verbose: bool = True,
 ):
     """
@@ -102,7 +103,9 @@ def dggalgen(
     dggal_records = []
     options = {}
 
-    for zone in tqdm(zones, desc=f"Generating {dggs_type.upper()} DGGS", disable=not verbose):
+    for zone in tqdm(
+        zones, desc=f"Generating {dggs_type.upper()} DGGS", disable=not verbose
+    ):
         try:
             zone_id = dggrs.getZoneTextID(zone)
             zone_resolution = dggrs.getZoneLevel(zone)
@@ -113,9 +116,13 @@ def dggalgen(
                 dggs_type, zone_id, options, split_antimeridian=split_antimeridian
             )
 
-            # Create record using geodesic_dggs_to_geoseries
-            record = geodesic_dggs_to_geoseries(
-                f"dggal_{dggs_type}", zone_id, zone_resolution, cell_polygon, num_edges
+            record = dggs_cell_row(
+                f"dggal_{dggs_type}",
+                zone_id,
+                zone_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             dggal_records.append(record)
 
@@ -166,6 +173,14 @@ def dggalgen_cli():
     )
     # No custom output path; files are saved in current folder with predefined names
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     # Parse bbox if provided
@@ -190,6 +205,7 @@ def dggalgen_cli():
         resolution=args.resolution,
         bbox=bbox_tuple,
         compact=args.compact,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if result is None:

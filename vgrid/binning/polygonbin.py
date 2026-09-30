@@ -103,7 +103,13 @@ def polygonbin(
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = polygon_bin(
-        polygon_data, point_data, agg, category_col, numeric_col, verbose=verbose, **kwargs
+        polygon_data,
+        point_data,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        **kwargs,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:

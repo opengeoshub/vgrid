@@ -19,7 +19,7 @@ import math
 from tqdm import tqdm
 from shapely.geometry import box, MultiPoint
 import geopandas as gpd
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from ease_dggs.constants import levels_specs, geo_crs, ease_crs
 from ease_dggs.dggs.grid_addressing import geo_polygon_to_grid_ids
 from vgrid.conversion.dggscompact.easecompact import ease_compact
@@ -49,6 +49,7 @@ def point2ease(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to EASE grid cells.
@@ -102,8 +103,13 @@ def point2ease(
         ease_id = latlon2ease(point.y, point.x, resolution)
         cell_polygon = ease2geo(ease_id)
         num_edges = 4
-        row = geodesic_dggs_to_geoseries(
-            "ease", ease_id, int(ease_id[1]), cell_polygon, num_edges
+        row = dggs_cell_row(
+            "ease",
+            ease_id,
+            int(ease_id[1]),
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         if include_properties and feature_properties:
             row.update(feature_properties)
@@ -116,6 +122,7 @@ def polyline2ease(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert line geometries (LineString, MultiLineString) to EASE grid cells.
@@ -159,8 +166,13 @@ def polyline2ease(
             cell_polygon = ease2geo(ease_id)
             if cell_polygon and cell_polygon.intersects(polyline):
                 num_edges = 4
-                row = geodesic_dggs_to_geoseries(
-                    "ease", str(ease_id), cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "ease",
+                    str(ease_id),
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -177,6 +189,7 @@ def polygon2ease(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to EASE grid cells.
@@ -222,8 +235,13 @@ def polygon2ease(
             cell_polygon = ease2geo(ease_id)
             if cell_polygon and check_predicate(cell_polygon, polygon, predicate):
                 num_edges = 4
-                row = geodesic_dggs_to_geoseries(
-                    "ease", str(ease_id), cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "ease",
+                    str(ease_id),
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if feature_properties:
                     row.update(feature_properties)
@@ -234,7 +252,9 @@ def polygon2ease(
             # Extract cell IDs from polygon_ease_rows
             cells_to_process = [row.get("ease") for row in polygon_ease_rows]
             # Apply compact
-            cells_to_process = ease_compact(cells_to_process, depth=depth, verbose=verbose)
+            cells_to_process = ease_compact(
+                cells_to_process, depth=depth, verbose=verbose
+            )
             # Rebuild polygon_ease_rows with compacted cells
             polygon_ease_rows = []
             for cell_id in cells_to_process:
@@ -246,8 +266,13 @@ def polygon2ease(
                 #     continue
 
                 num_edges = 4
-                row = geodesic_dggs_to_geoseries(
-                    "ease", cell_id, cell_resolution, cell_polygon, num_edges
+                row = dggs_cell_row(
+                    "ease",
+                    cell_id,
+                    cell_resolution,
+                    cell_polygon,
+                    num_edges,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -266,6 +291,7 @@ def geodataframe2ease(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to EASE grid cells.
@@ -322,7 +348,9 @@ def geodataframe2ease(
 
     ease_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -341,6 +369,7 @@ def geodataframe2ease(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -351,6 +380,7 @@ def geodataframe2ease(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -364,6 +394,7 @@ def geodataframe2ease(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(ease_rows, geometry="geometry", crs="EPSG:4326")
@@ -376,10 +407,11 @@ def vector2ease(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -410,8 +442,15 @@ def vector2ease(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2ease(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = kwargs.get("output_name", None)
@@ -472,6 +511,13 @@ def vector2ease_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     args.resolution = validate_ease_resolution(args.resolution)
     output_name = None
@@ -487,6 +533,7 @@ def vector2ease_cli():
             output_name=output_name,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

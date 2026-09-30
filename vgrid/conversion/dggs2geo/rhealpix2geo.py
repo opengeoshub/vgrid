@@ -12,19 +12,21 @@ Key Functions:
 
 import json
 import argparse
-from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.dggs.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
-from vgrid.utils.geometry import geodesic_dggs_to_feature, rhealpix_cell_to_polygon
+from vgrid.utils.geometry import dggs_geojson_feature, rhealpix_cell_to_polygon
 from vgrid.utils.geometry import shift_balanced, shift_west, shift_east
 from vgrid.utils.antimeridian import fix_polygon
+from vgrid.utils.io import (
+    add_rhealpix_n_side_argument,
+    get_rhealpix_dggs,
+    rhealpix_cell_from_id,
+)
 from pyproj import Geod
+from vgrid.utils.constants import FIX_ANTIMERIDIAN_CHOICES
 
 geod = Geod(ellps="WGS84")
-E = WGS84_ELLIPSOID
-rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
 
 
-def rhealpix2geo(rhealpix_ids, fix_antimeridian=None):
+def rhealpix2geo(rhealpix_ids, fix_antimeridian=None, N_side=3):
     """
     Convert RHEALPix cell IDs to Shapely geometry objects.
 
@@ -41,6 +43,8 @@ def rhealpix2geo(rhealpix_ids, fix_antimeridian=None):
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False when None or omitted.
+    N_side : int, default 3
+        Children per cell edge (2 or 3). Must match the DGGS used to create the IDs.
 
     Returns
     -------
@@ -59,11 +63,11 @@ def rhealpix2geo(rhealpix_ids, fix_antimeridian=None):
     """
     if isinstance(rhealpix_ids, str):
         rhealpix_ids = [rhealpix_ids]
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     rhealpix_polygons = []
     for rhealpix_id in rhealpix_ids:
         try:
-            rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, dggs=rhealpix_dggs)
             cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
             if fix_antimeridian == "shift" or fix_antimeridian == "shift_balanced":
                 cell_polygon = shift_balanced(
@@ -98,44 +102,36 @@ def rhealpix2geo_cli():
         rhealpix2geo R31260335553825 R31260335553826
 
     Note:
-        This function is designed to be called from the command line and will
-        parse arguments using argparse. Invalid cell IDs are silently skipped.
+        This function is designed to be called from the command line and requires
+        RHEALPix cell IDs as command-line arguments.
     """
-    parser = argparse.ArgumentParser(
-        description="Convert Rhealpix cell ID(s) to Shapely Polygons"
-    )
+    parser = argparse.ArgumentParser(description="Convert Rhealpix to Geometry")
     parser.add_argument(
         "rhealpix",
         nargs="+",
-        help="Input Rhealpix cell ID(s), e.g., rhealpix2geo R31260335553825 R31260335553826",
+        help="Input Rhealpix (string or list of strings)",
     )
     parser.add_argument(
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_rhealpix_n_side_argument(parser)
     args = parser.parse_args()
-    polys = rhealpix2geo(args.rhealpix, fix_antimeridian=args.fix_antimeridian)
+    polys = rhealpix2geo(args.rhealpix, args.fix_antimeridian, N_side=args.N_side)
     return polys
 
 
-def rhealpix2geojson(rhealpix_ids, fix_antimeridian=None):
+def rhealpix2geojson(rhealpix_ids, fix_antimeridian=None, N_side=3, cell_metrics=False):
     """
     Convert RHEALPix cell IDs to GeoJSON FeatureCollection.
 
-    Accepts a single rhealpix_id (string) or a list of rhealpix_ids. For each valid RHEALPix cell ID,
-    creates a GeoJSON feature with polygon geometry representing the grid cell boundaries.
-    Skips invalid or error-prone cells.
+    Accepts a single rhealpix_id (string) or a list of rhealpix_ids. For each valid
+    RHEALPix cell ID, creates a GeoJSON feature with polygon geometry and
+    cell metadata. Skips invalid or error-prone cells.
 
     Parameters
     ----------
@@ -146,30 +142,23 @@ def rhealpix2geojson(rhealpix_ids, fix_antimeridian=None):
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
         When True, apply antimeridian fixing to the resulting polygons.
         Defaults to False when None or omitted.
+    N_side : int, default 3
+        Children per cell edge (2 or 3). Must match the DGGS used to create the IDs.
 
     Returns
     -------
     dict
-        A GeoJSON FeatureCollection containing polygon features for each valid RHEALPix cell.
-        Each feature includes:
-        - geometry: Polygon representing the cell boundaries
-        - properties: Contains the RHEALPix cell ID, resolution level, and cell metadata
-
-    Examples
-    --------
-    >>> rhealpix2geojson("R31260335553825")
-    {'type': 'FeatureCollection', 'features': [...]}
-
-    >>> rhealpix2geojson(["R31260335553825", "R31260335553826"])
-    {'type': 'FeatureCollection', 'features': [...]}
+        A GeoJSON FeatureCollection containing Polygon features for each valid
+        RHEALPix cell. Each feature includes properties with cell ID, resolution,
+        and other metadata.
     """
     if isinstance(rhealpix_ids, str):
         rhealpix_ids = [rhealpix_ids]
     rhealpix_features = []
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     for rhealpix_id in rhealpix_ids:
         try:
-            rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, dggs=rhealpix_dggs)
             resolution = rhealpix_cell.resolution
             cell_polygon = rhealpix_cell_to_polygon(rhealpix_cell)
             if fix_antimeridian == "shift" or fix_antimeridian == "shift_balanced":
@@ -183,12 +172,17 @@ def rhealpix2geojson(rhealpix_ids, fix_antimeridian=None):
             elif fix_antimeridian == "split":
                 cell_polygon = fix_polygon(cell_polygon)
             num_edges = 4
-            if rhealpix_cell.ellipsoidal_shape() == "dart":
+            if rhealpix_cell.ellipsoidal_shape == "dart":
                 num_edges = 3
-            rhealpix_feature = geodesic_dggs_to_feature(
-                "rhealpix", rhealpix_id, resolution, cell_polygon, num_edges
+            feature = dggs_geojson_feature(
+                "rhealpix",
+                rhealpix_id,
+                resolution,
+                cell_polygon,
+                cell_metrics,
+                num_edges,
             )
-            rhealpix_features.append(rhealpix_feature)
+            rhealpix_features.append(feature)
         except Exception:
             continue
     return {"type": "FeatureCollection", "features": rhealpix_features}
@@ -196,52 +190,52 @@ def rhealpix2geojson(rhealpix_ids, fix_antimeridian=None):
 
 def rhealpix2geojson_cli():
     """
-    Command-line interface for converting RHEALPix cell IDs to GeoJSON.
+    Command-line interface for converting RHEALPix cell IDs to GeoJSON FeatureCollection.
 
     This function provides a command-line interface that accepts multiple RHEALPix
-    cell IDs as command-line arguments and outputs the corresponding GeoJSON
-    FeatureCollection as a JSON string to stdout.
+    cell IDs as command-line arguments and returns the corresponding GeoJSON
+    FeatureCollection as a JSON string.
+
+    Returns:
+        None: Prints the GeoJSON FeatureCollection to stdout.
 
     Usage:
         rhealpix2geojson R31260335553825 R31260335553826
 
-    Output:
-        Prints a JSON string representing a GeoJSON FeatureCollection to stdout.
-
-    Example:
-        $ python -m vgrid.conversion.dggs2geo.rhealpix2geo R31260335553825
-        {"type": "FeatureCollection", "features": [...]}
-
     Note:
-        This function is designed to be called from the command line and will
-        parse arguments using argparse. The GeoJSON output is formatted as a
-        JSON string printed to stdout. Invalid cell IDs are silently skipped.
+        This function is designed to be called from the command line and requires
+        RHEALPix cell IDs as command-line arguments. The output is printed to
+        stdout as a formatted JSON string.
     """
-    parser = argparse.ArgumentParser(
-        description="Convert Rhealpix cell ID(s) to GeoJSON"
-    )
+    parser = argparse.ArgumentParser(description="Convert Rhealpix to GeoJSON")
     parser.add_argument(
         "rhealpix",
         nargs="+",
-        help="Input Rhealpix cell ID(s), e.g., rhealpix2geojson R31260335553825 R31260335553826",
+        help="Input Rhealpix",
     )
     parser.add_argument(
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
+    add_rhealpix_n_side_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     geojson_data = json.dumps(
-        rhealpix2geojson(args.rhealpix, fix_antimeridian=args.fix_antimeridian)
+        rhealpix2geojson(
+            args.rhealpix,
+            args.fix_antimeridian,
+            N_side=args.N_side,
+            cell_metrics=args.cell_metrics,
+        )
     )
     print(geojson_data)

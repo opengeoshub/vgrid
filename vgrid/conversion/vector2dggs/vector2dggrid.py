@@ -35,6 +35,7 @@ from vgrid.utils.geometry import (
     _metric_crs,
     check_predicate,
     dggrid_num_edges,
+    dggs_cell_row,
 )
 from vgrid.stats.dggridstats import dggrid_metrics, dggridstats
 from dggrid4py.dggrid_runner import output_address_types
@@ -95,6 +96,56 @@ def _shortest_point_distance_sjoin(points_gdf: gpd.GeoDataFrame) -> float:
     return 0.0 if shortest_distance == float("inf") else float(shortest_distance)
 
 
+def _with_dggrid_cell_metrics(
+    gdf, dggs_type, resolution, cell_metrics, output_address_type=None
+):
+    """Add geodesic cell metrics when requested."""
+    if not cell_metrics or gdf is None or gdf.empty:
+        return gdf
+    id_col = f"dggrid_{str(dggs_type).lower()}"
+    if id_col not in gdf.columns:
+        address_key = (
+            str(output_address_type).strip().lower() if output_address_type else None
+        )
+        if address_key and address_key in gdf.columns:
+            id_col = address_key
+        else:
+            for name in ("seqnum", "global_id", "name"):
+                if name in gdf.columns:
+                    id_col = name
+                    break
+            else:
+                for col in gdf.columns:
+                    if col not in ("geometry", "resolution"):
+                        id_col = col
+                        break
+    rows = []
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.is_empty:
+            continue
+        ring = geom if geom.geom_type == "Polygon" else next(iter(geom.geoms), None)
+        if ring is None or ring.geom_type != "Polygon":
+            num_edges = dggrid_num_edges(dggs_type)
+        else:
+            num_edges = max(len(ring.exterior.coords) - 1, 1)
+        cell_row = dggs_cell_row(
+            id_col,
+            row[id_col],
+            resolution,
+            geom,
+            num_edges,
+            cell_metrics=True,
+        )
+        for col, value in row.items():
+            if col not in cell_row:
+                cell_row[col] = value
+        rows.append(cell_row)
+    if not rows:
+        return gdf.iloc[0:0]
+    return gpd.GeoDataFrame(rows, geometry="geometry", crs=gdf.crs)
+
+
 # Function to generate grid for Point
 def point2dggrid(
     dggrid_instance,
@@ -103,10 +154,11 @@ def point2dggrid(
     resolution,
     include_properties=True,
     feature_properties=None,
-    output_address_type='SEQNUM',
+    output_address_type="SEQNUM",
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to DGGRID grid cells.
@@ -193,7 +245,9 @@ def point2dggrid(
     if include_properties and feature_properties:
         for key, value in feature_properties.items():
             gdf[key] = value
-    return gdf
+    return _with_dggrid_cell_metrics(
+        gdf, dggs_type, resolution, cell_metrics, output_address_type
+    )
 
 
 # Function to generate grid for Polyline
@@ -204,10 +258,11 @@ def polyline2dggrid(
     resolution,
     include_properties=True,
     feature_properties=None,
-    output_address_type='SEQNUM ',
+    output_address_type="SEQNUM ",
     split_antimeridian=False,
     aggregate=False,
     options=None,
+    cell_metrics=False,
 ):
     """
     Generate DGGRID cells intersecting with a LineString or MultiLineString geometry.
@@ -302,7 +357,9 @@ def polyline2dggrid(
     if split_antimeridian:
         if aggregate:
             final_grid = final_grid.dissolve(by="global_id", as_index=False)
-    return final_grid
+    return _with_dggrid_cell_metrics(
+        final_grid, dggs_type, resolution, cell_metrics, output_address_type
+    )
 
 
 def polygon2dggrid(
@@ -315,11 +372,12 @@ def polygon2dggrid(
     depth=-1,
     include_properties=True,
     feature_properties=None,
-    output_address_type='SEQNUM',
+    output_address_type="SEQNUM",
     split_antimeridian=False,
     aggregate=False,
     options=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Generate DGGRID cells intersecting with a given polygon or multipolygon geometry.
@@ -422,9 +480,7 @@ def polygon2dggrid(
             final_grid = final_grid.dissolve(by="global_id", as_index=False)
     if compact and not final_grid.empty:
         id_col = (
-            output_address_type.lower()
-            if output_address_type != "SEQNUM"
-            else "seqnum"
+            output_address_type.lower() if output_address_type != "SEQNUM" else "seqnum"
         )
         compacted = dggridcompact(
             dggrid_instance,
@@ -441,7 +497,9 @@ def polygon2dggrid(
         )
         if compacted is not None:
             final_grid = compacted
-    return final_grid
+    return _with_dggrid_cell_metrics(
+        final_grid, dggs_type, resolution, cell_metrics, output_address_type
+    )
 
 
 def geodataframe2dggrid(
@@ -454,11 +512,12 @@ def geodataframe2dggrid(
     depth=-1,
     topology=False,
     include_properties=True,
-    output_address_type='SEQNUM',
+    output_address_type="SEQNUM",
     split_antimeridian=False,
     aggregate=False,
     options=None,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to DGGRID grid cells.
@@ -526,7 +585,9 @@ def geodataframe2dggrid(
 
     # Build GeoDataFrames per geometry type and concatenate for performance
     dggrid_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -550,6 +611,7 @@ def geodataframe2dggrid(
                 split_antimeridian=split_antimeridian,
                 aggregate=aggregate,
                 options=options,
+                cell_metrics=cell_metrics,
             )
             if not gdf_result.empty:
                 dggrid_rows.append(gdf_result)
@@ -566,6 +628,7 @@ def geodataframe2dggrid(
                 split_antimeridian=split_antimeridian,
                 aggregate=aggregate,
                 options=options,
+                cell_metrics=cell_metrics,
             )
             if not gdf_result.empty:
                 dggrid_rows.append(gdf_result)
@@ -586,6 +649,7 @@ def geodataframe2dggrid(
                 aggregate=aggregate,
                 options=options,
                 verbose=verbose,
+                cell_metrics=cell_metrics,
             )
             if not gdf_result.empty:
                 dggrid_rows.append(gdf_result)
@@ -609,13 +673,14 @@ def vector2dggrid(
     compact=False,
     topology=False,
     include_properties=True,
-    output_address_type='SEQNUM',
-    output_format='gpd',
+    output_address_type="SEQNUM",
+    output_format="gpd",
     split_antimeridian=False,
     aggregate=False,
     options=None,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -660,6 +725,7 @@ def vector2dggrid(
         aggregate=aggregate,
         options=options,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -756,6 +822,13 @@ def vector2dggrid_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     dggrid_instance = create_dggrid_instance()
 
@@ -785,6 +858,7 @@ def vector2dggrid_cli():
             aggregate=args.aggregate,
             options=options,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

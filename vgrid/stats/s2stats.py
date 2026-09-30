@@ -13,6 +13,7 @@ from matplotlib.colors import TwoSlopeNorm
 from vgrid.utils.constants import (
     AUTHALIC_AREA,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     VMIN_QUAD,
     VMAX_QUAD,
     VCENTER_QUAD,
@@ -156,7 +157,13 @@ def s2inspect(resolution: int, fix_antimeridian=None, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    s2_gdf = s2grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose)
+    s2_gdf = s2grid(
+        resolution,
+        output_format="gpd",
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=True,
+        verbose=verbose,
+    )
     s2_gdf["crossed"] = s2_gdf["geometry"].apply(check_crossing_geom)
     s2_gdf = s2_gdf[~s2_gdf["crossed"]]  # remove cells that cross the Antimeridian
     # mean_area = s2_gdf["cell_area"].mean()
@@ -493,14 +500,7 @@ def s2inspect_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -508,7 +508,9 @@ def s2inspect_cli():
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
     fix_antimeridian = args.fix_antimeridian
-    print(s2inspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose))
+    print(
+        s2inspect(resolution, fix_antimeridian=fix_antimeridian, verbose=args.verbose)
+    )
 
 
 if __name__ == "__main__":

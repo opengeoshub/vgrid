@@ -27,8 +27,13 @@ from vgrid.utils.io import (
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, DGGAL_TYPES, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    DGGAL_TYPES,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+)
+from vgrid.utils.geometry import dggs_cell_row
 
 from dggal import *
 
@@ -108,6 +113,7 @@ def dggalcompact(
     output_format="gpd",
     split_antimeridian=False,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact DGGAL cells to their covering set at a given parent depth.
@@ -227,12 +233,13 @@ def dggalcompact(
                 dggs_type, dggal_id_compact, split_antimeridian=split_antimeridian
             )
             num_edges = dggrs.countZoneEdges(zone)
-            row = geodesic_dggs_to_geoseries(
+            row = dggs_cell_row(
                 f"dggal_{dggs_type}",
                 dggal_id_compact,
                 cell_resolution,
                 cell_polygon,
                 num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(dggal_id_compact, []), agg)
             rows.append(row)
@@ -307,6 +314,13 @@ def dggalcompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     dggs_type = args.dggs_type
@@ -322,6 +336,7 @@ def dggalcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -346,7 +361,9 @@ def dggal_expand(dggs_type, zone_ids, resolution=None, depth=None, verbose=True)
             dggs_type, resolution, max_res=max_res
         )
         expanded_cells = []
-        for zid in tqdm(zone_ids, desc="Expanding DGGAL", unit=" cells", disable=not verbose):
+        for zid in tqdm(
+            zone_ids, desc="Expanding DGGAL", unit=" cells", disable=not verbose
+        ):
             try:
                 zone = dggrs.getZoneFromTextID(zid)
                 current_res = dggrs.getZoneLevel(zone)
@@ -373,7 +390,9 @@ def dggal_expand(dggs_type, zone_ids, resolution=None, depth=None, verbose=True)
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth(dggs_type, depth, max_res=max_res)
     expanded_cells = []
-    for zid in tqdm(zone_ids, desc="Expanding DGGAL", unit=" cells", disable=not verbose):
+    for zid in tqdm(
+        zone_ids, desc="Expanding DGGAL", unit=" cells", disable=not verbose
+    ):
         try:
             zone = dggrs.getZoneFromTextID(zid)
             for sub_zone in dggrs.getSubZones(zone, depth):
@@ -392,6 +411,7 @@ def dggalexpand(
     split_antimeridian=False,
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) DGGAL cells to a target resolution or by a relative depth.
@@ -435,13 +455,17 @@ def dggalexpand(
                     continue
 
             if resolution < max_input_res:
-                print(f"Target expand resolution ({resolution}) must >= {max_input_res}.")
+                print(
+                    f"Target expand resolution ({resolution}) must >= {max_input_res}."
+                )
                 return None
             zone_ids_expand = dggal_expand(
                 dggs_type, zone_ids, resolution=resolution, verbose=verbose
             )
         else:
-            zone_ids_expand = dggal_expand(dggs_type, zone_ids, depth=depth, verbose=verbose)
+            zone_ids_expand = dggal_expand(
+                dggs_type, zone_ids, depth=depth, verbose=verbose
+            )
     except Exception:
         raise Exception(
             "Expand cells failed. Please check your Zone ID field, resolution, or depth."
@@ -463,12 +487,13 @@ def dggalexpand(
                 dggs_type, zone_id_expand, split_antimeridian=split_antimeridian
             )
             num_edges = dggrs.countZoneEdges(zone)
-            row = geodesic_dggs_to_geoseries(
+            row = dggs_cell_row(
                 f"dggal_{dggs_type}",
                 zone_id_expand,
                 cell_resolution,
                 cell_polygon,
                 num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -531,6 +556,13 @@ def dggalexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = dggalexpand(
         args.dggs_type,
@@ -540,6 +572,7 @@ def dggalexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

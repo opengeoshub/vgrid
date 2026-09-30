@@ -56,6 +56,67 @@ def add_compact_depth_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_rhealpix_n_side_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``-n`` / ``--N_side`` (default 3) for native rHEALPix grids."""
+    parser.add_argument(
+        "-n",
+        "--N_side",
+        type=int,
+        default=3,
+        dest="N_side",
+        help="rHEALPix N_side: children per cell edge (2 or 3; default 3). "
+        "Cell ID strings are only defined for N_side 2 and 3.",
+    )
+
+
+def validate_rhealpix_n_side(N_side: int = 3) -> int:
+    """Validate rHEALPix ``N_side`` (children per cell edge).
+
+    Only ``2`` and ``3`` are supported because vgrid uses string cell IDs,
+    which the underlying DGGS defines only for those values.
+    """
+    if isinstance(N_side, bool) or not isinstance(N_side, (int, np.integer)):
+        raise ValueError(f"N_side must be an integer (2 or 3), got {N_side!r}")
+    N_side = int(N_side)
+    if N_side not in (2, 3):
+        raise ValueError(
+            f"N_side must be 2 or 3 (cell ID strings are only defined for these); "
+            f"got {N_side}"
+        )
+    return N_side
+
+
+def get_rhealpix_dggs(N_side: int = 3, north_square: int = 1, south_square: int = 3):
+    """Build the standard vgrid native rHEALPix DGGS (WGS84 degrees).
+
+    Defaults match conversion paths (``north_square=1``, ``south_square=3``,
+    ``N_side=3``).
+    """
+    from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
+    from vgrid.dggs.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+
+    N_side = validate_rhealpix_n_side(N_side)
+    return RHEALPixDGGS(
+        ellipsoid=WGS84_ELLIPSOID,
+        north_square=north_square,
+        south_square=south_square,
+        N_side=N_side,
+    )
+
+
+def rhealpix_cell_from_id(rhealpix_id: str, dggs=None, N_side: int = 3):
+    """Parse a rHEALPix cell ID string into a ``Cell`` on ``dggs``."""
+    if dggs is None:
+        dggs = get_rhealpix_dggs(N_side=N_side)
+    dggs._require_index_strings()
+    suid = dggs.parse_index(str(rhealpix_id))
+    if suid is None:
+        raise ValueError(
+            f"Invalid rHEALPix cell ID {rhealpix_id!r} for N_side={dggs.N_side}"
+        )
+    return dggs.cell(suid)
+
+
 def compact_cells(
     cell_ids,
     parent_fn,
@@ -280,6 +341,88 @@ def process_input_data_resample(
         gdf = gdf.to_crs(crs)
 
     return _require_resample_geometry(gdf)
+
+
+def _geometry_from_wkb(data, crs="EPSG:4326"):
+    """Return ``data`` as a GeoDataFrame when its geometry column is WKB."""
+    if not isinstance(data, pd.DataFrame) or isinstance(data, gpd.GeoDataFrame):
+        return data
+    if "geometry" not in data.columns:
+        return data
+    sample = next((value for value in data["geometry"] if value is not None), None)
+    if not isinstance(sample, (bytes, bytearray, memoryview)):
+        return data
+    frame = data.copy()
+    frame["geometry"] = gpd.GeoSeries.from_wkb(frame["geometry"], crs=crs)
+    return gpd.GeoDataFrame(frame, geometry="geometry", crs=crs)
+
+
+def _restore_parquet_columns(path, gdf):
+    """Put back columns GeoPandas omits, such as a GeoParquet bbox covering."""
+    import pyarrow.parquet as pq
+
+    missing = [
+        name
+        for name in pq.read_schema(path).names
+        if name not in gdf.columns and name != gdf.geometry.name
+    ]
+    if not missing:
+        return gdf
+    extra = pq.read_table(path, columns=missing)
+    gdf = gdf.copy()
+    for name in missing:
+        gdf[name] = extra.column(name).to_pylist()
+    return gdf
+
+
+def process_input_data_cogp(
+    input_data, id_col=None, agg_col=None, crs="EPSG:4326", **kwargs
+):
+    """Load a DGGS layer for Cloud Optimized GeoParquet conversion.
+
+    Supports:
+    - GeoDataFrame, or a DataFrame whose geometry column is Shapely or WKB
+    - GeoJSON dictionary (FeatureCollection) or a list of features
+    - Local or remote vector files (GeoJSON, Shapefile, GPKG, and others)
+    - GeoParquet / Parquet files
+
+    Parameters
+    ----------
+    input_data
+        Source layer in any supported form.
+    id_col : str, optional
+        Cell id column. When given, it must be present.
+    agg_col : str, optional
+        Numeric column to aggregate. When given, it must be present.
+    crs : str, default ``\"EPSG:4326\"``
+        Target CRS for the returned GeoDataFrame.
+    **kwargs
+        Passed to :func:`geopandas.read_file` for non-Parquet paths.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        Source features with geometry preserved.
+    """
+    if isinstance(input_data, str) and input_data.lower().endswith(
+        (".parquet", ".geoparquet")
+    ):
+        gdf = _restore_parquet_columns(input_data, gpd.read_parquet(input_data))
+    else:
+        gdf = process_input_data_vector(
+            _geometry_from_wkb(input_data, crs=crs), crs=crs, **kwargs
+        )
+
+    if id_col is not None and id_col not in gdf.columns:
+        raise ValueError(f"Missing '{id_col}' in input data.")
+    if agg_col is not None and agg_col not in gdf.columns:
+        raise ValueError(f"Missing '{agg_col}' in input data.")
+
+    if gdf.crs is None:
+        gdf = gdf.set_crs(crs)
+    elif gdf.crs != crs:
+        gdf = gdf.to_crs(crs)
+    return gdf
 
 
 def agg_column_name(agg, numeric_col=None, category_col_value=None):
@@ -1633,6 +1776,37 @@ def download_files(
 
         for file in filepaths:
             os.remove(file)
+
+
+def require_column(names, column, label="Column"):
+    """Return ``column`` when it is present in ``names``.
+
+    Raises
+    ------
+    ValueError
+        When the column is missing.
+    """
+    if column not in names:
+        raise ValueError(f"{label} column '{column}' was not found.")
+    return column
+
+
+def read_geoparquet_metadata(schema):
+    """Return the GeoParquet ``geo`` metadata object from a PyArrow schema."""
+    metadata = dict(schema.metadata or {})
+    raw = metadata.get(b"geo")
+    if not raw:
+        raise ValueError("Input file has no GeoParquet geo metadata.")
+    return json.loads(raw.decode("utf-8"))
+
+
+def geoparquet_geometry_columns(geo):
+    """Primary geometry column and its bbox covering column, if declared."""
+    primary = geo.get("primary_column") or "geometry"
+    column = (geo.get("columns") or {}).get(primary) or {}
+    bbox = ((column.get("covering") or {}).get("bbox") or {}).get("xmin")
+    covering = bbox[0] if isinstance(bbox, list) and bbox else None
+    return primary, covering
 
 
 def download_folder(

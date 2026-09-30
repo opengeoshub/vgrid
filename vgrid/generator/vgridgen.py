@@ -15,7 +15,7 @@ import geopandas as gpd
 from shapely.geometry import Polygon
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     convert_to_output_format,
     validate_bbox,
@@ -26,7 +26,10 @@ from vgrid.dggs.vgrid import VGRID
 
 
 def vgrid_gen_ids(
-    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None, verbose: bool = True
+    vgrid_instance: VGRID,
+    resolution: int = 0,
+    bbox: list[float] = None,
+    verbose: bool = True,
 ) -> list[str]:
     """
     Generate VGRID IDs for a given VGRID instance and bounding box.
@@ -73,7 +76,11 @@ def vgrid_gen_ids(
 
 
 def vgrid_gen(
-    vgrid_instance: VGRID, resolution: int = 0, bbox: list[float] = None, verbose: bool = True
+    vgrid_instance: VGRID,
+    resolution: int = 0,
+    bbox: list[float] = None,
+    cell_metrics=False,
+    verbose: bool = True,
 ) -> gpd.GeoDataFrame:
     """
     Generate a VGRID grid for a given VGRID instance and bounding box.
@@ -147,8 +154,12 @@ def vgrid_gen(
             )
 
             # Create record
-            vgrid_record = graticule_dggs_to_geoseries(
-                "vgrid", str(vgrid_id), resolution, cell_polygon
+            vgrid_record = dggs_cell_row(
+                "vgrid",
+                str(vgrid_id),
+                resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             vgrid_records.append(vgrid_record)
             pbar.update(1)
@@ -161,6 +172,7 @@ def vgridgen(
     resolution: int = 0,
     bbox: list[float] = None,
     output_format: str = "gpd",
+    cell_metrics=False,
     verbose: bool = True,
 ):
     """
@@ -194,7 +206,9 @@ def vgridgen(
         return vgrid_gen_ids(vgrid_instance, resolution, bbox, verbose=verbose)
     else:
         # Return GeoDataFrame in specified format
-        gdf = vgrid_gen(vgrid_instance, resolution, bbox, verbose=verbose)
+        gdf = vgrid_gen(
+            vgrid_instance, resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
         output_name = f"vgrid_grid_{resolution}"
         return convert_to_output_format(gdf, output_format, output_name)
 
@@ -239,6 +253,14 @@ def vgridgen_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -246,7 +268,12 @@ def vgridgen_cli():
         vgrid_instance = VGRID(args.cell_size, args.aperture)
 
         result = vgridgen(
-            vgrid_instance, args.resolution, args.bbox, args.output_format, verbose=args.verbose
+            vgrid_instance,
+            args.resolution,
+            args.bbox,
+            args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
         )
         if result is not None:
             print(f"VGRID grid generated successfully: {result}")

@@ -159,7 +159,9 @@ def tilecodeinspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    tilecode_gdf = tilecodegrid(resolution, output_format="gpd", verbose=verbose)
+    tilecode_gdf = tilecodegrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     tilecode_gdf["crossed"] = tilecode_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = tilecode_gdf["cell_area"].mean()
     num_cells = 4**resolution

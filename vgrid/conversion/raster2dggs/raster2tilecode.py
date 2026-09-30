@@ -21,6 +21,8 @@ from pyproj import datadir
 from vgrid.dggs import tilecode, mercantile
 from vgrid.stats.tilecodestats import tilecode_metrics
 from vgrid.utils.geometry import (
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
     nearest_neighbour_from_grid,
@@ -112,22 +114,39 @@ def get_nearest_tilecode_resolution(raster_path):
     return cell_size, nearest_resolution
 
 
-def _raster2tilecode_nearest_neighbour(raster_path, resolution,
+def _raster2tilecode_nearest_neighbour(
+    raster_path,
+    resolution,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
-    grid_gdf = generate_grid(footprint, "tilecode", resolution, verbose=verbose)
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    grid_gdf = generate_grid(
+        footprint, "tilecode", resolution, cell_metrics=cell_metrics, verbose=verbose
+    )
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=False,
+    )
 
 
-def _raster2tilecode_binning(raster_path, resolution, stats,
+def _raster2tilecode_binning(
+    raster_path,
+    resolution,
+    stats,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
         return tilecode.latlon2tilecode(lat, lon, resolution)
 
     tilecode_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to Tilecode", verbose=verbose
+        raster_path,
+        cell_id,
+        stats,
+        desc="Binning raster blocks to Tilecode",
+        verbose=verbose,
     )
 
     properties = []
@@ -155,7 +174,13 @@ def _raster2tilecode_binning(raster_path, resolution, stats,
                         [min_lon, min_lat],
                     ]
                 )
-                base_props = {"tilecode": tilecode_id, "geometry": cell_polygon}
+                base_props = dggs_cell_row(
+                    "tilecode",
+                    tilecode_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
+                )
                 band_values = finalize_dggs_band_values(acc, stats)
                 band_props = {
                     f"band_{i + 1}": band_values[i] for i in range(band_count)
@@ -169,7 +194,12 @@ def _raster2tilecode_binning(raster_path, resolution, stats,
 
 
 def raster2tilecode(
-    raster_path, resolution=None, output_format="gpd", method="binning", stats="mean",
+    raster_path,
+    resolution=None,
+    output_format="gpd",
+    method="binning",
+    stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -232,9 +262,13 @@ def raster2tilecode(
     if method == "binning":
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
-        gdf = _raster2tilecode_binning(raster_path, resolution, stats, verbose=verbose)
+        gdf = _raster2tilecode_binning(
+            raster_path, resolution, stats, cell_metrics=cell_metrics, verbose=verbose
+        )
     else:
-        gdf = _raster2tilecode_nearest_neighbour(raster_path, resolution, verbose=verbose)
+        gdf = _raster2tilecode_nearest_neighbour(
+            raster_path, resolution, cell_metrics=cell_metrics, verbose=verbose
+        )
 
     if gdf.empty:
         raise ValueError("No Tilecode cells were produced from the raster.")
@@ -284,6 +318,14 @@ def raster2tilecode_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -295,6 +337,7 @@ def raster2tilecode_cli():
         args.output_format,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

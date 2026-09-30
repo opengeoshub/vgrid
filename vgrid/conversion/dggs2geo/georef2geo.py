@@ -15,7 +15,7 @@ from vgrid.dggs import georef
 from shapely.geometry import Polygon
 import json
 import argparse
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def georef2geo(georef_ids):
@@ -87,7 +87,7 @@ def georef2geo_cli():
     return polys
 
 
-def georef2geojson(georef_ids):
+def georef2geojson(georef_ids, cell_metrics=False):
     """
     Convert GEOREF codes to GeoJSON FeatureCollection.
 
@@ -134,8 +134,8 @@ def georef2geojson(georef_ids):
                     [min_lon, min_lat],
                 ]
             )
-            georef_feature = graticule_dggs_to_feature(
-                "georef", georef_id, resolution, cell_polygon
+            georef_feature = dggs_geojson_feature(
+                "georef", georef_id, resolution, cell_polygon, cell_metrics
             )
             georef_features.append(georef_feature)
         except Exception:
@@ -153,6 +153,15 @@ def georef2geojson_cli():
         nargs="+",
         help="Input GEOREF code(s), e.g., georef2geojson VGBL42404651 ...",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(georef2geojson(args.georef))
+    geojson_data = json.dumps(
+        georef2geojson(args.georef, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

@@ -19,15 +19,12 @@ Points lying on an ellipsoid are given in geodetic (longitude, latitude) coordin
 #                  http://www.gnu.org/licenses/
 # *****************************************************************************
 
-# Import third-party modules.
-import pyproj
-from numpy import pi, sqrt, sin, cos, arcsin, arctanh, deg2rad, rad2deg
-
-# Import standard modules.
 from random import uniform
 
-# Import my modules.
-from vgrid.dggs.rhealpixdggs.utils import my_round, auth_lat, auth_rad
+import pyproj
+from numpy import arcsin, arctanh, cos, deg2rad, pi, rad2deg, sin, sqrt
+
+from .utils import auth_lat, auth_rad, my_round
 
 # Parameters of some common ellipsoids.
 WGS84_A = pyproj.get_ellps_map()["WGS84"]["a"]  # 6378137.0
@@ -38,7 +35,7 @@ WGS84_R_A = sqrt(WGS84_A**2 / 2 + WGS84_B**2 / 2 * (arctanh(WGS84_E) / WGS84_E))
 R_EM = pyproj.get_ellps_map()["sphere"]["a"]  # 6371000 (Earth's mean radius)
 
 
-class Ellipsoid(object):
+class Ellipsoid:
     """
     Represents an ellipsoid of revolution (possibly a sphere) with a
     geodetic longitude-latitude coordinate frame.
@@ -53,8 +50,15 @@ class Ellipsoid(object):
     - `e` - Eccentricity of the ellipsoid.
     - `f` - Flattening of the ellipsoid.
     - `R_A` - Authalic radius of the ellipsoid in meters.
-    - `lon_0` - Central meridian.
-    - `lat_0` - Latitude of origin.
+    - `lon_0` - Central meridian. Projections and grids built on the
+      ellipsoid are rotated about the polar axis so that this meridian
+      becomes the planar x = 0 line.
+    - `lat_0` - Latitude of origin. Must be 0. Shifting latitude is not a
+      rotation of an ellipsoid of revolution: a grid built on a shifted
+      latitude is neither equal-area nor geographically coherent near the
+      poles (issue #93). The attribute is kept so that the names match
+      PROJ's; reorient a grid with `lon_0` and the DGGS's `north_square`
+      and `south_square` instead.
     - `radians` - If True, use angles measured in radians for all calculations.
       Use degrees otherwise.
     - `phi_0` - The latitude separating the equatorial region and
@@ -66,15 +70,23 @@ class Ellipsoid(object):
 
     def __init__(
         self,
-        R=None,
-        a=WGS84_A,
-        b=None,
-        e=None,
-        f=WGS84_F,
-        lon_0=0,
-        lat_0=0,
-        radians=False,
-    ):
+        R: float | None = None,
+        a: float = WGS84_A,
+        b: float | None = None,
+        e: float | None = None,
+        f: float = WGS84_F,
+        lon_0: float = 0,
+        lat_0: float = 0,
+        radians: bool = False,
+    ) -> None:
+        if lat_0 != 0:
+            raise ValueError(
+                f"lat_0 must be 0, got {lat_0!r}: shifting latitude is not a "
+                "rotation of the ellipsoid, so a grid built on it is neither "
+                "equal-area nor geographically coherent near the poles. "
+                "Reorient the grid with lon_0 and the DGGS's "
+                "north_square/south_square instead."
+            )
         self.lon_0 = lon_0
         self.lat_0 = lat_0
         self.radians = radians
@@ -85,8 +97,8 @@ class Ellipsoid(object):
             self.R = R
             self.a = R
             self.b = R
-            self.e = 0
-            self.f = 0
+            self.e: float = 0
+            self.f: float = 0
             self.R_A = R
         else:
             self.sphere = False
@@ -111,7 +123,7 @@ class Ellipsoid(object):
             # Convert to degrees.
             self.phi_0 = rad2deg(self.phi_0)
 
-    def __str__(self):
+    def __str__(self) -> str:
         result = ["ellipsoid:"]
         # result.append('lengths measured in meters')
         for k, v in sorted(self.__dict__.items()):
@@ -123,13 +135,12 @@ class Ellipsoid(object):
                 result.append("    " + k + " = " + str(my_round(v, 15)))
         return "\n".join(result)
 
-    def __eq__(self, other):
-        if self.a == other.a and self.b == other.b:
-            return True
-        else:
-            return False
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Ellipsoid):
+            return NotImplemented
+        return self.a == other.a and self.b == other.b
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         """
         The inequality relation on cells.
         Since Python 3.3 doesn't automatically create reverse relations
@@ -137,7 +148,7 @@ class Ellipsoid(object):
         """
         return not self.__eq__(other)
 
-    def pi(self):
+    def pi(self) -> float:
         """
         Return pi if `self.radians` = True and 180 otherwise.
         """
@@ -146,7 +157,13 @@ class Ellipsoid(object):
         else:
             return 180.0
 
-    def random_point(self, lam_min=None, lam_max=None, phi_min=None, phi_max=None):
+    def random_point(
+        self,
+        lam_min: float | None = None,
+        lam_max: float | None = None,
+        phi_min: float | None = None,
+        phi_max: float | None = None,
+    ) -> tuple[float, float]:
         """
         Return a point (given in geodetic coordinates) sampled uniformly at
         random from the section of this ellipsoid with longitude in the range
@@ -208,124 +225,7 @@ class Ellipsoid(object):
             lam, phi = rad2deg([lam, phi])
         return lam, phi
 
-    def lattice(self, n=90):
-        """
-        Return a 2n x n square lattice of longitude-latitude points.
-
-        EXAMPLES::
-
-            >>> E = UNIT_SPHERE
-            >>> for p in E.lattice(n=3):
-            ...     print(p)
-            (-150.0, -60.0)
-            (-150.0, 0.0)
-            (-150.0, 60.0)
-            (-90.0, -60.0)
-            (-90.0, 0.0)
-            (-90.0, 60.0)
-            (-30.0, -60.0)
-            (-30.0, 0.0)
-            (-30.0, 60.0)
-            (30.0, -60.0)
-            (30.0, 0.0)
-            (30.0, 60.0)
-            (90.0, -60.0)
-            (90.0, 0.0)
-            (90.0, 60.0)
-            (150.0, -60.0)
-            (150.0, 0.0)
-            (150.0, 60.0)
-
-        """
-        PI = self.pi()
-        # Longitudinal and latitudinal spacing between points.
-        delta = PI / n
-        return [
-            (-PI + delta * (0.5 + i), -PI / 2 + delta * (0.5 + j))
-            for i in range(2 * n)
-            for j in range(n)
-        ]
-
-    def meridian(self, lam, n=200):
-        """
-        Return a list of `n` equispaced longitude-latitude
-        points lying along the meridian of longitude `lam`.
-        Avoid the poles.
-        """
-        PI = self.pi()
-        delta = PI / n
-        return [(lam, -PI / 2 + delta * (0.5 + i)) for i in range(n)]
-
-    def parallel(self, phi, n=200):
-        """
-        Return a list of `2*n` equispaced longitude-latitude
-        points lying along the parallel of latitude `phi`.
-        """
-        PI = self.pi()
-        delta = PI / n
-        return [(-PI + delta * (0.5 + i), phi) for i in range(2 * n)]
-
-    def graticule(self, n=400, spacing=None):
-        """
-        Return a list of longitude-latitude points sampled from a
-        longitude-latitude graticule on this ellipsoid with the given
-        spacing between meridians and between parallels.
-        The number of points on longitude and latitude per pi radians is `n`.
-        The spacing should be specified in the angle units used for this
-        ellipsoid.
-        If `spacing=None`, then a default spacing of pi/16 radians will be set.
-
-        EXAMPLES::
-
-            >>> E = UNIT_SPHERE
-            >>> print(len(E.graticule(n=400)))
-            25600
-
-        """
-        PI = self.pi()
-        result = []
-        # delta = PI/n
-        # Set default spacing.
-        if spacing is None:
-            spacing = PI / 16
-        # Longitude lines.
-        lam = -PI
-        while lam < PI:
-            # result.extend([(lam, -PI/2 + delta*(0.5 + i)) for i in range(n)])
-            result.extend(self.meridian(lam, n))
-            lam += spacing
-        # Latitude lines. Avoid the poles.
-        eps = PI / 360
-        phi = -PI / 2 + eps
-        while phi < PI / 2:
-            # result.extend([(-PI + delta*(0.5 + i), phi) for i in range(2*n)])
-            result.extend(self.parallel(phi, n))
-            phi += spacing
-        return result
-
-    def get_points(self, filename):
-        """
-        Return a list of longitude-latitude points contained in
-        the file with filename `filename`.
-        Assume the file is a text file containing at most one
-        longitude-latitude point per line with the coordinates separated by
-        whitespace and angles given in degrees.
-        """
-        result = []
-        for line in open(filename, "rb"):
-            if line[0] not in ["-", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-                # Ignore line.
-                continue
-            else:
-                # Split coordinate pair on whitespace.
-                p = [float(x) for x in line.split()]
-                result.append(p)
-        if self.radians:
-            # Convert to radians.
-            result = [deg2rad(p) for p in result]
-        return result
-
-    def xyz(self, lam, phi):
+    def xyz(self, lam: float, phi: float) -> tuple[float, float, float]:
         """
         Given a point on this ellipsoid with longitude-latitude coordinates
         `(lam, phi)`, return the point's 3D rectangular coordinates.

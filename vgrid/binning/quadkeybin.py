@@ -11,6 +11,7 @@ Key Functions:
 
 import argparse
 import geopandas as gpd
+from vgrid.utils.geometry import apply_bin_cell_metrics
 from vgrid.utils.io import (
     process_input_data_bin,
     convert_to_output_format,
@@ -30,6 +31,7 @@ def quadkey_bin(
     lat_col="lat",
     lon_col="lon",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_quadkey_resolution(resolution)
@@ -49,7 +51,12 @@ def quadkey_bin(
     id_col = "quadkey"
     from vgrid.generator.quadkeygrid import quadkey_grid
 
-    grid_gdf = quadkey_grid(resolution=resolution, bbox=(minx, miny, maxx, maxy), verbose=verbose)
+    grid_gdf = quadkey_grid(
+        resolution=resolution,
+        bbox=(minx, miny, maxx, maxy),
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+    )
 
     # Spatial join
     join_cols = []
@@ -77,7 +84,11 @@ def quadkey_bin(
     result_gdf = gpd.GeoDataFrame(
         out, geometry="geometry", crs=grid_gdf.crs or "EPSG:4326"
     )
-    return result_gdf
+    return apply_bin_cell_metrics(
+        result_gdf,
+        cell_metrics,
+        geodesic=False,
+    )
 
 
 def quadkeybin(
@@ -88,6 +99,7 @@ def quadkeybin(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     resolution = validate_quadkey_resolution(resolution)
@@ -96,7 +108,14 @@ def quadkeybin(
     if agg != "count" and not numeric_col:
         raise ValueError("A numeric_col is required for statistics other than 'count'")
     result_gdf = quadkey_bin(
-        data, resolution, agg, category_col, numeric_col, verbose=verbose, **kwargs
+        data,
+        resolution,
+        agg,
+        category_col,
+        numeric_col,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+        **kwargs,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -163,6 +182,14 @@ def quadkeybin_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = quadkeybin(
@@ -173,6 +200,7 @@ def quadkeybin_cli():
             numeric_col=args.numeric_col,
             output_format=args.output_format,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

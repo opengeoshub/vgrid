@@ -21,7 +21,8 @@ from vgrid.utils.constants import ISEA4T_RES_ACCURACY_DICT
 from vgrid.utils.geometry import (
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
-    geodesic_dggs_metrics,
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     nearest_neighbour_from_grid,
 )
 from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
@@ -35,12 +36,13 @@ from vgrid.utils.io import (
     finalize_dggs_band_values,
 )
 from vgrid.utils.constants import (
-    OUTPUT_FORMATS,
-    STRUCTURED_FORMATS,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     MIN_CELL_AREA,
+    OUTPUT_FORMATS,
     RASTER_STATS_OPTIONS,
     RASTER2DGGS_METHODS,
+    STRUCTURED_FORMATS,
 )
 
 os.environ["PROJ_LIB"] = datadir.get_data_dir()
@@ -111,14 +113,24 @@ def _raster2isea4t_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     _require_windows()
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "isea4t", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+        footprint,
+        "isea4t",
+        resolution,
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def _raster2isea4t_binning(
@@ -126,6 +138,7 @@ def _raster2isea4t_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
 ) -> gpd.GeoDataFrame:
     _require_windows()
@@ -134,7 +147,11 @@ def _raster2isea4t_binning(
         return _isea4t_cell_id(lat, lon, resolution)
 
     isea4t_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to ISEA4T", verbose=verbose
+        raster_path,
+        cell_id,
+        stats,
+        desc="Binning raster blocks to ISEA4T",
+        verbose=verbose,
     )
 
     properties = []
@@ -146,19 +163,14 @@ def _raster2isea4t_binning(
     ):
         cell_polygon = isea4t2geo(isea4t_id, fix_antimeridian=fix_antimeridian)
         num_edges = 3
-        centroid_lat, centroid_lon, avg_edge_len, cell_area, cell_perimeter = (
-            geodesic_dggs_metrics(cell_polygon, num_edges)
+        base_props = dggs_cell_row(
+            "isea4t",
+            isea4t_id,
+            resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
-        base_props = {
-            "isea4t": isea4t_id,
-            "resolution": resolution,
-            "center_lat": centroid_lat,
-            "center_lon": centroid_lon,
-            "avg_edge_len": avg_edge_len,
-            "cell_area": cell_area,
-            "cell_perimeter": cell_perimeter,
-            "geometry": cell_polygon,
-        }
         band_values = finalize_dggs_band_values(acc, stats)
         band_properties = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
         base_props.update(band_properties)
@@ -176,6 +188,7 @@ def raster2isea4t(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
 ):
     """
@@ -203,11 +216,20 @@ def raster2isea4t(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2isea4t_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            stats,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = _raster2isea4t_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     if gdf.empty:
@@ -250,14 +272,7 @@ def raster2isea4t_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method",
     )
@@ -271,6 +286,14 @@ def raster2isea4t_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         print(f"Error: The file {args.raster} does not exist.")
@@ -287,6 +310,7 @@ def raster2isea4t_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
     )
     if args.output_format in STRUCTURED_FORMATS:

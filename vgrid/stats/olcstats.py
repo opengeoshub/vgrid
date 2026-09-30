@@ -159,7 +159,9 @@ def olcinspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    olc_gdf = olcgrid(resolution, output_format="gpd", verbose=verbose)
+    olc_gdf = olcgrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     olc_gdf["crossed"] = olc_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = olc_gdf["cell_area"].mean()
     if resolution <= 10:

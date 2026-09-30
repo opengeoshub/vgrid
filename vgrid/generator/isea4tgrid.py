@@ -26,13 +26,14 @@ if platform.system() == "Windows":
     isea4t_dggs = Eaggr(Model.ISEA4T)
 
 from vgrid.utils.constants import (
+    FIX_ANTIMERIDIAN_CHOICES,
     MAX_CELLS,
     ISEA4T_BASE_CELLS,
     OUTPUT_FORMATS,
     STRUCTURED_FORMATS,
 )
 from vgrid.conversion.dggs2geo.isea4t2geo import isea4t2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 
 if platform.system() == "Windows":
     from vgrid.conversion.dggscompact.isea4tcompact import (
@@ -88,31 +89,48 @@ def get_isea4t_children_cells_within_bbox(bounding_cell, bbox, target_resolution
     return current_cells
 
 
-def _isea4t_row_from_id(isea4t_id, fix_antimeridian=None):
+def _isea4t_row_from_id(isea4t_id, fix_antimeridian=None, cell_metrics=False):
     cell_polygon = isea4t2geo(isea4t_id, fix_antimeridian=fix_antimeridian)
     cell_resolution = get_isea4t_resolution(isea4t_id)
-    return geodesic_dggs_to_geoseries(
-        "isea4t", isea4t_id, cell_resolution, cell_polygon, 3
+    return dggs_cell_row(
+        "isea4t", isea4t_id, cell_resolution, cell_polygon, 3, cell_metrics=cell_metrics
     )
 
 
-def isea4t_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
+def isea4t_grid(
+    resolution, fix_antimeridian=None, compact=False, cell_metrics=False, verbose=True
+):
     resolution = validate_isea4t_resolution(resolution)
     cell_ids = get_isea4t_children_cells(ISEA4T_BASE_CELLS, resolution)
     if compact:
         cell_ids = isea4t_compact(cell_ids, verbose=verbose)
     isea4t_rows = []
-    for cell_id in tqdm(cell_ids, desc="Generating ISEA4T DGGS", unit=" cells", disable=not verbose):
-        isea4t_rows.append(_isea4t_row_from_id(cell_id, fix_antimeridian))
+    for cell_id in tqdm(
+        cell_ids, desc="Generating ISEA4T DGGS", unit=" cells", disable=not verbose
+    ):
+        isea4t_rows.append(
+            _isea4t_row_from_id(cell_id, fix_antimeridian, cell_metrics=cell_metrics)
+        )
     return gpd.GeoDataFrame(isea4t_rows, geometry="geometry", crs="EPSG:4326")
 
 
-def isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
+def isea4t_grid_within_bbox(
+    resolution,
+    bbox,
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     resolution = validate_isea4t_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
         return isea4t_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     accuracy = ISEA4T_RES_ACCURACY_DICT.get(resolution)
@@ -131,9 +149,14 @@ def isea4t_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
         bounding_children = isea4t_compact(bounding_children, verbose=verbose)
     isea4t_rows = []
     for cell_id in tqdm(
-        bounding_children, desc="Generating ISEA4T DGGS", unit=" cells", disable=not verbose
+        bounding_children,
+        desc="Generating ISEA4T DGGS",
+        unit=" cells",
+        disable=not verbose,
     ):
-        isea4t_rows.append(_isea4t_row_from_id(cell_id, fix_antimeridian))
+        isea4t_rows.append(
+            _isea4t_row_from_id(cell_id, fix_antimeridian, cell_metrics=cell_metrics)
+        )
     return gpd.GeoDataFrame(isea4t_rows, geometry="geometry", crs="EPSG:4326")
 
 
@@ -176,7 +199,13 @@ def isea4t_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
 
 
 def isea4tgrid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
 ):
     """
     Generate ISEA4T DGGS grid for pure Python usage.
@@ -197,11 +226,20 @@ def isea4tgrid(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
         gdf = isea4t_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = isea4t_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     output_name = f"isea4t_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -230,14 +268,7 @@ def isea4tgrid_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -248,6 +279,14 @@ def isea4tgrid_cli():
         help="Enable ISEA4T compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
@@ -260,6 +299,7 @@ def isea4tgrid_cli():
                 args.output_format,
                 fix_antimeridian=fix_antimeridian,
                 compact=args.compact,
+                cell_metrics=args.cell_metrics,
                 verbose=args.verbose,
             )
             if args.output_format in STRUCTURED_FORMATS:

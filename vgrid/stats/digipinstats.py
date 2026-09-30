@@ -180,7 +180,9 @@ def digipininspect(resolution, verbose=True):
             - cvh: Convex Hull compactness
     """
     resolution = validate_digipin_resolution(resolution)
-    digipin_gdf = digipingrid(resolution, output_format="gpd", verbose=verbose)
+    digipin_gdf = digipingrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     digipin_gdf["crossed"] = digipin_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = digipin_gdf["cell_area"].mean()
     num_cells = 16**resolution

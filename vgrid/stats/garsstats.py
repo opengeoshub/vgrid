@@ -162,7 +162,9 @@ def garsinspect(resolution: int, verbose=True):  # length unit is km, area unit 
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    gars_gdf = garsgrid(resolution, output_format="gpd", verbose=verbose)
+    gars_gdf = garsgrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     gars_gdf["crossed"] = gars_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = gars_gdf["cell_area"].mean()
     mean_area = AUTHALIC_AREA / gars_num_cells(resolution)

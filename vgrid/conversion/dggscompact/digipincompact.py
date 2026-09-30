@@ -15,7 +15,7 @@ import os
 import argparse
 import geopandas as gpd
 from tqdm import tqdm
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -95,6 +95,7 @@ def digipincompact(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact DIGIPIN cells to their covering set at a given parent depth.
@@ -198,8 +199,12 @@ def digipincompact(
             cell_resolution = digipin_resolution(digipin_id_compact)
             if isinstance(cell_resolution, str):
                 continue  # Skip invalid resolutions
-            row = graticule_dggs_to_geoseries(
-                "digipin", digipin_id_compact, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "digipin",
+                digipin_id_compact,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(digipin_id_compact, []), agg)
             rows.append(row)
@@ -268,6 +273,13 @@ def digipincompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -281,6 +293,7 @@ def digipincompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if output_format in STRUCTURED_FORMATS:
@@ -299,7 +312,9 @@ def digipin_expand(digipin_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("digipin", resolution)
         expand_cells = []
-        for digipin_id in tqdm(digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose):
+        for digipin_id in tqdm(
+            digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose
+        ):
             current_resolution = digipin_resolution(digipin_id)
             if isinstance(current_resolution, str):
                 raise ValueError("Invalid DIGIPIN format.")
@@ -313,7 +328,9 @@ def digipin_expand(digipin_ids, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("digipin", depth)
     expand_cells = []
-    for digipin_id in tqdm(digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose):
+    for digipin_id in tqdm(
+        digipin_ids, desc="Expanding DIGIPIN", unit=" cells", disable=not verbose
+    ):
         try:
             current_resolution = digipin_resolution(digipin_id)
             if isinstance(current_resolution, str):
@@ -333,6 +350,7 @@ def digipinexpand(
     output_format="gpd",
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) DIGIPIN cells to a target resolution or by a relative depth.
@@ -364,9 +382,13 @@ def digipinexpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            digipin_ids_expand = digipin_expand(digipin_ids, resolution=resolution, verbose=verbose)
+            digipin_ids_expand = digipin_expand(
+                digipin_ids, resolution=resolution, verbose=verbose
+            )
         else:
-            digipin_ids_expand = digipin_expand(digipin_ids, depth=depth, verbose=verbose)
+            digipin_ids_expand = digipin_expand(
+                digipin_ids, depth=depth, verbose=verbose
+            )
     except Exception:
         raise Exception(
             "Expand cells failed. Please check your DIGIPIN ID field, resolution, or depth."
@@ -385,8 +407,12 @@ def digipinexpand(
         try:
             cell_polygon = digipin2geo(digipin_id_expand)
             cell_resolution = digipin_resolution(digipin_id_expand)
-            row = graticule_dggs_to_geoseries(
-                "digipin", digipin_id_expand, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "digipin",
+                digipin_id_expand,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -442,6 +468,13 @@ def digipinexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = digipinexpand(
         args.input,
@@ -450,6 +483,7 @@ def digipinexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if args.output_format in STRUCTURED_FORMATS:

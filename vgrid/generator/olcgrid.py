@@ -16,7 +16,7 @@ from vgrid.dggs import olc
 from tqdm import tqdm
 from shapely.geometry import box, Polygon
 from vgrid.utils.constants import OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     is_full_world_bbox,
     validate_bbox,
@@ -28,18 +28,20 @@ from vgrid.conversion.dggscompact.olccompact import olc_compact, get_olc_resolut
 from vgrid.conversion.dggs2geo.olc2geo import olc2geo
 
 
-def _olc_row_from_id(olc_id):
+def _olc_row_from_id(olc_id, cell_metrics=False):
     cell_polygon = olc2geo(olc_id)
     cell_resolution = get_olc_resolution(olc_id)
-    return graticule_dggs_to_geoseries("olc", olc_id, cell_resolution, cell_polygon)
+    return dggs_cell_row(
+        "olc", olc_id, cell_resolution, cell_polygon, cell_metrics=cell_metrics
+    )
 
 
-def _olc_gdf_from_ids(olc_ids):
-    rows = [_olc_row_from_id(olc_id) for olc_id in olc_ids]
+def _olc_gdf_from_ids(olc_ids, cell_metrics=False):
+    rows = [_olc_row_from_id(olc_id, cell_metrics=cell_metrics) for olc_id in olc_ids]
     return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
 
-def olc_grid(resolution, compact=False, verbose=True):
+def olc_grid(resolution, compact=False, cell_metrics=False, verbose=True):
     resolution = validate_olc_resolution(resolution)
     """
     Generate a global grid of Open Location Codes (Plus Codes) at the specified precision
@@ -85,8 +87,8 @@ def olc_grid(resolution, compact=False, verbose=True):
                         [lng, lat],  # Close the polygon
                     ]
                 )
-                olc_record = graticule_dggs_to_geoseries(
-                    "olc", olc_id, resolution, cell_polygon
+                olc_record = dggs_cell_row(
+                    "olc", olc_id, resolution, cell_polygon, cell_metrics=cell_metrics
                 )
                 olc_records.append(olc_record)
                 lng += lng_step
@@ -94,26 +96,32 @@ def olc_grid(resolution, compact=False, verbose=True):
             lat += lat_step
 
     if compact:
-        olc_ids = olc_compact([record["olc"] for record in olc_records], verbose=verbose)
-        return _olc_gdf_from_ids(olc_ids)
+        olc_ids = olc_compact(
+            [record["olc"] for record in olc_records], verbose=verbose
+        )
+        return _olc_gdf_from_ids(olc_ids, cell_metrics=cell_metrics)
 
     return gpd.GeoDataFrame(olc_records, geometry="geometry", crs="EPSG:4326")
 
 
-def olc_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
+def olc_grid_within_bbox(
+    resolution, bbox, compact=False, cell_metrics=False, verbose=True
+):
     """
     Generate a grid of Open Location Codes (Plus Codes) within the specified bounding box.
     """
     resolution = validate_olc_resolution(resolution)
     bbox = validate_bbox(bbox)
     if is_full_world_bbox(bbox):
-        return olc_grid(resolution, compact=compact, verbose=verbose)
+        return olc_grid(
+            resolution, compact=compact, cell_metrics=cell_metrics, verbose=verbose
+        )
 
     bbox_poly = box(*bbox)
 
     # Step 1: Generate base cells at the lowest resolution (e.g., resolution 2)
     base_resolution = 2
-    base_gdf = olc_grid(base_resolution, verbose=False)
+    base_gdf = olc_grid(base_resolution, cell_metrics=cell_metrics, verbose=False)
 
     # Step 2: Identify seed cells that intersect with the bounding box
     seed_cells = []
@@ -134,7 +142,11 @@ def olc_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
             # Refine the seed cell to the output resolution and add it to the output
             refined_records.extend(
                 olc_refine_cell(
-                    seed_cell_poly.bounds, base_resolution, resolution, bbox_poly
+                    seed_cell_poly.bounds,
+                    base_resolution,
+                    resolution,
+                    bbox_poly,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -144,12 +156,14 @@ def olc_grid_within_bbox(resolution, bbox, compact=False, verbose=True):
 
     if compact:
         olc_ids = olc_compact(gdf["olc"].tolist(), verbose=verbose)
-        return _olc_gdf_from_ids(olc_ids)
+        return _olc_gdf_from_ids(olc_ids, cell_metrics=cell_metrics)
 
     return gdf
 
 
-def olc_refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
+def olc_refine_cell(
+    bounds, current_resolution, target_resolution, bbox_poly, cell_metrics=False
+):
     """
     Refine a cell defined by bounds to the target resolution, recursively refining intersecting cells.
     """
@@ -189,8 +203,8 @@ def olc_refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                     ]
                 )
 
-                olc_record = graticule_dggs_to_geoseries(
-                    "olc", olc_id, resolution, cell_polygon
+                olc_record = dggs_cell_row(
+                    "olc", olc_id, resolution, cell_polygon, cell_metrics=cell_metrics
                 )
                 olc_records.append(olc_record)
 
@@ -202,6 +216,7 @@ def olc_refine_cell(bounds, current_resolution, target_resolution, bbox_poly):
                             valid_resolution,
                             target_resolution,
                             bbox_poly,
+                            cell_metrics=cell_metrics,
                         )
                     )
 
@@ -229,7 +244,9 @@ def olc_grid_ids(resolution, compact=False, verbose=True):
     total_lng_steps = int((ne_lng - sw_lng) / lng_step)
     total_steps = total_lat_steps * total_lng_steps
 
-    with tqdm(total=total_steps, desc="Generating OLC IDs", unit=" cells", disable=not verbose) as pbar:
+    with tqdm(
+        total=total_steps, desc="Generating OLC IDs", unit=" cells", disable=not verbose
+    ) as pbar:
         lat = sw_lat
         while lat < ne_lat:
             lng = sw_lng
@@ -262,7 +279,14 @@ def olc_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
     return list(gdf["olc"].drop_duplicates())
 
 
-def olcgrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=True):
+def olcgrid(
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     """
     Generate OLC grid for pure Python usage.
 
@@ -277,9 +301,17 @@ def olcgrid(resolution, bbox=None, output_format="gpd", compact=False, verbose=T
     """
     if bbox is None:
         bbox = [-180, -90, 180, 90]
-        gdf = olc_grid(resolution, compact=compact, verbose=verbose)
+        gdf = olc_grid(
+            resolution, compact=compact, cell_metrics=cell_metrics, verbose=verbose
+        )
     else:
-        gdf = olc_grid_within_bbox(resolution, bbox, compact=compact, verbose=verbose)
+        gdf = olc_grid_within_bbox(
+            resolution,
+            bbox,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
+        )
 
     output_name = f"olc_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -311,12 +343,27 @@ def olcgrid_cli():
         help="Enable OLC compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
 
     try:
-        result = olcgrid(resolution, bbox, args.output_format, compact=args.compact, verbose=args.verbose)
+        result = olcgrid(
+            resolution,
+            bbox,
+            args.output_format,
+            compact=args.compact,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

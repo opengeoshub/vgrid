@@ -14,7 +14,7 @@ import json
 import argparse
 import a5
 from shapely.geometry import Polygon
-from vgrid.utils.geometry import geodesic_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.utils.antimeridian import fix_polygon
 
 
@@ -165,7 +165,7 @@ def a52geo_cli():
     return polys
 
 
-def a52geojson(a5_hexes, options=None, split_antimeridian=False):
+def a52geojson(a5_hexes, options=None, split_antimeridian=False, cell_metrics=False):
     """
     Convert A5 cell IDs to GeoJSON FeatureCollection.
 
@@ -210,10 +210,12 @@ def a52geojson(a5_hexes, options=None, split_antimeridian=False):
             cell_polygon = a52geo(
                 a5_hex, options, split_antimeridian=split_antimeridian
             )
-            num_edges = 5
             resolution = a5.get_resolution(a5.hex_to_u64(a5_hex))
-            a5_feature = geodesic_dggs_to_feature(
-                "a5", a5_hex, resolution, cell_polygon, num_edges
+            num_edges = 5
+            if resolution == 1:
+                num_edges = 3
+            a5_feature = dggs_geojson_feature(
+                "a5", a5_hex, resolution, cell_polygon, cell_metrics, num_edges
             )
             a5_features.append(a5_feature)
         except Exception:
@@ -246,6 +248,13 @@ def a52geojson_cli():
         help="JSON string of options to pass to a5.cell_to_boundary. "
         "Example: '{\"segments\": 1000}'",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     # Parse options JSON if provided
@@ -258,7 +267,12 @@ def a52geojson_cli():
             return
 
     geojson_data = json.dumps(
-        a52geojson(args.a5, options=options, split_antimeridian=args.split_antimeridian)
+        a52geojson(
+            args.a5,
+            options=options,
+            split_antimeridian=args.split_antimeridian,
+            cell_metrics=args.cell_metrics,
+        )
     )
     print(geojson_data)
 

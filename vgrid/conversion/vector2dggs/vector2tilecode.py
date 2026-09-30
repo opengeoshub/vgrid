@@ -24,7 +24,7 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 import geopandas as gpd
 from vgrid.dggs import tilecode
 from vgrid.dggs import mercantile
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.conversion.dggscompact.tilecodecompact import tilecodecompact
 from vgrid.conversion.dggs2geo.tilecode2geo import tilecode2geo
 from vgrid.conversion.latlon2dggs import latlon2tilecode
@@ -53,6 +53,7 @@ def point2tilecode(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to Tilecode grid cells.
@@ -119,8 +120,12 @@ def point2tilecode(
                     [min_lon, min_lat],
                 ]
             )
-            tilecode_row = graticule_dggs_to_geoseries(
-                "tilecode", tilecode_id, resolution, cell_polygon
+            tilecode_row = dggs_cell_row(
+                "tilecode",
+                tilecode_id,
+                resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 tilecode_row.update(feature_properties)
@@ -193,6 +198,7 @@ def polyline2tilecode(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert each polyline to Tilecode cells by walking intersecting neighbors.
@@ -236,8 +242,12 @@ def polyline2tilecode(
                 continue
             match = re.match(r"z(\d+)x(\d+)y(\d+)", cell_id)
             cell_resolution = int(match.group(1)) if match else resolution
-            tilecode_row = graticule_dggs_to_geoseries(
-                "tilecode", cell_id, cell_resolution, cell_polygon
+            tilecode_row = dggs_cell_row(
+                "tilecode",
+                cell_id,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 tilecode_row.update(feature_properties)
@@ -254,6 +264,7 @@ def polygon2tilecode(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to Tilecode grid cells.
@@ -316,8 +327,12 @@ def polygon2tilecode(
                     ]
                 )
                 if check_predicate(cell_polygon, polygon, predicate):
-                    tilecode_row = graticule_dggs_to_geoseries(
-                        "tilecode", tilecode_id, cell_resolution, cell_polygon
+                    tilecode_row = dggs_cell_row(
+                        "tilecode",
+                        tilecode_id,
+                        cell_resolution,
+                        cell_polygon,
+                        cell_metrics=cell_metrics,
                     )
                     if include_properties and feature_properties:
                         tilecode_row.update(feature_properties)
@@ -330,7 +345,12 @@ def polygon2tilecode(
 
         # Use tilecodecompact function directly
         compacted_gdf = tilecodecompact(
-            temp_gdf, tilecode_id="tilecode", output_format="gpd", verbose=verbose, depth=depth)
+            temp_gdf,
+            tilecode_id="tilecode",
+            output_format="gpd",
+            verbose=verbose,
+            depth=depth,
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -349,6 +369,7 @@ def geodataframe2tilecode(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to Tilecode grid cells.
@@ -410,7 +431,9 @@ def geodataframe2tilecode(
 
     tilecode_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -429,6 +452,7 @@ def geodataframe2tilecode(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -439,6 +463,7 @@ def geodataframe2tilecode(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -452,6 +477,7 @@ def geodataframe2tilecode(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(tilecode_rows, geometry="geometry", crs="EPSG:4326")
@@ -464,10 +490,11 @@ def vector2tilecode(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -502,8 +529,15 @@ def vector2tilecode(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2tilecode(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -572,6 +606,13 @@ def vector2tilecode_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -585,6 +626,7 @@ def vector2tilecode_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

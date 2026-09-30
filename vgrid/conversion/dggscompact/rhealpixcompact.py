@@ -15,36 +15,43 @@ import os
 import argparse
 import geopandas as gpd
 from tqdm import tqdm
-from vgrid.dggs.rhealpixdggs.dggs import WGS84_003 as rhealpix_dggs
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
+    add_rhealpix_n_side_argument,
     add_verbose_argument,
     aggregate_values,
     compact_cells,
     convert_to_output_format,
+    get_rhealpix_dggs,
     prepare_compact_bags,
     process_input_data_compact,
+    rhealpix_cell_from_id,
     validate_dggs_compact_depth,
     validate_dggs_expand_depth,
     validate_dggs_expand_resolution,
 )
-from vgrid.utils.constants import AGG_OPTIONS, OUTPUT_FORMATS, STRUCTURED_FORMATS
+from vgrid.utils.constants import (
+    AGG_OPTIONS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
 
 
-def _rhealpix_parent(rid):
-    if len(rid) <= 1:
+def _rhealpix_parent(rid, dggs):
+    suid = dggs.parse_index(str(rid))
+    if suid is None or len(suid) <= 1:
         return None
-    return rid[:-1]
+    return dggs.format_index(suid[:-1])
 
 
-def _rhealpix_children(parent):
-    parent_uids = (parent[0],) + tuple(map(int, parent[1:]))
-    parent_cell = rhealpix_dggs.cell(parent_uids)
+def _rhealpix_children(parent, dggs):
+    parent_cell = rhealpix_cell_from_id(parent, dggs=dggs)
     return {str(subcell) for subcell in parent_cell.subcells()}
 
 
-def rhealpix_compact(rhealpix_ids, depth=-1, bags=None, verbose=True):
+def rhealpix_compact(rhealpix_ids, depth=-1, bags=None, verbose=True, N_side=3):
     """
     Compact a list of RHEALPix cell IDs by replacing complete child sets with parents.
 
@@ -81,10 +88,11 @@ def rhealpix_compact(rhealpix_ids, depth=-1, bags=None, verbose=True):
     >>> print(f"Compacted {len(rhealpix_ids)} cells to {len(compacted)} cells")
     """
     depth = validate_dggs_compact_depth("rhealpix", depth)
+    dggs = get_rhealpix_dggs(N_side=N_side)
     return compact_cells(
         rhealpix_ids,
-        _rhealpix_parent,
-        _rhealpix_children,
+        lambda rid: _rhealpix_parent(rid, dggs),
+        lambda parent: _rhealpix_children(parent, dggs),
         depth=depth,
         bags=bags,
         verbose=verbose,
@@ -92,7 +100,7 @@ def rhealpix_compact(rhealpix_ids, depth=-1, bags=None, verbose=True):
     )
 
 
-def rhealpix_expand(rhealpix_ids, resolution=None, depth=None, verbose=True):
+def rhealpix_expand(rhealpix_ids, resolution=None, depth=None, verbose=True, N_side=3):
     """
     Expand RHEALPix cells to a target resolution, or by a relative child depth.
 
@@ -103,12 +111,14 @@ def rhealpix_expand(rhealpix_ids, resolution=None, depth=None, verbose=True):
 
     Returns cell objects (callers typically convert with ``str(cell)``).
     """
+    dggs = get_rhealpix_dggs(N_side=N_side)
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("rhealpix", resolution)
         expand_cells = []
-        for rhealpix_id in tqdm(rhealpix_ids, desc="Expanding rHEALPix", unit=" cells", disable=not verbose):
-            rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+        for rhealpix_id in tqdm(
+            rhealpix_ids, desc="Expanding rHEALPix", unit=" cells", disable=not verbose
+        ):
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, dggs=dggs)
             cell_resolution = rhealpix_cell.resolution
             if cell_resolution >= resolution:
                 expand_cells.append(rhealpix_cell)
@@ -120,10 +130,11 @@ def rhealpix_expand(rhealpix_ids, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("rhealpix", depth)
     expand_cells = []
-    for rhealpix_id in tqdm(rhealpix_ids, desc="Expanding rHEALPix", unit=" cells", disable=not verbose):
+    for rhealpix_id in tqdm(
+        rhealpix_ids, desc="Expanding rHEALPix", unit=" cells", disable=not verbose
+    ):
         try:
-            rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, dggs=dggs)
             expand_cells.extend(
                 rhealpix_cell.subcells(rhealpix_cell.resolution + depth)
             )
@@ -132,10 +143,9 @@ def rhealpix_expand(rhealpix_ids, resolution=None, depth=None, verbose=True):
     return expand_cells
 
 
-def get_rhealpix_resolution(rhealpix_id):
+def get_rhealpix_resolution(rhealpix_id, N_side=3):
     try:
-        rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-        rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+        rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, N_side=N_side)
         return rhealpix_cell.resolution
     except Exception as e:
         raise ValueError(f"Invalid cell ID <{rhealpix_id}>: {e}")
@@ -150,6 +160,8 @@ def rhealpixcompact(
     output_format="gpd",
     fix_antimeridian=None,
     verbose=True,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Compact RHEALPix cells to their covering set at a given parent depth.
@@ -238,8 +250,9 @@ def rhealpixcompact(
         print(f"No rHEALPix tokens found in <{rhealpix_id}> field.")
         return
 
+    dggs = get_rhealpix_dggs(N_side=N_side)
     rhealpix_tokens_compact = rhealpix_compact(
-        list(bags.keys()), depth=depth, bags=bags, verbose=verbose
+        list(bags.keys()), depth=depth, bags=bags, verbose=verbose, N_side=N_side
     )
     if not rhealpix_tokens_compact:
         return None
@@ -252,22 +265,22 @@ def rhealpixcompact(
     ):
         try:
             cell_polygon = rhealpix2geo(
-                rhealpix_token_compact, fix_antimeridian=fix_antimeridian
+                rhealpix_token_compact,
+                fix_antimeridian=fix_antimeridian,
+                N_side=N_side,
             )
-            rhealpix_uids = (rhealpix_token_compact[0],) + tuple(
-                map(int, rhealpix_token_compact[1:])
-            )
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_token_compact, dggs=dggs)
             cell_resolution = rhealpix_cell.resolution
             num_edges = 4
-            if rhealpix_cell.ellipsoidal_shape() == "dart":
+            if rhealpix_cell.ellipsoidal_shape == "dart":
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
+            row = dggs_cell_row(
                 "rhealpix",
                 rhealpix_token_compact,
                 cell_resolution,
                 cell_polygon,
                 num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(rhealpix_token_compact, []), agg)
             rows.append(row)
@@ -306,14 +319,7 @@ def rhealpixcompact_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -346,7 +352,15 @@ def rhealpixcompact_cli():
         default=True,
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
+    add_rhealpix_n_side_argument(parser)
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -361,6 +375,8 @@ def rhealpixcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        N_side=args.N_side,
+        cell_metrics=args.cell_metrics,
     )
     if output_format in STRUCTURED_FORMATS:
         print(result)
@@ -374,6 +390,8 @@ def rhealpixexpand(
     fix_antimeridian=None,
     verbose=True,
     depth=None,
+    N_side=3,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) RHEALPix cells to a target resolution or by a relative depth.
@@ -394,15 +412,22 @@ def rhealpixexpand(
     if not rhealpix_ids:
         print(f"No rHEALPix tokens found in <{rhealpix_id}> field.")
         return
+    dggs = get_rhealpix_dggs(N_side=N_side)
     try:
         if resolution is not None:
-            max_res = max(get_rhealpix_resolution(token) for token in rhealpix_ids)
+            max_res = max(
+                get_rhealpix_resolution(token, N_side=N_side) for token in rhealpix_ids
+            )
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            expanded_cells = rhealpix_expand(rhealpix_ids, resolution=resolution, verbose=verbose)
+            expanded_cells = rhealpix_expand(
+                rhealpix_ids, resolution=resolution, verbose=verbose, N_side=N_side
+            )
         else:
-            expanded_cells = rhealpix_expand(rhealpix_ids, depth=depth, verbose=verbose)
+            expanded_cells = rhealpix_expand(
+                rhealpix_ids, depth=depth, verbose=verbose, N_side=N_side
+            )
         rhealpix_tokens_expand = [str(cell) for cell in expanded_cells]
     except Exception:
         raise Exception(
@@ -419,22 +444,22 @@ def rhealpixexpand(
     ):
         try:
             cell_polygon = rhealpix2geo(
-                rhealpix_token_expand, fix_antimeridian=fix_antimeridian
+                rhealpix_token_expand,
+                fix_antimeridian=fix_antimeridian,
+                N_side=N_side,
             )
-            rhealpix_uids = (rhealpix_token_expand[0],) + tuple(
-                map(int, rhealpix_token_expand[1:])
-            )
-            rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
+            rhealpix_cell = rhealpix_cell_from_id(rhealpix_token_expand, dggs=dggs)
             cell_resolution = rhealpix_cell.resolution
             num_edges = 4
-            if rhealpix_cell.ellipsoidal_shape() == "dart":
+            if rhealpix_cell.ellipsoidal_shape == "dart":
                 num_edges = 3
-            row = geodesic_dggs_to_geoseries(
+            row = dggs_cell_row(
                 "rhealpix",
                 rhealpix_token_expand,
                 cell_resolution,
                 cell_polygon,
                 num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -488,18 +513,19 @@ def rhealpixexpand_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
+    add_rhealpix_n_side_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = rhealpixexpand(
         args.input,
@@ -509,6 +535,8 @@ def rhealpixexpand_cli():
         fix_antimeridian=args.fix_antimeridian,
         depth=args.depth,
         verbose=args.verbose,
+        N_side=args.N_side,
+        cell_metrics=args.cell_metrics,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

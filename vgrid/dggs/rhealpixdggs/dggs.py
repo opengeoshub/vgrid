@@ -24,7 +24,7 @@ EXAMPLES:
 
 Create the (1, 2)-rHEALPix DGGS with N_side = 3 that is based on the WGS84 ellipsoid. Use degrees instead of the default radians for angular measurements ::
 
-    >>> from rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
+    >>> from .ellipsoids import WGS84_ELLIPSOID
     >>> E = WGS84_ELLIPSOID
     >>> rdggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=2, N_side=3)
     >>> print(rdggs)
@@ -115,11 +115,17 @@ Compute the ellipsoidal nuclei of these cells ::
 
 Create a (0, 0)-rHEALPix DGGS with N_side = 3 based on the WGS84 ellipsoid.
 Use degrees instead of the default radians for angular measurements and
-orient the DGGS so that the planar origin (0, 0) is on Auckland, New Zealand ::
+rotate the DGGS about the polar axis so that New Zealand sits in the middle
+of an equatorial face. The face edges and the polar dart cells lie on the
+meridians ``lon_0 + k * 90``, so choosing ``lon_0`` 45 degrees west of
+Auckland's meridian keeps them clear of the country. (Recentring in
+latitude is not supported: ``Ellipsoid`` rejects a nonzero ``lat_0``,
+because shifting latitude is not a rotation of the ellipsoid and would
+destroy the equal-area property.) ::
 
     >>> p = (174, -37)  # Approximate Auckland lon-lat coordinates
-    >>> from rhealpixdggs.ellipsoids import *
-    >>> E = Ellipsoid(a=WGS84_A, f=WGS84_F, radians=False, lon_0=p[0], lat_0=p[1])
+    >>> from .ellipsoids import *
+    >>> E = Ellipsoid(a=WGS84_A, f=WGS84_F, radians=False, lon_0=p[0] - 45)
     >>> rdggs = RHEALPixDGGS(E, N_side=3, north_square=0, south_square=0)
     >>> print(rdggs)
     rHEALPix DGGS:
@@ -134,13 +140,13 @@ orient the DGGS so that the planar origin (0, 0) is on Auckland, New Zealand ::
             b = 6356752.314245179
             e = 0.08181919084262149
             f = 0.0033528106647474805
-            lat_0 = -37
-            lon_0 = 174
+            lat_0 = 0
+            lon_0 = 129
             radians = False
             sphere = False
 
     >>> print(rdggs.cell_from_point(1, p, plane=False))
-    Q3
+    Q7
 
 """
 
@@ -150,27 +156,112 @@ orient the DGGS so that the planar origin (0, 0) is on Auckland, New Zealand ::
 #  Distributed under the terms of the GNU Lesser General Public License (LGPL)
 #                  http: //www.gnu.org/licenses/
 # *****************************************************************************
-# Import third-party modules.
-from numpy import array, base_repr, ceil, log, pi
-from shapely import LineString
-
-# Import standard modules.
-from itertools import product
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from itertools import pairwise, product
+from math import asin, copysign, floor, pi
 from random import randint
+from typing import Literal, NamedTuple, cast, overload
 
-# Import my modules.
-import vgrid.dggs.rhealpixdggs.pj_rhealpix as pjr
-import vgrid.dggs.rhealpixdggs.projection_wrapper as pw
-from vgrid.dggs.rhealpixdggs.cell import Cell, CELLS0
-from vgrid.dggs.rhealpixdggs.ellipsoids import (
-    WGS84_ELLIPSOID,
-    WGS84_ELLIPSOID_RADIANS,
+import numpy as np
+
+# assert_allclose is doctest-only: the doctests use it from the module globals.
+from numpy.testing import assert_allclose  # noqa: F401
+
+# Cells per chunk when enumerating the lattice cells of a planar box
+# (``RHEALPixDGGS._lattice_cells``), bounding the working set of callers such
+# as ``rhp_wrappers.polyfill`` however many cells a box holds.
+_LATTICE_CHUNK = 250_000
+from scipy.special import roots_legendre
+
+from . import pj_rhealpix as pjr
+from . import projection_wrapper as pw
+from .cell import (
+    _CENTROID_QUADRATURE_ORDER,
+    CELLS0,
+    Cell,
+    _gauss_legendre_unit,
+)
+from .ellipsoids import (
     UNIT_SPHERE,
     UNIT_SPHERE_RADIANS,
+    WGS84_ELLIPSOID,
+    WGS84_ELLIPSOID_RADIANS,
+    Ellipsoid,
+)
+
+# my_round is doctest-only: the doctests use it from the module globals.
+from .utils import (  # noqa: F401
+    FloatArray,
+    _auth_lat_array,
+    _normalise_antimeridian_rings,
+    auth_lat,
+    my_round,
 )
 
 
-class RHEALPixDGGS(object):
+class RingTable(NamedTuple):
+    """
+    The isolatitude rings of one resolution, as returned by
+    ``RHEALPixDGGS.ring_table``: one entry per ring, numbered 0 at the north
+    pole. Angles are in the grid ellipsoid's unit (degrees or radians).
+
+    - `population` - cells on the ring.
+    - `latitude` - the (geodetic) nucleus latitude shared by every cell on
+      the ring, as ``Cell.nucleus(plane=False)`` reports it.
+    - `authalic_latitude` - the same latitude on the authalic sphere, which
+      is where a spherical harmonic transform should place the ring; equal
+      to `latitude` on a spherical grid.
+    - `first_longitude` - nucleus longitude of the first cell in
+      ``cells_on_ring`` order; NaN on a single-cell pole ring.
+    - `longitude_spacing` - the constant longitude step between consecutive
+      nuclei on the ring; NaN on a single-cell pole ring.
+    """
+
+    population: np.ndarray
+    latitude: FloatArray
+    authalic_latitude: FloatArray
+    first_longitude: FloatArray
+    longitude_spacing: FloatArray
+
+
+INDEX_STRING_N_SIDES = (2, 3)
+
+
+def _index_width(N_side: int) -> int:
+    """
+    Characters per digit in the index strings of a grid with `N_side`.
+    Index strings, a face letter followed by one digit per resolution, are
+    defined for ``N_side`` 2 and 3 (issue #146); raise ValueError otherwise.
+    """
+    if N_side not in INDEX_STRING_N_SIDES:
+        raise ValueError(
+            f"index strings are defined for N_side 2 and 3, not N_side={N_side}; "
+            "address the cells of this grid by their suid tuples (issue #146)"
+        )
+    return 1
+
+
+def _parse_index(index: str, N_side: int) -> tuple[str | int, ...] | None:
+    """The suid for `index` in a grid with `N_side`; see ``RHEALPixDGGS.parse_index``."""
+    _index_width(N_side)
+    if not index or index[0] not in CELLS0:
+        return None
+    digits = index[1:]
+    if not all(d in "0123456789" for d in digits):
+        return None
+    values = [int(d) for d in digits]
+    if any(v >= N_side**2 for v in values):
+        return None
+    return (index[0], *values)
+
+
+def _format_index(suid: Sequence[str | int], N_side: int) -> str:
+    """The index string for `suid` in a grid with `N_side`; see ``RHEALPixDGGS.format_index``."""
+    _index_width(N_side)
+    return str(suid[0]) + "".join(str(d) for d in suid[1:])
+
+
+class RHEALPixDGGS:
     """
     Represents an rHEALPix DGGS on a given ellipsoid.
 
@@ -212,12 +303,12 @@ class RHEALPixDGGS(object):
 
     def __init__(
         self,
-        ellipsoid=WGS84_ELLIPSOID,
-        N_side=3,
-        north_square=0,
-        south_square=0,
-        max_areal_resolution=1,  # square metres
-    ):
+        ellipsoid: Ellipsoid = WGS84_ELLIPSOID,
+        N_side: int = 3,
+        north_square: int = 0,
+        south_square: int = 0,
+        max_areal_resolution: float = 1,  # square metres
+    ) -> None:
         self.N_side = N_side
         self.north_square = north_square % 4  # = 0, 1, 2, or 3.
         self.south_square = south_square % 4  # = 0, 1, 2, or 3.
@@ -225,13 +316,14 @@ class RHEALPixDGGS(object):
         # Find the maximum grid resolution needed to have ellipsoidal
         # cells of area at most max_areal_resolution.
         self.max_resolution = int(
-            ceil(
-                log(ellipsoid.R_A**2 * (2 * pi / 3) / max_areal_resolution)
-                / (2 * log(N_side))
+            np.ceil(
+                np.log(ellipsoid.R_A**2 * (2 * pi / 3) / max_areal_resolution)
+                / (2 * np.log(N_side))
             )
         )
 
         self.ellipsoid = ellipsoid
+        self._projection_cache: dict[str, pw.Projection] = {}
 
         # Dictionary of the ordering (Morton order) of child cells of a cell
         # in terms of the row-column coordinates in the matrix of child cells.
@@ -245,7 +337,7 @@ class RHEALPixDGGS(object):
         #   --------
         #     0 1 2
         #
-        child_order = {}
+        child_order: dict[tuple[int, int] | int, int | tuple[int, int]] = {}
         for row, col in product(list(range(N_side)), repeat=2):
             order = row * N_side + col
             # Handy to have both coordinates and order as dictionary keys.
@@ -272,7 +364,7 @@ class RHEALPixDGGS(object):
         # Scale up ul_vertex by authalic radius of ellipsoid.
         self.ul_vertex = {}
         for k in list(ul_vertex.keys()):
-            self.ul_vertex[k] = tuple(self.ellipsoid.R_A * array(ul_vertex[k]))
+            self.ul_vertex[k] = tuple(self.ellipsoid.R_A * np.array(ul_vertex[k]))
 
         # Initialize atomic neighbor relationships among cells.
         # Dictionary of up, right, down, and left neighbors of
@@ -288,7 +380,8 @@ class RHEALPixDGGS(object):
         #   3 4 5
         #   6 7 8   (example for N_side=3).
         #
-        an = {}
+        # Face-letter keys map to face-letter values; int keys to ints.
+        an: dict[str | int, dict[str, str | int]] = {}
         # Neighbors of CELLS0[1], ..., CELLS0[4]
         an[CELLS0[1]] = {
             "left": CELLS0[4],
@@ -342,18 +435,18 @@ class RHEALPixDGGS(object):
             }
         # Adjust left and right edge cases.
         for i in range(0, N**2, N):
-            an[i]["left"] = an[i]["left"] + N
+            an[i]["left"] = i - 1 + N
         for i in range(N - 1, N**2, N):
-            an[i]["right"] = an[i]["right"] - N
+            an[i]["right"] = i + 1 - N
         self.atomic_neighbors = an
 
-    def __str__(self):
+    def __str__(self) -> str:
         result = ["rHEALPix DGGS:"]
-        result.append("    N_side = %s" % self.N_side)
-        result.append("    north_square = %s" % self.north_square)
-        result.append("    south_square = %s" % self.south_square)
-        result.append("    max_areal_resolution = %s" % self.max_areal_resolution)
-        result.append("    max_resolution = %s" % self.max_resolution)
+        result.append(f"    N_side = {self.N_side}")
+        result.append(f"    north_square = {self.north_square}")
+        result.append(f"    south_square = {self.south_square}")
+        result.append(f"    max_areal_resolution = {self.max_areal_resolution}")
+        result.append(f"    max_resolution = {self.max_resolution}")
         result.append("    ellipsoid:")
         for k, v in sorted(self.ellipsoid.__dict__.items()):
             if k == "phi_0":
@@ -361,7 +454,9 @@ class RHEALPixDGGS(object):
             result.append(" " * 8 + k + " = " + str(v))
         return "\n".join(result)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RHEALPixDGGS):
+            return NotImplemented
         return (
             other is not None
             and self.ellipsoid == other.ellipsoid
@@ -371,52 +466,98 @@ class RHEALPixDGGS(object):
             and self.max_resolution == other.max_resolution
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def healpix(self, u: float, v: float, inverse: bool = False) -> tuple[float, float]:
+    @overload
+    def healpix(
+        self, u: float, v: float, inverse: bool = ...
+    ) -> tuple[float, float]: ...
+
+    @overload
+    def healpix(
+        self, u: FloatArray, v: FloatArray, inverse: bool = ...
+    ) -> tuple[FloatArray, FloatArray]: ...
+
+    def healpix(
+        self, u: float | FloatArray, v: float | FloatArray, inverse: bool = False
+    ) -> tuple[float, float] | tuple[FloatArray, FloatArray]:
         """
         Return the HEALPix projection of point `(u, v)` (or its inverse if
-        `inverse` = True) appropriate to this rHEALPix DGGS.
+        `inverse` = True) appropriate to this rHEALPix DGGS. `u` and `v` may
+        be floats or numpy arrays of a common shape; arrays are projected in
+        one pass and come back as a pair of float64 arrays.
 
         EXAMPLES::
 
             >>> rdggs = UNIT_003_RADIANS
             >>> print(tuple(x.tolist() for x in my_round(rdggs.healpix(-pi, pi/2), 14)))
             (-2.35619449019234, 1.5707963267949)
+            >>> x, y = rdggs.healpix(np.array([-pi, 0.0]), np.array([pi/2, 0.0]))
+            >>> print(x.round(14).tolist(), y.round(14).tolist())
+            [-2.35619449019234, 0.0] [1.5707963267949, 0.0]
 
         NOTE:
 
         Uses ``pj_healpix`` instead of the PROJ.4 version of HEALPix.
         """
-        f = pw.Projection(ellipsoid=self.ellipsoid, proj="healpix")
-        return f(u, v, inverse=inverse)
+        if "healpix" not in self._projection_cache:
+            self._projection_cache["healpix"] = pw.Projection(
+                ellipsoid=self.ellipsoid, proj="healpix"
+            )
+        result = self._projection_cache["healpix"](u, v, inverse=inverse)
+        assert result is not None
+        return result
+
+    @overload
+    def rhealpix(
+        self, u: float, v: float, inverse: bool = ..., region: str = ...
+    ) -> tuple[float, float]: ...
+
+    @overload
+    def rhealpix(
+        self, u: FloatArray, v: FloatArray, inverse: bool = ..., region: str = ...
+    ) -> tuple[FloatArray, FloatArray]: ...
 
     def rhealpix(
-        self, u: float, v: float, inverse: bool = False, region: str = "none"
-    ) -> tuple[float, float]:
+        self,
+        u: float | FloatArray,
+        v: float | FloatArray,
+        inverse: bool = False,
+        region: str = "none",
+    ) -> tuple[float, float] | tuple[FloatArray, FloatArray]:
         """
         Return the rHEALPix projection of the point `(u, v)` (or its inverse if
-        `inverse` = True) appropriate to this rHEALPix DGGS.
+        `inverse` = True) appropriate to this rHEALPix DGGS. `u` and `v` may
+        be floats or numpy arrays of a common shape; arrays are projected in
+        one pass and come back as a pair of float64 arrays. `region` hints
+        that every point lies in that region of the planar image (see
+        ``pj_rhealpix.rhealpix_ellipsoid``).
 
         EXAMPLES::
 
             >>> rdggs = UNIT_003_RADIANS
             >>> print(tuple(x.tolist() for x in my_round(rdggs.rhealpix(0, pi/3), 14)))
             (-1.858272006684, 2.06871881030324)
+            >>> x, y = rdggs.rhealpix(np.array([0.0, 0.0]), np.array([pi/3, 0.0]))
+            >>> print(x.round(14).tolist(), y.round(14).tolist())
+            [-1.858272006684, 0.0] [2.06871881030324, 0.0]
 
         NOTE:
 
         Uses ``pj_rhealpix`` instead of the PROJ.4 version of rHEALPix.
         """
-        f = pw.Projection(
-            ellipsoid=self.ellipsoid,
-            proj="rhealpix",
-            north_square=self.north_square,
-            south_square=self.south_square,
-            region=region,
-        )
-        return f(u, v, inverse=inverse)
+        if region not in self._projection_cache:
+            self._projection_cache[region] = pw.Projection(
+                ellipsoid=self.ellipsoid,
+                proj="rhealpix",
+                north_square=self.north_square,
+                south_square=self.south_square,
+                region=region,
+            )
+        result = self._projection_cache[region](u, v, inverse=inverse)
+        assert result is not None
+        return result
 
     def combine_triangles(
         self, u: float, v: float, inverse: bool = False, region: str = "none"
@@ -441,16 +582,18 @@ class RHEALPixDGGS(object):
         ns = self.north_square
         ss = self.south_square
         # Scale down.
-        u, v = array((u, v)) / R_A
+        u, v = np.array((u, v)) / R_A
         # Combine triangles.
         if region != "equatorial":
             u, v = pjr.combine_triangles(
                 u, v, inverse=inverse, north_square=ns, south_square=ss
             )
         # Scale up.
-        return tuple(R_A * array((u, v)))
+        return tuple(R_A * np.array((u, v)))
 
-    def triangle(self, x: float, y: float, inverse: bool = True) -> tuple[int, str]:
+    def triangle(
+        self, x: float, y: float, inverse: bool = True
+    ) -> tuple[int | None, str]:
         """
         If `inverse` = False, then assume `(x,y)` lies in the image of the
         HEALPix projection that comes with this DGGS, and
@@ -496,7 +639,7 @@ class RHEALPixDGGS(object):
         ns = self.north_square
         ss = self.south_square
         # Scale down.
-        x, y = array((x, y)) / R_A
+        x, y = np.array((x, y)) / R_A
         # Get triangle.
         return pjr.triangle(x, y, inverse=inverse, north_square=ns, south_square=ss)
 
@@ -548,7 +691,8 @@ class RHEALPixDGGS(object):
         south = self.south_square
         # Shift rHEALPix projection (with (x, y) in it) so that cell O
         # has downleft corner (0, 0).
-        x, y = array((x, y)) + array((2 * w, w / 2))
+        x, y = np.array((x, y)) + np.array((2 * w, w / 2))
+        q: tuple[float, float, float]
         # Fold projection.
         if y < 0:
             # S
@@ -588,10 +732,15 @@ class RHEALPixDGGS(object):
             x += -3 * w
             q = (0, y, x - w)
         # Translate the cube's center to (0, 0).
-        q = array(q) + (w / 2) * array((-1, -1, 1))
-        return tuple(q)
+        centered = np.array(q) + (w / 2) * np.array((-1, -1, 1))
+        return tuple(centered)
 
-    def cell(self, suid=None, level_order_index=None, post_order_index=None):
+    def cell(
+        self,
+        suid: list[str | int] | tuple[str | int, ...] | None = None,
+        level_order_index: int | None = None,
+        post_order_index: int | None = None,
+    ) -> Cell:
         """
         Return a cell (Cell instance) of this DGGS either from its ID or
         from its resolution and index.
@@ -608,7 +757,7 @@ class RHEALPixDGGS(object):
         """
         return Cell(self, suid, level_order_index, post_order_index)
 
-    def grid(self, resolution: int):
+    def grid(self, resolution: int) -> Iterator[Cell]:
         """
         Generator function for all the cells at resolution `resolution`.
 
@@ -628,7 +777,9 @@ class RHEALPixDGGS(object):
             yield cs
             cs = cs.successor(resolution)
 
-    def num_cells(self, res_1: int, res_2: int = None, subcells: bool = False) -> int:
+    def num_cells(
+        self, res_1: int, res_2: int | None = None, subcells: bool = False
+    ) -> int:
         """
         Return the number of cells of resolutions `res_1` to `res_2`
         (inclusive).
@@ -666,7 +817,16 @@ class RHEALPixDGGS(object):
             num = int(6 * (k ** (res_2 + 1) - k**res_1) / (k - 1))
         return num
 
-    def cell_width(self, resolution: int, plane: bool = True) -> float:
+    @overload
+    def cell_width(self, resolution: int, plane: Literal[True] = ...) -> float: ...
+
+    @overload
+    def cell_width(self, resolution: int, plane: Literal[False]) -> None: ...
+
+    @overload
+    def cell_width(self, resolution: int, plane: bool) -> float | None: ...
+
+    def cell_width(self, resolution: int, plane: bool = True) -> float | None:
         """
         Return the width of a planar cell at the given resolution.
         If `plane` = False, then return None,
@@ -683,6 +843,7 @@ class RHEALPixDGGS(object):
         """
         if plane:
             return self.ellipsoid.R_A * (pi / 2) * self.N_side ** (-resolution)
+        return None
 
     def cell_area(self, resolution: int, plane: bool = True) -> float:
         """
@@ -705,7 +866,66 @@ class RHEALPixDGGS(object):
         else:
             return 8 / (3 * pi) * w**2
 
-    def interval(self, a, b):
+    def area_error_budget(self) -> dict[int, dict]:
+        """
+        Return an analytical error budget for cell area equality testing at
+        each resolution from 0 to ``max_resolution``.
+
+        rHEALPix is theoretically equal-area: all cells at a given resolution
+        have identical area by construction.  Floating-point arithmetic
+        introduces a small representational error when that area is computed;
+        this method exposes it so callers can apply a principled tolerance when
+        testing whether two computed cell areas should be considered equal.
+
+        The tolerance is derived analytically by tracing the rounding errors
+        through ``cell_area(r, plane=False) = 8/(3π) × (R_A × π/2 × N_side⁻ʳ)²``:
+
+        * ``N_side⁻ʳ``         — one division of an exact integer, ≤ ε rel. error
+        * ``R_A × (π/2)``      — two multiplications, ≤ 2ε
+        * ``× N_side⁻ʳ``       — one more multiplication, ≤ 3ε cumulative
+        * squaring (``w²``)    — doubles rel. error, ≤ 7ε
+        * ``8/(3π) × w²``      — two multiplications and one division, ≤ 10ε
+
+        The relative tolerance is therefore bounded by 10 × machine epsilon
+        regardless of resolution.
+
+        Returns a ``dict`` keyed by resolution.  Each value is a ``dict`` with:
+
+        ``cell_area_m2``
+            Theoretical equal area per cell in square metres.
+        ``abs_tolerance``
+            Absolute area tolerance (m²) for equal-area comparisons.
+        ``rel_tolerance``
+            Relative tolerance (dimensionless); constant across resolutions.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> budget = rdggs.area_error_budget()
+            >>> all(r in budget for r in range(rdggs.max_resolution + 1))
+            True
+            >>> budget[0]['cell_area_m2'] > budget[1]['cell_area_m2']
+            True
+            >>> budget[0]['rel_tolerance'] == budget[1]['rel_tolerance']
+            True
+
+        """
+        import sys
+
+        # Conservative upper bound: 10 rounding steps in the area formula.
+        # See docstring for the derivation.
+        rel_tol = 10 * sys.float_info.epsilon
+        budget = {}
+        for r in range(self.max_resolution + 1):
+            area = self.cell_area(r, plane=False)
+            budget[r] = {
+                "cell_area_m2": area,
+                "abs_tolerance": area * rel_tol,
+                "rel_tolerance": rel_tol,
+            }
+        return budget
+
+    def interval(self, a: Cell, b: Cell) -> Iterator[Cell]:
         """
         Generator function for all the resolution
         `max(a.resolution, b.resolution)` cells between cell
@@ -723,18 +943,19 @@ class RHEALPixDGGS(object):
 
         """
         # Choose the starting cell, which might not be A.
+        assert a.resolution is not None and b.resolution is not None
         resolution = max(a.resolution, b.resolution)
         if a.resolution < resolution:
             cell = a.successor(resolution)
         else:
             cell = Cell(self, a.suid[: resolution + 1])
-        while cell <= b:
+        while cell is not None and cell <= b:
             yield cell
             cell = cell.successor(resolution)
 
     def cell_from_point(
         self, resolution: int, p: tuple[float, float], plane: bool = True
-    ) -> Cell:
+    ) -> Cell | None:
         """
         Return the resolution `resolution` cell that contains the point `p`.
         If `plane` = True, then `p` and the output cell lie in the
@@ -792,7 +1013,7 @@ class RHEALPixDGGS(object):
             # (x, y) doesn't lie in the DGGS.
             return None
 
-        suid = [s0]
+        suid: list[str | int] = [s0]
         if resolution == 0:
             # Done.
             return Cell(self, suid)
@@ -800,8 +1021,8 @@ class RHEALPixDGGS(object):
         # Compute the horizontal and vertical distances between (x, y) and
         # the ul_vertex of c0 as fractions of the width of c0.
         w = self.cell_width(0)
-        dx = abs(x - self.ul_vertex[suid[0]][0]) / w
-        dy = abs(y - self.ul_vertex[suid[0]][1]) / w
+        dx = abs(x - self.ul_vertex[s0][0]) / w
+        dy = abs(y - self.ul_vertex[s0][1]) / w
         if dx == 1:
             # This case is analytically impossible
             # but, i guess, numerically possible because of rounding errors.
@@ -815,8 +1036,8 @@ class RHEALPixDGGS(object):
         # Compute the base N expansions of dx and dy and truncate them
         # at index resolution to get the row and column SUIDs of
         # the resolution resolution cell c containing (x,y).
-        suid_row = base_repr(int(float(str(dy * N**resolution))), N)
-        suid_col = base_repr(int(float(str(dx * N**resolution))), N)
+        suid_row = np.base_repr(int(float(str(dy * N**resolution))), N)
+        suid_col = np.base_repr(int(float(str(dx * N**resolution))), N)
         # Using int(float(str(.))) instead of the straightforward int(.),
         # because the latter gave me rounding errors.
         # Prefix with the appropriate amount of zeros.
@@ -825,12 +1046,311 @@ class RHEALPixDGGS(object):
 
         # Use the column and row SUIDs of c to get the SUID of c.
         for i in range(resolution):
-            suid.append(self.child_order[(int(suid_row[i], N), int(suid_col[i], N))])
+            digit = self.child_order[(int(suid_row[i], N), int(suid_col[i], N))]
+            suid.append(cast(int, digit))
         return Cell(self, suid)
+
+    def cells_from_points(
+        self,
+        u: FloatArray,
+        v: FloatArray,
+        resolution: int,
+        plane: bool = True,
+    ) -> np.ndarray:
+        """
+        Return the index strings of the resolution `resolution` cells
+        containing the points ``(u[k], v[k])``, as a numpy string array in
+        input order: the ``str()`` of ``cell_from_point(resolution, (u[k],
+        v[k]), plane=plane)`` for each point, or an empty string where that
+        would be None (the point lies outside the planar image). `u` and `v`
+        are planar `x` and `y` if `plane` = True, else longitude and
+        latitude. The decisions are those of ``cell_from_point``, made for
+        every point at once.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> lon, lat = np.array([0.0, 174.8]), np.array([0.0, -41.3])
+            >>> rdggs.cells_from_points(lon, lat, 3, plane=False).tolist()
+            ['Q333', 'R887']
+            >>> x, y = np.array([0.0, 1e8]), np.array([0.0, 0.0])
+            >>> rdggs.cells_from_points(x, y, 2, plane=True).tolist()
+            ['Q33', '']
+
+        """
+        x_in, y_in = np.broadcast_arrays(
+            np.asarray(u, dtype=np.float64), np.asarray(v, dtype=np.float64)
+        )
+        if not plane:
+            x, y = self.rhealpix(x_in, y_in)
+        else:
+            x, y = x_in, y_in
+        valid, face, digits = self._parse_planar_points(
+            x.ravel(), y.ravel(), resolution
+        )
+        out = np.full(x.size, "", dtype=f"<U{resolution + 1}")
+        if valid.any():
+            out[valid] = self._format_indices(face[valid], digits[valid], resolution)
+        return out.reshape(x_in.shape)
+
+    def _parse_planar_points(
+        self, x: FloatArray, y: FloatArray, resolution: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        The resolution `resolution` cells containing the planar points
+        ``(x[k], y[k])``, in the form ``_parse_indices`` produces: a validity
+        mask (False where no cell contains the point), the base cell as a
+        code 0-5 (-1 where invalid) and the digits as an int64 array of
+        ``max(resolution, 1)`` columns (zero beyond the resolution and where
+        invalid).
+        """
+        count = x.size
+        ns, ss = self.north_square, self.south_square
+        R = self.ellipsoid.R_A
+        # The resolution 0 cell of each point, by cell_from_point's tests in
+        # its order (strict at the polar squares' edges, half-open along the
+        # equatorial band); -1 where none matches.
+        band = (y >= -R * pi / 4) & (y <= R * pi / 4)
+        tests = [
+            (y > R * pi / 4)
+            & (y < R * 3 * pi / 4)
+            & (x > R * (-pi + ns * (pi / 2)))
+            & (x < R * (-pi / 2 + ns * (pi / 2))),
+            (y > -R * 3 * pi / 4)
+            & (y < -R * pi / 4)
+            & (x > R * (-pi + ss * (pi / 2)))
+            & (x < R * (-pi / 2 + ss * (pi / 2))),
+            band & (x >= -R * pi) & (x < -R * pi / 2),
+            band & (x >= -R * pi / 2) & (x < 0),
+            band & (x >= 0) & (x < R * pi / 2),
+            band & (x >= R * pi / 2) & (x < R * pi),
+        ]
+        codes = [0, 5, 1, 2, 3, 4]
+        face = np.full(count, -1, dtype=np.int64)
+        for test, code in zip(reversed(tests), reversed(codes)):
+            face[test] = code
+        valid = face >= 0
+        digits = np.zeros((count, max(resolution, 1)), dtype=np.int64)
+        # Offsets from the base cell's corner as fractions of its width,
+        # nudged off exactly 1, then truncated to base-N digits; a fraction
+        # that rounds up to N**resolution keeps only its leading digits, as
+        # the string slicing in cell_from_point does.
+        if valid.any() and resolution > 0:
+            N = self.N_side
+            w = self.cell_width(0)
+            corners = np.array([self.ul_vertex[letter] for letter in CELLS0])
+            dx = np.abs(x[valid] - corners[face[valid], 0]) / w
+            dy = np.abs(y[valid] - corners[face[valid], 1]) / w
+            smidgen = 0.5 * self.cell_width(self.max_resolution) / w
+            dx = np.where(dx == 1, dx - smidgen, dx)
+            dy = np.where(dy == 1, dy - smidgen, dy)
+            col_index = (dx * N**resolution).astype(np.int64)
+            row_index = (dy * N**resolution).astype(np.int64)
+            col_index = np.where(col_index >= N**resolution, col_index // N, col_index)
+            row_index = np.where(row_index >= N**resolution, row_index // N, row_index)
+            powers = N ** np.arange(resolution - 1, -1, -1)
+            col = (col_index[:, None] // powers) % N
+            row = (row_index[:, None] // powers) % N
+            digits[valid] = row * N + col
+        return valid, face, digits
+
+    def _format_indices(
+        self, face: np.ndarray, digits: np.ndarray, resolution: int
+    ) -> np.ndarray:
+        """
+        The index strings of valid cells given as base cell codes and digit
+        rows, all of resolution `resolution` (digit columns beyond it are
+        ignored: ``_parse_planar_points`` always yields at least one).
+        """
+        self._require_index_strings()
+        chars = np.empty((len(face), resolution + 1), dtype=np.uint32)
+        chars[:, 0] = np.array([ord(c) for c in CELLS0])[face]
+        # Column by column: a whole-array temporary would be int64 and, for
+        # millions of cells, the largest allocation of the caller.
+        for k in range(resolution):
+            chars[:, k + 1] = digits[:, k] + ord("0")
+        return chars.view(f"<U{resolution + 1}").ravel()
+
+    def cells_in_box(
+        self,
+        resolution: int,
+        ul: tuple[float, float],
+        dr: tuple[float, float],
+        plane: bool = True,
+    ) -> np.ndarray:
+        """
+        Return the index strings, as a numpy string array in no particular
+        order, of every resolution `resolution` cell whose planar square
+        meets the planar image of the axis-aligned box with upper-left
+        vertex `ul` and lower-right vertex `dr` -- a planar rectangle if
+        `plane` = True, else a longitude-latitude quadrangle -- plus a
+        one-cell margin around that image. The set is a superset of the
+        cells ``cells_from_region`` returns for the same box, computed
+        without constructing ``Cell`` objects, and is meant as the candidate
+        set for tests such as ``rhp_wrappers.polyfill``'s.
+
+        The image of a longitude-latitude box is bounded by the images of
+        its edges: parallels map to horizontal lines in the equatorial
+        region and to segments of concentric squares in the polar regions,
+        meridians to vertical lines or to straight rays to the pole. The
+        box is therefore split at the region boundaries ``+/-phi_0`` and, in
+        the equatorial band, at the meridian opposite ``lon_0`` where the
+        planar image wraps; each part's planar bounding box is that of its
+        projected corners and of the points where the polar squares'
+        diagonal meridians cross its latitude edges. A part reaching a pole
+        or spanning all longitudes is the whole polar square.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> found = set(rdggs.cells_in_box(1, (0, 60), (90, 0), plane=False))
+            >>> rows = rdggs.cells_from_region(1, (0, 60), (90, 0), plane=False)
+            >>> set(str(c) for row in rows for c in row) <= found
+            True
+            >>> sorted(rdggs.cells_in_box(0, (0, 60), (90, 0), plane=False).tolist())
+            ['N', 'O', 'P', 'Q', 'R']
+
+        """
+        boxes = self._candidate_boxes(ul, dr, plane)
+        found = [
+            self._format_indices(face, digits, resolution)
+            for face, digits in self._lattice_cells(boxes, resolution)
+        ]
+        if not found:
+            return np.array([], dtype="<U1")
+        return np.unique(np.concatenate(found))
+
+    def _candidate_boxes(
+        self, ul: tuple[float, float], dr: tuple[float, float], plane: bool
+    ) -> list[tuple[float, float, float, float]]:
+        """
+        Planar boxes ``(x1, x2, y1, y2)`` whose union contains the planar
+        image of the box with upper-left vertex `ul` and lower-right vertex
+        `dr` (a planar rectangle if `plane`, else a longitude-latitude
+        quadrangle), as ``cells_in_box`` describes.
+        """
+        R = self.ellipsoid.R_A
+        boxes: list[tuple[float, float, float, float]] = []
+        if plane:
+            boxes.append((ul[0], dr[0], dr[1], ul[1]))
+        else:
+            half = self.ellipsoid.pi()
+            quarter = half / 2
+            lon_0 = self.ellipsoid.lon_0
+            phi_0 = self.ellipsoid.phi_0
+            lon_lo, lon_hi = ul[0], dr[0]
+            lat_lo, lat_hi = dr[1], ul[1]
+            whole = lon_hi - lon_lo >= 2 * half
+            # Meridians whose images are the polar squares' diagonals, and
+            # the wrap meridian, as longitudes in the box's range.
+            diagonals = [lon_0 + k * quarter for k in range(-8, 9)]
+            wrap_meridians = [lon_0 + (2 * k + 1) * half for k in range(-2, 3)]
+
+            def polar(square: str, lo: float, hi: float) -> None:
+                if (
+                    whole
+                    or lo <= -half / 2
+                    and square == "S"
+                    or hi >= half / 2
+                    and square == "N"
+                ):
+                    x, y = self.ul_vertex[square]
+                    boxes.append((x, x + self.cell_width(0), y - self.cell_width(0), y))
+                    return
+                # Sample strictly inside the polar region: at exactly +/-phi_0
+                # the projection uses the equatorial formula, whose image of
+                # that parallel is the band's edge, a cut for most longitudes
+                # rather than the polar square's perimeter. The margin below
+                # covers the nudge.
+                nudge = half * 1e-12
+                if square == "N":
+                    lo = max(lo, phi_0 + nudge)
+                else:
+                    hi = min(hi, -phi_0 - nudge)
+                lons = [lon_lo, lon_hi] + [m for m in diagonals if lon_lo < m < lon_hi]
+                pts_lon = np.repeat(np.array(lons, dtype=np.float64), 2)
+                pts_lat = np.tile(np.array([lo, hi], dtype=np.float64), len(lons))
+                x, y = self.rhealpix(pts_lon, pts_lat)
+                boxes.append((x.min(), x.max(), y.min(), y.max()))
+
+            def equatorial(lo: float, hi: float) -> None:
+                cuts = (
+                    [lon_lo]
+                    + [m for m in wrap_meridians if lon_lo < m < lon_hi]
+                    + [lon_hi]
+                )
+                if whole:
+                    cuts = [lon_0 - half, lon_0 + half]
+                y = self.rhealpix(np.array([lon_lo, lon_lo]), np.array([lo, hi]))[1]
+                at_wrap = [m for m in wrap_meridians if abs(m - lon_hi) <= half * 1e-12]
+                if at_wrap:
+                    cuts[-1] = at_wrap[0]
+                for a, b in pairwise(cuts):
+                    # x is longitude relative to lon_0, wrapped into
+                    # [-pi, pi) and scaled; a piece ending at the wrap
+                    # meridian runs to the image's right edge.
+                    xa = self.rhealpix(np.array([a]), np.array([lo]))[0][0]
+                    xb = (
+                        pi * R
+                        if b in wrap_meridians
+                        else self.rhealpix(np.array([b]), np.array([lo]))[0][0]
+                    )
+                    boxes.append((xa, xb, y.min(), y.max()))
+                if at_wrap:
+                    # The wrap meridian itself projects to the image's left
+                    # edge, so a box reaching it also meets the first column.
+                    boxes.append((-pi * R, -pi * R, y.min(), y.max()))
+
+            if lat_hi > phi_0:
+                polar("N", max(lat_lo, phi_0), lat_hi)
+            if lat_lo < -phi_0:
+                polar("S", lat_lo, min(lat_hi, -phi_0))
+            if lat_lo <= phi_0 and lat_hi >= -phi_0:
+                equatorial(max(lat_lo, -phi_0), min(lat_hi, phi_0))
+        return boxes
+
+    def _lattice_cells(
+        self,
+        boxes: list[tuple[float, float, float, float]],
+        resolution: int,
+        chunk: int | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """
+        Yield the resolution `resolution` cells whose planar squares meet
+        the planar boxes ``(x1, x2, y1, y2)``, each widened by one cell and
+        clipped to the image, as ``(face, digits)`` arrays in the form of
+        ``_parse_indices`` (valid cells only), in chunks of at most about
+        `chunk` cells so that the working set stays bounded however large
+        the boxes are. A cell met by two boxes is yielded twice.
+        """
+        if chunk is None:
+            chunk = _LATTICE_CHUNK
+        R = self.ellipsoid.R_A
+        w = self.cell_width(resolution)
+        x_anchor, y_anchor = -pi * R, -3 * pi * R / 4
+        for x1, x2, y1, y2 in boxes:
+            x1, x2 = max(x1 - w, -pi * R), min(x2 + w, pi * R)
+            y1, y2 = max(y1 - w, -3 * pi * R / 4), min(y2 + w, 3 * pi * R / 4)
+            if x2 < x1 or y2 < y1:
+                continue
+            i0, i1 = floor((x1 - x_anchor) / w), floor((x2 - x_anchor) / w)
+            j0, j1 = floor((y1 - y_anchor) / w), floor((y2 - y_anchor) / w)
+            xs = x_anchor + (np.arange(i0, i1 + 1) + 0.5) * w
+            rows_per_chunk = max(1, chunk // len(xs))
+            for j in range(j0, j1 + 1, rows_per_chunk):
+                ys = (
+                    y_anchor + (np.arange(j, min(j + rows_per_chunk, j1 + 1)) + 0.5) * w
+                )
+                gx, gy = np.meshgrid(xs, ys, indexing="ij")
+                valid, face, digits = self._parse_planar_points(
+                    gx.ravel(), gy.ravel(), resolution
+                )
+                if valid.any():
+                    yield face[valid], digits[valid]
 
     def cell_from_region(
         self, ul: tuple[float, float], dr: tuple[float, float], plane: bool = True
-    ) -> Cell:
+    ) -> Cell | None:
         """
         Return the smallest planar or ellipsoidal cell wholly containing
         the region bounded by the axis-aligned rectangle with upper left
@@ -889,6 +1409,8 @@ class RHEALPixDGGS(object):
         resolution = self.max_resolution
         ul_cell = self.cell_from_point(resolution, ul)
         dr_cell = self.cell_from_point(resolution, dr)
+        if ul_cell is None or dr_cell is None:
+            return None
         ul_suid = ul_cell.suid
         dr_suid = dr_cell.suid
 
@@ -990,7 +1512,7 @@ class RHEALPixDGGS(object):
         # Start y above y_min.
         if y <= y_min:
             dy = y_min - y
-            y = max(y + int(ceil(dy / w)) * w, y + w)
+            y = max(y + int(np.ceil(dy / w)) * w, y + w)
         # Collect the ys.
         result = []
         while y < y_max:
@@ -1024,6 +1546,8 @@ class RHEALPixDGGS(object):
             return []
         start = self.cell_from_point(resolution, (lam, phi_max), plane=False)
         end = self.cell_from_point(resolution, (lam, phi_min), plane=False)
+        # Points on the ellipsoid always land in a cell.
+        assert start is not None and end is not None
         if start == end:
             return [start]
         # Get latitudes of cell nuclei that lie ibetween start and end.
@@ -1036,13 +1560,15 @@ class RHEALPixDGGS(object):
         result = []
         for phi in reversed(phis):
             c = self.cell_from_point(resolution, (lam, phi), plane=False)
+            assert c is not None  # points on the ellipsoid always land in a cell
             new_cells = [c]
-            if c.ellipsoidal_shape() in ["dart", "skew_quad"]:
+            if c.ellipsoidal_shape in ["dart", "skew_quad"]:
                 # Either the east or the west neighbor of c
                 # might also intersect the meridian.
                 # So include the neighbor too.
                 west = c.neighbor("west", plane=False)
                 east = c.neighbor("east", plane=False)
+                assert west is not None and east is not None
                 if west.intersects_meridian(lam):
                     new_cells = [west, c]
                 elif east.intersects_meridian(lam):
@@ -1076,18 +1602,23 @@ class RHEALPixDGGS(object):
             return []
         start = self.cell_from_point(resolution, (lam_min, phi), plane=False)
         end = self.cell_from_point(resolution, (lam_max, phi), plane=False)
+        # Points on the ellipsoid always land in a cell.
+        assert start is not None and end is not None
         PI = self.ellipsoid.pi()
         if start == end:
-            if start.ellipsoidal_shape() == "cap" or lam_max - lam_min < PI / 2:
+            if start.ellipsoidal_shape == "cap" or lam_max - lam_min < PI / 2:
                 return [start]
             else:
                 # Need to wrap all the way around globe.
                 end = start.neighbor("west", plane=False)
+                assert end is not None
         result = []
         current = start
         while current != end:
             result.append(current)
-            current = current.neighbor("east", plane=False)
+            nxt = current.neighbor("east", plane=False)
+            assert nxt is not None
+            current = nxt
         result.append(end)
         return result
 
@@ -1097,19 +1628,44 @@ class RHEALPixDGGS(object):
         lstart: tuple[float, float],
         lend: tuple[float, float],
         plane: bool = True,
+        wrap_antimeridian: bool = False,
     ) -> list[Cell]:
         """
-        Return a list of the resolution `resolution` cells along an arbitrary line
-        given by two points on the sphere or plane.
+        Return the ordered list of resolution `resolution` cells that the
+        line segment from `lstart` to `lend` passes through.
 
-        NOTE:
+        The segment is straight in the given coordinate space: planar
+        coordinates if `plane` = True, longitude-latitude coordinates
+        otherwise (so it is a plate carree straight line, not a geodesic;
+        to trace a geodesic, densify it into short segments first). In
+        particular, a longitude-latitude segment spanning more than half
+        a turn of longitude does not, by default, wrap around the
+        antimeridian: a segment from longitude 179 to longitude -179 runs
+        the long way around, through longitude 0 -- the literal planar
+        reading of the coordinates. Splitting inputs at the antimeridian
+        (as GeoJSON's RFC 7946 prescribes for data producers) avoids the
+        ambiguity entirely; alternatively, set `wrap_antimeridian` = True
+        to trace such a segment the short way, across the antimeridian,
+        which traces exactly the same cells as splitting it there. The
+        flag is meaningless (and ignored) for `plane` = True.
 
-        Cannot handle cells along a line that crosses the antimeridian.
+        The sequence is exact, computed by a sweep over the segment's
+        planar image: every parameter value where the projected segment
+        crosses a cell edge is found (the projection of a longitude-
+        latitude segment is piecewise smooth, with its pieces' boundaries
+        -- region and polar-triangle changes and the longitude wrap --
+        known in closed form, and each planar coordinate at most singly
+        non-monotone per piece, so every crossing is bracketed and solved
+        to machine precision), and each inter-crossing interval's midpoint
+        is located with `cell_from_point`, which is exact for every cell
+        shape, including polar cap cells. Cells the segment meets in a
+        single point only (passing exactly through a cell corner) are not
+        included.
 
-        TODO:
-
-        Cap cells are not handled correctly. Lines intersecting one of those may not
-        return the correct sequence of cells.
+        If either endpoint lies outside the grid (`cell_from_point`
+        returns None there), return []. If some middle stretch of a
+        *planar* segment leaves the grid's cross-shaped image, the cells
+        on both sides of the gap are still returned, in order.
 
         EXAMPLES::
 
@@ -1119,62 +1675,1068 @@ class RHEALPixDGGS(object):
             ['N448', 'N447']
 
         """
-        # Turn vertex pair into dggs cells
+        if wrap_antimeridian and not plane:
+            # Take the short way in longitude: shift the end longitude by
+            # a full turn so the segment crosses the antimeridian. The
+            # projection wraps longitudes, so the out-of-range value
+            # locates to the same cells throughout.
+            full = 2 * pi if self.ellipsoid.radians else 360.0
+            dlon = lend[0] - lstart[0]
+            if abs(dlon) > full / 2:
+                lend = (lend[0] - copysign(full, dlon), lend[1])
+
         start = self.cell_from_point(resolution, lstart, plane)
         end = self.cell_from_point(resolution, lend, plane)
+        if start is None or end is None:
+            return []
+        if start == end:
+            return [start]
 
-        # Collect cells along path
-        line_cells = []
-        if start is not None and end is not None:
-            # Special case: resolution is coarse and path is short
-            if start == end:
-                line_cells = [start]
+        R = self.ellipsoid.R_A
+        w = self.cell_width(resolution)
 
-            # Line spans multiple cells
-            else:
-                # Wrap points in a shapely linestring
-                line = LineString([lstart, lend])
+        def point_at(t: float) -> tuple[float, float]:
+            return (
+                lstart[0] + t * (lend[0] - lstart[0]),
+                lstart[1] + t * (lend[1] - lstart[1]),
+            )
 
-                # Work your way along the line one cell at a time
-                current = start
-                while current != end:
-                    line_cells.append(current)
+        def points_at(ts: FloatArray) -> tuple[FloatArray, FloatArray]:
+            return (
+                lstart[0] + ts * (lend[0] - lstart[0]),
+                lstart[1] + ts * (lend[1] - lstart[1]),
+            )
 
-                    # Grab dictionary of nearest neighbours
-                    nns = current.neighbors(plane=plane)
+        if plane:
+            q = point_at
+            q_array = points_at
+        else:
+            proj = self.rhealpix
 
-                    # Find neighbour across edge crossed by line if it exists
-                    following = None
-                    for key in nns:
-                        nn = nns[key]
-                        verts = nn.vertices(plane=plane)
+            def q(t: float) -> tuple[float, float]:
+                return proj(*point_at(t))
 
-                        # Repeat first point to close the square
-                        verts.append(verts[0])
+            def q_array(ts: FloatArray) -> tuple[FloatArray, FloatArray]:
+                return proj(*points_at(ts))
 
-                        # Turn vertices into point pairs describing cell edges
-                        edges = zip(verts, verts[1:])
+        # Piece boundaries: parameter values where the planar image of
+        # the segment may kink or jump. For a planar segment there are
+        # none; for a longitude-latitude segment they are the crossings
+        # of the equatorial/polar region boundaries, the polar-triangle
+        # edges and face columns (longitude multiples of a quarter turn,
+        # relative to the ellipsoid's lon_0), and the longitude/latitude
+        # wraps -- all exact, since longitude and latitude are linear in
+        # the parameter.
+        breakpoints = {0.0, 1.0}
 
-                        # Iterate over the edges to find the crossing one
-                        while (edge := next(edges, None)) is not None and not following:
-                            # Make sure both points in the edge are on the same side of the antimeridian
-                            edge = self.antimeridian_check_and_flip(edge, plane=plane)
+        def add_linear_crossings(
+            f0: float, f1: float, targets: Iterable[float]
+        ) -> None:
+            for target in targets:
+                if f1 != f0:
+                    t = (target - f0) / (f1 - f0)
+                    if 0.0 < t < 1.0:
+                        breakpoints.add(t)
 
-                            # Wrap edge in a shapely linestring and check intersection
-                            edge_line = LineString(edge)
-                            if line.intersects(edge_line) and nn not in line_cells:
-                                following = nn
+        if not plane:
+            ell = self.ellipsoid
+            half = pi if ell.radians else 180.0
+            quarter = half / 2
+            # Geodetic latitude of the region boundary (the authalic
+            # latitude arcsin(2/3)).
+            phi_reg = auth_lat(asin(2.0 / 3), ell.e, inverse=True, radians=True)
+            if not ell.radians:
+                phi_reg = phi_reg * 180 / pi
+            add_linear_crossings(
+                lstart[1],
+                lend[1],
+                [
+                    ell.lat_0 + phi_reg,
+                    ell.lat_0 - phi_reg,
+                    ell.lat_0 + quarter,
+                    ell.lat_0 - quarter,
+                ],
+            )
+            lo = min(lstart[0], lend[0]) - ell.lon_0
+            hi = max(lstart[0], lend[0]) - ell.lon_0
+            k0, k1 = floor(lo / quarter), int(np.ceil(hi / quarter))
+            add_linear_crossings(
+                lstart[0],
+                lend[0],
+                [ell.lon_0 + k * quarter for k in range(k0, k1 + 1)],
+            )
 
-                    # Fail safe for strange cases (to make sure the iteration ends)
-                    if not following:
-                        current = end
-                    else:
-                        current = following
+        # All planar cell edges of this resolution lie on one global
+        # lattice: face origins are exact multiples of the face width,
+        # which is an exact multiple of the cell width.
+        x_anchor = -pi * R
+        y_anchor = -3 * pi * R / 4
 
-                # Cap the sequence
-                line_cells.append(end)
+        def lattice_lines_between(a: float, b: float, anchor: float) -> list[float]:
+            lo, hi = (a, b) if a <= b else (b, a)
+            i0 = floor((lo - anchor) / w) + 1
+            i1 = floor((hi - anchor) / w)
+            return [anchor + i * w for i in range(i0, i1 + 1)]
 
+        def monotone_cuts(
+            axis: int, scan_ts: list[float], scan_vs: list[float]
+        ) -> list[tuple[float, float]]:
+            # Split the scanned piece into runs on which q(t)[axis] is
+            # monotone, returning the run boundaries as (t, q(t)[axis]):
+            # scan for direction flips, then pin each extremum by
+            # golden-section search. Within one smooth piece each planar
+            # coordinate has the form c + l(t)*sigma(t) with l linear and
+            # sigma monotone, so it has at most one interior extremum,
+            # which the 64-point scan brackets comfortably. The extremum
+            # only needs locating to 1e-8 of the piece's parameter range:
+            # the coordinate is flat there, varying with the square of the
+            # offset, so its value at the cut is already exact to the
+            # floating-point floor whatever the piece's length.
+            inv_phi = (5**0.5 - 1) / 2
+            tol = 1e-8 * (scan_ts[-1] - scan_ts[0])
+            cuts = [(scan_ts[0], scan_vs[0])]
+            direction = 0
+            for i in range(1, len(scan_ts)):
+                d = (scan_vs[i] > scan_vs[i - 1]) - (scan_vs[i] < scan_vs[i - 1])
+                if d == 0:
+                    continue
+                if direction == 0:
+                    direction = d
+                elif d != direction:
+                    # Maximise direction * q(t)[axis] on [lo, hi].
+                    lo, hi = scan_ts[max(i - 2, 0)], scan_ts[i]
+                    m1 = hi - inv_phi * (hi - lo)
+                    m2 = lo + inv_phi * (hi - lo)
+                    g1 = direction * float(q(m1)[axis])
+                    g2 = direction * float(q(m2)[axis])
+                    while hi - lo > tol:
+                        if g1 < g2:
+                            lo, m1, g1 = m1, m2, g2
+                            m2 = lo + inv_phi * (hi - lo)
+                            g2 = direction * float(q(m2)[axis])
+                        else:
+                            hi, m2, g2 = m2, m1, g1
+                            m1 = hi - inv_phi * (hi - lo)
+                            g1 = direction * float(q(m1)[axis])
+                    tc = 0.5 * (lo + hi)
+                    cuts.append((tc, float(q(tc)[axis])))
+                    direction = d
+            cuts.append((scan_ts[-1], scan_vs[-1]))
+            return cuts
+
+        # Sweep the pieces, projecting each piece's 65-point scan as one
+        # array, and gather every lattice-line crossing as a bracket
+        # (ta, tb, f(ta), f(tb), axis, line) with f(t) = q(t)[axis] - line
+        # changing sign on [ta, tb]. The brackets are then solved together.
+        crossings: set[float] = set()
+        brackets: list[tuple[float, float, float, float, int, float]] = []
+        N_SCAN = 64
+        for pa, pb in zip(sorted(breakpoints), sorted(breakpoints)[1:]):
+            if pb - pa < 1e-14:
+                continue
+            # Evaluate strictly inside the piece, clear of its kinks.
+            eps = (pb - pa) * 1e-12
+            ta, tb = pa + eps, pb - eps
+            scan_ts = [ta + (tb - ta) * i / N_SCAN for i in range(N_SCAN + 1)]
+            scan_x, scan_y = q_array(np.array(scan_ts, dtype=np.float64))
+            for axis, scan_vs in ((0, scan_x.tolist()), (1, scan_y.tolist())):
+                anchor = x_anchor if axis == 0 else y_anchor
+                cuts = monotone_cuts(axis, scan_ts, scan_vs)
+                for (ra, va), (rb, vb) in pairwise(cuts):
+                    for line in lattice_lines_between(va, vb, anchor):
+                        fa, fb = va - line, vb - line
+                        if fa == 0:
+                            crossings.add(ra)
+                        elif fb == 0:
+                            crossings.add(rb)
+                        else:
+                            brackets.append((ra, rb, fa, fb, axis, line))
+            if pb < 1.0:
+                # The piece boundary itself may be a cell change (a face
+                # jump, or a kink lying exactly on a cell edge).
+                crossings.add(pb)
+
+        if brackets:
+            crossings.update(self._solve_brackets(brackets, q_array))
+
+        ts = [0.0] + sorted(crossings) + [1.0]
+        line_cells = [start]
+        for a, b in pairwise(ts):
+            cell = self.cell_from_point(resolution, point_at(0.5 * (a + b)), plane)
+            if cell is not None and cell != line_cells[-1]:
+                line_cells.append(cell)
+        if line_cells[-1] != end:
+            line_cells.append(end)
         return line_cells
+
+    @staticmethod
+    def _solve_brackets(
+        brackets: list[tuple[float, float, float, float, int, float]],
+        q_array: Callable[[FloatArray], tuple[FloatArray, FloatArray]],
+    ) -> list[float]:
+        """
+        Solve every bracket ``(ta, tb, fa, fb, axis, line)`` -- a sign
+        change of ``f(t) = q(t)[axis] - line`` on ``[ta, tb]`` -- to
+        machine precision, all in lockstep: each iteration projects the
+        current trial point of every unsolved bracket in one call to
+        `q_array`.
+
+        The root finder is ITP (Oliveira & Takahashi 2020): a regula falsi
+        estimate, truncated towards the midpoint and projected into a
+        window that shrinks like bisection's, so it converges superlinearly
+        on the smooth monotone pieces met here while never needing more
+        iterations than bisection to the same precision.
+        """
+        a = np.array([b[0] for b in brackets], dtype=np.float64)
+        b_ = np.array([b[1] for b in brackets], dtype=np.float64)
+        fa = np.array([b[2] for b in brackets], dtype=np.float64)
+        fb = np.array([b[3] for b in brackets], dtype=np.float64)
+        axis = np.array([b[4] for b in brackets])
+        line = np.array([b[5] for b in brackets], dtype=np.float64)
+        # Orient each bracket so that g(a) < 0 < g(b).
+        sgn = np.where(fb > fa, 1.0, -1.0)
+        ga, gb = fa * sgn, fb * sgn
+        # ITP parameters: the target half-width eps is the spacing of
+        # doubles near 1 (t lies in [0, 1]); k1 scales the truncation to the
+        # bracket, k2 = 2 and n0 = 1 are the paper's defaults.
+        eps = 2.0**-53
+        k1 = 0.2 / (b_ - a)
+        n_half = np.ceil(np.log2((b_ - a) / (2 * eps)))
+        n_max = n_half + 1
+        active = (b_ - a) > 2 * eps
+        for j in range(120):
+            idx = np.flatnonzero(active)
+            if idx.size == 0:
+                break
+            aa, bb, gaa, gbb = a[idx], b_[idx], ga[idx], gb[idx]
+            x_half = 0.5 * (aa + bb)
+            r = np.maximum(eps * 2.0 ** (n_max[idx] - j) - 0.5 * (bb - aa), 0.0)
+            delta = k1[idx] * (bb - aa) ** 2
+            x_f = (bb * gaa - aa * gbb) / (gaa - gbb)
+            sigma = np.where(x_half >= x_f, 1.0, -1.0)
+            x_t = np.where(delta <= np.abs(x_half - x_f), x_f + sigma * delta, x_half)
+            x = np.where(np.abs(x_t - x_half) <= r, x_t, x_half - sigma * r)
+            # A trial point that rounds onto an end means the bracket can
+            # shrink no further: it is solved.
+            stuck = (x <= aa) | (x >= bb)
+            xs, ys = q_array(x)
+            g = (np.where(axis[idx] == 0, xs, ys) - line[idx]) * sgn[idx]
+            below = (g < 0) & ~stuck
+            above = (g > 0) & ~stuck
+            exact = (g == 0) & ~stuck
+            a[idx[below]], ga[idx[below]] = x[below], g[below]
+            b_[idx[above]], gb[idx[above]] = x[above], g[above]
+            a[idx[exact]] = b_[idx[exact]] = x[exact]
+            active[idx[stuck]] = False
+            active &= (b_ - a) > 2 * eps
+        return (0.5 * (a + b_)).tolist()
+
+    @property
+    def has_index_strings(self) -> bool:
+        """
+        True if the cells of this grid have index strings: a face letter
+        followed by one digit per resolution, which is defined for
+        ``N_side`` 2 and 3 (see the Choosing N_side page and issue #146).
+        The cells of other grids are addressed by their suid tuples, and
+        every function that reads or writes index strings raises
+        ValueError for them.
+
+        EXAMPLES::
+
+            >>> WGS84_003.has_index_strings
+            True
+            >>> RHEALPixDGGS(N_side=4).has_index_strings
+            False
+
+        """
+        return self.N_side in INDEX_STRING_N_SIDES
+
+    def _index_width(self) -> int:
+        """Characters per digit in this grid's index strings; raise ValueError if it has none."""
+        return _index_width(self.N_side)
+
+    def _require_index_strings(self) -> None:
+        """Raise ValueError if this grid has no index strings."""
+        _index_width(self.N_side)
+
+    def parse_index(self, index: str) -> tuple[str | int, ...] | None:
+        """
+        Return the suid of the cell with index string `index`, or None if
+        `index` is not an index string of this grid: a face letter from
+        ``CELLS0`` followed by one decimal digit below ``N_side ** 2`` per
+        resolution. Raise ValueError if the grid has no index strings.
+
+        EXAMPLES::
+
+            >>> WGS84_003.parse_index('P41')
+            ('P', 4, 1)
+            >>> WGS84_003.parse_index('P9') is None
+            True
+            >>> WGS84_002.parse_index('P41') is None
+            True
+
+        """
+        return _parse_index(index, self.N_side)
+
+    def format_index(self, suid: Sequence[str | int]) -> str:
+        """
+        Return the index string of the cell with suid `suid`, the inverse of
+        ``parse_index``. Raise ValueError if the grid has no index strings.
+
+        EXAMPLES::
+
+            >>> WGS84_003.format_index(('P', 4, 1))
+            'P41'
+
+        """
+        return _format_index(suid, self.N_side)
+
+    def index_resolution(self, index: str) -> int:
+        """
+        Return the resolution of the cell with valid index string `index`.
+
+        EXAMPLES::
+
+            >>> WGS84_003.index_resolution('P41')
+            2
+
+        """
+        return (len(index) - 1) // self._index_width()
+
+    def index_ancestor(self, index: str, resolution: int) -> str:
+        """
+        Return the index string of the ancestor at `resolution` of the cell
+        with valid index string `index`, or `index` itself if `resolution`
+        is the cell's own or deeper.
+
+        EXAMPLES::
+
+            >>> WGS84_003.index_ancestor('P412', 1)
+            'P4'
+            >>> WGS84_003.index_ancestor('P412', 5)
+            'P412'
+
+        """
+        return index[: 1 + resolution * self._index_width()]
+
+    def index_children(self, index: str) -> list[str]:
+        """
+        Return the index strings of the ``N_side ** 2`` children of the cell
+        with valid index string `index`, in digit order.
+
+        EXAMPLES::
+
+            >>> WGS84_002.index_children('P4')
+            ['P40', 'P41', 'P42', 'P43']
+
+        """
+        width = self._index_width()
+        return [f"{index}{digit:0{width}d}" for digit in range(self.N_side**2)]
+
+    def _parse_indices(
+        self, indices: Iterable[str]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Parse cell index strings into arrays: a validity mask, the base cell
+        as a code 0-5 (the position in ``CELLS0``), the digits as an
+        ``(len(indices), max_resolution)`` int64 array (zero beyond a cell's
+        resolution) and each index's resolution. Invalid indices -- empty,
+        unknown base cell, or a character that is not a digit below
+        ``N_side ** 2`` -- get resolution 0, base cell code -1 and zero digits.
+        Raise ValueError if the grid has no index strings.
+        """
+        self._require_index_strings()
+        strings = np.array(list(indices), dtype=str)
+        count = len(strings)
+        chars = max(strings.dtype.itemsize // 4, 2)
+        codes = np.zeros((count, chars), dtype=np.uint32)
+        if count:
+            codes[:, : strings.dtype.itemsize // 4] = strings.view(np.uint32).reshape(
+                count, -1
+            )
+        length = (codes != 0).sum(axis=1)
+        face = np.full(count, -1, dtype=np.int64)
+        for k, letter in enumerate(CELLS0):
+            face[codes[:, 0] == ord(letter)] = k
+        digits = codes[:, 1:].astype(np.int64) - ord("0")
+        levels = np.arange(1, chars)
+        active = levels[None, :] < length[:, None]
+        digit_ok = ~active | ((digits >= 0) & (digits < self.N_side**2))
+        valid = (length > 0) & (face >= 0) & digit_ok.all(axis=1)
+        digits = np.where(active & valid[:, None], digits, 0)
+        resolution = np.where(valid, length - 1, 0)
+        face = np.where(valid, face, -1)
+        return valid, face, digits, resolution
+
+    def _index_geometry(
+        self, face: np.ndarray, digits: np.ndarray, resolution: np.ndarray
+    ) -> tuple[FloatArray, FloatArray, FloatArray, np.ndarray]:
+        """
+        The planar upper-left corner, width and region code (0 equatorial,
+        1 north polar, -1 south polar) of the cells parsed by
+        ``_parse_indices``, computed as ``Cell.ul_vertex`` and
+        ``Cell.width`` compute them.
+        """
+        N = self.N_side
+        levels = np.arange(1, digits.shape[1] + 1)
+        active = levels[None, :] <= resolution[:, None]
+        power = N ** np.where(active, resolution[:, None] - levels[None, :], 0)
+        row = digits // N
+        col = digits % N
+        scale = np.power(float(N), -resolution.astype(np.float64))
+        dx = np.where(active, col * power, 0).sum(axis=1) * scale
+        dy = np.where(active, row * power, 0).sum(axis=1) * scale
+        corners = np.array([self.ul_vertex[letter] for letter in CELLS0])
+        safe_face = np.where(face >= 0, face, 0)
+        w0 = self.cell_width(0)
+        x = corners[safe_face, 0] + w0 * dx
+        y = corners[safe_face, 1] - w0 * dy
+        width = self.ellipsoid.R_A * (pi / 2) * scale
+        region = np.where(face == 0, 1, np.where(face == 5, -1, 0)).astype(np.int8)
+        return x, y, width, region
+
+    def _nw_corner(
+        self,
+        face: np.ndarray,
+        digits: np.ndarray,
+        resolution: np.ndarray,
+        x: FloatArray,
+        y: FloatArray,
+        width: FloatArray,
+    ) -> np.ndarray:
+        """
+        For each cell, which of its planar corners (0 upper-left, 1 upper-
+        right, 2 lower-right, 3 lower-left) is the ellipsoidal north-west
+        vertex: the choice ``Cell.nw_vertex`` makes, by the same rules.
+        """
+        shape = self._shape_code(face, digits, resolution)
+        dart = shape == 2
+        skew = shape == 3
+        shift = np.zeros(len(face), dtype=np.int64)
+        if skew.any():
+            R = self.ellipsoid.R_A
+            nucleus_x = (x[skew] + width[skew] / 2) / R
+            nucleus_y = (y[skew] - width[skew] / 2) / R
+            triangle, _ = pjr._triangle_array(
+                nucleus_x,
+                nucleus_y,
+                north_square=self.north_square,
+                south_square=self.south_square,
+                inverse=True,
+            )
+            north = face[skew] == 0
+            i = np.where(
+                north,
+                (triangle - self.north_square) % 4,
+                (triangle - self.south_square) % 4,
+            )
+            shift[skew] = np.where(north, (-i) % 4, i)
+        if dart.any():
+            # The polewards vertex is the corner nearest the polar square's
+            # centre in Chebyshev distance.
+            centres = np.array(
+                [self.cell([letter]).nucleus(plane=True) for letter in CELLS0]
+            )
+            cx, cy = centres[face[dart], 0], centres[face[dart], 1]
+            xd, yd, wd = x[dart], y[dart], width[dart]
+            corner_x = np.stack([xd, xd + wd, xd + wd, xd], axis=1)
+            corner_y = np.stack([yd, yd, yd - wd, yd - wd], axis=1)
+            distance = np.maximum(
+                np.abs(corner_x - cx[:, None]), np.abs(corner_y - cy[:, None])
+            )
+            i = distance.argmin(axis=1)
+            shift[dart] = np.where(face[dart] == 0, i, (i + 1) % 4)
+        return shift
+
+    def boundary_array(
+        self, indices: Iterable[str], n: int = 2, plane: bool = False
+    ) -> FloatArray:
+        """
+        Return the boundaries of the cells with index strings `indices` as one
+        float64 array of shape ``(len(indices), 4*n - 4, 2)``: row `k` holds
+        the points of ``cell.boundary(n=n, plane=plane)`` for the cell whose
+        ``str()`` is ``indices[k]``, in that method's order (clockwise from
+        the upper-left corner when `plane` = True, from the north-west vertex
+        when `plane` = False), with `x` and `y` (or longitude and latitude)
+        along the last axis. The rings are not closed; ``shapely.polygons``
+        closes them itself. An invalid index gives a row of NaN.
+
+        When `plane` = False every distinct planar point is projected once,
+        in one array call per resolution and region, so adjacent cells'
+        copies of a shared point are identical floats, except that a shared
+        edge on the antimeridian is +180 in the western cell's ring and
+        -180 in the eastern's. In the equatorial
+        region the inverse projection is separable (longitude depends only on
+        `x`, latitude only on `y`), so that call holds one point per distinct
+        lattice column and one per distinct row: the number of projected
+        points for a block of equatorial cells grows with the block's
+        perimeter rather than its area, every coordinate is still one the
+        projection computed rather than an interpolation, and all points in
+        one lattice column (or row) share one longitude (or latitude) value
+        across the whole block.
+
+        A cell straddling the antimeridian yields a ring whose longitudes
+        jump between -180 and 180; splitting such rings is the caller's
+        concern. A cell whose edge lies on the antimeridian does not: that
+        edge takes the sign that keeps the ring's longitude span under
+        half a turn, +180 for a cell just west of it and -180 for a cell
+        just east, the same as ``Cell.boundary`` gives.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> indices = [str(c) for c in rdggs.cell(('P', 0)).subcells()]
+            >>> b = rdggs.boundary_array(indices, n=3)
+            >>> b.shape
+            (9, 8, 2)
+            >>> import shapely
+            >>> polygons = shapely.polygons(b)
+            >>> bool(shapely.is_valid(polygons).all())
+            True
+            >>> bool(np.isnan(rdggs.boundary_array(['P0', 'X9'])[1]).all())
+            True
+
+        """
+        valid, face, digits, resolution = self._parse_indices(indices)
+        n = max(n, 2)
+        m = 4 * n - 4
+        result = np.full((len(valid), m, 2), np.nan)
+        if valid.any():
+            result[valid] = self._boundary_array(
+                face[valid], digits[valid], resolution[valid], n, plane
+            )
+        return result
+
+    def shapes(self, indices: Iterable[str]) -> np.ndarray:
+        """
+        Return the ellipsoidal shape of each cell with index strings
+        `indices` as one array of strings: entry `k` is
+        ``cell.ellipsoidal_shape`` (``'quad'``, ``'cap'``, ``'dart'`` or
+        ``'skew_quad'``) for the cell whose ``str()`` is ``indices[k]``,
+        or the empty string for an invalid index.
+
+        EXAMPLES::
+
+            >>> WGS84_003.shapes(['P0', 'N', 'N0', 'N1', 'bad']).tolist()
+            ['quad', 'cap', 'dart', 'skew_quad', '']
+
+        """
+        valid, face, digits, resolution = self._parse_indices(indices)
+        names = np.array(["quad", "cap", "dart", "skew_quad", ""])
+        code = np.full(len(valid), 4, dtype=np.int64)
+        if valid.any():
+            code[valid] = self._shape_code(
+                face[valid], digits[valid], resolution[valid]
+            )
+        return names[code]
+
+    def nuclei(self, indices: Iterable[str], plane: bool = False) -> FloatArray:
+        """
+        Return the nuclei of the cells with index strings `indices` as one
+        float64 array of shape ``(len(indices), 2)``: row `k` is
+        ``cell.nucleus(plane=plane)`` for the cell whose ``str()`` is
+        ``indices[k]``, as `x`, `y` or longitude, latitude. An invalid index
+        gives a row of NaN.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> rdggs.nuclei(['N4', 'P44', 'bad']).round(9).tolist()
+            [[-180.0, 90.0], [-45.0, 0.0], [nan, nan]]
+
+        """
+        valid, face, digits, resolution = self._parse_indices(indices)
+        result = np.full((len(valid), 2), np.nan)
+        if valid.any():
+            x, y, width, _ = self._index_geometry(
+                face[valid], digits[valid], resolution[valid]
+            )
+            x, y = x + width / 2, y - width / 2
+            if not plane:
+                x, y = self.rhealpix(x, y, inverse=True)
+            result[valid, 0] = x
+            result[valid, 1] = y
+        return result
+
+    def rings(self, indices: Iterable[str]) -> np.ndarray:
+        """
+        Return the isolatitude ring of each cell with index strings `indices`
+        as one int64 array: entry `k` is ``cell.ring()`` for the cell whose
+        ``str()`` is ``indices[k]``, or -1 for an invalid index. Ring numbers
+        are only comparable within one resolution, so the valid indices must
+        all share one resolution; otherwise raise a ValueError.
+        See :doc:`isolatitude`.
+
+        EXAMPLES::
+
+            >>> WGS84_003.rings(['N4', 'N0', 'P4', 'S8', 'bad']).tolist()
+            [0, 1, 3, 5, -1]
+
+        """
+        valid, face, digits, resolution = self._parse_indices(indices)
+        result = np.full(len(valid), -1, dtype=np.int64)
+        if not valid.any():
+            return result
+        resolutions = np.unique(resolution[valid])
+        if len(resolutions) > 1:
+            raise ValueError(
+                f"indices span resolutions {resolutions.tolist()}; "
+                "ring numbers are only comparable within one resolution"
+            )
+        N = self.N_side
+        k = int(resolutions[0])
+        n = N**k
+        q = -(-n // 2)
+        d = digits[valid][:, :k]
+        power = N ** np.arange(k - 1, -1, -1)
+        row = ((d // N) * power).sum(axis=1)
+        col = ((d % N) * power).sum(axis=1)
+        m = np.maximum(np.abs(2 * row - (n - 1)), np.abs(2 * col - (n - 1))) // 2
+        f = face[valid]
+        result[valid] = np.where(
+            f == 0, m, np.where(f == 5, q + n + (q - 1 - m), q + row)
+        )
+        return result
+
+    def _ring_layout(self, resolution: int) -> tuple[int, int]:
+        """
+        The cells per base-cell side `n` and rings per polar cap `q` of
+        resolution `resolution`; raise a ValueError for a negative resolution.
+        """
+        if resolution < 0:
+            raise ValueError(f"resolution must be nonnegative, not {resolution}")
+        n = self.N_side**resolution
+        return n, -(-n // 2)
+
+    def ring_table(self, resolution: int) -> RingTable:
+        """
+        Return the isolatitude rings of resolution `resolution` as a
+        ``RingTable``: for each ring, numbered 0 at the north pole through
+        ``n + 2 * q - 1`` at the south pole (``n = N_side ** resolution``
+        cells per base-cell side, ``q = ceil(n / 2)`` rings per polar cap),
+        the number of cells on it, the nucleus latitude they share, that
+        latitude on the authalic sphere, and the longitude of the first
+        nucleus and the constant step to the next, in ``cells_on_ring``
+        order. Nothing is projected: the table comes from the closed forms
+        of the rHEALPix projection, the latitudes converted from the
+        authalic sphere to the ellipsoid.
+        See :doc:`isolatitude`.
+
+        EXAMPLES::
+
+            >>> table = WGS84_003.ring_table(1)
+            >>> table.population.tolist()
+            [1, 8, 12, 12, 12, 8, 1]
+            >>> table.latitude.round(6).tolist()
+            [90.0, 58.528017, 26.490119, 0.0, -26.490119, -58.528017, -90.0]
+            >>> table.authalic_latitude.round(6).tolist()
+            [90.0, 58.413662, 26.3878, 0.0, -26.3878, -58.413662, -90.0]
+            >>> table.first_longitude.tolist()
+            [nan, -180.0, -165.0, -165.0, -165.0, -180.0, nan]
+            >>> table.longitude_spacing.tolist()
+            [nan, 45.0, 30.0, 30.0, 30.0, 45.0, nan]
+
+        """
+        n, q = self._ring_layout(resolution)
+        m = np.arange(q)
+        sigma = (2 * m + (n % 2 == 0)) / n
+        cap_sin = 1 - sigma**2 / 3
+        belt_sin = (2 / 3) * (1 - (2 * np.arange(n) + 1) / n)
+        sin_beta = np.concatenate([cap_sin, belt_sin, -cap_sin[::-1]])
+        beta = np.arcsin(np.clip(sin_beta, -1, 1))
+        phi = _auth_lat_array(beta, self.ellipsoid.e, radians=True, inverse=True)
+
+        cap_count = 8 * m + (4 if n % 2 == 0 else 0)
+        if n % 2:
+            cap_count[0] = 1
+        population = np.concatenate([cap_count, np.full(n, 4 * n), cap_count[::-1]])
+
+        quarter = pi / 2 if self.ellipsoid.radians else 90.0
+        with np.errstate(divide="ignore"):
+            cap_step = quarter / (2 * m + (n % 2 == 0))
+        cap_step = np.where(cap_count == 1, np.nan, cap_step)
+        step = np.concatenate([cap_step, np.full(n, quarter / n), cap_step[::-1]])
+        cap_first = np.where(cap_count == 1, np.nan, -2 * quarter)
+        first = np.concatenate(
+            [cap_first, np.full(n, -2 * quarter + quarter / (2 * n)), cap_first[::-1]]
+        )
+
+        scale = 1.0 if self.ellipsoid.radians else 180 / pi
+        return RingTable(
+            population=population,
+            latitude=phi * scale,
+            authalic_latitude=beta * scale,
+            first_longitude=first,
+            longitude_spacing=step,
+        )
+
+    def cells_on_ring(self, resolution: int, ring: int) -> np.ndarray:
+        """
+        Return the index strings, as a numpy string array, of the cells of
+        resolution `resolution` on isolatitude ring `ring` (numbered as in
+        ``ring_table``), in increasing nucleus longitude from the
+        ``first_longitude`` of the ring; raise a ValueError if there is no
+        such ring.
+        See :doc:`isolatitude`.
+
+        EXAMPLES::
+
+            >>> WGS84_003.cells_on_ring(1, 1).tolist()
+            ['N6', 'N7', 'N8', 'N5', 'N2', 'N1', 'N0', 'N3']
+            >>> WGS84_003.cells_on_ring(1, 3).tolist()
+            ['O3', 'O4', 'O5', 'P3', 'P4', 'P5', 'Q3', 'Q4', 'Q5', 'R3', 'R4', 'R5']
+
+        """
+        n, q = self._ring_layout(resolution)
+        if not 0 <= ring < n + 2 * q:
+            raise ValueError(
+                f"resolution {resolution} has rings 0 to {n + 2 * q - 1}, not {ring}"
+            )
+        if q <= ring < q + n:
+            rows = np.full(4 * n, ring - q)
+            cols = np.tile(np.arange(n), 4)
+            face = np.repeat(np.arange(1, 5), n)
+        else:
+            m = ring if ring < q else n + 2 * q - 1 - ring
+            # Chebyshev distance from the centre, in half cell widths.
+            d = 2 * m + (n % 2 == 0)
+            lo, hi = (n - 1 - d) // 2, (n - 1 + d) // 2
+            if d == 0:
+                rows = cols = np.array([lo])
+            else:
+                span = np.arange(lo, hi + 1)
+                inner = span[1:-1]
+                rows = np.concatenate(
+                    [np.full(len(span), lo), np.full(len(span), hi), inner, inner]
+                )
+                cols = np.concatenate(
+                    [span, span, np.full(len(inner), lo), np.full(len(inner), hi)]
+                )
+            face = np.full(len(rows), 0 if ring < q else 5)
+        N = self.N_side
+        power = N ** np.arange(resolution - 1, -1, -1)
+        digits = ((rows[:, None] // power) % N) * N + (cols[:, None] // power) % N
+        indices = self._format_indices(face, digits, resolution)
+        if len(indices) == 1:
+            return indices
+        longitude = self.nuclei(indices)[:, 0]
+        half_turn = pi if self.ellipsoid.radians else 180.0
+        longitude = np.where(
+            longitude >= half_turn, longitude - 2 * half_turn, longitude
+        )
+        return indices[np.argsort(longitude, kind="stable")]
+
+    def centroids(self, indices: Iterable[str], plane: bool = False) -> FloatArray:
+        """
+        Return the centroids of the cells with index strings `indices` as one
+        float64 array of shape ``(len(indices), 2)``: row `k` is
+        ``cell.centroid(plane=plane)`` for the cell whose ``str()`` is
+        ``indices[k]``, as `x`, `y` or longitude, latitude. An invalid index
+        gives a row of NaN.
+
+        The ellipsoidal centroids use the quadrature rules ``Cell.centroid``
+        uses, evaluated for all cells of each shape in one projection call;
+        the weighted sums are ordinary array sums rather than ``fsum``, so
+        the two can differ in the last bits.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> c = rdggs.centroids(['P44', 'N4', 'N0'])
+            >>> c.round(9).tolist()
+            [[-45.0, 0.0], [-180.0, 90.0], [90.0, 53.008107449]]
+            >>> lat = rdggs.cell(['N', 0]).centroid(plane=False)[1]
+            >>> bool(abs(lat - c[2, 1]) < 1e-9)
+            True
+
+        """
+        valid, face, digits, resolution = self._parse_indices(indices)
+        result = np.full((len(valid), 2), np.nan)
+        if valid.any():
+            result[valid] = self._centroids(
+                face[valid], digits[valid], resolution[valid], plane
+            )
+        return result
+
+    def _centroids(
+        self,
+        face: np.ndarray,
+        digits: np.ndarray,
+        resolution: np.ndarray,
+        plane: bool,
+    ) -> FloatArray:
+        """
+        ``centroids`` for the valid cells parsed by ``_parse_indices``, as a
+        ``(len(face), 2)`` array.
+        """
+        result = np.empty((len(face), 2))
+        x, y, width, region = self._index_geometry(face, digits, resolution)
+        nucleus_x, nucleus_y = x + width / 2, y - width / 2
+        if plane:
+            result[:, 0] = nucleus_x
+            result[:, 1] = nucleus_y
+            return result
+        lon, lat = self.rhealpix(nucleus_x, nucleus_y, inverse=True)
+        out_lon, out_lat = lon.copy(), lat.copy()
+        shape = self._shape_code(face, digits, resolution)
+        # Quads: mean latitude along the nucleus meridian by 20-point
+        # Gauss-Legendre quadrature over the planar y range, as fixed_quad
+        # evaluates it; the mean longitude is the nucleus longitude.
+        quad = shape == 0
+        if quad.any():
+            # Latitude is independent of x in the equatorial region, so
+            # quads in one planar row (same y and width) share their mean
+            # latitude: integrate once per distinct row and broadcast.
+            rows, inverse = np.unique(
+                np.column_stack([y[quad], width[quad], nucleus_x[quad] * 0]),
+                axis=0,
+                return_inverse=True,
+            )
+            nodes, weights = roots_legendre(20)
+            y1 = (rows[:, 0] - rows[:, 1])[:, None]
+            y2 = rows[:, 0][:, None]
+            ys = (y2 - y1) * (nodes + 1) / 2.0 + y1
+            x_rep = np.zeros(len(rows))
+            np.put(x_rep, inverse, nucleus_x[quad])
+            xs = np.broadcast_to(x_rep[:, None], ys.shape)
+            phis = self.rhealpix(xs.ravel(), ys.ravel(), inverse=True)[1].reshape(
+                ys.shape
+            )
+            integral = (y2 - y1)[:, 0] / 2.0 * np.sum(weights * phis, axis=1)
+            out_lat[quad] = ((1 / (y2 - y1)[:, 0]) * integral)[inverse.ravel()]
+        # Darts and skew quads: area-weighted means over the planar square by
+        # the fixed product rules of Cell._centroid_quadrature.
+        t, w = _gauss_legendre_unit(_CENTROID_QUADRATURE_ORDER)
+        u, v = np.meshgrid(t, t, indexing="ij")
+        rules = {}
+        rules["skew"] = (u.ravel(), v.ravel(), np.outer(w, w).ravel())
+        a, b = u.ravel(), (u * v).ravel()
+        tri_w = (np.outer(w, w) * t[:, None]).ravel()
+        s_r, r_r = np.concatenate([a, b]), np.concatenate([b, a])
+        rules["rising"] = (s_r, r_r, np.concatenate([tri_w, tri_w]))
+        rules["falling"] = (1 - s_r, r_r, np.concatenate([tri_w, tri_w]))
+        centres = np.array(
+            [self.cell([letter]).nucleus(plane=True) for letter in CELLS0]
+        )
+        safe = np.where(face >= 0, face, 0)
+        rising = (nucleus_x - centres[safe, 0]) * (nucleus_y - centres[safe, 1]) > 0
+        kinds = {
+            "skew": shape == 3,
+            "rising": (shape == 2) & rising,
+            "falling": (shape == 2) & ~rising,
+        }
+        # Project each group in chunks of about 200,000 points, so the
+        # working set stays a few tens of megabytes however many cells there
+        # are (each dart or skew quad needs several hundred points, and the
+        # array projection holds a dozen or so temporaries the size of its
+        # input).
+        for kind, members in kinds.items():
+            s_u, r_u, weights_u = rules[kind]
+            chunk = max(1, 200_000 // len(s_u))
+            for code, region_name in ((1, "north_polar"), (-1, "south_polar")):
+                group = np.flatnonzero(members & (region == code))
+                for start in range(0, len(group), chunk):
+                    rows = group[start : start + chunk]
+                    x1 = x[rows][:, None]
+                    y1 = (y[rows] - width[rows])[:, None]
+                    wg = width[rows][:, None]
+                    xs = x1 + wg * s_u
+                    ys = y1 + wg * r_u
+                    lons, lats = self.rhealpix(
+                        xs.ravel(), ys.ravel(), inverse=True, region=region_name
+                    )
+                    lons, lats = lons.reshape(xs.shape), lats.reshape(xs.shape)
+                    out_lat[rows] = np.sum(weights_u * lats, axis=1)
+                    if kind == "skew":
+                        out_lon[rows] = np.sum(weights_u * lons, axis=1)
+        result[:, 0] = out_lon
+        result[:, 1] = out_lat
+        return result
+
+    def _shape_code(
+        self, face: np.ndarray, digits: np.ndarray, resolution: np.ndarray
+    ) -> np.ndarray:
+        """
+        ``Cell.ellipsoidal_shape`` as a code: 0 quad, 1 cap, 2 dart, 3 skew
+        quad, for the cells parsed by ``_parse_indices``.
+        """
+        N = self.N_side
+        levels = np.arange(1, digits.shape[1] + 1)
+        active = levels[None, :] <= resolution[:, None]
+        polar = (face == 0) | (face == 5)
+        centre = (N**2 - 1) // 2
+        cap = polar & (
+            (resolution == 0)
+            | ((N % 2 == 1) & (~active | (digits == centre)).all(axis=1))
+        )
+        diagonal = np.isin(digits, [i * (N + 1) for i in range(N)])
+        anti = np.isin(digits, [(i + 1) * (N - 1) for i in range(N)])
+        dart = (
+            polar
+            & ~cap
+            & ((~active | diagonal).all(axis=1) | (~active | anti).all(axis=1))
+        )
+        return np.where(~polar, 0, np.where(cap, 1, np.where(dart, 2, 3)))
+
+    def _boundary_array(
+        self,
+        face: np.ndarray,
+        digits: np.ndarray,
+        resolution: np.ndarray,
+        n: int,
+        plane: bool,
+    ) -> FloatArray:
+        """
+        ``boundary_array`` for the valid cells parsed by ``_parse_indices``.
+        """
+        m = 4 * n - 4
+        count = len(face)
+        ul_x, ul_y, width, region_code = self._index_geometry(face, digits, resolution)
+        shift = self._nw_corner(face, digits, resolution, ul_x, ul_y, width)
+        # The planar boundary of every cell, clockwise from the upper-left
+        # corner, with the same arithmetic as Cell.boundary(plane=True) so
+        # the coordinates are identical to it: the north edge, then the east,
+        # south and west edges from the previous corner.
+        delta = width / (n - 1)
+        steps = np.arange(1, n) * delta[:, None]
+        x0, y0 = ul_x[:, None], ul_y[:, None]
+        x_north = x0 + steps
+        x_east = x_north[:, -1:]
+        y_east = y0 - steps
+        y_south = y_east[:, -1:]
+        x_south = x_east - steps
+        x_west = x_south[:, -1:]
+        y_west = y_south + steps[:, :-1]
+        ones = np.ones((1, n - 1))
+        x = np.concatenate(
+            [x0, x_north, x_east * ones, x_south, x_west * ones[:, 1:]], 1
+        )
+        y = np.concatenate([y0, y0 * ones, y_east, y_south * ones, y_west], 1)
+        if plane:
+            return np.stack([x, y], axis=-1)
+        # Rotate each ring to start at the north-west vertex, as
+        # Cell.boundary(plane=False) does.
+        order = (np.arange(m) + (shift * (n - 1))[:, None]) % m
+        x = np.take_along_axis(x, order, axis=1)
+        y = np.take_along_axis(y, order, axis=1)
+        # All boundary points lie on the fine lattice of pitch w/(n - 1)
+        # anchored at the planar image's corner, shared with every
+        # same-resolution neighbour's points, so integer lattice keys
+        # identify coincident points robustly. Each point is projected once,
+        # from the planar coordinates its key denotes rather than from any
+        # one cell's arithmetic for it (which differs from a neighbour's in
+        # the last bit), so a cell's boundary is the same whatever cells it
+        # is computed with, and a shared edge gets one set of coordinates.
+        R = self.ellipsoid.R_A
+        x_anchor, y_anchor = -pi * R, -3 * pi * R / 4
+        cols = np.rint((x - x_anchor) / delta[:, None]).astype(np.int64)
+        rows = np.rint((y - y_anchor) / delta[:, None]).astype(np.int64)
+
+        # The planar point a lattice key denotes, kept within the image,
+        # which the rounding can overshoot by a bit at its edges.
+        def lattice_x(col: np.ndarray, pitch: float) -> FloatArray:
+            return np.minimum(x_anchor + col * pitch, -x_anchor)
+
+        def lattice_y(row: np.ndarray, pitch: float) -> FloatArray:
+            return np.minimum(y_anchor + row * pitch, -y_anchor)
+
+        lon = np.empty((count, m))
+        lat = np.empty((count, m))
+        for res in np.unique(resolution):
+            at = resolution == res
+            pitch = delta[at][0]
+            equatorial = at & (region_code == 0)
+            if equatorial.any():
+                # Longitude depends on x alone here and latitude on y alone,
+                # so each column and each row is projected once.
+                xs, ys = x[equatorial].ravel(), y[equatorial].ravel()
+                col_ids, col_first, col_inv = np.unique(
+                    cols[equatorial].ravel(), return_index=True, return_inverse=True
+                )
+                row_ids, row_first, row_inv = np.unique(
+                    rows[equatorial].ravel(), return_index=True, return_inverse=True
+                )
+                lons, lats = self.rhealpix(
+                    np.concatenate([lattice_x(col_ids, pitch), xs[row_first]]),
+                    np.concatenate([ys[col_first], lattice_y(row_ids, pitch)]),
+                    inverse=True,
+                    region="equatorial",
+                )
+                lon[equatorial] = lons[: len(col_ids)][col_inv].reshape(-1, m)
+                lat[equatorial] = lats[len(col_ids) :][row_inv].reshape(-1, m)
+            for code, region in ((1, "north_polar"), (-1, "south_polar")):
+                polar = at & (region_code == code)
+                if not polar.any():
+                    continue
+                c, r = cols[polar].ravel(), rows[polar].ravel()
+                _, first, inverse = np.unique(
+                    c * (1 << 32) + r, return_index=True, return_inverse=True
+                )
+                lons, lats = self.rhealpix(
+                    lattice_x(c[first], pitch),
+                    lattice_y(r[first], pitch),
+                    inverse=True,
+                    region=region,
+                )
+                lon[polar] = lons[inverse].reshape(-1, m)
+                lat[polar] = lats[inverse].reshape(-1, m)
+        lon = _normalise_antimeridian_rings(lon, radians=self.ellipsoid.radians)
+        return np.stack([lon, lat], axis=-1)
+
+    def cell_boundaries(
+        self, cells: Iterable[Cell], n: int = 2, plane: bool = True
+    ) -> dict[Cell, list[tuple[float, float]]]:
+        """
+        Return a dictionary mapping each cell in `cells` to its boundary
+        points -- each value agreeing with that cell's own
+        ``boundary(n=n, plane=plane)`` in point count, order, and
+        coordinates (up to floating point) -- while computing the
+        projection of every shared boundary point only once.
+
+        Adjacent cells share their common edge's points (and cells
+        meeting at a corner share that corner point), so computing each
+        cell's boundary independently projects every interior edge of a
+        map of cells twice. This method projects each distinct planar
+        boundary point once and reuses it, roughly halving the projection
+        work for contiguous sets of cells; as a corollary, two adjacent
+        cells' copies of their shared points are identical floats rather
+        than two independently computed (and potentially last-digit
+        different) values, which helps downstream consumers that dissolve
+        or snap cell geometries; the one exception is an edge on the
+        antimeridian, which is +180 in the western cell's ring and -180 in
+        the eastern's (see ``boundary_array``).
+
+        Points are shared only between cells of the same region
+        ('equatorial', 'north_polar', 'south_polar'): the inverse
+        projection takes a per-cell region hint that legitimately
+        disambiguates points lying exactly on a region boundary, so
+        edges along those parallels are computed per region, exactly as
+        ``boundary()`` computes them.
+
+        This is ``boundary_array`` repackaged as a dictionary of point
+        lists; see it for how the points are shared and projected.
+
+        `cells` may mix resolutions; sharing happens per resolution.
+        For `plane` = True there is no projection work to share and this
+        is simply a convenience over calling ``boundary()`` per cell.
+
+        EXAMPLES::
+
+            >>> rdggs = WGS84_003
+            >>> cells = list(rdggs.cell(('P', 0)).subcells())
+            >>> boundaries = rdggs.cell_boundaries(cells, n=3, plane=False)
+            >>> all(len(b) == 4 * 3 - 4 for b in boundaries.values())
+            True
+
+        """
+        if plane:
+            return {cell: cell.boundary(n=n, plane=True) for cell in cells}
+        cell_list = list(cells)
+        boundaries = self.boundary_array([str(cell) for cell in cell_list], n=n)
+        return {
+            cell: list(zip(row[:, 0], row[:, 1]))
+            for cell, row in zip(cell_list, boundaries)
+        }
 
     def cells_from_region(
         self,
@@ -1221,8 +2783,8 @@ class RHEALPixDGGS(object):
 
             >>> rdggs = WGS84_003_RADIANS
             >>> R_A = rdggs.ellipsoid.R_A
-            >>> ul = R_A*array((-0.1, pi/4))
-            >>> dr = R_A*array((0.1, -pi/4))  # Rectangle
+            >>> ul = R_A*np.array((-0.1, pi/4))
+            >>> dr = R_A*np.array((0.1, -pi/4))  # Rectangle
             >>> M = rdggs.cells_from_region(1, ul, dr)
             >>> for row in M:
             ...     print([str(cell) for cell in row])
@@ -1263,34 +2825,39 @@ class RHEALPixDGGS(object):
         if plane:
             # Rectangle region.
             # Get the four corner cells.
-            ur = self.cell_from_point(resolution, (dr[0], ul[1]), plane)
-            dl = self.cell_from_point(resolution, (ul[0], dr[1]), plane)
-            ul = self.cell_from_point(resolution, ul, plane)
-            dr = self.cell_from_point(resolution, dr, plane)
-            if ur is None or dl is None:
+            ur_cell = self.cell_from_point(resolution, (dr[0], ul[1]), plane)
+            dl_cell = self.cell_from_point(resolution, (ul[0], dr[1]), plane)
+            ul_cell = self.cell_from_point(resolution, ul, plane)
+            dr_cell = self.cell_from_point(resolution, dr, plane)
+            if ul_cell is None or ur_cell is None or dl_cell is None or dr_cell is None:
                 return []
-            if ul == dr:
-                return [[ul]]
+            if ul_cell == dr_cell:
+                return [[ul_cell]]
             # Starting from ul, collect cells from left to right and
             # then top to bottom, ending at dr.
             result = []
-            row_start = ul
-            row_end = ur
+            row_start = ul_cell
+            row_end = ur_cell
             while True:
                 row = []
                 current = row_start
                 while current != row_end:
                     row.append(current)
-                    current = current.neighbor("right", plane)
+                    nxt = current.neighbor("right", plane)
+                    assert nxt is not None
+                    current = nxt
                 row.append(current)
                 result.append(row)
-                if current == dr:
+                if current == dr_cell:
                     # Done.
                     break
                 # Update row start and end cells to their down neighbors,
                 # and collect another row of cells.
-                row_start = row_start.neighbor("down", plane)
-                row_end = row_end.neighbor("down", plane)
+                next_start = row_start.neighbor("down", plane)
+                next_end = row_end.neighbor("down", plane)
+                assert next_start is not None and next_end is not None
+                row_start = next_start
+                row_end = next_end
                 current = row_start
             return result
         # Ellipsoid: quad or cap region.
@@ -1346,7 +2913,7 @@ class RHEALPixDGGS(object):
         # Pick a random point in that cell.
         return c.random_point(plane=plane)
 
-    def random_cell(self, resolution: int = None) -> Cell:
+    def random_cell(self, resolution: int | None = None) -> Cell:
         """
         Return a cell of the given resolution chosen uniformly at random
         from all cells at that resolution.
@@ -1361,7 +2928,7 @@ class RHEALPixDGGS(object):
         """
         if resolution == None:
             resolution = randint(0, self.max_resolution)
-        suid = []
+        suid: list[str | int] = []
         suid.append(CELLS0[randint(0, 5)])
         for i in range(1, resolution + 1):
             suid.append(randint(0, self.N_side**2 - 1))
@@ -1396,77 +2963,16 @@ class RHEALPixDGGS(object):
             ['N0214', 'P7334']
 
         """
-        cover = dict()  # Use a dictionary to ignore repeated cells.
+        cover: dict[str, Cell] = {}  # Use a dictionary to ignore repeated cells.
         for p in points:
             c = self.cell_from_point(resolution, p, plane=plane)
-            # nuc = c.nucleus(plane=plane)
-            cover[str(c)] = c  # (c, nuc[0], nuc[1])
-        cover = list(cover.values())
-        return cover
+            if c is not None:
+                # nuc = c.nucleus(plane=plane)
+                cover[str(c)] = c  # (c, nuc[0], nuc[1])
+        return list(cover.values())
         # Sort cells by nuclei y-coordinate and then by x-coordinate.
         # cover.sort(key=lambda x: (x[2], -x[1]), reverse=True)
         # return [t[0] for t in cover]
-
-    def antimeridian_check_and_flip(
-        self, vertices: list[tuple[float, float]], plane: bool = True
-    ) -> list[tuple[float, float]]:
-        """
-        Check for cell vertices on the antimeridian and make sure their sign is
-        the same as that of the other vertices.
-
-        Used by cells_from_line before checking if a given line intersects a cell
-        edge.
-
-        Returns the set of modified coordinates if sign flipping has occurred, or
-        the original set of coordinates if everything's on the same side of the
-        antimeridian already.
-        """
-        # No need to do anything in the planar case
-        if plane:
-            return vertices
-
-        # The potentially offending (absoulute) value
-        if self.ellipsoid.radians:
-            half_range = pi
-        else:
-            half_range = 180
-
-        # Extract longitudes
-        lngs = [vert[0] for vert in vertices]
-
-        # No need to do anything if no point lies on the antimeridian
-        if half_range not in lngs and -half_range not in lngs:
-            return vertices
-
-        # Check which side of the antimeridian the point of interest is on
-        if half_range in lngs:
-            check_lng = half_range
-        else:
-            check_lng = -half_range
-
-        # Check sign of point at antimeridian against the others
-        fine = True
-        count = 0
-        while fine and count < len(lngs):
-            if lngs[count] != check_lng and lngs[count] * check_lng < 0:
-                fine = False
-
-            count = count + 1
-
-        # No need to do anything else if all points are on the same side of the antimeridian
-        if fine:
-            return vertices
-
-        # Flip sign of longitudes at antimeridian
-        lngs = [lng if lng != check_lng else -lng for lng in lngs]
-
-        # Extract latitudes as separate list
-        lats = [vert[1] for vert in vertices]
-
-        # Zip up the results in a new list of tuples
-        vertices = [(lng, lat) for lng, lat in zip(lngs, lats)]
-
-        return vertices
 
 
 # Some common rHEALPix DGGSs.
@@ -1483,14 +2989,3 @@ UNIT_003 = RHEALPixDGGS(ellipsoid=UNIT_SPHERE, north_square=0, south_square=0, N
 UNIT_003_RADIANS = RHEALPixDGGS(
     ellipsoid=UNIT_SPHERE_RADIANS, north_square=0, south_square=0, N_side=3
 )
-
-
-class RhealPolygon(object):
-    """ """
-
-    def __init__(self, rdggs=WGS84_003, suid_list=None):
-        self.rdggs = rdggs
-        self.ellipsoid = rdggs.ellipsoid
-        self.N_side = rdggs.N_side
-        self.suid = ()  # Spatially unique identifier of self.
-        self.suid_list = suid_list

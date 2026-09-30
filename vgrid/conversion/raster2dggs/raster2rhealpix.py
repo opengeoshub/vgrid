@@ -15,6 +15,7 @@ from tqdm import tqdm
 from vgrid.stats.rhealpixstats import rhealpix_metrics
 from vgrid.utils.io import (
     add_verbose_argument,
+    add_rhealpix_n_side_argument,
     validate_rhealpix_resolution,
     convert_to_output_format,
     validate_raster_stats_option,
@@ -23,23 +24,23 @@ from vgrid.utils.io import (
 )
 from vgrid.conversion.dggs2geo.rhealpix2geo import rhealpix2geo
 from vgrid.utils.constants import (
-    OUTPUT_FORMATS,
-    STRUCTURED_FORMATS,
     DGGS_TYPES,
+    FIX_ANTIMERIDIAN_CHOICES,
     MIN_CELL_AREA,
+    OUTPUT_FORMATS,
     RASTER_STATS_OPTIONS,
     RASTER2DGGS_METHODS,
+    STRUCTURED_FORMATS,
 )
 from math import cos, radians
-from vgrid.dggs.rhealpixdggs.dggs import RHEALPixDGGS
-from vgrid.dggs.rhealpixdggs.ellipsoids import WGS84_ELLIPSOID
 from vgrid.conversion.latlon2dggs import latlon2rhealpix
 import geopandas as gpd
 from pyproj import datadir
 from vgrid.utils.geometry import (
     accumulate_raster_pixels,
     footprint_gdf_from_raster,
-    geodesic_dggs_metrics,
+    apply_bin_cell_metrics,
+    dggs_cell_row,
     nearest_neighbour_from_grid,
 )
 from vgrid.conversion.dggsresample.dggsresample import generate_grid
@@ -47,13 +48,11 @@ from vgrid.conversion.dggsresample.dggsresample import generate_grid
 os.environ["PROJ_LIB"] = datadir.get_data_dir()
 import rasterio
 
-E = WGS84_ELLIPSOID
-rhealpix_dggs = RHEALPixDGGS(ellipsoid=E, north_square=1, south_square=3, N_side=3)
 min_res = DGGS_TYPES["rhealpix"]["min_res"]
 max_res = DGGS_TYPES["rhealpix"]["max_res"]
 
 
-def get_nearest_rhealpix_resolution(raster_path):
+def get_nearest_rhealpix_resolution(raster_path, N_side=3):
     """
     Automatically determine the optimal RHEALPix resolution for a given raster.
 
@@ -104,7 +103,7 @@ def get_nearest_rhealpix_resolution(raster_path):
     nearest_resolution = min_res
 
     for res in range(min_res, max_res + 1):
-        _, _, avg_area, _ = rhealpix_metrics(res)
+        _, _, avg_area, _ = rhealpix_metrics(res, N_side=N_side)
         if avg_area < MIN_CELL_AREA:
             break
         diff = abs(avg_area - cell_size)
@@ -120,13 +119,25 @@ def _raster2rhealpix_nearest_neighbour(
     raster_path: str,
     resolution: int,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
+    N_side=3,
 ) -> gpd.GeoDataFrame:
     footprint = footprint_gdf_from_raster(raster_path)
     grid_gdf = generate_grid(
-        footprint, "rhealpix", resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+        footprint,
+        "rhealpix",
+        resolution,
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+        rhealpix_n_side=N_side,
     )
-    return nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose)
+    return apply_bin_cell_metrics(
+        nearest_neighbour_from_grid(raster_path, grid_gdf, verbose=verbose),
+        cell_metrics,
+        geodesic=True,
+    )
 
 
 def _raster2rhealpix_binning(
@@ -134,41 +145,46 @@ def _raster2rhealpix_binning(
     resolution: int,
     stats: str,
     fix_antimeridian=None,
+    cell_metrics=False,
     verbose=True,
+    N_side=3,
 ) -> gpd.GeoDataFrame:
     def cell_id(lat, lon):
-        return latlon2rhealpix(lat, lon, resolution)
+        return latlon2rhealpix(lat, lon, resolution, N_side=N_side)
 
     rhealpix_acc, band_count = accumulate_raster_pixels(
-        raster_path, cell_id, stats, desc="Binning raster blocks to rHEALPix", verbose=verbose
+        raster_path,
+        cell_id,
+        stats,
+        desc="Binning raster blocks to rHEALPix",
+        verbose=verbose,
     )
 
     properties = []
+    from vgrid.utils.io import get_rhealpix_dggs, rhealpix_cell_from_id
+
+    rhealpix_dggs = get_rhealpix_dggs(N_side=N_side)
     for rhealpix_id, acc in tqdm(
         rhealpix_acc.items(),
         desc="Converting raster to rHEALPix",
         unit=" cells",
         disable=not verbose,
     ):
-        cell_polygon = rhealpix2geo(rhealpix_id, fix_antimeridian=fix_antimeridian)
-        rhealpix_uids = (rhealpix_id[0],) + tuple(map(int, rhealpix_id[1:]))
-        rhealpix_cell = rhealpix_dggs.cell(rhealpix_uids)
-        num_edges = 4
-        if rhealpix_cell.ellipsoidal_shape() == "dart":
-            num_edges = 3
-        centroid_lat, centroid_lon, avg_edge_len, cell_area, cell_perimeter = (
-            geodesic_dggs_metrics(cell_polygon, num_edges)
+        cell_polygon = rhealpix2geo(
+            rhealpix_id, fix_antimeridian=fix_antimeridian, N_side=N_side
         )
-        base_props = {
-            "rhealpix": rhealpix_id,
-            "resolution": resolution,
-            "center_lat": centroid_lat,
-            "center_lon": centroid_lon,
-            "avg_edge_len": avg_edge_len,
-            "cell_area": cell_area,
-            "cell_perimeter": cell_perimeter,
-            "geometry": cell_polygon,
-        }
+        rhealpix_cell = rhealpix_cell_from_id(rhealpix_id, dggs=rhealpix_dggs)
+        num_edges = 4
+        if rhealpix_cell.ellipsoidal_shape == "dart":
+            num_edges = 3
+        base_props = dggs_cell_row(
+            "rhealpix",
+            rhealpix_id,
+            resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
+        )
         band_values = finalize_dggs_band_values(acc, stats)
         band_properties = {f"band_{i + 1}": band_values[i] for i in range(band_count)}
         base_props.update(band_properties)
@@ -186,7 +202,9 @@ def raster2rhealpix(
     fix_antimeridian=None,
     method="binning",
     stats="mean",
+    cell_metrics=False,
     verbose=True,
+    N_side=3,
 ):
     """
     Convert raster data to RHEALPix DGGS format.
@@ -239,7 +257,9 @@ def raster2rhealpix(
     method = normalize_raster2dggs_method(method)
 
     if resolution is None:
-        cell_size, resolution = get_nearest_rhealpix_resolution(raster_path)
+        cell_size, resolution = get_nearest_rhealpix_resolution(
+            raster_path, N_side=N_side
+        )
         print(f"Cell size: {cell_size} m2")
         print(f"Nearest rHEALPix resolution determined: {resolution}")
     else:
@@ -250,11 +270,22 @@ def raster2rhealpix(
         stats = validate_raster_stats_option(stats)
         print(f"Stats: {stats}")
         gdf = _raster2rhealpix_binning(
-            raster_path, resolution, stats, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            stats,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
+            N_side=N_side,
         )
     else:
         gdf = _raster2rhealpix_nearest_neighbour(
-            raster_path, resolution, fix_antimeridian=fix_antimeridian, verbose=verbose
+            raster_path,
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
+            N_side=N_side,
         )
 
     if gdf.empty:
@@ -300,14 +331,7 @@ def raster2rhealpix_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -319,7 +343,16 @@ def raster2rhealpix_cli():
         default="mean",
         help="Band statistic for binning method only",
     )
+    add_rhealpix_n_side_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     if not os.path.exists(args.raster):
         raise FileNotFoundError(f"The file {args.raster} does not exist.")
@@ -331,7 +364,9 @@ def raster2rhealpix_cli():
         fix_antimeridian=args.fix_antimeridian,
         method=args.method,
         stats=args.stats,
+        cell_metrics=args.cell_metrics,
         verbose=args.verbose,
+        N_side=args.N_side,
     )
     if args.output_format in STRUCTURED_FORMATS:
         print(result)

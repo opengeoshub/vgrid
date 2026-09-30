@@ -13,7 +13,7 @@ Key Functions:
 import json
 import argparse
 from shapely.geometry import Polygon
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from vgrid.dggs import maidenhead
 
 
@@ -88,7 +88,7 @@ def maidenhead2geo_cli():
     return polys
 
 
-def maidenhead2geojson(maidenhead_ids):
+def maidenhead2geojson(maidenhead_ids, cell_metrics=False):
     """
     Convert Maidenhead cell IDs to GeoJSON FeatureCollection.
 
@@ -125,8 +125,8 @@ def maidenhead2geojson(maidenhead_ids):
         try:
             cell_polygon = maidenhead2geo(maidenhead_id)
             resolution = int(len(maidenhead_id) / 2)
-            maidenhead_feature = graticule_dggs_to_feature(
-                "maidenhead", maidenhead_id, resolution, cell_polygon
+            maidenhead_feature = dggs_geojson_feature(
+                "maidenhead", maidenhead_id, resolution, cell_polygon, cell_metrics
             )
             maidenhead_features.append(maidenhead_feature)
         except Exception:
@@ -146,6 +146,15 @@ def maidenhead2geojson_cli():
         nargs="+",
         help="Input Maidenhead cell ID(s), e.g., maidenhead2geojson OK3046.",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(maidenhead2geojson(args.maidenhead))
+    geojson_data = json.dumps(
+        maidenhead2geojson(args.maidenhead, cell_metrics=args.cell_metrics)
+    )
     print(geojson_data)

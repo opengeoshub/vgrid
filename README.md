@@ -19,6 +19,9 @@
       <a href="#vgrid-installation">Vgrid Installation</a>     
     </li>
     <li>
+      <a href="#cell-metrics">Cell metrics</a>
+    </li>
+    <li>
       <a href="#dggs-conversion">DGGS Conversion</a>
       <ul>
         <li><a href="#lat-lon-to-dggs">Lat lon to DGGS</a></li>
@@ -96,6 +99,16 @@ Vgrid is built upon free and open-source software and would like to acknowledge 
     ``` bash 
     pip install vgrid --upgrade
     ```
+## Cell metrics
+
+Conversion, compact, expand, resample, binning, raster, and generator commands accept `-cell_metrics` / `--cell_metrics`. The Python parameter is `cell_metrics=False` by default.
+
+When the flag is off, a GeoDataFrame keeps the cell id, resolution, and geometry, plus any aggregated, binned, band, or resampled columns. GeoJSON properties keep the cell id and resolution; the polygon stays on the feature.
+
+When the flag is on, geodesic DGGS (H3, S2, A5, rHEALPix, EASE, QTM, ISEA3H, ISEA4T, DGGAL, DGGRID) add `center_lat`, `center_lon`, `avg_edge_len`, `cell_area`, and `cell_perimeter`. Graticule DGGS (tilecode, quadkey, geohash, OLC, GEOREF, GARS, DIGIPIN, Maidenhead, MGRS) add `center_lat`, `center_lon`, `cell_width`, `cell_height`, `cell_area`, and `cell_perimeter`.
+
+The `<dggs>agg` commands (`h3agg`, `s2agg`, `a5agg`, `rhealpixagg`, `isea4tagg`, `isea3hagg`, `easeagg`, `dggalagg`, `dggridagg`, `qtmagg`, `olcagg`, `geohashagg`, `tilecodeagg`, `quadkeyagg`, `digipinagg`) are the exceptions: with the flag off they return a DataFrame of the cell id and the aggregated column, without geometry. Inspect commands always compute cell metrics. `polygonbin` does not take the flag.
+
 ## DGGS Conversion
 
 ### Lat lon to DGGS
@@ -128,10 +141,10 @@ Convert lat, long in WGS84 CRS to DGGS cellID (H3, S2, A5, rHEALPix, DGGAL, DGGR
 </div>
 
 ### DGGS to GeoJSON
-Convert DGGS cell IDs to GeoJSON.
+Convert DGGS cell IDs to GeoJSON. Add `-cell_metrics` to include geodesic or graticule metric properties. Without it, properties are the cell id and resolution.
 
 ``` bash
-> h32geojson 8d65b56628e46bf 
+> h32geojson 8d65b56628e46bf # h32geojson <cell_id> [-cell_metrics]
 > s22geojson 31752f45cc94 
 > a52geojson 8e65b56628e0d07
 > rhealpix2geojson R31260335553825
@@ -154,17 +167,19 @@ Convert DGGS cell IDs to GeoJSON.
 > digipin2geojson F3K
 ```
 
+With `cell_metrics=False`, feature properties are the cell id and resolution:
+
 ```geojson
-{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.70789209957029, 10.77601109480422], [106.70745212203926, 10.777918172217145], [106.7055792173179, 10.778494886227104], [106.70414629547702, 10.777164500398262], [106.70458630070586, 10.775257408234628], [106.70645920007833, 10.774680716650128], [106.70789209957029, 10.77601109480422]]]}, "properties": {"h3": "8965b56628fffff", "resolution": 9, "center_lat": 10.7765878, "center_lon": 106.7060192, "avg_edge_len": 215.295, "cell_area": 120421.396}}]}
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.70789209957029, 10.77601109480422], [106.70745212203926, 10.777918172217145], [106.7055792173179, 10.778494886227104], [106.70414629547702, 10.777164500398262], [106.70458630070586, 10.775257408234628], [106.70645920007833, 10.774680716650128], [106.70789209957029, 10.77601109480422]]]}, "properties": {"h3": "8965b56628fffff", "resolution": 9}}]}
 ```
 
 ### Vector to DGGS
 Convert vector layers (Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon) to DGGS cells.
 
-Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--predicate` (`intersect`, `within`, `centroid_within`, `largest_overlap` for polygons), `-c` / `--compact`, `-t` / `--topology`, `-f` / `--output_format`. Antimeridian: `-fix` for H3, S2, rHEALPix, ISEA4T/ISEA3H; `-split` for A5, DGGAL, DGGRID; A5/DGGRID also support `-options` / `--options` (JSON).
+Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--predicate` (`intersect`, `within`, `centroid_within`, `largest_overlap` for polygons), `-c` / `--compact`, `-t` / `--topology`, `-f` / `--output_format`, `-cell_metrics` / `--cell_metrics`. Antimeridian: `-fix` for H3, S2, rHEALPix, ISEA4T/ISEA3H; `-split` for A5, DGGAL, DGGRID; A5/DGGRID also support `-options` / `--options` (JSON).
 
 ``` bash
-> vector2h3 -i polygon.geojson -r 11 -p intersect -c -fix split -f geojson # vector2h3 -i <input> -r <resolution[0..15]> [-p predicate] [-c] [-t] [-f output_format] [-fix method]
+> vector2h3 -i polygon.geojson -r 11 -p intersect -c -fix split -f geojson # vector2h3 -i <input> -r <resolution[0..15]> [-p predicate] [-c] [-t] [-f output_format] [-fix method] [-cell_metrics]
 > vector2s2 -i polygon.geojson -r 18 -p intersect -c -fix split # vector2s2 -r <resolution[0..30]>
 > vector2a5 -i polyline.geojson -r 18 -p intersect -split # vector2a5 -r <resolution[0..29]>; polylines use great-circle path cells
 > vector2rhealpix -i polygon.geojson -r 11 -p largest_overlap -fix split # vector2rhealpix -r <resolution[0..15]>
@@ -196,8 +211,10 @@ Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--pr
 
 ### DGGS Compact
 
+Compact and expand accept `-cell_metrics`. The default keeps the cell id, resolution, geometry, and any aggregated column.
+
 ``` bash
-> h3compact -i h3.geojson -cellid h3 -fix split # h3compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -f [output_format] -fix [antimeridian method]
+> h3compact -i h3.geojson -cellid h3 -fix split # h3compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -f [output_format] -fix [antimeridian method] [-cell_metrics]
 > s2compact -i s2.geojson -cellid s2 -fix split # s2compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
 > a5compact -i a5.geojson -cellid a5 -split # a5compact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -split
 > rhealpixcompact -i rhealpix.geojson -cellid rhealpix -fix split # rhealpixcompact -i <input> -cellid [optional] [-d depth] [-agg ...] [-numeric_col] -fix [antimeridian method]
@@ -221,7 +238,7 @@ Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--pr
 ### DGGS Expand
 
 ``` bash
-> h3expand -i h3_11.geojson -r 12 -cellid h3 -fix split # h3expand -i <input> -r <higher resolution> -cellid [optional] -fix [antimeridian method]
+> h3expand -i h3_11.geojson -r 12 -cellid h3 -fix split # h3expand -i <input> -r <higher resolution> -cellid [optional] -fix [antimeridian method] [-cell_metrics]
 > s2expand -i s2_18.geojson -r 19 -cellid s2 -fix split # s2expand -i <input> -r <higher resolution> -cellid [optional] -fix [antimeridian method]
 > a5expand -i a5_18.geojson -r 19 -cellid a5 -split # a5expand -i <input> -r <higher resolution> -cellid [optional] -split
 > rhealpixexpand -i rhealpix_10.geojson -r 11 -cellid rhealpix -fix split # rhealpixexpand -i <input> -r <higher resolution> -cellid [optional] -fix [antimeridian method]
@@ -246,7 +263,7 @@ Common `vector2*` options: `-i` / `--input`, `-r` / `--resolution`, `-p` / `--pr
 Resample a source DGGS layer to another DGGS type (or resolution): build a target grid over the source footprint, then optionally transfer a numeric attribute by **area-weighted overlap** (default) or **nearest-neighbour** assignment from source cells. Keep target cells with **`-p centroid_within`** (default: the target cell contains a source centroid) or **`-p intersects`**. Omit `-r` or pass `-1` to pick the target resolution that best matches mean source cell area.
 
 ``` bash
-> dggsresample -i h3_cells.geojson --from_dggs h3 --to_dggs s2 -r 15 -resample_col elevation -m area_weighted -p centroid_within -f geojson # dggsresample -i <source layer> --from_dggs <source type> --to_dggs <target type> [-r <resolution> | -1] [-dggs_col <id column>] [-resample_col <numeric field>] [-m area_weighted|nearest] [-p centroid_within|intersects] [-f output_format] [-o output_name] [-fix antimeridian method] [-split] [-aggregate] [--dggrid_options JSON] [--a5_options JSON]
+> dggsresample -i h3_cells.geojson --from_dggs h3 --to_dggs s2 -r 15 -resample_col elevation -m area_weighted -p centroid_within -f geojson # dggsresample -i <source layer> --from_dggs <source type> --to_dggs <target type> [-r <resolution> | -1] [-dggs_col <id column>] [-resample_col <numeric field>] [-m area_weighted|nearest] [-p centroid_within|intersects] [-f output_format] [-o output_name] [-fix antimeridian method] [-split] [-aggregate] [--dggrid_options JSON] [--a5_options JSON] [-cell_metrics]
 ```
 
 <div align="center">
@@ -256,10 +273,10 @@ Resample a source DGGS layer to another DGGS type (or resolution): build a targe
 ### DGGS Binning
 Binning point layers to DGGS cells with spatial joins and aggregation.
 
-Common options for all `*bin` CLIs: `-i` / `--input` (vector file or URL), `-r` / `--resolution`, `-agg` / `--agg` (`count`, `min`, `max`, `sum`, `mean`, `median`, `std`, `var`, `range`, `minority`, `majority`, `variety`), `-numeric_col` / `--numeric_col` (required when `agg` ≠ `count`), `-category` / `--category` (optional grouping field), `-f` / `--output_format` (default `gpd`), `-v` / `--verbose` (progress bar; `--no-verbose` to hide).
+Common options for DGGS `*bin` CLIs: `-i` / `--input` (vector file or URL), `-r` / `--resolution`, `-agg` / `--agg` (`count`, `min`, `max`, `sum`, `mean`, `median`, `std`, `var`, `range`, `minority`, `majority`, `variety`), `-numeric_col` / `--numeric_col` (required when `agg` ≠ `count`), `-category` / `--category` (optional grouping field), `-f` / `--output_format` (default `gpd`), `-cell_metrics` / `--cell_metrics`, `-v` / `--verbose` (progress bar; `--no-verbose` to hide). `polygonbin` does not take `-cell_metrics`.
 
 ``` bash
-> h3bin -i point.geojson -r 8 -agg count -numeric_col value -category group -fix split # h3bin -i <input> -r <resolution[0..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
+> h3bin -i point.geojson -r 8 -agg count -numeric_col value -category group -fix split # h3bin -i <input> -r <resolution[0..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method] [-cell_metrics]
 > s2bin -i point.geojson -r 13 -agg count -numeric_col value -category group -fix split # s2bin -i <input> -r <resolution[0..30]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
 > a5bin -i point.geojson -r 18 -agg count -numeric_col value -category group -split # a5bin -i <input> -r <resolution[0..29]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -split [-options JSON]
 > rhealpixbin -i point.geojson -r 8 -agg count -numeric_col value -category group -fix split # rhealpixbin -i <input> -r <resolution[0..15]> -agg [...] -numeric_col [optional] -category [optional] -f [output_format] -fix [antimeridian method]
@@ -286,10 +303,10 @@ DGGRID binning (`dggrid_bin` / `dggridbin` Python API, Linux): `-split`, `-aggre
 </div>
 
 ### Raster to DGGS
-Convert raster layers in geographic CRS to DGGS. Omit `-r` to use the resolution nearest to the raster cell size. DGGRID/DGGAL support `-aggregate` for binning mode.
+Convert raster layers in geographic CRS to DGGS. Omit `-r` to use the resolution nearest to the raster cell size. DGGRID/DGGAL support `-aggregate` for binning mode. Add `-cell_metrics` to include geodesic or graticule metric columns alongside the band values.
 
 ``` bash
-> raster2h3 -raster raster.tif # raster2h3 -raster <raster> [-r resolution[0..15]] [-stats ...] [-fix antimeridian method]
+> raster2h3 -raster raster.tif # raster2h3 -raster <raster> [-r resolution[0..15]] [-stats ...] [-fix antimeridian method] [-cell_metrics]
 > raster2s2 -raster raster.tif # raster2s2 -raster <raster> [-r resolution[0..30]] [-fix antimeridian method]
 > raster2a5 -raster raster.tif # raster2a5 -raster <raster> [-r resolution[0..29]] [-split]
 > raster2rhealpix -raster raster.tif # raster2rhealpix -raster <raster> [-r resolution[0..15]] [-fix antimeridian method]
@@ -313,10 +330,10 @@ Convert raster layers in geographic CRS to DGGS. Omit `-r` to use the resolution
 
 
 ## DGGS Generator
-Generate DGGS at a specific resolution within a bounding box (`-b min_lon min_lat max_lon max_lat`). Antimeridian: `-fix` (H3, S2, rHEALPix, ISEA4T/ISEA3H), `-split` (A5, DGGAL, DGGRID), `-aggregate` (DGGRID).
+Generate DGGS at a specific resolution within a bounding box (`-b min_lon min_lat max_lon max_lat`). Antimeridian: `-fix` (H3, S2, rHEALPix, ISEA4T/ISEA3H), `-split` (A5, DGGAL, DGGRID), `-aggregate` (DGGRID). Add `-cell_metrics` for geodesic or graticule metric columns. The default grid is the cell id, resolution, and geometry.
 
 ``` bash
-> h3grid -r 11 -b 106.699007 10.762811 106.717674 10.778649 -fix split # h3grid -r <resolution[0..15]> -b <bbox> [-fix method] [-f output_format]
+> h3grid -r 11 -b 106.699007 10.762811 106.717674 10.778649 -fix split # h3grid -r <resolution[0..15]> -b <bbox> [-fix method] [-f output_format] [-cell_metrics]
 > s2grid -r 18 -b 106.699007 10.762811 106.717674 10.778649 -fix split # s2grid -r <resolution[0..30]> -b <bbox> [-fix method]
 > a5grid -r 18 -b 106.699007 10.762811 106.717674 10.778649 -split # a5grid -r <resolution[0..29]> -b <bbox> [-split] [-options JSON]
 > rhealpixgrid -r 11 -b 106.699007 10.762811 106.717674 10.778649 -fix split # rhealpixgrid -r <resolution[0..15]> -b <bbox> [-fix method]
@@ -342,6 +359,9 @@ Generate DGGS at a specific resolution within a bounding box (`-b min_lon min_la
 </div>
 
 ## DGGS Inspect
+
+Inspect always requests cell metrics from the generator so area and perimeter can be compared.
+
 ``` bash
 > h3inspect -r 3 # h3inspect -r <resolution>
 > s2inspect -r 6
@@ -417,7 +437,7 @@ Generate DGGS at a specific resolution within a bounding box (`-b min_lon min_la
 > tetrahedron  # Generate global tetrahedron
 > cube         # Generate global cube
 > octahedron   # Generate global octahedron
-> dodecahedron # Generate global dodecahedron
+> dodecahedron  # Generate global dodecahedron
 > fuller_icosahedron   # Generate global Fuller icosahedron
 > rhombic_icosahedron   # Generate global rhombic icosahedron (DGGAL)
 ``` 

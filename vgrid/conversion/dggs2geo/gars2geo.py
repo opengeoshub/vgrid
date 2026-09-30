@@ -14,7 +14,7 @@ from gars_field import garsgrid
 from shapely.geometry import Polygon
 import json
 import argparse
-from vgrid.utils.geometry import graticule_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 from pyproj import Geod
 
 geod = Geod(ellps="WGS84")
@@ -82,7 +82,7 @@ def gars2geo_cli():
     return polys
 
 
-def gars2geojson(gars_ids):
+def gars2geojson(gars_ids, cell_metrics=False):
     """
     Convert GARS cell IDs to GeoJSON FeatureCollection.
 
@@ -130,8 +130,8 @@ def gars2geojson(gars_ids):
             elif resolution_minute == 1:
                 resolution = 4
             cell_polygon = Polygon(list(wkt_polygon.exterior.coords))
-            gars_feature = graticule_dggs_to_feature(
-                "gars", gars_id, resolution, cell_polygon
+            gars_feature = dggs_geojson_feature(
+                "gars", gars_id, resolution, cell_polygon, cell_metrics
             )
             gars_features.append(gars_feature)
         except Exception:
@@ -149,6 +149,13 @@ def gars2geojson_cli():
         nargs="+",
         help="Input GARS cell ID(s), e.g., gars2geojson 574JK1918 ...",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(gars2geojson(args.gars))
+    geojson_data = json.dumps(gars2geojson(args.gars, cell_metrics=args.cell_metrics))
     print(geojson_data)

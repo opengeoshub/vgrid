@@ -157,7 +157,9 @@ def quadkeyinspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    quadkey_gdf = quadkeygrid(resolution, output_format="gpd", verbose=verbose)
+    quadkey_gdf = quadkeygrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     quadkey_gdf["crossed"] = quadkey_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = quadkey_gdf["cell_area"].mean()
     num_cells = 4**resolution

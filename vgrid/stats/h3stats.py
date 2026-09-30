@@ -19,7 +19,14 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.constants import DGGS_TYPES, VMIN_HEX, VMAX_HEX, VCENTER_HEX, AUTHALIC_AREA
+from vgrid.utils.constants import (
+    DGGS_TYPES,
+    VMIN_HEX,
+    VMAX_HEX,
+    VCENTER_HEX,
+    AUTHALIC_AREA,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
 from vgrid.generator.h3grid import h3grid
 from vgrid.utils.io import add_verbose_argument
 
@@ -229,7 +236,13 @@ def h3inspect(resolution: int, fix_antimeridian: None = None, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    h3_gdf = h3grid(resolution, output_format="gpd", fix_antimeridian=fix_antimeridian, verbose=verbose)
+    h3_gdf = h3grid(
+        resolution,
+        output_format="gpd",
+        fix_antimeridian=fix_antimeridian,
+        cell_metrics=True,
+        verbose=verbose,
+    )
     h3_gdf["crossed"] = h3_gdf["geometry"].apply(check_crossing_geom)
     h3_gdf = h3_gdf[~h3_gdf["crossed"]]  # remove cells that cross the Antimeridian
     h3_gdf["is_pentagon"] = h3_gdf["h3"].apply(h3.is_pentagon)
@@ -585,21 +598,18 @@ def h3inspect_cli():
     parser.add_argument(
         "-fix--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
     args = parser.parse_args()  # type: ignore
     resolution = args.resolution
-    print(h3inspect(resolution, fix_antimeridian=args.fix_antimeridian, verbose=args.verbose))
+    print(
+        h3inspect(
+            resolution, fix_antimeridian=args.fix_antimeridian, verbose=args.verbose
+        )
+    )
 
 
 if __name__ == "__main__":

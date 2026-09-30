@@ -26,7 +26,7 @@ from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
 from vgrid.utils.geometry import (
     check_predicate,
     shortest_point_distance,
-    geodesic_dggs_to_geoseries,
+    dggs_cell_row,
 )
 from vgrid.stats.qtmstats import qtm_metrics
 from vgrid.utils.io import (
@@ -48,6 +48,7 @@ def point2qtm(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to QTM grid cells.
@@ -108,8 +109,13 @@ def point2qtm(
         cell_polygon = qtm2geo(qtm_id)
         if cell_polygon:
             num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "qtm", qtm_id, resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "qtm",
+                qtm_id,
+                resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             if include_properties and feature_properties:
                 row.update(feature_properties)
@@ -122,6 +128,7 @@ def polyline2qtm(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert line geometries (LineString, MultiLineString) to QTM grid cells.
@@ -159,8 +166,13 @@ def polyline2qtm(
                     if Polygon(facet_geom).intersects(polyline) and resolution == 1:
                         qtm_id = QTMID[0][i]
                         num_edges = 3
-                        row = geodesic_dggs_to_geoseries(
-                            "qtm", qtm_id, resolution, facet_geom, num_edges
+                        row = dggs_cell_row(
+                            "qtm",
+                            qtm_id,
+                            resolution,
+                            facet_geom,
+                            num_edges,
+                            cell_metrics=cell_metrics,
                         )
                         if include_properties and feature_properties:
                             row.update(feature_properties)
@@ -177,8 +189,13 @@ def polyline2qtm(
                             levelFacets[lvl].append(subfacet)
                             if lvl == resolution - 1:
                                 num_edges = 3
-                                row = geodesic_dggs_to_geoseries(
-                                    "qtm", new_id, resolution, subfacet_geom, num_edges
+                                row = dggs_cell_row(
+                                    "qtm",
+                                    new_id,
+                                    resolution,
+                                    subfacet_geom,
+                                    num_edges,
+                                    cell_metrics=cell_metrics,
                                 )
                                 if include_properties and feature_properties:
                                     row.update(feature_properties)
@@ -195,6 +212,7 @@ def polygon2qtm(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert polygon geometries (Polygon, MultiPolygon) to QTM grid cells.
@@ -232,8 +250,13 @@ def polygon2qtm(
                     if Polygon(facet_geom).intersects(polygon) and resolution == 1:
                         qtm_id = QTMID[0][i]
                         num_edges = 3
-                        row = geodesic_dggs_to_geoseries(
-                            "qtm", qtm_id, resolution, facet_geom, num_edges
+                        row = dggs_cell_row(
+                            "qtm",
+                            qtm_id,
+                            resolution,
+                            facet_geom,
+                            num_edges,
+                            cell_metrics=cell_metrics,
                         )
                         if include_properties and feature_properties:
                             row.update(feature_properties)
@@ -254,8 +277,13 @@ def polygon2qtm(
                                 ):
                                     continue
                                 num_edges = 3
-                                row = geodesic_dggs_to_geoseries(
-                                    "qtm", new_id, resolution, subfacet_geom, num_edges
+                                row = dggs_cell_row(
+                                    "qtm",
+                                    new_id,
+                                    resolution,
+                                    subfacet_geom,
+                                    num_edges,
+                                    cell_metrics=cell_metrics,
                                 )
                                 if include_properties and feature_properties:
                                     row.update(feature_properties)
@@ -279,6 +307,7 @@ def geodataframe2qtm(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to QTM grid cells.
@@ -334,7 +363,9 @@ def geodataframe2qtm(
 
     qtm_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -353,6 +384,7 @@ def geodataframe2qtm(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -363,6 +395,7 @@ def geodataframe2qtm(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -376,6 +409,7 @@ def geodataframe2qtm(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(qtm_rows, geometry="geometry", crs="EPSG:4326")
@@ -388,10 +422,11 @@ def vector2qtm(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -422,8 +457,15 @@ def vector2qtm(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2qtm(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
 
     output_name = None
@@ -485,6 +527,13 @@ def vector2qtm_cli():
 
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     args.resolution = validate_qtm_resolution(args.resolution)
     try:
@@ -498,6 +547,7 @@ def vector2qtm_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

@@ -20,7 +20,7 @@ from shapely.geometry import MultiPoint
 import geopandas as gpd
 from vgrid.conversion.dggs2geo.geohash2geo import geohash2geo
 from vgrid.dggs import geohash
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.generator.geohashgrid import expand_geohash_bbox
 from vgrid.utils.constants import INITIAL_GEOHASHES
 
@@ -50,6 +50,7 @@ def point2geohash(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a point geometry to Geohash grid cells.
@@ -105,8 +106,12 @@ def point2geohash(
         latitude = point.y
         geohash_id = geohash.encode(latitude, longitude, resolution)
         cell_polygon = geohash2geo(geohash_id)
-        row = graticule_dggs_to_geoseries(
-            "geohash", geohash_id, resolution, cell_polygon
+        row = dggs_cell_row(
+            "geohash",
+            geohash_id,
+            resolution,
+            cell_polygon,
+            cell_metrics=cell_metrics,
         )
         if include_properties and feature_properties:
             row.update(feature_properties)
@@ -119,6 +124,7 @@ def polyline2geohash(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """
     Convert a polyline geometry to Geohash grid cells.
@@ -160,7 +166,9 @@ def polyline2geohash(
 
         for gh in geohashes_bbox:
             cell_polygon = geohash2geo(gh)
-            row = graticule_dggs_to_geoseries("geohash", gh, resolution, cell_polygon)
+            row = dggs_cell_row(
+                "geohash", gh, resolution, cell_polygon, cell_metrics=cell_metrics
+            )
             if include_properties and feature_properties:
                 row.update(feature_properties)
             geohash_rows.append(row)
@@ -176,6 +184,7 @@ def polygon2geohash(
     depth=-1,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a polygon geometry to Geohash grid cells.
@@ -217,7 +226,9 @@ def polygon2geohash(
 
         for gh in geohashes_bbox:
             cell_polygon = geohash2geo(gh)
-            row = graticule_dggs_to_geoseries("geohash", gh, resolution, cell_polygon)
+            row = dggs_cell_row(
+                "geohash", gh, resolution, cell_polygon, cell_metrics=cell_metrics
+            )
             cell_geom = row["geometry"]
             if not check_predicate(cell_geom, polygon, predicate):
                 continue
@@ -232,7 +243,12 @@ def polygon2geohash(
 
         # Use geohashcompact function directly
         compacted_gdf = geohashcompact(
-            temp_gdf, geohash_id="geohash", output_format="gpd", verbose=verbose, depth=depth)
+            temp_gdf,
+            geohash_id="geohash",
+            output_format="gpd",
+            verbose=verbose,
+            depth=depth,
+        )
 
         if compacted_gdf is not None:
             # Convert back to list of dictionaries
@@ -251,6 +267,7 @@ def geodataframe2geohash(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Convert a GeoDataFrame to Geohash grid cells.
@@ -313,7 +330,9 @@ def geodataframe2geohash(
 
     geohash_rows = []
 
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -332,6 +351,7 @@ def geodataframe2geohash(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
 
@@ -342,6 +362,7 @@ def geodataframe2geohash(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -355,6 +376,7 @@ def geodataframe2geohash(
                     depth=depth,
                     include_properties=include_properties,
                     verbose=verbose,
+                    cell_metrics=cell_metrics,
                 )
             )
     return gpd.GeoDataFrame(geohash_rows, geometry="geometry", crs="EPSG:4326")
@@ -367,10 +389,11 @@ def vector2geohash(
     predicate=None,
     compact=False,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
     depth=-1,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -405,8 +428,15 @@ def vector2geohash(
 
     gdf = process_input_data_vector(vector_data, **kwargs)
     result = geodataframe2geohash(
-        gdf, resolution, predicate, compact, depth, topology, include_properties,
+        gdf,
+        resolution,
+        predicate,
+        compact,
+        depth,
+        topology,
+        include_properties,
         verbose=verbose,
+        cell_metrics=cell_metrics,
     )
     output_name = None
     if output_format in OUTPUT_FORMATS:
@@ -475,6 +505,13 @@ def vector2geohash_cli():
     )
     add_compact_depth_argument(parser)
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -488,6 +525,7 @@ def vector2geohash_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

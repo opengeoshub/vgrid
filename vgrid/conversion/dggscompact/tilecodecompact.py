@@ -16,7 +16,7 @@ import re
 import argparse
 import geopandas as gpd
 from tqdm import tqdm
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -95,6 +95,7 @@ def tilecodecompact(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact Tilecode cells to their covering set at a given parent depth.
@@ -196,8 +197,12 @@ def tilecodecompact(
         try:
             cell_polygon = tilecode2geo(tilecode_id_compact)
             cell_resolution = tilecode_resolution(tilecode_id_compact)
-            row = graticule_dggs_to_geoseries(
-                "tilecode", tilecode_id_compact, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "tilecode",
+                tilecode_id_compact,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(tilecode_id_compact, []), agg)
             rows.append(row)
@@ -266,6 +271,13 @@ def tilecodecompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -279,6 +291,7 @@ def tilecodecompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if output_format in STRUCTURED_FORMATS:
@@ -297,21 +310,23 @@ def tilecode_expand(tilecode_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("tilecode", resolution)
         expand_cells = []
-        for tilecode_id in tqdm(tilecode_ids, desc="Expanding Tilecode", unit=" cells", disable=not verbose):
+        for tilecode_id in tqdm(
+            tilecode_ids, desc="Expanding Tilecode", unit=" cells", disable=not verbose
+        ):
             cell_resolution = tilecode_resolution(tilecode_id)
             if cell_resolution >= resolution:
                 expand_cells.append(tilecode_id)
             else:
-                expand_cells.extend(
-                    tilecode.tilecode_children(tilecode_id, resolution)
-                )
+                expand_cells.extend(tilecode.tilecode_children(tilecode_id, resolution))
         return expand_cells
 
     if depth is None:
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("tilecode", depth)
     expand_cells = []
-    for tilecode_id in tqdm(tilecode_ids, desc="Expanding Tilecode", unit=" cells", disable=not verbose):
+    for tilecode_id in tqdm(
+        tilecode_ids, desc="Expanding Tilecode", unit=" cells", disable=not verbose
+    ):
         try:
             expand_cells.extend(
                 tilecode.tilecode_children(
@@ -330,6 +345,7 @@ def tilecodeexpand(
     output_format="gpd",
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) Tilecode cells to a target resolution or by a relative depth.
@@ -359,9 +375,13 @@ def tilecodeexpand(
             if resolution < max_res:
                 print(f"Target expand resolution ({resolution}) must >= {max_res}.")
                 return None
-            tilecode_ids_expand = tilecode_expand(tilecode_ids, resolution=resolution, verbose=verbose)
+            tilecode_ids_expand = tilecode_expand(
+                tilecode_ids, resolution=resolution, verbose=verbose
+            )
         else:
-            tilecode_ids_expand = tilecode_expand(tilecode_ids, depth=depth, verbose=verbose)
+            tilecode_ids_expand = tilecode_expand(
+                tilecode_ids, depth=depth, verbose=verbose
+            )
     except Exception:
         raise Exception(
             "Expand cells failed. Please check your Tilecode ID field, resolution, or depth."
@@ -380,8 +400,12 @@ def tilecodeexpand(
         try:
             cell_polygon = tilecode2geo(tilecode_id_expand)
             cell_resolution = tilecode_resolution(tilecode_id_expand)
-            row = graticule_dggs_to_geoseries(
-                "tilecode", tilecode_id_expand, cell_resolution, cell_polygon
+            row = dggs_cell_row(
+                "tilecode",
+                tilecode_id_expand,
+                cell_resolution,
+                cell_polygon,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -437,6 +461,13 @@ def tilecodeexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = tilecodeexpand(
         args.input,
@@ -445,6 +476,7 @@ def tilecodeexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if args.output_format in STRUCTURED_FORMATS:

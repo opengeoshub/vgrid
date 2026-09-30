@@ -7,7 +7,13 @@ import numpy as np
 import argparse
 import geopandas as gpd
 from ease_dggs.constants import levels_specs
-from vgrid.utils.constants import DGGS_TYPES, VMIN_QUAD, VMAX_QUAD, VCENTER_QUAD, AUTHALIC_AREA
+from vgrid.utils.constants import (
+    DGGS_TYPES,
+    VMIN_QUAD,
+    VMAX_QUAD,
+    VCENTER_QUAD,
+    AUTHALIC_AREA,
+)
 from vgrid.generator.easegrid import easegrid
 from vgrid.utils.io import add_verbose_argument
 from vgrid.utils.geometry import (
@@ -158,7 +164,9 @@ def easeinspect(resolution: int, verbose=True):  # length unit is m, area unit i
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    ease_gdf = easegrid(resolution, output_format="gpd", verbose=verbose)
+    ease_gdf = easegrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     ease_gdf["crossed"] = ease_gdf["geometry"].apply(check_crossing_geom)
     # ease_gdf = ease_gdf[~ease_gdf["crossed"]]  # remove cells that cross the Antimeridian
 

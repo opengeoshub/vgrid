@@ -21,7 +21,13 @@ from vgrid.utils.geometry import (
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import TwoSlopeNorm
-from vgrid.utils.constants import DGGS_TYPES, VMIN_PEN, VMAX_PEN, VCENTER_PEN, AUTHALIC_AREA
+from vgrid.utils.constants import (
+    DGGS_TYPES,
+    VMIN_PEN,
+    VMAX_PEN,
+    VCENTER_PEN,
+    AUTHALIC_AREA,
+)
 
 min_res = DGGS_TYPES["a5"]["min_res"]
 max_res = DGGS_TYPES["a5"]["max_res"]
@@ -172,11 +178,12 @@ def a5inspect(
         output_format="gpd",
         options=options,
         split_antimeridian=split_antimeridian,
+        cell_metrics=True,
         verbose=verbose,
     )
     a5_gdf["crossed"] = a5_gdf["geometry"].apply(check_crossing_geom)
     a5_gdf = a5_gdf[~a5_gdf["crossed"]]  # remove cells that cross the Antimeridian
-    
+
     # mean_area = a5_gdf["cell_area"].mean()
     mean_area = AUTHALIC_AREA / get_num_cells(resolution)
 

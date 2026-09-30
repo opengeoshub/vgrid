@@ -23,8 +23,13 @@ Reference:
 import argparse
 import geopandas as gpd
 from tqdm import tqdm
-from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.constants import (
+    MAX_CELLS,
+    OUTPUT_FORMATS,
+    STRUCTURED_FORMATS,
+    FIX_ANTIMERIDIAN_CHOICES,
+)
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.dggs import s2
 from vgrid.utils.io import (
     validate_bbox,
@@ -48,7 +53,14 @@ def _s2_compact_cell_ids(cell_ids, verbose=True):
     return [s2.CellId.from_token(token) for token in compacted]
 
 
-def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
+def s2_grid(
+    resolution,
+    bbox,
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     """
     Generate an S2 DGGS grid for a given resolution and bounding box.
     fix_antimeridian : Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none
@@ -78,12 +90,19 @@ def s2_grid(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True
     s2_rows = []
     num_edges = 4
 
-    for cell_id in tqdm(cell_ids, desc="Generating DGGS", unit=" cells", disable=not verbose):
+    for cell_id in tqdm(
+        cell_ids, desc="Generating DGGS", unit=" cells", disable=not verbose
+    ):
         cell_polygon = s22geo(cell_id.to_token(), fix_antimeridian=fix_antimeridian)
         s2_token = cell_id.to_token()
         cell_resolution = cell_id.level()
-        row = geodesic_dggs_to_geoseries(
-            "s2", s2_token, cell_resolution, cell_polygon, num_edges
+        row = dggs_cell_row(
+            "s2",
+            s2_token,
+            cell_resolution,
+            cell_polygon,
+            num_edges,
+            cell_metrics=cell_metrics,
         )
         s2_rows.append(row)
 
@@ -118,7 +137,13 @@ def s2_grid_ids(resolution, bbox, fix_antimeridian=None, compact=False, verbose=
 
 
 def s2grid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
 ):
     """
     Generate S2 grid for pure Python usage.
@@ -139,7 +164,14 @@ def s2grid(
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-    gdf = s2_grid(resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose)
+    gdf = s2_grid(
+        resolution,
+        bbox,
+        fix_antimeridian=fix_antimeridian,
+        compact=compact,
+        cell_metrics=cell_metrics,
+        verbose=verbose,
+    )
     output_name = f"s2_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
 
@@ -174,18 +206,19 @@ def s2grid_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     try:
         result = s2grid(
@@ -194,6 +227,7 @@ def s2grid_cli():
             args.output_format,
             fix_antimeridian=args.fix_antimeridian,
             compact=args.compact,
+            cell_metrics=args.cell_metrics,
             verbose=args.verbose,
         )
         if args.output_format in STRUCTURED_FORMATS:

@@ -17,7 +17,7 @@ import geopandas as gpd
 from tqdm import tqdm
 
 from vgrid.conversion.dggs2geo.qtm2geo import qtm2geo
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     add_verbose_argument,
     aggregate_values,
@@ -102,6 +102,7 @@ def qtmcompact(
     numeric_col=None,
     output_format="gpd",
     verbose=True,
+    cell_metrics=False,
 ):
     """
     Compact QTM cells to their covering set at a given parent depth.
@@ -204,8 +205,13 @@ def qtmcompact(
             cell_polygon = qtm2geo(qtm_id_compact)
             cell_resolution = get_qtm_resolution(qtm_id_compact)
             num_edges = 3  # QTM cells are triangular
-            row = geodesic_dggs_to_geoseries(
-                "qtm", qtm_id_compact, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "qtm",
+                qtm_id_compact,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             row[agg_col] = aggregate_values(bags.get(qtm_id_compact, []), agg)
             rows.append(row)
@@ -274,6 +280,13 @@ def qtmcompact_cli():
         help="Show progress bar (default: True). Use --no-verbose to hide it.",
     )
 
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     input_data = args.input
     cellid = args.cellid
@@ -287,6 +300,7 @@ def qtmcompact_cli():
         agg=args.agg,
         numeric_col=args.numeric_col,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if output_format in STRUCTURED_FORMATS:
@@ -305,7 +319,9 @@ def qtm_expand(qtm_ids, resolution=None, depth=None, verbose=True):
     if resolution is not None:
         resolution = validate_dggs_expand_resolution("qtm", resolution)
         expand_cells = []
-        for qtm_id in tqdm(qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose):
+        for qtm_id in tqdm(
+            qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose
+        ):
             cell_resolution = len(qtm_id)
             if cell_resolution >= resolution:
                 expand_cells.append(qtm_id)
@@ -317,7 +333,9 @@ def qtm_expand(qtm_ids, resolution=None, depth=None, verbose=True):
         raise ValueError("Either resolution or depth must be specified.")
     depth = validate_dggs_expand_depth("qtm", depth)
     expand_cells = []
-    for qtm_id in tqdm(qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose):
+    for qtm_id in tqdm(
+        qtm_ids, desc="Expanding QTM", unit=" cells", disable=not verbose
+    ):
         try:
             expand_cells.extend(qtm.qtm_children(qtm_id, len(qtm_id) + depth))
         except Exception:
@@ -332,6 +350,7 @@ def qtmexpand(
     output_format="gpd",
     verbose=True,
     depth=None,
+    cell_metrics=False,
 ):
     """
     Expand (uncompact) QTM cells to a target resolution or by a relative depth.
@@ -385,8 +404,13 @@ def qtmexpand(
             cell_polygon = qtm2geo(qtm_id_expand)
             cell_resolution = len(qtm_id_expand)
             num_edges = 3
-            row = geodesic_dggs_to_geoseries(
-                "qtm", qtm_id_expand, cell_resolution, cell_polygon, num_edges
+            row = dggs_cell_row(
+                "qtm",
+                qtm_id_expand,
+                cell_resolution,
+                cell_polygon,
+                num_edges,
+                cell_metrics=cell_metrics,
             )
             rows.append(row)
         except Exception:
@@ -442,6 +466,13 @@ def qtmexpand_cli():
     )
 
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
     result = qtmexpand(
         args.input,
@@ -450,6 +481,7 @@ def qtmexpand_cli():
         output_format=args.output_format,
         depth=args.depth,
         verbose=args.verbose,
+        cell_metrics=args.cell_metrics,
     )
 
     if args.output_format in STRUCTURED_FORMATS:

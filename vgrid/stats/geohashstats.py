@@ -157,7 +157,9 @@ def geohashinspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    geohash_gdf = geohashgrid(resolution, output_format="gpd", verbose=verbose)
+    geohash_gdf = geohashgrid(
+        resolution, output_format="gpd", cell_metrics=True, verbose=verbose
+    )
     geohash_gdf["crossed"] = geohash_gdf["geometry"].apply(check_crossing_geom)
     # mean_area = geohash_gdf["cell_area"].mean()
     num_cells = 32**resolution

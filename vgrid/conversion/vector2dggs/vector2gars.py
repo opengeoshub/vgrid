@@ -27,7 +27,7 @@ from vgrid.utils.constants import (
 )
 from vgrid.utils.geometry import (
     check_predicate,
-    graticule_dggs_to_geoseries,
+    dggs_cell_row,
     shortest_point_distance,
 )
 from vgrid.utils.io import (
@@ -46,6 +46,7 @@ def point2gars(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """Convert point or multipoint geometries to GARS cells at ``resolution``."""
     rows = []
@@ -59,7 +60,9 @@ def point2gars(
     for point in points:
         gars_id = latlon2gars(point.y, point.x, resolution)
         cell_polygon = gars2geo(gars_id)
-        row = graticule_dggs_to_geoseries("gars", gars_id, resolution, cell_polygon)
+        row = dggs_cell_row(
+            "gars", gars_id, resolution, cell_polygon, cell_metrics=cell_metrics
+        )
         if include_properties and feature_properties:
             row.update(feature_properties)
         rows.append(row)
@@ -71,6 +74,7 @@ def polyline2gars(
     resolution,
     feature_properties=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """Collect GARS cells at ``resolution`` that intersect the line geometry."""
     rows = []
@@ -94,8 +98,12 @@ def polyline2gars(
                 cell_polygon = gars2geo(gars_id)
                 if not cell_polygon.intersects(polyline):
                     continue
-                row = graticule_dggs_to_geoseries(
-                    "gars", gars_id, resolution, cell_polygon
+                row = dggs_cell_row(
+                    "gars",
+                    gars_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -109,6 +117,7 @@ def polygon2gars(
     feature_properties=None,
     predicate=None,
     include_properties=True,
+    cell_metrics=False,
 ):
     """Collect GARS cells at ``resolution`` using ``predicate`` against the polygon."""
     rows = []
@@ -134,8 +143,12 @@ def polygon2gars(
                 if not check_predicate(cell_polygon, polygon, predicate):
                     continue
                 seen.add(gars_id)
-                row = graticule_dggs_to_geoseries(
-                    "gars", gars_id, resolution, cell_polygon
+                row = dggs_cell_row(
+                    "gars",
+                    gars_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
                 )
                 if include_properties and feature_properties:
                     row.update(feature_properties)
@@ -150,6 +163,7 @@ def geodataframe2gars(
     topology=False,
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
 ):
     """Convert a GeoDataFrame to GARS cells."""
     if topology:
@@ -180,7 +194,9 @@ def geodataframe2gars(
 
     geom_col = gdf.geometry.name
     gars_rows = []
-    for _, row in tqdm(gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose):
+    for _, row in tqdm(
+        gdf.iterrows(), desc="Processing features", total=len(gdf), disable=not verbose
+    ):
         geom = row.geometry
         if geom is None:
             continue
@@ -199,6 +215,7 @@ def geodataframe2gars(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("LineString", "MultiLineString"):
@@ -208,6 +225,7 @@ def geodataframe2gars(
                     resolution=resolution,
                     feature_properties=props,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
         elif geom.geom_type in ("Polygon", "MultiPolygon"):
@@ -218,6 +236,7 @@ def geodataframe2gars(
                     feature_properties=props,
                     predicate=predicate,
                     include_properties=include_properties,
+                    cell_metrics=cell_metrics,
                 )
             )
     if not gars_rows:
@@ -234,9 +253,10 @@ def vector2gars(
     resolution=None,
     predicate=None,
     topology=False,
-    output_format='gpd',
+    output_format="gpd",
     include_properties=True,
     verbose=True,
+    cell_metrics=False,
     **kwargs,
 ):
     """
@@ -251,7 +271,15 @@ def vector2gars(
         resolution = validate_gars_resolution(resolution)
 
     gdf = process_input_data_vector(vector_data, **kwargs)
-    result = geodataframe2gars(gdf, resolution, predicate, topology, include_properties, verbose=verbose)
+    result = geodataframe2gars(
+        gdf,
+        resolution,
+        predicate,
+        topology,
+        include_properties,
+        verbose=verbose,
+        cell_metrics=cell_metrics,
+    )
     output_name = None
     if output_format in OUTPUT_FORMATS:
         if isinstance(vector_data, str):
@@ -306,6 +334,13 @@ def vector2gars_cli():
         help="Output format (default: gpd).",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
 
     try:
@@ -317,6 +352,7 @@ def vector2gars_cli():
             output_format=args.output_format,
             include_properties=args.include_properties,
             verbose=args.verbose,
+            cell_metrics=args.cell_metrics,
         )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)

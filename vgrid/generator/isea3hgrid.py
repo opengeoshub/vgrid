@@ -24,7 +24,7 @@ if platform.system() == "Windows":
 
     isea3h_dggs = Eaggr(Model.ISEA3H)
 
-from vgrid.utils.geometry import geodesic_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_bbox,
     validate_isea3h_resolution,
@@ -40,6 +40,7 @@ if platform.system() == "Windows":
     )
 
 from vgrid.utils.constants import (
+    FIX_ANTIMERIDIAN_CHOICES,
     ISEA3H_ACCURACY_RES_DICT,
     ISEA3H_RES_ACCURACY_DICT,
     MAX_CELLS,
@@ -109,16 +110,23 @@ def get_isea3h_children_cells_within_bbox(bounding_cell, bbox, target_resolution
         return None
 
 
-def _isea3h_row_from_id(isea3h_id, fix_antimeridian=None):
+def _isea3h_row_from_id(isea3h_id, fix_antimeridian=None, cell_metrics=False):
     cell_polygon = isea3h2geo(isea3h_id, fix_antimeridian=fix_antimeridian)
     cell_resolution = get_isea3h_resolution(isea3h_id)
     num_edges = 6 if cell_resolution > 0 else 3
-    return geodesic_dggs_to_geoseries(
-        "isea3h", isea3h_id, cell_resolution, cell_polygon, num_edges
+    return dggs_cell_row(
+        "isea3h",
+        isea3h_id,
+        cell_resolution,
+        cell_polygon,
+        num_edges,
+        cell_metrics=cell_metrics,
     )
 
 
-def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
+def isea3h_grid(
+    resolution, fix_antimeridian=None, compact=False, cell_metrics=False, verbose=True
+):
     """
     Generate DGGS cells and convert them to GeoJSON features.
     """
@@ -127,16 +135,29 @@ def isea3h_grid(resolution, fix_antimeridian=None, compact=False, verbose=True):
     if compact:
         cell_ids = isea3h_compact(cell_ids, verbose=verbose)
     records = []
-    for cell_id in tqdm(cell_ids, desc="Generating ISEA3H DGGS", unit=" cells", disable=not verbose):
+    for cell_id in tqdm(
+        cell_ids, desc="Generating ISEA3H DGGS", unit=" cells", disable=not verbose
+    ):
         try:
-            records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
+            records.append(
+                _isea3h_row_from_id(
+                    cell_id, fix_antimeridian, cell_metrics=cell_metrics
+                )
+            )
         except Exception as e:
             print(f"Error generating ISEA3H DGGS cell {cell_id}: {e}")
             continue
     return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
-def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=False, verbose=True):
+def isea3h_grid_within_bbox(
+    resolution,
+    bbox,
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
+):
     resolution = validate_isea3h_resolution(resolution)
     accuracy = ISEA3H_RES_ACCURACY_DICT.get(resolution)
     min_lon, min_lat, max_lon, max_lat = validate_bbox(bbox)
@@ -153,10 +174,16 @@ def isea3h_grid_within_bbox(resolution, bbox, fix_antimeridian=None, compact=Fal
     )
     if bounding_children_cells:
         if compact:
-            bounding_children_cells = isea3h_compact(bounding_children_cells, verbose=verbose)
+            bounding_children_cells = isea3h_compact(
+                bounding_children_cells, verbose=verbose
+            )
         records = []
         for cell_id in bounding_children_cells:
-            records.append(_isea3h_row_from_id(cell_id, fix_antimeridian))
+            records.append(
+                _isea3h_row_from_id(
+                    cell_id, fix_antimeridian, cell_metrics=cell_metrics
+                )
+            )
         return gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
 
 
@@ -196,7 +223,13 @@ def isea3h_grid_within_bbox_ids(resolution, bbox, compact=False, verbose=True):
 
 
 def isea3hgrid(
-    resolution, bbox=None, output_format="gpd", fix_antimeridian=None, compact=False, verbose=True
+    resolution,
+    bbox=None,
+    output_format="gpd",
+    fix_antimeridian=None,
+    compact=False,
+    cell_metrics=False,
+    verbose=True,
 ):
     """
     Generate ISEA3H grid for pure Python usage.
@@ -222,11 +255,20 @@ def isea3hgrid(
                 f"Resolution {resolution} will generate {total_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
         gdf = isea3h_grid(
-            resolution, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
+            resolution,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
     else:
         gdf = isea3h_grid_within_bbox(
-            resolution, bbox, fix_antimeridian=fix_antimeridian, compact=compact, verbose=verbose
+            resolution,
+            bbox,
+            fix_antimeridian=fix_antimeridian,
+            compact=compact,
+            cell_metrics=cell_metrics,
+            verbose=verbose,
         )
 
     output_name = f"isea3h_grid_{resolution}"
@@ -256,14 +298,7 @@ def isea3hgrid_cli():
         "-fix",
         "--fix_antimeridian",
         type=str,
-        choices=[
-            "shift",
-            "shift_balanced",
-            "shift_west",
-            "shift_east",
-            "split",
-            "none",
-        ],
+        choices=FIX_ANTIMERIDIAN_CHOICES,
         default=None,
         help="Antimeridian fixing method: shift, shift_balanced, shift_west, shift_east, split, none",
     )
@@ -274,6 +309,14 @@ def isea3hgrid_cli():
         help="Enable ISEA3H compact mode to reduce cell count",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
     resolution = args.resolution
     bbox = args.bbox if args.bbox else [-180, -90, 180, 90]
@@ -286,6 +329,7 @@ def isea3hgrid_cli():
                 args.output_format,
                 fix_antimeridian=fix_antimeridian,
                 compact=args.compact,
+                cell_metrics=args.cell_metrics,
                 verbose=args.verbose,
             )
             if args.output_format in STRUCTURED_FORMATS:

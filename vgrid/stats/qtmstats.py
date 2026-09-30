@@ -155,7 +155,7 @@ def qtminspect(resolution: int, verbose=True):
             - ipq: Isoperimetric Quotient compactness
             - zsc: Zonal Standardized Compactness
     """
-    qtm_gdf = qtm_grid(resolution, verbose=verbose)
+    qtm_gdf = qtm_grid(resolution, cell_metrics=True, verbose=verbose)
     qtm_gdf["crossed"] = qtm_gdf["geometry"].apply(check_crossing_geom)
     qtm_gdf = qtm_gdf[~qtm_gdf["crossed"]]  # remove cells that cross the Antimeridian
     # mean_area = qtm_gdf["cell_area"].mean()

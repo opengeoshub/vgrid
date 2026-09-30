@@ -22,7 +22,7 @@ from vgrid.dggs import maidenhead
 import geopandas as gpd
 from tqdm import tqdm
 from vgrid.utils.constants import MAX_CELLS, OUTPUT_FORMATS, STRUCTURED_FORMATS
-from vgrid.utils.geometry import graticule_dggs_to_geoseries
+from vgrid.utils.geometry import dggs_cell_row
 from vgrid.utils.io import (
     validate_bbox,
     validate_maidenhead_resolution,
@@ -32,7 +32,7 @@ from vgrid.utils.io import (
 from vgrid.conversion.dggs2geo.maidenhead2geo import maidenhead2geo
 
 
-def maidenhead_grid(resolution, verbose=True):
+def maidenhead_grid(resolution, cell_metrics=False, verbose=True):
     resolution = validate_maidenhead_resolution(resolution)
     if resolution == 1:
         lon_width, lat_width = 20, 10
@@ -53,7 +53,10 @@ def maidenhead_grid(resolution, verbose=True):
 
     maidenhead_records = []
     with tqdm(
-        total=total_cells, desc="Generating Maidenhead DGGS", unit=" cells", disable=not verbose
+        total=total_cells,
+        desc="Generating Maidenhead DGGS",
+        unit=" cells",
+        disable=not verbose,
     ) as pbar:
         for i in range(x_cells):
             for j in range(y_cells):
@@ -69,8 +72,12 @@ def maidenhead_grid(resolution, verbose=True):
                 )
                 cell_polygon = maidenhead2geo(maidenhead_id)
 
-                maidenhead_record = graticule_dggs_to_geoseries(
-                    "maidenhead", maidenhead_id, resolution, cell_polygon
+                maidenhead_record = dggs_cell_row(
+                    "maidenhead",
+                    maidenhead_id,
+                    resolution,
+                    cell_polygon,
+                    cell_metrics=cell_metrics,
                 )
                 maidenhead_records.append(maidenhead_record)
                 pbar.update(1)
@@ -78,7 +85,7 @@ def maidenhead_grid(resolution, verbose=True):
     return gpd.GeoDataFrame(maidenhead_records, geometry="geometry", crs="EPSG:4326")
 
 
-def maidenhead_grid_within_bbox(resolution, bbox, verbose=True):
+def maidenhead_grid_within_bbox(resolution, bbox, cell_metrics=False, verbose=True):
     resolution = validate_maidenhead_resolution(resolution)
     # Define the grid parameters based on the resolution
     if resolution == 1:
@@ -105,7 +112,9 @@ def maidenhead_grid_within_bbox(resolution, bbox, verbose=True):
 
     total_cells = (end_x - start_x + 1) * (end_y - start_y + 1)
 
-    with tqdm(total=total_cells, desc="Generating Maidenhead DGGS", disable=not verbose) as pbar:
+    with tqdm(
+        total=total_cells, desc="Generating Maidenhead DGGS", disable=not verbose
+    ) as pbar:
         for x in range(start_x, end_x + 1):
             for y in range(start_y, end_y + 1):
                 # Calculate the cell bounds
@@ -130,8 +139,12 @@ def maidenhead_grid_within_bbox(resolution, bbox, verbose=True):
                     )
                     cell_polygon = maidenhead2geo(maidenhead_id)
 
-                    maidenhead_record = graticule_dggs_to_geoseries(
-                        "maidenhead", maidenhead_id, resolution, cell_polygon
+                    maidenhead_record = dggs_cell_row(
+                        "maidenhead",
+                        maidenhead_id,
+                        resolution,
+                        cell_polygon,
+                        cell_metrics=cell_metrics,
                     )
 
                     maidenhead_records.append(maidenhead_record)
@@ -163,7 +176,10 @@ def maidenhead_grid_ids(resolution, verbose=True):
 
     ids = []
     with tqdm(
-        total=x_cells * y_cells, desc="Generating Maidenhead IDs", unit=" cells", disable=not verbose
+        total=x_cells * y_cells,
+        desc="Generating Maidenhead IDs",
+        unit=" cells",
+        disable=not verbose,
     ) as pbar:
         for i in range(x_cells):
             for j in range(y_cells):
@@ -208,7 +224,9 @@ def maidenhead_grid_within_bbox_ids(resolution, bbox, verbose=True):
 
     ids = []
     total_cells = (end_x - start_x + 1) * (end_y - start_y + 1)
-    with tqdm(total=total_cells, desc="Generating Maidenhead IDs", disable=not verbose) as pbar:
+    with tqdm(
+        total=total_cells, desc="Generating Maidenhead IDs", disable=not verbose
+    ) as pbar:
         for x in range(start_x, end_x + 1):
             for y in range(start_y, end_y + 1):
                 cell_min_lon = base_lon + x * lon_width
@@ -234,7 +252,9 @@ def maidenhead_grid_within_bbox_ids(resolution, bbox, verbose=True):
     return ids
 
 
-def maidenheadgrid(resolution, bbox=None, output_format="gpd", verbose=True):
+def maidenheadgrid(
+    resolution, bbox=None, output_format="gpd", cell_metrics=False, verbose=True
+):
     """
     Generate Maidenhead grid for pure Python usage.
 
@@ -254,9 +274,11 @@ def maidenheadgrid(resolution, bbox=None, output_format="gpd", verbose=True):
             raise ValueError(
                 f"Resolution {resolution} will generate {num_cells} cells which exceeds the limit of {MAX_CELLS}"
             )
-        gdf = maidenhead_grid(resolution, verbose=verbose)
+        gdf = maidenhead_grid(resolution, cell_metrics=cell_metrics, verbose=verbose)
     else:
-        gdf = maidenhead_grid_within_bbox(resolution, bbox, verbose=verbose)
+        gdf = maidenhead_grid_within_bbox(
+            resolution, bbox, cell_metrics=cell_metrics, verbose=verbose
+        )
 
     output_name = f"maidenhead_grid_{resolution}"
     return convert_to_output_format(gdf, output_format, output_name)
@@ -287,10 +309,24 @@ def maidenheadgrid_cli():
         default="gpd",
     )
     add_verbose_argument(parser)
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
+
     args = parser.parse_args()
 
     try:
-        result = maidenheadgrid(args.resolution, args.bbox, args.output_format, verbose=args.verbose)
+        result = maidenheadgrid(
+            args.resolution,
+            args.bbox,
+            args.output_format,
+            cell_metrics=args.cell_metrics,
+            verbose=args.verbose,
+        )
         if args.output_format in STRUCTURED_FORMATS:
             print(result)
     except ValueError as e:

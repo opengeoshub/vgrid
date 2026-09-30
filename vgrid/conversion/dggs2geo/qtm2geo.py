@@ -13,7 +13,7 @@ Key Functions:
 import json
 import argparse
 from vgrid.dggs.qtm import constructGeometry, qtm_id_to_facet
-from vgrid.utils.geometry import geodesic_dggs_to_feature
+from vgrid.utils.geometry import dggs_geojson_feature
 
 
 def qtm2geo(qtm_ids):
@@ -77,7 +77,7 @@ def qtm2geo_cli():
     return polys
 
 
-def qtm2geojson(qtm_ids):
+def qtm2geojson(qtm_ids, cell_metrics=False):
     """
     Convert QTM cell IDs to GeoJSON FeatureCollection.
 
@@ -115,8 +115,8 @@ def qtm2geojson(qtm_ids):
             cell_polygon = qtm2geo(qtm_id)
             resolution = len(qtm_id)
             num_edges = 3
-            qtm_feature = geodesic_dggs_to_feature(
-                "qtm", qtm_id, resolution, cell_polygon, num_edges
+            qtm_feature = dggs_geojson_feature(
+                "qtm", qtm_id, resolution, cell_polygon, cell_metrics, num_edges
             )
             qtm_features.append(qtm_feature)
         except Exception:
@@ -134,6 +134,13 @@ def qtm2geojson_cli():
         nargs="+",
         help="Input QTM cell ID(s), e.g., qtm2geojson 42012321 42012322",
     )
+    parser.add_argument(
+        "-cell_metrics",
+        "--cell_metrics",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include geodesic or graticule cell metrics. Default is off.",
+    )
     args = parser.parse_args()
-    geojson_data = json.dumps(qtm2geojson(args.qtm))
+    geojson_data = json.dumps(qtm2geojson(args.qtm, cell_metrics=args.cell_metrics))
     print(geojson_data)
