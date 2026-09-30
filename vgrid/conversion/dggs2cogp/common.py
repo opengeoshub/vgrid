@@ -48,7 +48,6 @@ def scale_for_zoom(zoom):
 
 
 _WIDE_TYPES = {pa.binary(): pa.large_binary(), pa.string(): pa.large_string()}
-_NARROW_TYPES = {wide: narrow for narrow, wide in _WIDE_TYPES.items()}
 
 
 def _map_field_types(schema, mapping):
@@ -62,14 +61,18 @@ def take_rows(table, indices):
     """``table.take(indices)`` that works past 2 GB of binary/string data.
 
     ``take`` concatenates chunks, which overflows 32-bit offsets on large
-    geometry columns, so values are widened to 64-bit offsets first.
+    geometry columns. Values are widened to 64-bit offsets and combined once,
+    then taken one row group at a time; each block is small enough to cast
+    back, so the result keeps the input schema.
     """
-    return table.cast(_map_field_types(table.schema, _WIDE_TYPES)).take(indices)
-
-
-def narrow_schema(schema):
-    """Undo ``take_rows`` widening so the written Parquet schema is unchanged."""
-    return _map_field_types(schema, _NARROW_TYPES)
+    wide = table.cast(_map_field_types(table.schema, _WIDE_TYPES)).combine_chunks()
+    blocks = [
+        wide.take(indices[start : start + ROW_GROUP_ROWS]).cast(table.schema)
+        for start in range(0, len(indices), ROW_GROUP_ROWS)
+    ]
+    if not blocks:
+        return table.slice(0, 0)
+    return pa.concat_tables(blocks)
 
 
 @dataclass
@@ -230,7 +233,7 @@ def table_extent(level_tables, bbox_col):
 def write_cogp(spec, level_tables, output_path, bbox_col, geometry_col):
     levels = build_lod(spec, level_tables)
     schema = with_lod_metadata(
-        narrow_schema(level_tables[0][1].schema),
+        level_tables[0][1].schema,
         levels,
         table_extent(level_tables, bbox_col),
         geometry_col,
@@ -250,9 +253,7 @@ def write_cogp(spec, level_tables, output_path, bbox_col, geometry_col):
         for level_index, (resolution, level_table) in enumerate(level_tables):
             count = level_table.num_rows
             for start in range(0, count, ROW_GROUP_ROWS):
-                writer.write_table(
-                    level_table.slice(start, ROW_GROUP_ROWS).cast(schema)
-                )
+                writer.write_table(level_table.slice(start, ROW_GROUP_ROWS))
             print(
                 f"level {level_index} ({spec.label} resolution {resolution}, "
                 f"resolution={level_resolution(spec, resolution):.6f} CRS units): "

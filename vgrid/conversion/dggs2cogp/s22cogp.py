@@ -29,7 +29,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-from vgrid.conversion.dggs2cogp.common import narrow_schema, take_rows
+from vgrid.conversion.dggs2cogp.common import take_rows
 from vgrid.conversion.dggs2geo.s22geo import s22geo
 from vgrid.dggs import s2
 from vgrid.utils.constants import DGGS_TYPES, FIX_ANTIMERIDIAN_CHOICES, ROW_GROUP_ROWS
@@ -185,7 +185,7 @@ def table_extent(level_tables, bbox_col):
 def write_cogp(level_tables, output_path, bbox_col, geometry_col):
     levels = build_lod(level_tables)
     schema = with_lod_metadata(
-        narrow_schema(level_tables[0][1].schema),
+        level_tables[0][1].schema,
         levels,
         table_extent(level_tables, bbox_col),
         geometry_col,
@@ -205,9 +205,7 @@ def write_cogp(level_tables, output_path, bbox_col, geometry_col):
         for level_index, (resolution, level_table) in enumerate(level_tables):
             count = level_table.num_rows
             for start in range(0, count, ROW_GROUP_ROWS):
-                writer.write_table(
-                    level_table.slice(start, ROW_GROUP_ROWS).cast(schema)
-                )
+                writer.write_table(level_table.slice(start, ROW_GROUP_ROWS))
             print(
                 f"level {level_index} (s2 resolution {resolution}, "
                 f"resolution={level_resolution(resolution):.6f} CRS units): "
