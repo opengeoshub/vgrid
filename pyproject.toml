@@ -17,8 +17,8 @@ urls = {Homepage = "https://github.com/opengeoshub/vgrid"}
 dependencies = [
     "tqdm>=4.70.1",
     "h3>=4.5.0",
-    "pya5>=0.10.1",
-    "dggal~=0.0.6",
+    "pya5>=1.0.0",
+    "dggal~=0.0.7",
     "dggrid4py>=0.6.0",
     # "rhealpixdggs>=0.6.0", # To avoid conflicts between dggrid4py and rhealpixdggs
     "ease-dggs>=0.1.0",
